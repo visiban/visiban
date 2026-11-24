@@ -4626,7 +4626,7 @@
 </tr>
 </tbody>
 </table>
-<p>Everything else on this page (the REST endpoints, query parameters, and the issue grid response) remains experimental.</p>
+<p><strong>Yes, but:</strong> everything else on this page (the REST endpoints, query parameters, and the issue grid response) remains experimental.</p>
 <p>The compatibility gate enforces this split: the REST endpoints are listed in <code>scripts/compat-baseline/experimental.json</code>, so they stay out of the frozen OpenAPI baseline. See <a href="../../development/api-compat-gate/#experimental-operations">Experimental operations</a>.</p>
 <p>The feature is flag-gated: all endpoints below return <code>404 Not Found</code> unless the server is started with <code>GIT_LENS_ENABLED=true</code>.</p>
 <p>All endpoints require authentication (<code>Authorization: Token &lt;value&gt;</code>). Unauthenticated requests receive <code>401 Unauthorized</code> (with a <code>WWW-Authenticate: Token</code> header).</p>
@@ -5340,7 +5340,7 @@ pipeline columns, so leading with it would make the badge flicker between pivots
 <h2 id="refresh-and-rate-limits">Refresh and rate limits<a class="headerlink" href="#refresh-and-rate-limits" title="Permanent link">&para;</a></h2>
 <p>Board data is cached server-side for ~60 seconds per repository, pivot and filter combination,
 shared across everyone viewing that board. <code>?refresh=1</code> deliberately bypasses that cache.</p>
-<p>Three limits bound how much upstream traffic one account can cause. The first two are per user
+<p><strong>By the numbers:</strong> Three limits bound how much upstream traffic one account can cause. The first two are per user
 <strong>per repository</strong> — not per board — because the budget being protected is the provider's rate
 limit, which every board pointing at the same repository shares:</p>
 <table>
@@ -5384,7 +5384,7 @@ to a milestone or label outside the fetched window is the point of filtering ser
 <p>Filtered responses are retained for a shorter period than the unfiltered board (3 minutes versus
 10). The unfiltered board is the hot, genuinely shared entry; filtered combinations are a long
 tail that is far less likely to be re-read.</p>
-<p>Refresh is available to <strong>every</strong> board role including viewers — the lens is a read-only surface
+<p><strong>Yes, but:</strong> refresh is available to <strong>every</strong> board role including viewers — the lens is a read-only surface
 whose main audience is viewers, so the cap is on rate, not on role.</p>
 <hr />
 <h2 id="admin-usage">Admin usage<a class="headerlink" href="#admin-usage" title="Permanent link">&para;</a></h2>

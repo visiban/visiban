@@ -5465,7 +5465,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <h3 id="post-apiv1boardsboard_idcards"><code>POST /api/v1/boards/{board_id}/cards/</code><a class="headerlink" href="#post-apiv1boardsboard_idcards" title="Permanent link">&para;</a></h3>
 <p>Create a card. Requires member or above. The target column must have <code>allow_card_creation</code> enabled.</p>
 <p>The target column's WIP and weight limits are enforced exactly as on a <a href="#wip-weight-limit-enforcement">move</a> into it: <code>409</code> with <code>wip_limit_exceeded</code>, <code>wip_hard_blocked</code>, or <code>weight_limit_exceeded</code>, and a board admin may pass the optional <code>?force=true</code> query parameter to override a soft limit (a non-admin gets <code>403</code>; hard mode has no override). <em>Changed in 1.2 (#1428): creates were not checked before.</em></p>
-<p><code>notify_assignee</code> (optional boolean, default <code>false</code>, since 1.3, #2211): <code>true</code> sends the card's assignee the <code>assigned</code> notification ("You were assigned to ..."), the same one an assignee change sends, once the create commits. It is skipped when the assignee is the caller, is inactive, turned off <code>notif_card_assigned</code>, or is not a current member of the board. The web app sends it only for a swimlane <a href="../boards/">default team</a>'s pre-assignment; without it, a create with an <code>assignee_id</code> sends no <code>assigned</code> notification, as before (the MCP <code>create_card</code> tool and board import never send it). A value that is not a JSON boolean returns <code>400</code> keyed <code>notify_assignee</code>. Ignored on update. When the <code>assigned</code> notification is sent, the card's creation does not also send the "moved to <first column>" one, so the assignee gets exactly one notification (<em>changed in 1.3</em>, only for creates with <code>notify_assignee: true</code>). Every other create keeps its "moved" notification: an assignee who has <strong>Card moved</strong> on is still told the new card "moved to" its first column.</p>
+<p><code>notify_assignee</code> (optional boolean, default <code>false</code>, since 1.3, #2211): <code>true</code> sends the card's assignee the <code>assigned</code> notification ("You were assigned to ..."), the same one an assignee change sends, once the create commits. It is skipped when the assignee is the caller, is inactive, turned off <code>notif_card_assigned</code>, or is not a current member of the board. The web app sends it only for a swimlane <a href="../boards/">default team</a>'s pre-assignment; without it, a create with an <code>assignee_id</code> sends no <code>assigned</code> notification, as before (the MCP <code>create_card</code> tool and board import never send it). A value that is not a JSON boolean returns <code>400</code> keyed <code>notify_assignee</code>. Ignored on update. When the <code>assigned</code> notification is sent, the card's creation does not also send the "moved to <code>&lt;first column&gt;</code>" one, so the assignee gets exactly one notification (<em>changed in 1.3</em>, only for creates with <code>notify_assignee: true</code>). Every other create keeps its "moved" notification: an assignee who has <strong>Card moved</strong> on is still told the new card "moved to" its first column.</p>
 <p>Since 1.3 (#2191), the role is checked before the body is validated: a caller below member (a viewer or collaborator) gets <code>403</code> even when the body is invalid, where they previously got <code>400</code> with field errors for an invalid body. Members still get <code>400</code> for an invalid body, and a caller with no access to the board gets <code>404</code>.</p>
 <p>Since 1.2, a create returns <code>404 Not Found</code> (nothing is written) when its target column or swimlane, or the board, was deleted while the request was in flight (#1602).</p>
 <p><strong>Request</strong>
@@ -6943,7 +6943,7 @@ single-item lists; that was normalized before 1.2.0, #1660.)</p>
 </tbody>
 </table>
 <p>An unknown <code>direction</code> is rejected as an ordinary field error on <code>direction</code>.</p>
-<p>Cycles longer than two hops (A → B → C → A) are <strong>not</strong> detected and are
+<p><strong>Yes, but:</strong> Cycles longer than two hops (A → B → C → A) are <strong>not</strong> detected and are
 permitted.</p>
 <h3 id="delete-apiv1boardsboard_idcardsidrelationsrelation_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/relations/{relation_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidrelationsrelation_id" title="Permanent link">&para;</a></h3>
 <p>Remove a relation. <strong>Minimum role: Member.</strong> Returns <code>204</code>.</p>
@@ -7168,7 +7168,7 @@ registered or visible to you. <code>GET</code> only.</p>
 </tr>
 </tbody>
 </table>
-<p>Values, labels and titles are plain text: clients must not render them as HTML.
+<p><strong>Watch out:</strong> Values, labels and titles are plain text: clients must not render them as HTML.
 The server drops a section that breaks any rule whole (it is never truncated),
 and an extension that raises is left out while the others still render. Never
 on the card payload, <code>/full/</code>, the card list, MCP, export or the public share.</p>

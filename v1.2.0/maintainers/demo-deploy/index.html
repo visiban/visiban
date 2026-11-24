@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hosted-demo-tryvisibancom" class="md-skip">
+        <a href="#deploy-tryvisibancom-and-verify-what-ci-cannot" class="md-skip">
           Skip to content
         </a>
       
@@ -4516,9 +4516,10 @@
   
 
 
-<h1 id="hosted-demo-tryvisibancom">Hosted Demo (try.visiban.com)<a class="headerlink" href="#hosted-demo-tryvisibancom" title="Permanent link">&para;</a></h1>
-<p>How the public demo is deployed, and what an operator must verify by hand — the preconditions
-no CI job can check. The chart side (values, guards, seed and reset, egress policy,
+<h1 id="deploy-tryvisibancom-and-verify-what-ci-cannot">Deploy try.visiban.com, and verify what CI cannot<a class="headerlink" href="#deploy-tryvisibancom-and-verify-what-ci-cannot" title="Permanent link">&para;</a></h1>
+<p>An operator must check the hosted demo's preconditions by hand, because no CI job can see them.</p>
+<p><strong>Why it matters:</strong> CI proves the chart on kind, not the real node or Cloudflare, so an unchecked precondition fails only in production.</p>
+<p><strong>The big picture:</strong> This page covers how the public demo is deployed. The chart side (values, guards, seed and reset, egress policy,
 <code>helm test</code>) is documented for everyone in
 <a href="../../administration/demo-data/#public-demo-mode-helm">Public demo mode</a>; what follows is
 the one real deployment.</p>
@@ -4561,12 +4562,14 @@ check. Record the result in <a href="#deployment-record">Deployment record</a>.<
 </tr>
 </tbody>
 </table>
-<p>Nothing is shared with TruePPM's release except the node and the tunnel. The frontend
-NetworkPolicy admits port 8080 from any peer, so the tunnel reaches it. The backend and the
-datastores admit only this release's own components, so TruePPM's namespace cannot reach
-them. Keep it that way: do not widen those policies for convenience.</p>
+<p><strong>The big picture:</strong> Nothing is shared with TruePPM's release except the node and the tunnel.</p>
+<ul>
+<li>The frontend NetworkPolicy admits port 8080 from any peer, so the tunnel reaches it.</li>
+<li>The backend and the datastores admit only this release's own components, so TruePPM's namespace cannot reach them.</li>
+</ul>
+<p><strong>Watch out:</strong> Keep it that way: do not widen those policies for convenience.</p>
 <h2 id="preconditions">Preconditions<a class="headerlink" href="#preconditions" title="Permanent link">&para;</a></h2>
-<p>Check these before the first install, and again whenever the node is rebuilt.</p>
+<p><strong>How it works:</strong> Check these before the first install, and again whenever the node is rebuilt.</p>
 <h3 id="1-the-node-is-not-a-ci-runner-host">1. The node is not a CI-runner host<a class="headerlink" href="#1-the-node-is-not-a-ci-runner-host" title="Permanent link">&para;</a></h3>
 <p>TruePPM ADR-1197 D10: a host that serves a published login must not also run CI jobs,
 because a runner holds credentials and caches a demo visitor must never be near. This is
@@ -4577,7 +4580,7 @@ check it. Confirm that the node is not in the runner inventory
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>systemctl<span class="w"> </span>list-units<span class="w"> </span>--all<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span>gitlab-runner<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"no gitlab-runner unit"</span>
 </code></pre></div>
 <h3 id="2-networkpolicy-is-enforced-on-the-node">2. NetworkPolicy is enforced on the node<a class="headerlink" href="#2-networkpolicy-is-enforced-on-the-node" title="Permanent link">&para;</a></h3>
-<p>The demo egress policy (backend, seed and reset pods may reach DNS and their own
+<p><strong>Why it matters:</strong> The demo egress policy (backend, seed and reset pods may reach DNS and their own
 PostgreSQL and Valkey, and nothing else) is only a claim if the CNI enforces it. k3s
 enforces NetworkPolicy with its embedded kube-router controller unless it was installed
 with <code>--disable-network-policy</code>.</p>
@@ -4592,12 +4595,16 @@ disabled in config — needs a real, already-running pod to test against (see
 cannot run until after the first install. On a node rebuild, treat that step as part of
 this precondition too: redeploy, then run it before exposing the demo again.</p>
 <h3 id="3-cloudflare-bot-and-abuse-reduction-not-security-controls">3. Cloudflare: bot and abuse reduction, not security controls<a class="headerlink" href="#3-cloudflare-bot-and-abuse-reduction-not-security-controls" title="Permanent link">&para;</a></h3>
-<p>The maintainer decided (2026-09-27) that there is <strong>no Cloudflare Access or email gate</strong>.
-Visitors give no email, so nothing needs to be disclosed. Configure only Cloudflare
-free-plan features that collect nothing. As TruePPM ADR-1197 D8 says, none of them is a
-security control; the write fence (#1179) is.</p>
+<p>The maintainer decided (2026-09-27) that there is <strong>no Cloudflare Access or email gate</strong>.</p>
 <ul>
-<li>The tunnel itself, plus Cloudflare's automatic DDoS protection.</li>
+<li>Visitors give no email, so nothing needs to be disclosed.</li>
+<li>Configure only Cloudflare free-plan features that collect nothing.</li>
+<li>
+<p>As TruePPM ADR-1197 D8 says, none of them is a security control; the write fence (#1179) is.</p>
+</li>
+<li>
+<p>The tunnel itself, plus Cloudflare's automatic DDoS protection.</p>
+</li>
 <li>A WAF <strong>Managed Challenge</strong> on the <code>/login</code> <strong>page</strong>, not the API endpoint (completeness
   -check, #1180: the SPA calls <code>POST /api/v1/auth/login/</code> with <code>fetch</code>, and a Cloudflare
   challenge cannot be solved by an XHR/fetch request — it needs a full-page navigation to
@@ -4698,7 +4705,7 @@ real, standing pod has had time for its chain to settle, so exec into one instea
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="s2">    s.close()</span>
 <a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="s2">"</span>
 </code></pre></div>
-<p>The backend image is a Django/Python base with neither <code>nc</code> nor <code>curl</code> installed — only
+<p><strong>Yes, but:</strong> The backend image is a Django/Python base with neither <code>nc</code> nor <code>curl</code> installed — only
 <code>python3</code> — hence the socket-connect script instead of a one-line <code>nc</code> call.</p>
 <p>Then the control, so "denied" means the policy and not a node without internet. An
 unlabeled throwaway pod SHOULD connect — this one does not carry the backend's labels,
@@ -4748,7 +4755,7 @@ frontend nginx (appends the <code>cloudflared</code> pod) → backend. If the ch
 example a second proxy is added or <code>cloudflared</code> moves, recount. A value that is too low
 puts every visitor in one throttle bucket, so one crawler locks the demo for everyone. A
 value that is too high lets a visitor choose their own bucket.</p>
-<p><strong>The frontend access log cannot verify this</strong> (completeness-check, #1180): nginx's default
+<p><strong>Watch out:</strong> <strong>The frontend access log cannot verify this</strong> (completeness-check, #1180): nginx's default
 log format records <code>$http_x_forwarded_for</code>, the header exactly as <em>received</em> — one address,
 the real visitor's, forwarded unchanged through Cloudflare and <code>cloudflared</code>. The hop nginx
 itself <em>appends</em> (<code>$proxy_add_x_forwarded_for</code>, what the backend actually sees) is never
@@ -4799,7 +4806,7 @@ requests genuinely arrive through the tunnel, not directly):</p>
 </ul>
 <h2 id="troubleshooting-cloudflare-error-1033-and-node-diskpressure">Troubleshooting: Cloudflare Error 1033 and node DiskPressure<a class="headerlink" href="#troubleshooting-cloudflare-error-1033-and-node-diskpressure" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> try.visiban.com (and any other hostname on the node's tunnel) shows
-<strong>Cloudflare Error 1033</strong>, "Cloudflare Tunnel error". 1033 only means no <code>cloudflared</code>
+<strong>Cloudflare Error 1033</strong>, "Cloudflare Tunnel error". The error only means no <code>cloudflared</code>
 connector is registered for the tunnel. It does not say why, so work down this list.</p>
 <p><strong>Root cause seen on 2026-10-21 (#1820):</strong> the node's root filesystem filled past the
 kubelet's eviction threshold (<code>nodefs.available&lt;10%</code>). The kubelet set <code>DiskPressure</code>,

@@ -27,7 +27,7 @@
     
     
       
-        <title>Maintainer Runbooks - Visiban</title>
+        <title>Run the Visiban project: CI, credentials, and releases - Visiban</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#maintainer-runbooks" class="md-skip">
+        <a href="#run-the-visiban-project-ci-credentials-and-releases" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Maintainer Runbooks
+              Run the Visiban project: CI, credentials, and releases
             
           </span>
         </div>
@@ -4342,13 +4342,13 @@
   
 
 
-<h1 id="maintainer-runbooks">Maintainer Runbooks<a class="headerlink" href="#maintainer-runbooks" title="Permanent link">&para;</a></h1>
-<p>Operational reference for whoever runs the Visiban project itself — CI infrastructure,
-credentials, and known failure patterns. This is <strong>not</strong> end-user or self-hosted-instance
-documentation; see <a href="../administration/">Administration</a> for that audience.</p>
-<p>These pages exist because operational facts that only live in a maintainer's personal notes
+<h1 id="run-the-visiban-project-ci-credentials-and-releases">Run the Visiban project: CI, credentials, and releases<a class="headerlink" href="#run-the-visiban-project-ci-credentials-and-releases" title="Permanent link">&para;</a></h1>
+<p>These runbooks are for whoever runs the project itself: CI infrastructure, credentials, and known failure patterns.</p>
+<p><strong>Why it matters:</strong> These pages exist because operational facts that only live in a maintainer's personal notes
 are invisible to everyone else and nothing forces them to stay current. Point-in-time facts
 belong here, committed and versioned, not in a private notes file.</p>
+<p><strong>Yes, but:</strong> This is <strong>not</strong> end-user or self-hosted-instance
+documentation; see <a href="../administration/">Administration</a> for that audience.</p>
 <table>
 <thead>
 <tr>
@@ -4392,8 +4392,8 @@ belong here, committed and versioned, not in a private notes file.</p>
 </tbody>
 </table>
 <h2 id="release-checklist">Release checklist<a class="headerlink" href="#release-checklist" title="Permanent link">&para;</a></h2>
-<p>The version-string half of a release is enforced by a gate rather than by memory. Do not
-re-verify these by hand; run the release and read what the gate says.</p>
+<p>The version-string half of a release is enforced by a gate rather than by memory.</p>
+<p><strong>Watch out:</strong> Do not re-verify these by hand; run the release and read what the gate says.</p>
 <ul>
 <li><code>scripts/release.sh &lt;version&gt;</code> rewrites the version-bearing files, including the
   <code>docs/index.md</code> banner: the release-candidate banner for RC tags, a pre-release banner for
@@ -4426,10 +4426,10 @@ re-verify these by hand; run the release and read what the gate says.</p>
   an already-released version anywhere in <code>README.md</code>, <code>VISIBAN_FEATURES.md</code> or <code>docs/</code>; an
   RC banner on a GA version; stale <code>APP_VERSION=</code> / image-tag pins in <code>README.md</code> and
   <code>docs/getting-started/</code>; and a tag that does not match <code>frontend/package.json</code>.</li>
-<li>A failure means fix the page (there is no allowlist). <code>New in X</code> labels are provenance and
-  are intentionally not flagged.</li>
+<li>A failure means fix the page (there is no allowlist).</li>
+<li><code>New in X</code> labels are provenance and are intentionally not flagged.</li>
 </ul>
-<p>Publishing is gated too, with one exception. On a <code>v*</code> tag, every publish job <code>needs:</code>
+<p><strong>Yes, but:</strong> Publishing is gated too, with one exception. On a <code>v*</code> tag, every publish job <code>needs:</code>
 <code>release-main-pipeline-guard</code>: images, manifests, attestations, the Helm chart and the GitHub
 release. That job refuses unless every check in the tagged commit's own <code>main</code> pipeline is
 green, including <code>allow_failure: true</code> jobs (#1154). That includes the versioned docs:

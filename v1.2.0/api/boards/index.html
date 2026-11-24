@@ -7865,7 +7865,7 @@
 <li><strong>JSON</strong> — <code>&lt;name&gt;</code> is the <code>name</code> field in the file. An unpaired UTF-16 surrogate in it (<code>"\ud800"</code>, which PostgreSQL cannot store) is replaced with U+FFFD in the default name.</li>
 <li><strong>CSV</strong> — a CSV carries no board name, so <code>&lt;name&gt;</code> is the uploaded filename without its extension (<code>Q3 plan.csv</code> → <code>Imported: Q3 plan</code>). An empty filename stem falls back to <code>Board</code>.</li>
 </ul>
-<p>If a board with that exact name exists, the lowest unused number is appended: <code>Imported: Roadmap - 1</code>, then <code>- 2</code>, and so on. A gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when <code>group_id</code> is set, otherwise every ungrouped board you can access (the boards under <strong>All boards</strong> with the <strong>Personal</strong> filter on Home). The name is truncated to the 255-character limit so the prefix and number always fit. Names are not unique, so two simultaneous imports can occasionally get the same name.</p>
+<p>If a board with that exact name exists, the lowest unused number is appended: <code>Imported: Roadmap - 1</code>, then <code>- 2</code>, and so on. A gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when <code>group_id</code> is set, otherwise every ungrouped board you can access (the boards under <strong>All boards</strong> with the <strong>Personal</strong> filter on Home). The name is truncated to the 255-character limit so the prefix and number always fit. <strong>Yes, but:</strong> names are not unique, so two simultaneous imports can occasionally get the same name.</p>
 <h4 id="import-options">Import options<a class="headerlink" href="#import-options" title="Permanent link">&para;</a></h4>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
@@ -7935,7 +7935,7 @@
 </tr>
 </tbody>
 </table>
-<p>A CSV import rejects all three as unknown options: dates in a CSV are always imported as written.</p>
+<p><strong>Yes, but:</strong> A CSV import rejects all three as unknown options: dates in a CSV are always imported as written.</p>
 <h4 id="date-shifting">Date shifting<a class="headerlink" href="#date-shifting" title="Permanent link">&para;</a></h4>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#1452; the file's own anchor, <code>shift_dates</code> and <code>shift_dates_to</code> since #1949)</p>

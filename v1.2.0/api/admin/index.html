@@ -4953,7 +4953,7 @@ and an audit log an admin can edit is not evidence of anything.</p>
 </tr>
 </tbody>
 </table>
-<p>New action types may be added in any minor release; treat an unrecognized <code>action</code> as an
+<p><strong>Yes, but:</strong> new action types may be added in any minor release; treat an unrecognized <code>action</code> as an
 opaque string rather than failing on it.</p>
 <div class="admonition note">
 <p class="admonition-title">Email credentials are recorded as markers, without values</p>
@@ -5155,10 +5155,10 @@ existing value writes no row.</p>
 <h3 id="post-apiv1adminemail-settingstest"><code>POST /api/v1/admin/email-settings/test/</code><a class="headerlink" href="#post-apiv1adminemail-settingstest" title="Permanent link">&para;</a></h3>
 <p>Sends a test email using the configuration currently in effect and reports the result.</p>
 <p>Available to any site admin. It changes no settings and accepts no server overrides.</p>
-<p><strong>The recipient is always the requesting admin's own email address.</strong> It cannot be
+<p><strong>Watch out:</strong> <strong>The recipient is always the requesting admin's own email address.</strong> It cannot be
 supplied in the request body — an admin-gated endpoint that delivered to an arbitrary
 address would be usable as an open relay and as a network probe.</p>
-<p>Throttled to <strong>5 requests per hour</strong> per user (raised to 9999/hour in <code>DEBUG</code>, a finite budget; <code>VISIBAN_DISABLE_THROTTLING</code> is the CI-only full bypass).</p>
+<p><strong>By the numbers:</strong> Throttled to <strong>5 requests per hour</strong> per user (raised to 9999/hour in <code>DEBUG</code>, a finite budget; <code>VISIBAN_DISABLE_THROTTLING</code> is the CI-only full bypass).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"success"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"sent_to"</span><span class="p">:</span><span class="w"> </span><span class="s2">"admin@example.org"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>The success response carries no <code>detail</code> key.</p>
@@ -5236,7 +5236,7 @@ mail servers echo the offending protocol line back in their error text, which on
 authentication failure can contain the submitted credentials. Only the code and the
 exception type are logged server-side — the error text is not logged either.</p>
 </div>
-<p>New codes may be added in any minor release; treat an unrecognized <code>code</code> as <code>unknown</code>.</p>
+<p><strong>Yes, but:</strong> new codes may be added in any minor release; treat an unrecognized <code>code</code> as <code>unknown</code>.</p>
 <hr />
 <h2 id="maintenance-mode">Maintenance mode<a class="headerlink" href="#maintenance-mode" title="Permanent link">&para;</a></h2>
 <blockquote>
@@ -5537,7 +5537,7 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 </table>
 <h3 id="post-apiv1adminusersiddeactivate"><code>POST /api/v1/admin/users/{id}/deactivate/</code><a class="headerlink" href="#post-apiv1adminusersiddeactivate" title="Permanent link">&para;</a></h3>
 <p>Deactivate a user account and transfer ownership of any boards they own to other members.</p>
-<p>Deactivation also deletes the user's personal access tokens and API auth token, revokes the user's unused site invite links and <em>(1.2+)</em> their pending <a href="../boards/#board-invites">board invites</a> (<code>revoked_by</code> is the caller; each board gets an <code>invite_link.revoked</code> event) and <em>(1.2+)</em> their active, unused <a href="../groups/">group invite links</a> (each affected group receives an <code>invite_link.revoked</code> event). Consumed single-use links are left as they are. <em>(1.2+)</em> It also turns off every public <a href="../boards/#board-sharing">board share link</a> the user enabled, and each affected board receives a <code>board.updated</code> event and, <em>(1.3+)</em> for board admins only, a <a href="../websockets/#share-link-events-since-13"><code>share_link.updated</code></a> event. Links enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier), record no enabler and no longer resolve from the upgrade on, whoever is deactivated (<a href="../../administration/upgrade/#upgrading-to-12x">upgrade notes</a>, #1939).</p>
+<p><strong>Watch out:</strong> Deactivation also deletes the user's personal access tokens and API auth token, revokes the user's unused site invite links and <em>(1.2+)</em> their pending <a href="../boards/#board-invites">board invites</a> (<code>revoked_by</code> is the caller; each board gets an <code>invite_link.revoked</code> event) and <em>(1.2+)</em> their active, unused <a href="../groups/">group invite links</a> (each affected group receives an <code>invite_link.revoked</code> event). Consumed single-use links are left as they are. <em>(1.2+)</em> It also turns off every public <a href="../boards/#board-sharing">board share link</a> the user enabled, and each affected board receives a <code>board.updated</code> event and, <em>(1.3+)</em> for board admins only, a <a href="../websockets/#share-link-events-since-13"><code>share_link.updated</code></a> event. Links enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier), record no enabler and no longer resolve from the upgrade on, whoever is deactivated (<a href="../../administration/upgrade/#upgrading-to-12x">upgrade notes</a>, #1939).</p>
 <p><em>(1.3+)</em> Each board whose ownership the <code>transfers</code> list moves receives a <code>board.updated</code> event on its <a href="../websockets/#board-channel">board channel</a> with the new <code>owner</code>, recorded in the board's change feed, and a board in a group also receives it on that <a href="../websockets/#group-channel-since-11">group's channel</a>, so open board pages and group board lists show the new owner without a reload. Before 1.3 the transfer sent no event (#1741).</p>
 <p><strong>Permission:</strong> <code>IsSiteAdmin</code>. Cannot deactivate your own account. Only a superuser can deactivate a superuser account (<code>400</code>).</p>
 <p>If the target user owns boards, you must supply a <code>transfers</code> list mapping each owned board to an eligible recipient, who needs access to the board as a direct member or through group membership (group-inherited access is accepted). If any owned board has no eligible target (the user is its sole member, with no group-inherited members either), the request returns <code>400 Bad Request</code> with details.</p>
@@ -6054,7 +6054,7 @@ links were left out (<code>false</code> otherwise).</p>
 </tr>
 </tbody>
 </table>
-<p>The token and the address an invite was emailed to are never returned.</p>
+<p><strong>Watch out:</strong> The token and the address an invite was emailed to are never returned.</p>
 <div class="admonition note">
 <p class="admonition-title">Stored status, not the creator check</p>
 <p>This list reports each invite's <strong>stored</strong> status and does <strong>not</strong> apply the check that the board's own list and the join endpoints apply: that the creator is still active and still an admin of the board. An invite whose creator was demoted can therefore show <strong>pending</strong> here while the board's own list shows <code>revoked</code> and joins are refused (<code>410 revoked</code>). (Deactivating an account revokes that user's pending invites outright, so those do show <code>revoked</code>.) Revoke such an invite here to make it permanent. <code>can_register</code> is advisory for the same reason.</p>

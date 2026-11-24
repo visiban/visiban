@@ -4760,7 +4760,7 @@ family stays uniform; no other resource gains a new <code>*_username</code> fiel
 </tr>
 </tbody>
 </table>
-<p>The snake_case path remains routable through every 1.x release. It will be removed in 2.0 after a full minor-release deprecation window. <em>(1.2+)</em> The OpenAPI schema marks the alias operation <code>deprecated: true</code>.</p>
+<p><strong>Yes, but:</strong> the snake_case path remains routable through every 1.x release. It will be removed in 2.0 after a full minor-release deprecation window. <em>(1.2+)</em> The OpenAPI schema marks the alias operation <code>deprecated: true</code>.</p>
 <h3 id="expanding-foreign-key-fields">Expanding foreign-key fields<a class="headerlink" href="#expanding-foreign-key-fields" title="Permanent link">&para;</a></h3>
 <p>Endpoints that return a foreign key as an integer id may support a nested companion field behind the <code>?expand=&lt;name&gt;</code> query parameter. The default shape is unchanged; <code>expand</code> adds a parallel <code>_detail</code> field holding a minimal nested object.</p>
 <table>

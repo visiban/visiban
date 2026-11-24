@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#security-scanners-ci" class="md-skip">
+        <a href="#know-which-ci-scanner-blocks-your-merge" class="md-skip">
           Skip to content
         </a>
       
@@ -4472,9 +4472,10 @@
   
 
 
-<h1 id="security-scanners-ci">Security Scanners (CI)<a class="headerlink" href="#security-scanners-ci" title="Permanent link">&para;</a></h1>
-<p>Which CI security scanner can fail a pipeline, what it covers, and how to accept a finding
-without turning the scanner off. Where each job runs is in the table; it is not uniform.</p>
+<h1 id="know-which-ci-scanner-blocks-your-merge">Know which CI scanner blocks your merge<a class="headerlink" href="#know-which-ci-scanner-blocks-your-merge" title="Permanent link">&para;</a></h1>
+<p>Eleven CI security jobs, in nine table rows, can fail a pipeline, and their triggers differ. Accept a finding with an expiring suppression, never by turning the scanner off.</p>
+<p><strong>Why it matters:</strong> A scanner you think blocks but does not gives false safety, and one you disable to get green hides a real leak. The table below says which is which.</p>
+<p><strong>The big picture:</strong> Where each job runs is in the table; it is not uniform.</p>
 <table>
 <thead>
 <tr>
@@ -4551,21 +4552,24 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 </tr>
 </tbody>
 </table>
-<p><code>dep-scan-osv</code>, <code>pip-audit</code>, and the license checks are deliberately outside this policy.</p>
-<p>The secret scanners that gate are <code>gitleaks-scan</code>, <code>gitleaks-commits</code>, <code>gitleaks-history</code>, and
+<p><strong>Yes, but:</strong> <code>dep-scan-osv</code>, <code>pip-audit</code>, and the license checks are deliberately outside this policy.</p>
+<p><strong>Watch out:</strong> The secret scanners that gate are <code>gitleaks-scan</code>, <code>gitleaks-commits</code>, <code>gitleaks-history</code>, and
 <code>secret-detection-gate</code>. GitLab's analyzers exit 0 even when they find something, so
 <code>allow_failure: false</code> on the component's <code>secret_detection</code> job only turns an analyzer crash
 into a red job; it does not stop a leak. <code>secret-detection-gate</code> (<code>scripts/secret-detection-gate.py</code>,
 with a <code>--self-test</code> run before each real invocation) reads <code>gl-secret-detection-report.json</code>
 and fails on any unsuppressed finding of any severity, or if the report is missing or unusable.</p>
-<p>Component-generated jobs (<code>secret_detection</code>, <code>semgrep-sast</code>) are not literal job keys
-in a plain reading of <code>.gitlab-ci.yml</code>; they come from the <code>include:</code> block, and the
+<p><strong>Go deeper:</strong> Component-generated jobs (<code>secret_detection</code>, <code>semgrep-sast</code>) are not literal job keys
+in a plain reading of <code>.gitlab-ci.yml</code>. They come from the <code>include:</code> block, and the
 "Scanner blocking policy" section of <code>.gitlab-ci.yml</code> overrides them. Look there when
 changing whether either one blocks.</p>
 <h2 id="component-versions-are-pinned">Component versions are pinned<a class="headerlink" href="#component-versions-are-pinned" title="Permanent link">&para;</a></h2>
-<p>Both components are pinned to an exact version, never <code>@~latest</code>. To bump one, confirm the
-version exists (<code>glab api "projects/components%2Fsast/releases"</code>), read its release notes,
-and change it in its own MR.</p>
+<p>Both components are pinned to an exact version, never <code>@~latest</code>. To bump one:</p>
+<ol>
+<li>Confirm the version exists (<code>glab api "projects/components%2Fsast/releases"</code>).</li>
+<li>Read its release notes.</li>
+<li>Change it in its own MR.</li>
+</ol>
 <h2 id="semgrep-severity-gate-and-expiring-suppressions">Semgrep: severity gate and expiring suppressions<a class="headerlink" href="#semgrep-severity-gate-and-expiring-suppressions" title="Permanent link">&para;</a></h2>
 <p>The SAST component cannot gate by severity, so <code>sast-severity-gate</code>
 (<code>scripts/sast-severity-gate.py</code>, which has a <code>--self-test</code> run before each real
@@ -4580,11 +4584,14 @@ widget and do not fail the pipeline.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">"expires"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-12-31"</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">}</span>
 </code></pre></div>
-<p>Matching is exact: <code>rule</code> must equal the finding's name or one of its identifier values, and
-<code>file</code> must equal the path or match the glob (<code>*</code> also crosses <code>/</code>). Substrings and bare
-directory prefixes do not match, and entries that are empty or wildcard-only (<code>*</code>, <code>**/*</code>)
-are rejected. <code>expires</code> is required and may be at most 90 days out. An expired entry <strong>fails the gate</strong>,
-so a temporary acceptance has to be revisited. Prefer fixing the code.</p>
+<p><strong>How it works:</strong> Matching is exact.</p>
+<ul>
+<li><code>rule</code> must equal the finding's name or one of its identifier values.</li>
+<li><code>file</code> must equal the path or match the glob (<code>*</code> also crosses <code>/</code>).</li>
+<li>Substrings and bare directory prefixes do not match, and entries that are empty or wildcard-only (<code>*</code>, <code>**/*</code>) are rejected.</li>
+<li><code>expires</code> is required and may be at most 90 days out.</li>
+</ul>
+<p><strong>Watch out:</strong> An expired entry <strong>fails the gate</strong>, so a temporary acceptance has to be revisited. Prefer fixing the code.</p>
 <h2 id="secret-detection-allowlist">Secret detection allowlist<a class="headerlink" href="#secret-detection-allowlist" title="Permanent link">&para;</a></h2>
 <p><code>gitleaks-scan</code> (working tree), <code>gitleaks-commits</code> (the MR's commits) and <code>gitleaks-history</code> (every commit on <code>main</code>) all use
 <code>.gitleaks.toml</code>, which carries commented path allowlist entries for known-safe fixtures
@@ -4604,14 +4611,14 @@ glob <code>file</code>, <code>expires</code> at most 90 days out, expired entrie
 <code>file:line</code>, never the matched value. Prefer fixing the file to suppressing it. Full history is
 covered by <code>gitleaks-history</code>, and an MR's own commits by <code>gitleaks-commits</code>; the existing history was triaged locally before it became
 blocking.</p>
-<p>If <code>gitleaks-commits</code> flags an intermediate commit, do not just annotate the final tree: with
+<p><strong>Watch out:</strong> If <code>gitleaks-commits</code> flags an intermediate commit, do not just annotate the final tree: with
 <code>merge_method=merge</code> every commit enters <code>main</code>'s history, so rewrite the branch to drop the
 literal (or add a narrow commit-scoped entry in <code>.gitleaks.toml</code>) before merging. In an MR pipeline <code>gitleaks-commits</code> reads the MR branch's own <code>.gitleaks.toml</code>, so an allowlist entry added on the branch takes effect for that MR; this is the same trust model as <code>gitleaks-scan</code>, so reviewers must scrutinize <code>.gitleaks.toml</code> diffs.</p>
-<p>If <code>gitleaks-history</code> flags an old commit, treat the credential as compromised: rotate it
+<p><strong>Watch out:</strong> If <code>gitleaks-history</code> flags an old commit, treat the credential as compromised: rotate it
 first, because the history is public on the GitHub and enterprise mirrors. Rewriting history
 does not un-leak it.</p>
 <h2 id="blocking-scanners-fail-closed">Blocking scanners fail closed<a class="headerlink" href="#blocking-scanners-fail-closed" title="Permanent link">&para;</a></h2>
-<p>Because <code>semgrep-sast</code> is blocking, an analyzer crash or registry timeout blocks MRs and
+<p><strong>Why it matters:</strong> Because <code>semgrep-sast</code> is blocking, an analyzer crash or registry timeout blocks MRs and
 <code>main</code>. Retry the job; do not flip <code>allow_failure</code> back to <code>true</code>. <code>sast-severity-gate</code>
 fails if the report is missing or unparsable. <code>gitleaks-history</code> and <code>gitleaks-commits</code> fail if the
 clone is shallow (or, for <code>gitleaks-commits</code>, the MR diff base is missing), so they can never
@@ -4621,7 +4628,7 @@ input <strong>and remove <code>sast-severity-gate</code> in the same change</str
 <code>SAST_DISABLED</code> variable in the pinned version.) Excluding it without removing the gate
 leaves the gate failing closed on the missing report.</p>
 <h2 id="verifying-a-scanner-still-blocks">Verifying a scanner still blocks<a class="headerlink" href="#verifying-a-scanner-still-blocks" title="Permanent link">&para;</a></h2>
-<p>Never push a planted credential to check this; branches mirror to public GitHub. Run the
+<p><strong>Watch out:</strong> Never push a planted credential to check this; branches mirror to public GitHub. Run the
 scanner locally, in memory, instead:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Built from pieces at runtime so no credential-shaped literal is committed here.</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">printf</span><span class="w"> </span><span class="s1">'aws_access_key_id = "%s%s"\n'</span><span class="w"> </span>AKIA<span class="w"> </span>QYLPMN5HHHFPZAM2<span class="w"> </span><span class="se">\</span>
@@ -4632,7 +4639,8 @@ key fails <code>gitleaks-scan</code> (and, on <code>main</code>, <code>gitleaks-
 <code>secret_detection</code> job does not fail on it; <code>secret-detection-gate</code> does, when the component
 reports it.</p>
 <h2 id="npm-overrides-pins-in-frontendpackagejson">npm <code>overrides</code> pins in <code>frontend/package.json</code><a class="headerlink" href="#npm-overrides-pins-in-frontendpackagejson" title="Permanent link">&para;</a></h2>
-<p><code>package.json</code> cannot hold comments, so this page is the record. This section documents only
+<p><code>package.json</code> cannot hold comments, so this page is the record.</p>
+<p><strong>Yes, but:</strong> This section documents only
 the <code>postcss-selector-parser</code> pin below; the other entries in the <code>overrides</code> block
 (<code>axios</code>, <code>follow-redirects</code>, <code>markdown-it</code>) are not recorded here; that is tracked in #1649.</p>
 <h3 id="postcss-selector-parser-pinned-to-716-ghsa-rj75-hqrm-r3gf-1488-1197"><code>postcss-selector-parser</code> pinned to 7.1.6 (GHSA-rj75-hqrm-r3gf, #1488, !1197)<a class="headerlink" href="#postcss-selector-parser-pinned-to-716-ghsa-rj75-hqrm-r3gf-1488-1197" title="Permanent link">&para;</a></h3>

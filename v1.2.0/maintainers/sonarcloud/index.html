@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#sonarcloud-runbook" class="md-skip">
+        <a href="#fix-a-yellow-nightly-sonarcloud-scan" class="md-skip">
           Skip to content
         </a>
       
@@ -4500,9 +4500,10 @@
   
 
 
-<h1 id="sonarcloud-runbook">SonarCloud Runbook<a class="headerlink" href="#sonarcloud-runbook" title="Permanent link">&para;</a></h1>
-<p>Operational reference for the nightly SonarCloud scan: the token, the pipeline schedule, and
-what to do when something breaks. For what Sonar checks and the quality policy, see
+<h1 id="fix-a-yellow-nightly-sonarcloud-scan">Fix a yellow nightly SonarCloud scan<a class="headerlink" href="#fix-a-yellow-nightly-sonarcloud-scan" title="Permanent link">&para;</a></h1>
+<p>The nightly <code>sonar:scan</code> runs on a token and a pipeline schedule; this runbook covers both and what to do when it breaks.</p>
+<p><strong>Why it matters:</strong> the token's owner and expiry are not recorded anywhere yet, so the first sign of an expired token is a yellow job.</p>
+<p><strong>Go deeper:</strong> For what Sonar checks and the quality policy, see
 <a href="../../development/sonarcloud/">SonarCloud</a>.</p>
 <p>SonarCloud organization <code>visiban</code>, project key <code>visiban_visiban</code>
 (<code>sonar.projectKey</code> / <code>sonar.organization</code> in <code>sonar-project.properties</code>).</p>
@@ -4590,8 +4591,8 @@ it, and write the expiry date in both places. Until then, treat the token as one
 expire at any time. The first symptom is a yellow <code>sonar:scan</code> on the nightly pipeline, and
 nothing alerts on it.</p>
 </div>
-<p><code>SONAR_TOKEN</code> is <strong>protected</strong>, so GitLab injects it only into pipelines on a protected branch
-or tag. That is why the schedule must target <code>main</code>: a schedule on an unprotected branch runs
+<p><strong>Watch out:</strong> <code>SONAR_TOKEN</code> is <strong>protected</strong>, so GitLab injects it only into pipelines on a protected branch
+or tag. The schedule must therefore target <code>main</code>: a schedule on an unprotected branch runs
 <code>sonar:scan</code> with no token.</p>
 <h3 id="create-the-token">Create the token<a class="headerlink" href="#create-the-token" title="Permanent link">&para;</a></h3>
 <ol>
@@ -4619,10 +4620,10 @@ For this token:</p>
 <li>Revoke the old token in SonarCloud, and update the expiry in the inventory in the same MR.</li>
 </ol>
 <h2 id="the-pipeline-schedule">The pipeline schedule<a class="headerlink" href="#the-pipeline-schedule" title="Permanent link">&para;</a></h2>
-<p>Schedules are GitLab project configuration, not files in the repository, so a deleted or
-deactivated schedule leaves no commit to review. The Sonar job rides on the <strong>Nightly</strong>
-schedule shared with the CVE/OSV scans, the deep schema fuzz, and kaizen. The full table of
-what each schedule runs is in <a href="../../development/ci-gates/">CI Gate Self-Tests</a>.</p>
+<p>The Sonar job rides on the <strong>Nightly</strong> schedule shared with the CVE/OSV scans, the deep schema fuzz, and kaizen.</p>
+<p><strong>Watch out:</strong> Schedules are GitLab project configuration, not files in the repository, so a deleted or
+deactivated schedule leaves no commit to review.</p>
+<p><strong>Go deeper:</strong> The full table of what each schedule runs is in <a href="../../development/ci-gates/">CI Gate Self-Tests</a>.</p>
 <h3 id="create-or-restore-it">Create or restore it<a class="headerlink" href="#create-or-restore-it" title="Permanent link">&para;</a></h3>
 <p><strong>Build → Pipeline schedules → New schedule</strong>:</p>
 <table>
@@ -4660,11 +4661,13 @@ what each schedule runs is in <a href="../../development/ci-gates/">CI Gate Self
 </tbody>
 </table>
 <p>If the schedule already exists, only confirm that <code>SONAR_SCHEDULED=true</code> is among its
-variables. The Sonar job needs only that one variable; the others belong to the neighboring
-jobs. The nightly load test has its own separate schedule (<code>LOAD_TEST_SCHEDULE=true</code>) and is
-unrelated.</p>
-<p>A schedule runs as the user who owns it. If that user is removed from the project, GitLab can
-stop running their schedules, so after any membership change check that the schedule still
+variables.</p>
+<ul>
+<li>The Sonar job needs only that one variable; the others belong to the neighboring jobs.</li>
+<li>The nightly load test has its own separate schedule (<code>LOAD_TEST_SCHEDULE=true</code>) and is unrelated.</li>
+</ul>
+<p><strong>Watch out:</strong> A schedule runs as the user who owns it. If that user is removed from the project, GitLab can
+stop running their schedules. After any membership change, check that the schedule still
 shows a next-run time, and use <strong>Take ownership</strong> if it does not.</p>
 <h3 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h3>
 <p>Use the play button on the schedule row (<strong>Run schedule</strong>), or <strong>Build → Pipelines → New
@@ -4686,9 +4689,10 @@ pipeline</strong> on <code>main</code> with <code>SONAR_SCHEDULED=true</code>. T
 The token has existed since 2026-10-31 (#1996), so a deleted schedule is now caught.</p>
 </div>
 <h2 id="when-the-nightly-sonarscan-is-yellow">When the nightly <code>sonar:scan</code> is yellow<a class="headerlink" href="#when-the-nightly-sonarscan-is-yellow" title="Permanent link">&para;</a></h2>
-<p><code>sonar:scan</code> is <code>allow_failure: true</code>, so it never makes the pipeline red, and nothing alerts
+<p><strong>Watch out:</strong> <code>sonar:scan</code> is <code>allow_failure: true</code>, so it never makes the pipeline red, and nothing alerts
 on it. Check the schedule's pipeline history periodically, or the dashboard's last-analysis
-date. To diagnose a yellow job, read its log and match the symptom:</p>
+date.</p>
+<p>To diagnose a yellow job, read its log and match the symptom:</p>
 <table>
 <thead>
 <tr>
@@ -4739,9 +4743,10 @@ date. To diagnose a yellow job, read its log and match the symptom:</p>
 file. Delete the criterion or repoint it at the new path. Never widen the glob to make the
 guard pass.</p>
 <h2 id="the-review-every-new-hotspot-rule">The "review every new hotspot" rule<a class="headerlink" href="#the-review-every-new-hotspot-rule" title="Permanent link">&para;</a></h2>
-<p>SonarCloud security hotspots are code that is security-sensitive but not necessarily wrong. A
+<p>The policy is <strong>no unreviewed hotspots</strong>.</p>
+<p><strong>Why it matters:</strong> SonarCloud security hotspots are code that is security-sensitive but not necessarily wrong. A
 human must decide, and the dashboard counts unreviewed ones against the Security Review
-rating. The policy is <strong>no unreviewed hotspots</strong>.</p>
+rating.</p>
 <ol>
 <li>When a hotspot appears (the dashboard or a new-code notification shows it), open <strong>Security
    Hotspots</strong> and read the finding and its guidance.</li>
@@ -4754,7 +4759,7 @@ rating. The policy is <strong>no unreviewed hotspots</strong>.</p>
 <li>Do this when it appears, not at release time. Hotspots reviewed late are reviewed from
    memory.</li>
 </ol>
-<p>Reviewing a hotspot needs a specific project permission in SonarCloud (called "Administer
+<p><strong>Yes, but:</strong> Reviewing a hotspot needs a specific project permission in SonarCloud (called "Administer
 Security Hotspots" in the current UI). If you cannot see the status controls, ask an
 organization admin.</p>
 <div class="admonition note">

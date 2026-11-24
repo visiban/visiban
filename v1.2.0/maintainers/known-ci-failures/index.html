@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#known-ci-failures" class="md-skip">
+        <a href="#match-a-red-ci-job-to-its-known-fix" class="md-skip">
           Skip to content
         </a>
       
@@ -4576,9 +4576,10 @@
   
 
 
-<h1 id="known-ci-failures">Known CI Failures<a class="headerlink" href="#known-ci-failures" title="Permanent link">&para;</a></h1>
-<p>Failure signature → root cause → fix. Grep this page before re-deriving a diagnosis that's
-already been done once.</p>
+<h1 id="match-a-red-ci-job-to-its-known-fix">Match a red CI job to its known fix<a class="headerlink" href="#match-a-red-ci-job-to-its-known-fix" title="Permanent link">&para;</a></h1>
+<p>Grep this page for the failure text before you debug: each entry maps a failure signature to its root cause and fix.</p>
+<p><strong>Why it matters:</strong> Re-deriving a diagnosis that's already been done once wastes a pipeline run, and the obvious fix (a retry, a longer timeout) is often wrong.</p>
+<p><strong>How it works:</strong> Failure signature → root cause → fix.</p>
 <h2 id="oidc-smoke-did-not-become-ready-within-240s"><code>oidc-smoke</code>: "did not become ready within 240s"<a class="headerlink" href="#oidc-smoke-did-not-become-ready-within-240s" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> <code>oidc-smoke</code> job fails with <code>Keycloak master realm ... did not become ready
 within 240s</code> (or whatever the current wait-timeout value is).</p>

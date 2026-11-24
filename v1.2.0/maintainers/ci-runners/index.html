@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ci-runners" class="md-skip">
+        <a href="#know-which-runner-your-ci-job-lands-on" class="md-skip">
           Skip to content
         </a>
       
@@ -4494,12 +4494,12 @@
   
 
 
-<h1 id="ci-runners">CI Runners<a class="headerlink" href="#ci-runners" title="Permanent link">&para;</a></h1>
-<p>Inventory and behavior of the GitLab Runners that execute Visiban's pipelines, and the traps
-that follow from how they're configured.</p>
+<h1 id="know-which-runner-your-ci-job-lands-on">Know which runner your CI job lands on<a class="headerlink" href="#know-which-runner-your-ci-job-lands-on" title="Permanent link">&para;</a></h1>
+<p>Most jobs run on any untagged runner, so a job that needs one runner's resources can land on the wrong one.</p>
 <p><strong>Why it matters:</strong> most jobs in <code>.gitlab-ci.yml</code> carry no <code>tags:</code>, so a job that needs a specific
 runner's resources can silently land on the wrong one and fail with a confusing error instead
 of "no runner available."</p>
+<p><strong>The big picture:</strong> This page is the runner inventory, which jobs need which runner, and the traps that follow from how the runners are configured.</p>
 <h2 id="inventory">Inventory<a class="headerlink" href="#inventory" title="Permanent link">&para;</a></h2>
 <p>As of 2026-10-20, these GitLab group runners are registered against <code>visiban/visiban</code>
 (<code>glab api "projects/visiban%2Fvisiban/runners?type=group_type"</code>):</p>
@@ -4572,18 +4572,23 @@ of "no runner available."</p>
 </tr>
 </tbody>
 </table>
-<p>All are self-hosted. The NUC runners carry the <code>nuc</code> tag (added 2026-10-08) so that
-hardware-sensitive jobs can pin to them — today only <code>nightly-load-test</code>, whose latency
-budgets are absolute milliseconds measured on a NUC. Never add <code>nuc</code> to a non-NUC runner:
-that silently invalidates those budgets. Re-run the query above before trusting this table — runner health
+<p>All are self-hosted.</p>
+<ul>
+<li><strong>The <code>nuc</code> tag.</strong> The NUC runners carry it (added 2026-10-08) so that
+  hardware-sensitive jobs can pin to them. Today that is only <code>nightly-load-test</code>, whose latency
+  budgets are absolute milliseconds measured on a NUC.</li>
+<li><strong>Never add <code>nuc</code> to a non-NUC runner:</strong> that silently invalidates those budgets.</li>
+</ul>
+<p><strong>Watch out:</strong> Re-run the query above before trusting this table. Runner health
 and identity have changed multiple times in this project's history (see below) and nothing
 keeps this page in sync automatically.</p>
-<p><code>Max1-Runner-Visiban</code> is an exception to "no tags" and to the warning immediately below: it's
+<p><strong>Yes, but:</strong> <code>Max1-Runner-Visiban</code> is an exception to "no tags" and to the warning immediately below. It's
 a dedicated Apple Silicon (M1 Max) macOS host running the <strong>shell executor</strong> against its own
 already-installed Docker Desktop, whose engine is itself native <code>linux/arm64</code> — no QEMU. Jobs
 that need it request it explicitly with <code>tags: [arm64]</code> (<code>.arm64-docker-push-base</code> in
-<code>.gitlab-ci.yml</code>, #1084). Do <strong>not</strong> use this runner's own API-reported <code>architecture</code> field
-or a job's <code>uname -m</code> to sanity-check anything: the GitLab API reports <code>architecture: amd64</code>
+<code>.gitlab-ci.yml</code>, #1084).</p>
+<p><strong>Watch out:</strong> Do <strong>not</strong> use this runner's own API-reported <code>architecture</code> field
+or a job's <code>uname -m</code> to sanity-check anything. The GitLab API reports <code>architecture: amd64</code>
 here (the <code>gitlab-runner</code> binary itself runs under Rosetta) and <code>uname -m</code> on the host prints
 <code>x86_64</code>, despite the runner and every image it builds being genuinely native arm64. Assert
 <code>docker image inspect --format '{{.Architecture}}'</code> on a built image instead — that's what
@@ -4609,7 +4614,8 @@ carried no <code>tags:</code>, every push after that date silently fell through 
 and failed with <code>Cannot connect to the Docker daemon at unix:///var/run/docker.sock</code>. The
 last successful push before the conversion was <strong>2026-06-26</strong>. kaniko removes that single
 point of failure for amd64.</p>
-<p><strong>arm64 is published again as of #1084.</strong> kaniko cannot cross-build, and
+<p><strong>arm64 is published again as of #1084.</strong></p>
+<p>kaniko cannot cross-build, and
 <code>saas-linux-medium-arm64</code> resolves to <code>no_matching_runner</code> on this project's GitLab plan
 (verified on pipeline <code>2845582400</code>) — there is no usable GitLab SaaS arm64 runner on this
 plan. <code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code> (<code>.arm64-docker-push-base</code>)
@@ -4623,7 +4629,7 @@ no runner tagged <code>arm64</code> is online — see "Fail-loud, not hang" belo
 <em>not</em> the same "add <code>no_matching_runner</code> and hang" trap the amd64/kaniko conversion avoided by
 leaving arm64 out: the preflight makes an absent runner an explicit, fast pipeline failure
 instead of an indefinite pending job.</p>
-<p>The runner IDs in the table above for the NUC runners (<code>56277672</code>, <code>56277916</code>) are <strong>not</strong>
+<p><strong>Watch out:</strong> The runner IDs in the table above for the NUC runners (<code>56277672</code>, <code>56277916</code>) are <strong>not</strong>
 the same runner as the stale <code>53511568</code> — they were (re-)registered on 2026-09-14. Do not
 assume the old "Runner-03-NUC" staleness note still describes the current runner with that
 name.</p>
@@ -4631,13 +4637,14 @@ name.</p>
 (a password passed with <code>-p</code> sits in <code>ps</code> output for anything else on the host) and push
 through <code>scripts/docker-push-retry.sh</code>, which retries the transient cross-repo blob-mount
 failure a long-lived Docker daemon can hit (#1205).</p>
-<p>See <code>.gitlab-ci.yml</code> around the <code>.kaniko-push-common</code>, <code>.arm64-docker-push-base</code>, and
+<p><strong>Go deeper:</strong> See <code>.gitlab-ci.yml</code> around the <code>.kaniko-push-common</code>, <code>.arm64-docker-push-base</code>, and
 <code>.manifest-tool-common</code> templates for the full history in comments — this page summarizes it,
 the CI file is the source of truth for the current job definitions.</p>
 <h3 id="fail-loud-not-hang-why-a-preflight-job-instead-of-a-timeout">Fail-loud, not hang: why a preflight job instead of a <code>timeout:</code><a class="headerlink" href="#fail-loud-not-hang-why-a-preflight-job-instead-of-a-timeout" title="Permanent link">&para;</a></h3>
 <p>A job's <code>timeout:</code> only bounds execution time <em>after</em> a runner has picked it up — it does
 nothing for a job stuck <code>pending</code> because no runner matches its <code>tags:</code>. GitLab has no native
-"pending too long" job failure. <code>arm64-runner-preflight</code> queries the <strong>group</strong> Runners API
+"pending too long" job failure.</p>
+<p><code>arm64-runner-preflight</code> queries the <strong>group</strong> Runners API
 (<code>GET /groups/visiban/runners?scope=online&amp;tag_list=arm64</code> — a different read from the
 project-scoped <code>glab api "projects/visiban%2Fvisiban/runners?type=group_type"</code> performed by
 hand above, though both surface the same group runner) and fails immediately if it finds no
@@ -4647,7 +4654,7 @@ fine-grained PAT with the <code>read_runner</code> permission scoped to the <cod
 API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint set, so a job token can't make this
 call. See <a href="../tokens-and-rotation/#runner_status_token">Tokens and Rotation</a>.</p>
 <h2 id="runner-host-prerequisites-for-kind-helm-drills">Runner host prerequisites for kind (helm drills)<a class="headerlink" href="#runner-host-prerequisites-for-kind-helm-drills" title="Permanent link">&para;</a></h2>
-<p><code>helm-install</code> and <code>helm-netpol</code> (<code>.helm-drill-base</code> in <code>.gitlab-ci.yml</code>) run a kind cluster
+<p><strong>The big picture:</strong> <code>helm-install</code> and <code>helm-netpol</code> (<code>.helm-drill-base</code> in <code>.gitlab-ci.yml</code>) run a kind cluster
 inside a <code>docker:27-dind</code> service. Two host- and daemon-level limits can make them fail
 intermittently with <code>helm install ... context deadline exceeded</code> under concurrent load. The
 runner host <code>gitlab-nuc-03</code> is shared with TruePPM (<code>concurrent = 6</code> across the <code>trueppm</code> and
@@ -4736,7 +4743,7 @@ a warm cache (<code>.gitlab-ci.yml</code>, "Cache templates" section). This requ
 <li>Each self-hosted runner's own <code>config.toml</code> configured with a matching
    <code>[runners.cache.s3]</code> block that <em>references</em> those variables, not literal values.</li>
 </ol>
-<p>Runner <code>config.toml</code> lives on the runner VM's disk, outside GitLab's variable masking. It
+<p><strong>Watch out:</strong> Runner <code>config.toml</code> lives on the runner VM's disk, outside GitLab's variable masking. It
 previously had the MinIO access key and secret key hardcoded directly in that file
 (confidential issue <strong>#141</strong>, closed) instead of interpolated from environment variables.
 The current <code>.gitlab-ci.yml</code> comments show the fixed form (<code>AccessKey = "&lt;MINIO_ACCESS_KEY&gt;"</code>
@@ -4797,7 +4804,7 @@ problem).</p>
    directly (project variables take precedence over the <code>.gitlab-ci.yml</code> default), or its own
    pull-through mirror.</li>
 </ol>
-<p>Third-party registries (<code>quay.io</code>'s Keycloak image, <code>ghcr.io</code>/<code>gcr.io</code> for trivy/kaniko,
+<p><strong>Yes, but:</strong> Third-party registries (<code>quay.io</code>'s Keycloak image, <code>ghcr.io</code>/<code>gcr.io</code> for trivy/kaniko,
 <code>mcr.microsoft.com</code>'s Playwright image) are out of scope — GitLab's Dependency Proxy only
 mirrors Docker Hub, so these keep pulling directly regardless of <code>DOCKERHUB_MIRROR</code>.</p>
 <p><strong>arm64 release jobs covered as of #1204.</strong> <code>.arm64-docker-push-base</code>,

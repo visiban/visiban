@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tokens-and-rotation" class="md-skip">
+        <a href="#find-every-project-credential-and-when-it-expires" class="md-skip">
           Skip to content
         </a>
       
@@ -4488,10 +4488,10 @@
   
 
 
-<h1 id="tokens-and-rotation">Tokens and Rotation<a class="headerlink" href="#tokens-and-rotation" title="Permanent link">&para;</a></h1>
-<p>Every credential this project depends on operationally: scope, owner, storage location, and
-expiry. <strong>Why it matters:</strong> an expired credential fails silently until it breaks a release.
-<strong>Names and metadata only</strong> — never paste an actual token, key, or secret value here;
+<h1 id="find-every-project-credential-and-when-it-expires">Find every project credential and when it expires<a class="headerlink" href="#find-every-project-credential-and-when-it-expires" title="Permanent link">&para;</a></h1>
+<p>This is the inventory of every credential the project depends on: scope, owner, storage location, and expiry.</p>
+<p><strong>Why it matters:</strong> an expired credential fails silently until it breaks a release.</p>
+<p><strong>Watch out:</strong> <strong>Names and metadata only</strong> — never paste an actual token, key, or secret value here;
 describe where it lives instead.</p>
 <h2 id="inventory">Inventory<a class="headerlink" href="#inventory" title="Permanent link">&para;</a></h2>
 <table>
@@ -4608,22 +4608,25 @@ describe where it lives instead.</p>
 <p><code>release-main-pipeline-guard</code> (#1154) reads the <code>main</code> pipeline and its jobs at a release
 tag's commit before anything is published (see
 <a href="../known-ci-failures/#release-main-pipeline-guard-refuses-to-publish-a-release-tag">Known CI Failures</a>).
-It needs <code>GITLAB_API_TOKEN</code> and <strong>refuses every release tag while the variable is unset</strong>.
+<strong>Watch out:</strong> It needs <code>GITLAB_API_TOKEN</code> and <strong>refuses every release tag while the variable is unset</strong>.
 It never falls back to an unauthenticated read.</p>
 <p><strong>Current token (created 2026-10-31, #1996):</strong> <code>visiban-release-guard-read</code>, owned by
 <code>visiban-ci-bot</code> (Maintainer on <code>visiban/visiban</code>), <code>read_api</code> only, expires <strong>2027-10-30</strong>.
 The owner is deliberately <strong>not</strong> a member of <code>visiban/visiban-enterprise</code>: this variable lives
 in the public project's CI, so its token must not be able to read private enterprise code.</p>
-<p>When rotating or recreating it, use a <strong>personal access token</strong> with the <strong><code>read_api</code></strong> scope.
-Its owner needs <strong>Reporter role or higher</strong> on <code>visiban/visiban</code> for the guard, so the token can
-still read pipelines if they ever stop being public, and <strong>Maintainer</strong> for
-<code>schedule-config-check</code> (below). Prefer a dedicated bot user over a maintainer's own account:
-the token reads with its owner's permissions and stops working when that account loses access.</p>
-<p>Project and group access tokens and service accounts are not options here. On GitLab.com
+<p><strong>How it works:</strong> When rotating or recreating it, use a <strong>personal access token</strong> with the <strong><code>read_api</code></strong> scope.</p>
+<ul>
+<li>Its owner needs <strong>Reporter role or higher</strong> on <code>visiban/visiban</code> for the guard, so the token can
+  still read pipelines if they ever stop being public, and <strong>Maintainer</strong> for
+  <code>schedule-config-check</code> (below).</li>
+<li>Prefer a dedicated bot user over a maintainer's own account:
+  the token reads with its owner's permissions and stops working when that account loses access.</li>
+</ul>
+<p><strong>Yes, but:</strong> Project and group access tokens and service accounts are not options here. On GitLab.com
 they need Premium or Ultimate, and the <code>visiban</code> group is on the Free plan (checked
 2026-10-26 via <code>GET /namespaces/visiban</code>: <code>plan: free</code>). <code>RUNNER_STATUS_TOKEN</code> is a personal
 token for the same reason.</p>
-<p><strong>Minimum role depends on the reader.</strong> The guard needs Reporter. <code>schedule-config-check</code>
+<p><strong>Watch out:</strong> <strong>Minimum role depends on the reader.</strong> The guard needs Reporter. <code>schedule-config-check</code>
 needs <strong>Maintainer</strong>, or the token's owner must own the schedules. GitLab's pipeline
 schedules API returns a schedule's <code>variables</code> only to Maintainers, Owners and the schedule's
 owner, and that check reads the variables. With a Reporter-owned token it would see every
@@ -4632,11 +4635,13 @@ the scheduled pipelines red: a Developer- or Reporter-owned token is worse than 
 <code>read_api</code> scope keeps the token read-only whatever its owner's role, so a Maintainer bot
 account with a <code>read_api</code> token serves both.</p>
 <p>Store it as a CI/CD variable named <code>GITLAB_API_TOKEN</code>, <strong>masked</strong> and <strong>protected</strong>, with
-<strong>Expand variable reference</strong> off. <code>v*</code> tags are protected on <code>visiban/visiban</code> (Maintainers),
-so it reaches tag pipelines. A GitLab.com personal access token expires within
-365 days, so record its expiry in the inventory table above. The guard sends it as <code>PRIVATE-TOKEN</code> and never prints
-it. Creating it also turns on the other readers in the inventory row
-(<code>schedule-config-check</code> stops warning and starts asserting).</p>
+<strong>Expand variable reference</strong> off.</p>
+<ul>
+<li><code>v*</code> tags are protected on <code>visiban/visiban</code> (Maintainers), so it reaches tag pipelines.</li>
+<li>A GitLab.com personal access token expires within 365 days, so record its expiry in the inventory table above.</li>
+<li>The guard sends it as <code>PRIVATE-TOKEN</code> and never prints it.</li>
+<li>Creating it also turns on the other readers in the inventory row (<code>schedule-config-check</code> stops warning and starts asserting).</li>
+</ul>
 <p><strong>The enterprise mirror needs its own.</strong> <code>visiban/visiban-enterprise</code> receives every tag and
 runs the same <code>.gitlab-ci.yml</code>, so its <code>v*</code> tag pipelines run the guard too, against the
 enterprise project's own API. They refuse to publish until that project also has a masked,
@@ -4677,7 +4682,7 @@ line or in shell history, and export it, because the guard reads it from the env
   receives every tag, has no anonymous option at all.</li>
 </ul>
 <h2 id="runner_status_token"><code>RUNNER_STATUS_TOKEN</code><a class="headerlink" href="#runner_status_token" title="Permanent link">&para;</a></h2>
-<p>Added in <strong>#1084</strong> for <code>arm64-runner-preflight</code>. The GitLab Runners API is not part of the
+<p><strong>The big picture:</strong> Added in <strong>#1084</strong> for <code>arm64-runner-preflight</code>. The GitLab Runners API is not part of the
 CI_JOB_TOKEN-allowed endpoint set, so this job cannot authenticate with the ambient
 <code>CI_JOB_TOKEN</code> the way most other jobs in this file do for registry pushes — it needs an
 actual PAT. It is a <strong>fine-grained</strong> PAT with the <code>read_runner</code> permission, scoped to the
@@ -4705,7 +4710,8 @@ job queries the group Runners endpoint (<code>/groups/visiban/runners</code>) to
    queries that endpoint instead.</li>
 </ol>
 <p><code>.gitlab-ci.yml</code> now references <code>RUNNER_STATUS_TOKEN</code> against <code>/groups/visiban/runners</code>, to
-match what's actually configured and granted. If this variable is ever rotated or recreated,
+match what's actually configured and granted.</p>
+<p><strong>Watch out:</strong> If this variable is ever rotated or recreated,
 keep the name as <code>RUNNER_STATUS_TOKEN</code>, the <code>read_runner</code> group-scoped permission, and the
 group endpoint — do not reintroduce <code>RUNNERS_READ_TOKEN</code> or point it back at the project
 endpoint.</p>
@@ -4740,12 +4746,12 @@ Reporter can create issues and comment, and nothing here needs a higher role. It
 personal token, ideally a bot user's. Project access tokens need Premium on GitLab.com, and
 the <code>visiban</code> group is on Free (see <a href="#gitlab_api_token-and-the-release-guard">above</a>). Neither token exists yet. Until one
 does, both jobs only report what they would have filed.</p>
-<p>The fallback <strong>ties the two tokens' rotation together</strong>. If only <code>KAIZEN_API_TOKEN</code> is
+<p><strong>Watch out:</strong> The fallback <strong>ties the two tokens' rotation together</strong>. If only <code>KAIZEN_API_TOKEN</code> is
 configured, it is also the deep-fuzz filer, so revoking or rotating it silently stops deep-fuzz
 filing too. Rotate or revoke it as a deep-fuzz credential as well as a kaizen one. To separate
 them, create <code>FUZZ_DEEP_API_TOKEN</code>, which takes precedence.</p>
 <h2 id="docs_deploy_token-historical-note-and-current-status"><code>DOCS_DEPLOY_TOKEN</code> — historical note and current status<a class="headerlink" href="#docs_deploy_token-historical-note-and-current-status" title="Permanent link">&para;</a></h2>
-<p>A memory note dated 2026-04-07 recorded <code>DOCS_DEPLOY_TOKEN</code> as mistakenly set to a GitHub
+<p><strong>Yes, but:</strong> A memory note dated 2026-04-07 recorded <code>DOCS_DEPLOY_TOKEN</code> as mistakenly set to a GitHub
 PAT (<code>ghp_...</code>), which GitLab's git auth would reject when <code>mike</code> tries to push to
 <code>gh-pages</code>. As of this writing (2026-09-14), that is <strong>not</strong> the current failure mode: the
 <code>gh-pages</code> pipeline has completed successfully multiple times today, which requires
