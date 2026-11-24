@@ -516,11 +516,12 @@ board_id="$(grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' "${BODY}" | head -1 | 
 [ -n "${board_id}" ] || fail "board create returned no id: $(head -c 300 "${BODY}")"
 
 log "USER JOURNEY: WebSocket upgrade through nginx on /ws/boards/${board_id}/"
-# A real handshake: the session cookie authenticates it and the Origin must
-# pass OptionalOriginValidator. 101 only comes back if nginx forwards Upgrade
-# AND the consumer accepts this user; an unauthorized or un-upgraded request
-# gets 4xx instead. curl then waits on the open socket, so cap it with -m and
-# read the status line from the dumped headers (exit 28 on the cap is expected).
+# A real handshake with the session cookie and a valid Origin. 101 proves nginx
+# forwards Upgrade and the origin gate passes. It does NOT prove the session
+# authenticated: BoardConsumer accepts and then closes 4001/4003 for an
+# unauthorized user, so that refusal comes after the 101. curl then waits on
+# the open socket, so cap it with -m and read the status line from the dumped
+# headers (exit 28 on the cap is expected).
 ws_headers="$(mktemp)"
 "${CURL[@]}" -m 5 -o /dev/null -D "${ws_headers}" -b "${JAR}" \
   -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
@@ -531,7 +532,7 @@ if [ "${ws_status}" != "101" ]; then
   echo "  handshake response headers:" >&2
   sed 's/^/    /' "${ws_headers}" >&2 || true
   rm -f "${ws_headers}"
-  fail "WebSocket upgrade on /ws/boards/${board_id}/ returned '${ws_status:-no response}', not 101 — nginx is not forwarding Upgrade, or the origin/auth gate refused the handshake (#1364)"
+  fail "WebSocket upgrade on /ws/boards/${board_id}/ returned '${ws_status:-no response}', not 101 — nginx is not forwarding Upgrade, or the origin gate refused the handshake (#1364)"
 fi
 rm -f "${ws_headers}" "${BODY:-}"
 log "the first-run user journey works through nginx: login, forced change, board create, WebSocket 101"
