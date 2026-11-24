@@ -234,6 +234,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // Highest board id the server window has consumed (the endpoint orders by id), so a removal
   // can tell whether it shifted the rows after the window back by one.
   const sgLastIdRef = useRef(0);
+  // Mirror of sgCount, so a re-read can tell how far the server list shrank while it ran.
+  const sgCountRef = useRef(0);
+  // Ids already shifted out of the window since the last load: a local action and its socket
+  // echo both remove the same row, and only the first may move the offset and the count back.
+  const sgShiftedIdsRef = useRef(new Set<number>());
   // Bumped when a load starts (toggle on/off, group change, Retry): a Load more answer for an
   // earlier load is dropped instead of appended to, or moving the offset of, the new one.
   const sgLoadGenRef = useRef(0);
@@ -603,9 +608,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     let offset = 0;
     let count = 0;
     let lastId = 0;
+    let countAtStart = 0;
+    let shiftedAtStart = new Set<number>();
+    const seen = new Set<number>(); // every id the re-read returned, direct boards included
     readSubgroupBoards(
       async () => {
         const target = sgOffsetRef.current;
+        countAtStart = sgCountRef.current;
+        shiftedAtStart = new Set(sgShiftedIdsRef.current);
         const byId = new Map<number, Board>();
         let fetched = 0;
         let ended = false;
@@ -615,6 +625,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           const page = await getGroupDescendantBoardsPaged(groupId, offset, SG_PAGE_SIZE);
           count = page.count;
           page.results.forEach((b) => {
+            seen.add(b.id);
             lastId = Math.max(lastId, b.id);
             if (!directBoardIdsRef.current.has(b.id)) byId.set(b.id, b);
           });
@@ -633,11 +644,21 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         onError: handleGroupReadError,
         onSettled: () => setLoadingSubgroupBoards(false),
         onApplied: () => {
-          // Never behind a Load more that landed meanwhile, nor behind the capped target.
-          sgOffsetRef.current = Math.max(offset, sgOffsetRef.current);
+          // Rows removed here after the re-read started that its answer still holds: the server
+          // answered before it saw those removals, so its offset and count are one too high each.
+          let stale = 0;
+          sgShiftedIdsRef.current.forEach((id) => { if (!shiftedAtStart.has(id) && seen.has(id)) stale += 1; });
+          // `offset - stale`: the rows this re-read covered, less those stale rows.
+          // `sgOffsetRef.current - shrink`: the held offset (the target, plus any Load more that
+          // landed meanwhile, less every local removal since the start), less how far the server
+          // list shrank since the start. When the cap cut the re-read short its pages covered that
+          // many more old rows, so the held offset is ahead by up to that much. A removal counted
+          // in both terms only over-fetches, and appends de-duplicate by id.
+          const shrink = Math.max(0, countAtStart - count);
+          sgOffsetRef.current = Math.max(0, offset - stale, sgOffsetRef.current - shrink);
           sgLastIdRef.current = Math.max(lastId, sgLastIdRef.current);
           setSgOffset(sgOffsetRef.current);
-          setSgCount(count);
+          setSgCount(Math.max(0, count - stale));
           setSgFirstError(false);
           setSgMoreError(false);
         },
@@ -645,14 +666,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     );
   }, [readSubgroupBoards, groupId, handleGroupReadError]);
   // Rows removed locally (a delete, a move out) that sat inside the consumed server window shift
-  // the rows after it back by one, so the next Load more would skip them: move the offset back.
+  // the rows after it back by one, so the next Load more would skip them: move the offset back,
+  // and the count with it, or a fully loaded list shows a stale total and a Load more again.
   // Over-fetching is harmless, since appends de-duplicate by id.
   const shiftSgWindow = useCallback((removedIds: Iterable<number>) => {
     let n = 0;
-    for (const id of removedIds) if (id <= sgLastIdRef.current) n += 1;
+    for (const id of removedIds) {
+      if (id > sgLastIdRef.current || sgShiftedIdsRef.current.has(id)) continue;
+      sgShiftedIdsRef.current.add(id);
+      n += 1;
+    }
     if (n === 0) return;
     sgOffsetRef.current = Math.max(0, sgOffsetRef.current - n);
     setSgOffset(sgOffsetRef.current);
+    setSgCount((c) => Math.max(0, c - n));
   }, []);
   // Refetch every list on this page whose rows carry an inherited health
   // status (#1133): subgroups, direct boards, and subgroup boards when shown.
@@ -838,6 +865,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   useEffect(() => { showSubgroupBoardsRef.current = showSubgroupBoards; }, [showSubgroupBoards]);
   useEffect(() => { subgroupBoardsRef.current = subgroupBoards; }, [subgroupBoards]);
+  useEffect(() => { sgCountRef.current = sgCount; }, [sgCount]);
   useEffect(() => {
     directBoardsRef.current = boards;
     directBoardIdsRef.current = new Set(boards.map((b) => b.id));
@@ -859,6 +887,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // endpoint returns boards from the root group too.
     sgOffsetRef.current = 0;
     sgLastIdRef.current = 0;
+    sgShiftedIdsRef.current = new Set();
     setSgOffset(0);
     setSgCount(0);
     setSgMoreError(false);
@@ -913,7 +942,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         requestAnimationFrame(() => sgCountLineRef.current?.focus());
       }
     } catch {
-      setSgMoreError(true);
+      // A failure for a superseded load is dropped like its answer: the new load is not failing.
+      if (startGroup === groupIdRef.current && startGen === sgLoadGenRef.current) setSgMoreError(true);
     } finally {
       sgBusyRef.current = false;
       setSgLoadingMore(false);
