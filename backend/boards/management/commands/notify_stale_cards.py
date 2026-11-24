@@ -11,6 +11,7 @@ Usage:
     # Add to cron: 0 8 * * * docker compose run --rm backend python manage.py notify_stale_cards
 """
 import datetime
+from types import SimpleNamespace
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -19,6 +20,7 @@ from accounts.models import User
 from boards.models import Board, Card, Notification
 from boards.notifications_email import drain_email_on_exit
 from boards.serializers import _annotate_is_stale
+from boards.services.flow_metrics import stall_clock_start
 from boards.services.notifications import clip_text, create_notifications, quoted_card_verb
 from boards.utils import _get_effective_member_ids
 
@@ -144,7 +146,16 @@ class Command(BaseCommand):
             for card in stale_cards:
                 # A never-moved card falls back to its creation time, matching
                 # the SQL stale predicate.
-                stale_since = card._last_moved_at or card.created_at
+                # A released planned child counts from its release when later than
+                # its last move, the one rule Needs attention and the heatmap use
+                # (#2554), so the digest never shows a different day count.
+                stale_since = stall_clock_start(
+                    SimpleNamespace(
+                        planned_active=bool(getattr(card, "_planned_active", False)),
+                        planned_released_at=getattr(card, "_planned_released_at", None),
+                    ),
+                    card._last_moved_at or card.created_at,
+                )
                 days_stale = (now - stale_since).days
                 # Board name is clipped too: it is user-controlled (max 200+) and sits in
                 # the suffix, which would otherwise squeeze the title out.
