@@ -335,10 +335,11 @@ See [Field Enforcement](../architecture/field-enforcement.md).
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-**As of 1.3 (#2270) the column header always shows `count / limit` and a full meter at the limit, so this setting no longer changes the header.** It is kept so existing boards and the API are unchanged. Before 1.3 the column header only flipped out of its calm `N cards` state for the *over*-limit case, and the **Show at-limit WIP indicator** board setting (off by default, admin-only, in **Board settings → Rules & limits → Limit enforcement**) added the at-limit state:
+**As of 1.3 (#2270) the column header always shows `count / limit` and a full meter at the limit, so this setting no longer changes the expanded header (it still adds the cue to collapsed columns, below).** It is kept so existing boards and the API are unchanged. Before 1.3 the column header only flipped out of its calm `N cards` state for the *over*-limit case, and the **Show at-limit WIP indicator** board setting (off by default, admin-only, in **Board settings → Rules & limits → Limit enforcement**) added the at-limit state:
 
 - **Off (default):** a column at its WIP limit shows `N cards`, unchanged from the calm state.
 - **On:** a column at its WIP limit shows `WIP N/N` in place of the card count, styled the same as the calm state (`text-fg-muted`, no accent strip, no glyph) — deliberately quieter than the over-limit warning so the two states stay visually distinct. Hovering shows the tooltip "Column is at its WIP limit (N/N)".
+- **Collapsed columns (since 1.3):** with the setting on, a collapsed column exactly at its limit shows its card count in stronger text with a small `=` after it, and its tooltip reads "Expand \"Name\" · At WIP limit (N/N)". With the setting off, a collapsed column at its limit looks like any other.
 - Columns **over** their limit are unaffected: the existing `⚠ Over WIP` treatment always takes precedence.
 - Columns under the limit are unaffected: always `N cards`.
 
