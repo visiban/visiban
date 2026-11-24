@@ -712,3 +712,50 @@ class NoRedirectTests(SimpleTestCase):
                     fetch(token, "o/r", LensConfig(), LensFilters())
                 # Generic upstream error, not a more specific subclass.
                 self.assertIs(type(cm.exception), providers.LensError)
+
+
+class MaxPagesSettingTests(SimpleTestCase):
+    """The issue page cap is operator-set since #1580 (VISIBAN_GIT_LENS_MAX_PAGES)."""
+
+    def test_default_keeps_the_historical_300_issue_cap(self):
+        # No env var in the test settings: existing installs behave identically.
+        self.assertEqual(providers.DEFAULT_MAX_PAGES, 3)
+        self.assertEqual(providers.MAX_PAGES, 3)
+        self.assertEqual(providers.MAX_ISSUES, 300)
+
+    def test_clamp_keeps_in_range_values(self):
+        for value in (1, 3, 5, providers.MAX_PAGES_CEILING):
+            self.assertEqual(providers.clamp_max_pages(value), value)
+
+    def test_clamp_bounds_out_of_range_values(self):
+        # Zero/negative would silently disable the lens; huge values would make one
+        # fetch unbounded. Both clamp instead of raising at boot.
+        self.assertEqual(providers.clamp_max_pages(0), 1)
+        self.assertEqual(providers.clamp_max_pages(-4), 1)
+        self.assertEqual(providers.clamp_max_pages(500), providers.MAX_PAGES_CEILING)
+
+    def test_clamp_falls_back_to_default_for_non_int(self):
+        for value in (None, "7", 2.5, True, False):
+            self.assertEqual(providers.clamp_max_pages(value), providers.DEFAULT_MAX_PAGES)
+
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_reads_up_to_a_raised_page_cap(self, mock_get):
+        full = [{"iid": n, "title": "t", "web_url": "u", "state": "opened", "labels": [], "assignees": []}
+                for n in range(providers.PER_PAGE)]
+        mock_get.return_value = _resp(full)
+        with patch.object(providers, "MAX_PAGES", 5):
+            data = providers.gitlab_fetch(None, "g/p", LensConfig("state", "milestone"), LensFilters())
+        self.assertEqual(mock_get.call_count, 5)
+        self.assertEqual(len(data.issues), 500)
+        self.assertTrue(data.truncated)
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_reads_up_to_a_raised_page_cap(self, mock_get):
+        full = [{"number": n, "title": "t", "html_url": "u", "state": "open", "labels": [], "assignees": []}
+                for n in range(providers.PER_PAGE)]
+        mock_get.return_value = _resp(full)
+        with patch.object(providers, "MAX_PAGES", 5):
+            data = providers.github_fetch("tok", "o/r", LensConfig("state", "milestone"), LensFilters())
+        self.assertEqual(mock_get.call_count, 5)
+        self.assertEqual(len(data.issues), 500)
+        self.assertTrue(data.truncated)

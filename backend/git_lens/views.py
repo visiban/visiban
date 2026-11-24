@@ -134,7 +134,6 @@ LENS_CACHE_HARD_TTL = 600    # keep a stale-servable copy this long (SWR + error
 # Cutting their lifetime cuts that footprint by ~3x for no loss on the path that
 # matters — the fetch RATE is bounded separately by _claim_fetch_budget.
 LENS_CACHE_FILTERED_HARD_TTL = 180
-LENS_FETCH_LOCK_TTL = 90     # single-flight lock; must exceed worst-case fetch (see assertion)
 LENS_FORCE_REFRESH_COOLDOWN = 30  # per (provider, repo, user) floor between ?refresh=1 re-fetches
 LENS_FETCH_BUDGET = 12            # upstream fetches allowed per window, per (provider, repo, user)
 LENS_FETCH_BUDGET_WINDOW = 300    # seconds
@@ -171,8 +170,22 @@ LENS_USER_FETCH_BUDGET = LENS_FETCH_BUDGET * 4
 # The call count is named separately because the admin usage endpoint (#1061)
 # reports it as the per-fetch bound; one constant means the reported bound and the
 # lock guarantee can never disagree.
+#
+# Since #1580 MAX_PAGES is operator-set (VISIBAN_GIT_LENS_MAX_PAGES, clamped), so
+# the lock TTL is DERIVED from the worst case rather than fixed: at the default page
+# cap it is the historical 90 seconds, and raising the cap lengthens the lock with it
+# instead of letting it expire mid-fetch.
 _WORST_CASE_CALLS_PER_FETCH = providers.MAX_PAGES + 2 * providers.MAX_AUX_PAGES + 1
 _WORST_CASE_FETCH_SECONDS = _WORST_CASE_CALLS_PER_FETCH * providers.REQUEST_TIMEOUT
+
+
+def _lock_ttl_for(calls_per_fetch: int) -> int:
+    """Single-flight lock TTL for a fetch of *calls_per_fetch* outbound calls: never
+    below the historical 90 s, and never below that fetch's worst-case duration."""
+    return max(90, calls_per_fetch * providers.REQUEST_TIMEOUT)
+
+
+LENS_FETCH_LOCK_TTL = _lock_ttl_for(_WORST_CASE_CALLS_PER_FETCH)  # single-flight lock
 assert LENS_FETCH_LOCK_TTL >= _WORST_CASE_FETCH_SECONDS, (
     "LENS_FETCH_LOCK_TTL must exceed the worst-case provider fetch duration "
     "((MAX_PAGES + 2 * MAX_AUX_PAGES + 1) * REQUEST_TIMEOUT)"

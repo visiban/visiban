@@ -40,8 +40,29 @@ from .types import (
 )
 
 # --- tuning ---------------------------------------------------------------
-PER_PAGE = 100
-MAX_PAGES = 3  # hard cap → at most 300 issues per board in v1
+PER_PAGE = 100  # already both providers' per-page maximum
+DEFAULT_MAX_PAGES = 3  # → 300 issues per board, the pre-#1580 hard cap
+# Ceiling on the operator setting. Every page is one more outbound call charged to
+# the shared provider rate limit (anonymous GitLab reads are billed to the
+# instance's own IP) and ten more seconds of worst-case fetch time, so the setting
+# is a dial, not an off switch for the bound.
+MAX_PAGES_CEILING = 10
+
+
+def clamp_max_pages(value) -> int:
+    """``VISIBAN_GIT_LENS_MAX_PAGES`` reduced to a usable page count.
+
+    Out-of-range values clamp to 1..``MAX_PAGES_CEILING`` rather than raising, and
+    anything that is not an int falls back to the default: a misconfigured env var
+    should degrade the lens to a sane cap, never stop the app booting or make the
+    fetch unbounded.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        return DEFAULT_MAX_PAGES
+    return max(1, min(MAX_PAGES_CEILING, value))
+
+
+MAX_PAGES = clamp_max_pages(getattr(settings, "VISIBAN_GIT_LENS_MAX_PAGES", DEFAULT_MAX_PAGES))
 MAX_ISSUES = PER_PAGE * MAX_PAGES
 # Branches + open MRs are only fetched for the "pipeline" column dim, and are
 # capped harder than issues: the linking only needs recent/active branches and

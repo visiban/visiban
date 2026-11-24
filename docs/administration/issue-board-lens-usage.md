@@ -103,7 +103,7 @@ However many people view it or how they filter, the lens cannot generate unbound
 | Limit | Default | Effect |
 |---|---|---|
 | Shared cache (`cache_soft_ttl_seconds`) | 60 s | Everyone viewing the same GitLab repository, pivot and filter shares one fetch per minute. GitHub is cached per viewer. |
-| Calls per fetch (`max_outbound_calls_per_fetch`) | 8 | At most 3 issue pages, 2 branch pages, 2 merge-request pages and 1 milestone page. |
+| Calls per fetch (`max_outbound_calls_per_fetch`) | 8 | At most 3 issue pages (`max_issue_pages`, set by `VISIBAN_GIT_LENS_MAX_PAGES`), 2 branch pages, 2 merge-request pages and 1 milestone page. Each extra issue page adds one call here and ten seconds to the fetch lock. |
 | Fetches per user per repository (`fetch_budget_per_user_repo`) | 12 per 5 min | Covers refreshes, pivots and new filter values alike. |
 | Fetches per user across all repositories (`fetch_budget_per_user`) | 48 per 5 min | Stops one account from multiplying its budget by pointing boards at many repositories. |
 | Calls per user (`max_outbound_calls_per_user_per_window`) | 384 per 5 min | The product of the two lines above: the most one account can cause, whatever it does. |

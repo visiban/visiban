@@ -884,6 +884,27 @@ class LensBoardRenderTests(TestCase):
         # here rather than quietly halving this test's value.
         self.assertEqual(worst, _v._WORST_CASE_FETCH_SECONDS)
 
+    def test_lock_ttl_is_unchanged_at_the_default_page_cap(self):
+        """#1580 derives the lock TTL from the worst case; at the default page cap
+        it must stay the historical 90 seconds so existing installs are unchanged."""
+        from git_lens import providers as _p
+        from git_lens import views as _v
+
+        self.assertEqual(_p.MAX_PAGES, _p.DEFAULT_MAX_PAGES)
+        self.assertEqual(_v.LENS_FETCH_LOCK_TTL, 90)
+
+    def test_lock_ttl_grows_with_a_raised_page_cap(self):
+        """At the ceiling the worst case exceeds 90 s, so a fixed TTL would expire
+        mid-fetch. The derivation must cover the ceiling's worst case."""
+        from git_lens import providers as _p
+
+        from git_lens import views as _v
+
+        calls = _p.MAX_PAGES_CEILING + 2 * _p.MAX_AUX_PAGES + 1
+        worst = calls * _p.REQUEST_TIMEOUT
+        self.assertGreater(worst, 90)
+        self.assertGreaterEqual(_v._lock_ttl_for(calls), worst)
+
     def test_filtered_cache_window_stays_inside_the_fetch_budget_window(self):
         """Capacity invariant behind the filtered-entry TTL (#1067 perf-check).
 
