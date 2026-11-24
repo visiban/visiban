@@ -296,6 +296,10 @@ _ERROR_CODES = {
     "InvalidVersion": "invalid_version",
     "InvalidPosition": "invalid_position",
     "ForceNotPermitted": "force_not_permitted",
+    # #1923: not reachable while MCP stays force-less; mapped so a future
+    # override argument cannot fall back to internal_error.
+    "OverrideReasonRequired": "override_reason_required",
+    "InvalidOverrideReason": "invalid_override_reason",
     "ObjectNotFound": "object_not_found",
 }
 

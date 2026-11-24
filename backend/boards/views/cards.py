@@ -1697,6 +1697,8 @@ class CardViewSet(viewsets.ModelViewSet):
             "children_removed_board_deleted", "parent_removed_board_deleted",
             # Since 1.3 (#2371): planned children.
             "planned_released", "needed_changed",
+            # Since 1.3 (#1923): a limit overridden with force.
+            "override_used",
         ],
     }
     # Every group timeline() accepts, as published in the schema (#1975).

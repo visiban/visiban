@@ -192,6 +192,14 @@ class OverrideRecordingTests(_Fixture, TestCase):
         self.card.refresh_from_db()
         self.assertEqual(self.card.column_id, self.src.pk)
 
+    def test_override_row_shows_on_the_card_timeline(self):
+        self._move(self.member, reason="escalation")
+        resp = self._client(self.admin).get(
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/timeline/",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertIn("override_used", resp.content.decode())
+
     def test_reason_boundary_validation(self):
         for bad in ("x" * 501, "a\x00b", 5):
             with self.subTest(bad=bad):

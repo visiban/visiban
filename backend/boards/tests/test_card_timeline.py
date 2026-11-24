@@ -273,7 +273,9 @@ class CardTimelinePaginationTests(TestCase):
             r = self.client.get(self.url, params)
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         return [q["sql"] for q in ctx.captured_queries if "COUNT(" in q["sql"].upper()
-                and "OVER" not in q["sql"].upper()]
+                # "OVER (" not "OVER": the activity IN list holds
+                # 'override_used' (#1923), which is not a window function.
+                and "OVER (" not in q["sql"].upper()]
 
     def test_default_request_issues_no_fallback_count(self):
         # Normal first page: the window total rides the page query, so the

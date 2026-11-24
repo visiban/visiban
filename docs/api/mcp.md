@@ -372,6 +372,8 @@ Every error has a `code` your agent can branch on, and the table below is the co
 | `object_not_found` | Reserved generic not-found code for a lookup with no more specific code above. |
 | `permission_denied` | Your board role is `collaborator` or `viewer`; card writes require `admin` or `member`. Also returned by `update_card`, `archive_card`, `block_card` and `unblock_card` when your role only allows changing cards you created, and by `move_card` when the card is assigned to someone else and your role is below moderator. |
 | `force_not_permitted` | Reserved: no tool currently exposes `force`. A `force` override of a WIP or weight limit was requested by someone who is not a board admin. |
+| `override_reason_required` | Reserved: no tool currently exposes `force`. An assignee override (#1923) was requested without a reason. |
+| `invalid_override_reason` | Reserved: no tool currently exposes `force`. The override reason was not a string, was over 500 characters, or held a NUL byte. |
 | `invalid_version` | Reserved: `version` (on `move_card` and `update_card` since 1.3) is schema-typed as an integer, so this is not currently reachable. The supplied `version` is not an integer. |
 | `invalid_position` | Reserved: `position` is schema-typed as an integer, so this is not currently reachable. The supplied move `position` is not an integer. |
 | `invalid_gates_passed` | `move_card`: `gates_passed` (since 1.3) is not an integer, is negative, or is past the target stage's last sub-column. |
