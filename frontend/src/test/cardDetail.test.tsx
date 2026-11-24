@@ -2345,6 +2345,24 @@ describe('CardDetail', () => {
       })
     })
 
+    it('warns before pulling a planned card whose date has passed, and returns focus to Move after the move (#2550)', async () => {
+      const onMoveCard = vi.fn().mockResolvedValue({ ok: true })
+      const card = makeCard({ planned: true, due_date: '2020-12-04' })
+      const { container } = render(<CardDetail {...defaultProps()} card={card} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
+      const trigger = screen.getByRole('button', { name: /Move card to different column or swimlane/ })
+      await userEvent.setup().click(trigger)
+      expect(screen.queryByTestId('planned-move-warning')).toBeNull()
+      const popover = container.querySelector('[data-move-popover]')!
+      const colTrigger = Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes('To Do'))!
+      await userEvent.setup().click(colTrigger)
+      await userEvent.setup().click(screen.getByText('In Progress'))
+      expect(screen.getByTestId('planned-move-warning')).toHaveTextContent('Its date, Dec 4, has passed. It will be overdue once moved.')
+      expect(screen.getByTestId('planned-move-warning')).toHaveAttribute('role', 'status')
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Move' }))
+      await waitFor(() => expect(screen.queryByText('Move to')).not.toBeInTheDocument())
+      expect(trigger).toHaveFocus()
+    })
+
     // useBoard.moveCard never rejects — it reports failure as { ok: false, error } (#1761).
     const submitMove = async (onMoveCard: (...a: (number | undefined)[]) => Promise<MoveOutcome | void>) => {
       const board = makeBoardWithTwoCols()

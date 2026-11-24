@@ -1206,7 +1206,12 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
     child_board = (
         Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk=child_board_id).first()
     )
-    child_role = get_board_roles(user, [child_board])[child_board.pk] if child_board is not None else None
+    # An absent or anonymous viewer resolves no role and so gets the hidden
+    # branch, failing closed (#1075), rather than reaching get_board_roles.
+    has_viewer = user is not None and getattr(user, "is_authenticated", False)
+    child_role = (
+        get_board_roles(user, [child_board])[child_board.pk] if child_board is not None and has_viewer else None
+    )
     if child_role is None:
         # The hidden branch has no rows to filter client-side, so the count
         # itself must exclude archived children: they leave the tab and its
@@ -1234,6 +1239,14 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
         # The card face's labels (#2209 full card anatomy): one query for the
         # page, whatever the number of children.
         .prefetch_related(Prefetch("labels", queryset=Label.objects.only("id", "name", "color").order_by("name", "pk")))
+        # #2553: the planned state of the child itself, from the link row the
+        # filter above already joins, so it costs no query. The state alone
+        # (never the Needed column), as every reader of the child gets it
+        # (Rule 19): this branch is reached only with a role on the child board.
+        .annotate(
+            _link_needed_col=F("parent_link__needed_at_column_id"),
+            _link_released=F("parent_link__planned_released_at"),
+        )
         .order_by("pk")[offset:offset + limit]
     )
     out["results"] = [
@@ -1256,6 +1269,9 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
             "priority": c.priority,
             "due_date": c.due_date.isoformat() if c.due_date else None,
             "labels": [{"id": lb.pk, "name": lb.name, "color": lb.color} for lb in c.labels.all()],
+            # Since 1.3 (#2553): planned for a later parent column and not yet
+            # released, so its due date does not count (no Overdue, no Due soon).
+            "planned": c._link_needed_col is not None and c._link_released is None,
         }
         for c in cards
     ]

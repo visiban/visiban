@@ -935,3 +935,63 @@ class PlannedSchemaTests(TestCase):
         ):
             self.assertTrue(props[key]["readOnly"], key)
             self.assertNotIn(key, card.get("required", []), key)
+
+
+class ChildrenReadPlannedTests(PlannedFixture):
+    """#2553: the parent's Children tab rows carry the child's own ``planned``
+    state, so a planned child with a past date never reads Overdue there."""
+
+    def rows(self, user):
+        r = client_for(user).get(f"/api/v1/boards/{self.pboard.pk}/cards/{self.parent.pk}/children/")
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def test_planned_until_released_and_an_ordinary_child_is_not(self):
+        child = self.planned_child(due=datetime.date(2020, 1, 1))
+        now = self.add_child(title="Kickoff")
+        self.assertEqual(now.status_code, 201, now.content)
+        body = self.rows(self.maya)
+        by_id = {row["id"]: row for row in body["results"]}
+        self.assertIs(by_id[child.pk]["planned"], True)
+        self.assertIs(by_id[now.json()["id"]]["planned"], False)
+        self.assertNotIn("needed_at_column", by_id[child.pk])
+        self.assertNotIn("needed_at_column_name", by_id[child.pk])
+        self.move(self.parent, self.pboard, self.proposal, self.plane)
+        released = {row["id"]: row for row in self.rows(self.maya)["results"]}
+        self.assertIs(released[child.pk]["planned"], False)
+
+    def test_viewer_without_the_child_board_gets_no_row_and_no_planned(self):
+        self.planned_child()
+        outsider = self.member("olga", parent=Role.MEMBER)
+        body = self.rows(outsider)
+        self.assertFalse(body["visible"])
+        self.assertEqual(body["results"], [])
+        self.assertNotIn("planned", body)
+
+    def test_absent_or_anonymous_viewer_gets_no_row(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        from boards.services.card_links import children_for_viewer
+
+        self.planned_child()
+        for viewer in (AnonymousUser(), None):
+            out = children_for_viewer(self.parent, viewer)
+            self.assertFalse(out["visible"])
+            self.assertEqual(out["results"], [])
+            self.assertEqual(out["count"], 1)
+
+    def test_planned_costs_no_query(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from boards.services.card_links import children_for_viewer
+
+        self.planned_child()
+        with CaptureQueriesContext(connection) as one:
+            children_for_viewer(self.parent, self.maya)
+        for _ in range(3):
+            self.planned_child()
+        with CaptureQueriesContext(connection) as four:
+            out = children_for_viewer(self.parent, self.maya)
+        self.assertEqual(len(out["results"]), 4)
+        self.assertEqual(len(one), len(four))

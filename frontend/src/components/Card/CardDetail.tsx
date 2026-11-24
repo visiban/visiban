@@ -38,7 +38,8 @@ import { childrenCount, useCardChildren } from "./cardChildren";
 import { lastActivitySummary } from "../../utils/cardTimelineLabels";
 import { dropUnknownLabels } from "../../utils/cardLabels";
 import { isStaleCard } from "../../utils/cardVersion";
-import { formatDateStr, formatDateTimeUser, formatRelativeTime } from "../../utils/date";
+import { formatDateStr, formatDateTimeUser, formatRelativeTime, todayInTimezone } from "../../utils/date";
+import PlannedMoveWarning, { firstColumnId, plannedMoveWarningText } from "./PlannedMoveWarning";
 import type { UserDatePrefs } from "../../utils/date";
 import { isOverdue } from "../../utils/cardUrgency";
 import MentionTextarea from "./MentionTextarea";
@@ -945,7 +946,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         return;
       }
       setLocalCard((c) => ({ ...c, column: moveTargetColumn, swimlane: moveTargetSwimlane, ...(gates !== undefined ? { gates_passed: gates } : {}) }));
-      setShowMovePopover(false);
+      // #2550: focus goes back to the moved card's own Move control, never to the page body.
+      closeMovePopover();
     } catch (err) {
       setMovePopoverError(moveFailureMessage(err));
       setMoveRefusal(limitRefusal(err));
@@ -2841,6 +2843,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 disabled={moveForcing}
               />
             </div>
+            <PlannedMoveWarning text={plannedMoveWarningText(localCard, board.columns.find((c) => c.id === moveTargetColumn && c.id !== localCard.column), firstColumnId(board.columns), todayInTimezone(userTimezone))} />
             <div className="flex flex-col items-start gap-1">
               <p id={moveErrorId} role="alert" className="text-xs min-h-4 self-stretch">
                 {movePopoverError && <span className="text-danger">{movePopoverError}</span>}

@@ -8,7 +8,9 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { BoardFull, CardChildRow, CardChildrenColumn } from "../../types";
 import { formatBlockedDuration } from "../../utils/blockedState";
 import { colorChipStyle } from "../../utils/colorContrast";
-import { formatDueDate, formatRelativeTime } from "../../utils/date";
+import { formatDueDate, formatRelativeTime, todayInTimezone } from "../../utils/date";
+import { buildPlannedStatusLine } from "../../utils/cardStatusLine";
+import PlannedMoveWarning, { plannedMoveWarningText } from "./PlannedMoveWarning";
 import { useSharedMinuteClock } from "../../hooks/useSharedMinuteClock";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import { isImeComposing } from "../../utils/imeComposition";
@@ -552,6 +554,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
           columns={columns}
           board={childBoard}
           error={moveError}
+          userTimezone={userTimezone}
           onMove={(col) => void move(moving, col)}
           onClose={() => { const id = moving.id; setMoving(null); setMoveError(null); focusCard(id); }}
         />
@@ -605,6 +608,8 @@ interface MoveProps {
   columns: CardChildrenColumn[];
   board: { role: string; enforce_wip_limits?: boolean; enforce_wip_hard?: boolean };
   error: string | null;
+  /** #2550: the viewer's time zone, for the planned-date warning's "today". */
+  userTimezone?: string;
   onMove: (col: CardChildrenColumn) => void;
   onClose: () => void;
 }
@@ -614,7 +619,7 @@ interface MoveProps {
  * child board's counts, at-limit columns disabled with their reason. The server re-checks the limit; its
  * refusal is shown as the tab's error line.
  */
-function ChildMovePopover({ child, boardName, columns, board, error, onMove, onClose }: MoveProps) {
+function ChildMovePopover({ child, boardName, columns, board, error, userTimezone = "", onMove, onClose }: MoveProps) {
   const [choice, setChoice] = useState<number>(child.column_id);
   const firstRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -655,6 +660,7 @@ function ChildMovePopover({ child, boardName, columns, board, error, onMove, onC
           );
         })}
       </div>
+      <PlannedMoveWarning text={plannedMoveWarningText(child, choice === child.column_id ? null : target, columns[0]?.id, todayInTimezone(userTimezone))} />
       <p role="alert" className={error ? "text-xs text-danger" : "sr-only"}>{error ?? ""}</p>
       <div className="flex justify-end gap-3">
         <button type="button" onClick={onClose} className="min-h-11 px-3 py-1.5 text-sm text-fg-secondary rounded hover:bg-surface-hover hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
@@ -679,9 +685,13 @@ function ChildMovePopover({ child, boardName, columns, board, error, onMove, onC
  */
 function ChildCardFace({ child, userTimezone, userDateFormat }: { child: CardChildRow; userTimezone: string; userDateFormat: string }) {
   const labels = child.labels ?? [];
-  const due = child.due_date ? formatDueDate(child.due_date, userTimezone, userDateFormat) : null;
+  // #2553: a planned child's date is inactive (never Overdue or Due soon); it reads as the board's planned line.
+  const planned = child.planned === true
+    ? buildPlannedStatusLine({ planned: true, due_date: child.due_date, is_stale: false }, todayInTimezone(userTimezone))
+    : null;
+  const due = child.due_date && !planned ? formatDueDate(child.due_date, userTimezone, userDateFormat) : null;
   const showPriority = !!child.priority && child.priority !== "low";
-  if (labels.length === 0 && !due && !showPriority && !child.blocked) return null;
+  if (labels.length === 0 && !due && !planned && !showPriority && !child.blocked) return null;
   return (
     <div className="flex items-center gap-1.5 flex-wrap text-xs" data-testid="child-card-face">
       {/* Blocked takes the first metadata slot, as on the board's own card (CardItem). */}
@@ -704,6 +714,7 @@ function ChildCardFace({ child, userTimezone, userDateFormat }: { child: CardChi
         </span>
       )}
       {due && <span className={due.overdue ? "text-danger" : "text-fg-muted"}>{due.overdue && <span className="sr-only">Overdue, </span>}{due.label}</span>}
+      {planned && <span className={planned.tone === "warning" ? "text-warning" : "text-fg-tertiary"}>{planned.text}</span>}
     </div>
   );
 }
