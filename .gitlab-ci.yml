@@ -6650,7 +6650,8 @@ nightly-load-test:
     LOAD_TEST_EXTRA_BOARDS: "199"
     # Fourth token, for loadtest_analytics, the only member of the aged and linked
     # boards (#2430, #2424): their own account keeps every other scenario's data as
-    # the committed budgets were derived on it.
+    # the committed budgets were derived on it. The exit run (#2588) adds burst users to the aged
+    # board after the seed; see VISIBAN_LOAD_TEST_EXIT_BURST_TOKEN_DIR.
     VISIBAN_LOAD_TEST_ANALYTICS_TOKEN_FILE: "/tmp/visiban_load_test_analytics_token"
     # Archived generations on the aged board, 90 days apart: 4 is about a year of
     # history (about 12k cards, 125k movements) behind 2.4k active cards (#2430).
@@ -6668,7 +6669,31 @@ nightly-load-test:
     # (#2428), so it measures neither. What it measures is each endpoint's
     # latency, and the cost of two overlapping reads, with no admission queue.
     ANALYTICS_MAX_CONCURRENT: "2"
+    # Exit run (#2588), manual pipelines only; the scheduled nightly leaves all of these at their
+    # defaults and is unchanged. Set LOAD_TEST_EXIT_RUN=true (with LOAD_TEST_AGED_GENERATIONS=12
+    # and LOAD_TEST_SCALE=100 for the 3-year, 12k-card stress fixture) to serve with daphne
+    # and DEBUG=False and run the absolute-bar checks instead of the budget run. See "Exit run"
+    # in docs/development/nightly-load-test.md.
+    LOAD_TEST_EXIT_RUN: "false"
+    # Exit-run only. "daphne" is accepted only with LOAD_TEST_EXIT_RUN=true (which serves with
+    # daphne anyway); on its own the job fails at once, because the budget run is not supported
+    # under daphne and DEBUG=False (throttles, and budgets derived on runserver + DEBUG=True).
+    LOAD_TEST_SERVER: "runserver"
+    # ANALYTICS_MAX_CONCURRENT the exit-run server starts with (the shipped default is 1).
+    LOAD_TEST_EXIT_MAX_CONCURRENT: "1"
+    # Overview opens fired together, one per distinct burst user, and how many times. Must exceed
+    # the cap above plus the server's 4 waiters (analytics_admission.MAX_WAITERS), or no refusal is forced.
+    LOAD_TEST_EXIT_CONCURRENT_OPENS: "8"
+    LOAD_TEST_EXIT_ROUNDS: "3"
+    # One token per burst user (loadtest_exit_NN, members of the aged board), exit run only.
+    VISIBAN_LOAD_TEST_EXIT_BURST_TOKEN_DIR: "/tmp/visiban_load_test_exit_burst_tokens"
   before_script:
+    # Fail in seconds, before the long seed, on the one unsupported combination.
+    - |
+      if [ "${LOAD_TEST_SERVER}" = "daphne" ] && [ "${LOAD_TEST_EXIT_RUN}" != "true" ]; then
+        echo "FAIL: LOAD_TEST_SERVER=daphne is exit-run only; set LOAD_TEST_EXIT_RUN=true. The budget run is not supported under daphne (see Exit run in docs/development/nightly-load-test.md)."
+        exit 1
+      fi
     - !reference [.pip-floor, script]
     - !reference [.uv-install, script]
     - uv pip install --system --quiet -r backend/requirements.txt
@@ -6685,6 +6710,37 @@ nightly-load-test:
     - python manage.py provision_fuzz_token --username demo1 --token-file "${VISIBAN_LOAD_TEST_OWNER_TOKEN_FILE}" --set-random-password
     - python manage.py provision_fuzz_token --username demo3 --token-file "${VISIBAN_LOAD_TEST_MULTI_BOARD_TOKEN_FILE}" --set-random-password
     - python manage.py provision_fuzz_token --username loadtest_analytics --token-file "${VISIBAN_LOAD_TEST_ANALYTICS_TOKEN_FILE}" --set-random-password
+    # Exit run only (#2588): the burst users. The server's per-user analytics limit (2 in flight,
+    # analytics_admission.PER_USER_MAX_IN_FLIGHT) is checked before ANALYTICS_MAX_CONCURRENT, so a
+    # burst from one user would be refused by that limit whatever the cap is. One plain member of
+    # the aged board per concurrent open, each with its own token, leaves the global cap as the
+    # only thing that can refuse. Created after the seed, exit run only, so no budget scenario's
+    # data changes; same creation as the seed's loadtest_analytics (unusable password).
+    - |
+      if [ "${LOAD_TEST_EXIT_RUN}" = "true" ]; then
+        python manage.py shell -c "
+      import os
+      from django.contrib.auth import get_user_model
+      from boards.models import Board, BoardMembership
+      from boards.management.commands._load_test_fixtures import LOAD_TEST_AGED_BOARD_NAME
+      board = Board.objects.get(name=LOAD_TEST_AGED_BOARD_NAME)
+      n = int(os.environ['LOAD_TEST_EXIT_CONCURRENT_OPENS'])
+      for i in range(1, n + 1):
+          name = 'loadtest_exit_%02d' % i
+          user, created = get_user_model().objects.get_or_create(
+              username=name, defaults={'email': name + '@visiban.example', 'first_name': 'Load', 'last_name': 'Exit'})
+          if created:
+              user.set_unusable_password()
+              user.save()
+          BoardMembership.objects.get_or_create(board=board, user=user, defaults={'role': BoardMembership.Role.MEMBER})
+      print('exit-run burst users on the aged board:', n)
+      "
+        mkdir -p -m 700 "${VISIBAN_LOAD_TEST_EXIT_BURST_TOKEN_DIR}"
+        for i in $(seq 1 "${LOAD_TEST_EXIT_CONCURRENT_OPENS}"); do
+          u="loadtest_exit_$(printf '%02d' "${i}")"
+          python manage.py provision_fuzz_token --username "${u}" --token-file "${VISIBAN_LOAD_TEST_EXIT_BURST_TOKEN_DIR}/${u}" --set-random-password
+        done
+      fi
     # The seed bulk-inserts about 100k+ movements just before measuring. Production
     # databases are autovacuumed; a fresh CI Postgres may not be yet, so the job could
     # measure on stale statistics, with no visibility map, or overlapping autovacuum
@@ -6702,16 +6758,44 @@ nightly-load-test:
     # backend-schema-fuzz (#1607). after_script tails it on failure.
     # --noreload: the autoreloader would make $! the reloader parent, whose RSS is not
     # the server's. The PID file is how the script reads the server's peak RSS (#2430).
-    - python manage.py runserver --noreload 0.0.0.0:8000 > "${CI_PROJECT_DIR}/nightly-load-test-server.log" 2>&1 &
-    - echo $! > "${VISIBAN_LOAD_TEST_SERVER_PID_FILE}"
+    #
+    # Exit run (#2588): LOAD_TEST_EXIT_RUN=true serves with daphne and DEBUG=False, as production
+    # does, because the RSS bars are meaningless under runserver + DEBUG=True (DEBUG keeps a query
+    # log in memory). The scheduled nightly takes the runserver branch, unchanged. `daphne` is the
+    # plain command with DEBUG and ANALYTICS_MAX_CONCURRENT set as per-command variables (no
+    # `sh -c`, no subshell), so $! is the daphne process whose VmHWM the script reads. With
+    # DEBUG=False settings.py refuses a localhost CORS_ALLOWED_ORIGINS (its default), so a
+    # non-localhost placeholder is passed; the load test sends no Origin header. Settings were
+    # loaded under this exact env with DEBUG=False; nothing else raised (a DEFAULT_FROM_EMAIL
+    # warning only). The shipped
+    # ANALYTICS_MAX_CONCURRENT (1) applies, not the nightly's 2: the over-cap bar needs the real cap.
+    - |
+      if [ "${LOAD_TEST_EXIT_RUN}" = "true" ]; then
+        DEBUG=False ANALYTICS_MAX_CONCURRENT="${LOAD_TEST_EXIT_MAX_CONCURRENT}" \
+          CORS_ALLOWED_ORIGINS="https://loadtest.invalid" \
+          daphne -b 0.0.0.0 -p 8000 visiban.asgi:application > "${CI_PROJECT_DIR}/nightly-load-test-server.log" 2>&1 &
+      else
+        python manage.py runserver --noreload 0.0.0.0:8000 > "${CI_PROJECT_DIR}/nightly-load-test-server.log" 2>&1 &
+      fi
+      echo $! > "${VISIBAN_LOAD_TEST_SERVER_PID_FILE}"
     # Poll liveness instead of a fixed sleep, same pattern as oidc-smoke /
     # backend-schema-fuzz.
     - |
       for i in $(seq 1 30); do
         python3 -c "import requests; requests.get('http://localhost:8000/api/health/liveness/', timeout=2)" \
-          2>/dev/null && break
+          2>/dev/null && UP=1 && break
         sleep 1
       done
+      # Daphne mode only: a server that never came up (a settings error under DEBUG=False
+      # exits at once) fails the job here, with its log, instead of surfacing as a
+      # connection error minutes later. Runserver mode is unchanged.
+      if [ "${LOAD_TEST_EXIT_RUN}" = "true" ]; then
+        if [ -z "${UP}" ]; then
+          echo "FAIL: the daphne server did not answer liveness within 30s. Server log:"
+          tail -n 200 "${CI_PROJECT_DIR}/nightly-load-test-server.log"
+          exit 1
+        fi
+      fi
     - cd ..
   script:
     # Self-test immediately before the real invocation, same image (#1093) —
@@ -6719,6 +6803,24 @@ nightly-load-test:
     # before trusting this run's verdict.
     - python3 scripts/nightly_load_test.py --self-test
     - python3 scripts/check_email_login_plan.py --self-test
+    # Exit run (#2588): absolute bars on the aged board, then stop; the budget run and the
+    # email-login plan check below are the scheduled nightly's.
+    - |
+      if [ "${LOAD_TEST_EXIT_RUN}" = "true" ]; then
+        python3 scripts/nightly_load_test.py --exit-run \
+          --base-url http://localhost:8000 \
+          --analytics-token-file "${VISIBAN_LOAD_TEST_ANALYTICS_TOKEN_FILE}" \
+          --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}" \
+          --server-pid-file "${VISIBAN_LOAD_TEST_SERVER_PID_FILE}" \
+          --exit-concurrent-opens "${LOAD_TEST_EXIT_CONCURRENT_OPENS}" \
+          --exit-rounds "${LOAD_TEST_EXIT_ROUNDS}" \
+          --exit-max-concurrent "${LOAD_TEST_EXIT_MAX_CONCURRENT}" \
+          --exit-burst-token-dir "${VISIBAN_LOAD_TEST_EXIT_BURST_TOKEN_DIR}" \
+          --fixture-scale "${LOAD_TEST_SCALE}" \
+          --fixture-aged-generations "${LOAD_TEST_AGED_GENERATIONS}" \
+          --exit-output nightly-load-test-exit-run.json
+        exit $?
+      fi
     - |
       set +e
       python3 scripts/nightly_load_test.py \
@@ -6760,6 +6862,7 @@ nightly-load-test:
     expire_in: 90 days
     paths:
       - nightly-load-test-results.json
+      - nightly-load-test-exit-run.json
       - nightly-load-test-server.log
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $LOAD_TEST_SCHEDULE == "true"'
