@@ -190,13 +190,18 @@ class CardPositionMachine(RuleBasedStateMachine):
             return
         card_id = data.draw(st.sampled_from(live_ids))
         card = Card.objects.get(pk=card_id)
+        before = (card.position, card.column_id, card.swimlane_id)
         new_position = card.position + data.draw(st.integers(1, 5))
         resp = self.client.patch(
             f"{self.base}/cards/{card_id}/", {"position": new_position}, format="json"
         )
         assert 400 <= resp.status_code < 500, (resp.status_code, resp.content)
         card.refresh_from_db()
-        assert card.position != new_position, "PATCH changed position (#1275 bypass)"
+        # A rejected PATCH must leave the card exactly where it was, not merely
+        # off the requested slot.
+        assert (card.position, card.column_id, card.swimlane_id) == before, (
+            "PATCH moved the card (#1275 bypass)"
+        )
 
     @precondition(lambda self: bool(self.cards))
     @rule(data=st.data())
