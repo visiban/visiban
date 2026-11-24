@@ -387,6 +387,17 @@ check "records text: an --input cut by --window prints how many MRs were not rea
 check "records text: no snapshot or other-user figure leaks into a mean" \
   "$(! printf '%s' "$REC_TEXT" | grep -E '^(feat|fix|docs|chore) ' | grep -qE '9\.33|12\.00|99\.00|50\.00' && echo 0 || echo 1)"
 
+# --- Rescue lines (#2304): zero is reported, every choice is present ------
+check "rescue block lists all four choices with zero counts when no MR reports one" \
+  "$(python3 - "$TMP/out.json" <<'PYEOF' && echo 0 || echo 1
+import json, sys
+r = json.load(open(sys.argv[1]))["rescue"]
+ok = (set(r["by_choice"]) == {"fable", "opus-again", "dropped", "escalation-pending"}
+      and r["rescues"] == 0 and r["reported"] == 0 and r["mrs"] == 5)
+sys.exit(0 if ok else 1)
+PYEOF
+)"
+
 echo ""
 if [[ "$fail" -eq 0 ]]; then
   echo "kaizen_gate_ledger.test.sh: all $pass checks passed"

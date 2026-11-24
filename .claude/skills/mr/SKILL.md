@@ -243,6 +243,11 @@ is the contract; this is what the description carries.
   count, so its `gate:` line carries a `budget-stopped` field instead of a plain count, for
   example `- gate: regression-check — 1 findings (sonnet; budget-stopped)`; never record
   a stopped gate's `0 findings` as clean.
+- **`rescue:`** is written by `/wave` only, in `## Gates`: `rescue: none` when no Fable-rescue
+  trigger fired for the MR's issue(s), else one `rescue: #N - trigger <1|2>; choice <fable|opus-again|dropped|escalation-pending>;
+  outcome <resolved|failed|n/a>` line per issue (`.claude/skills/wave/SKILL.md` § Rescue escalation).
+  `/kaizen` counts them by choice, zeros included. A plain `/mr` with no `/wave` behind it writes none;
+  a missing line is silent, not zero.
 - **Omit a line when its script exited non-zero** and say why in `## Notes`. A partial figure
   would read as a whole one (except the documented `N+` form above).
 - **Check the draft** before `glab mr create`: `python3 scripts/cost_ledger_lines.py --file

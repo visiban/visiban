@@ -676,9 +676,13 @@ state plainly:
   (`scripts/wt remove <issue>` or `scripts/wt prune`).
 - The wave's shape: how many agents, how many on Opus and on Fable, and at what effort.
 - One `rescue:` line per issue a *Rescue escalation* trigger fired on, and `rescue: none` when
-  none did (report the zero too; no script reads this line yet (#2304), so it lives in this report
-  only): `rescue: #N — trigger <1 implementer strike two | 2 round-2 BLOCKER>; choice <fable |
-  opus-again | dropped | escalation-pending>; outcome <resolved | failed | n/a>`.
+  none did (report the zero too): `rescue: #N — trigger <1 implementer strike two | 2 round-2
+  BLOCKER>; choice <fable | opus-again | dropped | escalation-pending>; outcome <resolved | failed |
+  n/a>`. **Also write the same line into the `## Gates` section of the issue's MR**, last, beside
+  `budget-exceeded:` (`rescue: none` on every MR of a wave with no rescue). `/kaizen` reads it via
+  `scripts/kaizen_gate_ledger.py`, and `scripts/cost_ledger_lines.py --file <body.md>` rejects a
+  malformed or contradictory one (#2304). An issue dropped with no MR leaves its line in this report
+  only.
 - Per role, the tool calls and minutes each agent spent against its budget (implementer, gate,
   `completeness-check`), which agents reached a budget and whether you expanded it, and each
   branch's `budget-exceeded:` line. This is the recalibration data for the provisional budgets.
