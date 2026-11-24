@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Group } from "../../types";
 import CreateGroupModal from "./CreateGroupModal";
@@ -55,6 +55,10 @@ function GroupNode({
   const [addingSubgroup, setAddingSubgroup] = useState(false);
   const hasChildren = node.children.length > 0;
   const { group } = node;
+  const baseId = useId();
+  const nameId = `${baseId}-name`;
+  const healthId = `${baseId}-health`;
+  const statsId = `${baseId}-stats`;
 
   return (
     <div className="relative">
@@ -66,6 +70,10 @@ function GroupNode({
       <div
         role="button"
         tabIndex={0}
+        // The nested Expand / Add subgroup buttons are only opacity-0 (still in the accessibility
+        // tree), so name-from-content would fold their labels into the row's name (#2569). Name the
+        // row from its group name, health and stats instead; the buttons keep their own names.
+        aria-labelledby={`${nameId} ${healthId} ${statsId}`}
         className="w-full flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-surface-hover/50 transition cursor-pointer group/row focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         onClick={() => navigate(`/groups/${group.id}`)}
         // void: declarative-router navigate() resolves synchronously here; any
@@ -84,14 +92,14 @@ function GroupNode({
         </button>
 
         {/* Name */}
-        <span className="text-fg text-sm font-medium flex-1 min-w-0 truncate">{group.name}</span>
+        <span id={nameId} className="text-fg text-sm font-medium flex-1 min-w-0 truncate">{group.name}</span>
 
         {/* Health (#1133): between the name and the stats; the name truncates first. */}
-        <HealthListingPill fields={group} compactCue />
+        <span id={healthId} className="contents"><HealthListingPill fields={group} compactCue /></span>
 
         {/* Stats — withheld (0) for a navigation-only ancestor, so not shown (#1681) */}
         {!group.navigation_only && (
-          <span className="text-fg-muted text-xs shrink-0 tabular-nums">
+          <span id={statsId} className="text-fg-muted text-xs shrink-0 tabular-nums">
             {group.board_count} board{group.board_count !== 1 ? "s" : ""}
             {" · "}
             {group.member_count} member{group.member_count !== 1 ? "s" : ""}

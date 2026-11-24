@@ -77,7 +77,7 @@ function transitionText(movement: CardMovement) {
 }
 
 /** The card's transitions, oldest first, from the existing card movements endpoint. */
-function Transitions({ boardId, card }: { boardId: number; card: FlowCard }) {
+function Transitions({ boardId, card, onBeforeRetry }: { boardId: number; card: FlowCard; onBeforeRetry: () => void }) {
   const [movements, setMovements] = useState<CardMovement[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -98,7 +98,7 @@ function Transitions({ boardId, card }: { boardId: number; card: FlowCard }) {
         Failed to load transitions.{" "}
         <button
           type="button"
-          onClick={() => setAttempt((n) => n + 1)}
+          onClick={() => { onBeforeRetry(); setAttempt((n) => n + 1); }}
           className="underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Retry
@@ -124,13 +124,15 @@ function Transitions({ boardId, card }: { boardId: number; card: FlowCard }) {
 }
 
 function CardBody({
-  boardId, selection, card, onOpenCard, onClose,
+  boardId, selection, card, onOpenCard, onClose, onBeforeRetry,
 }: {
   boardId: number;
   selection: Extract<DrillSelection, { kind: "card" }>;
   card: FlowCard | undefined;
   onOpenCard?: (cardId: number) => void;
   onClose: () => void;
+  /** Runs before the transitions Retry reloads: Retry unmounts, so focus moves to the dialog, which survives (#2568). */
+  onBeforeRetry: () => void;
 }) {
   const longest = Math.max(0, ...(selection.dwell ?? []).map((d) => d.days));
   return (
@@ -165,7 +167,7 @@ function CardBody({
       {card && (
         <section aria-label="Transitions section" className="flex flex-col gap-1.5">
           <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Transitions</h3>
-          <Transitions boardId={boardId} card={card} />
+          <Transitions boardId={boardId} card={card} onBeforeRetry={onBeforeRetry} />
         </section>
       )}
       {card && onOpenCard && !card.archived && (
@@ -440,7 +442,7 @@ export default function FlowDrillDrawer({ boardId, selection, cards, onChange, o
           {selection.kind === "column" ? (
             <ColumnBody selection={selection} cards={cards} onChange={onChange} onOpenCard={onOpenCard} onClose={onClose} />
           ) : selection.kind === "card" ? (
-            <CardBody boardId={boardId} selection={selection} card={card} onOpenCard={onOpenCard} onClose={onClose} />
+            <CardBody boardId={boardId} selection={selection} card={card} onOpenCard={onOpenCard} onClose={onClose} onBeforeRetry={() => panelRef.current?.focus()} />
           ) : (
             <CardList
               selection={selection}
