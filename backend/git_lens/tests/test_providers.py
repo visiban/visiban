@@ -4,6 +4,10 @@ These require neither the database nor the git_lens app to be installed (the
 providers/types modules import no Django models), so they run in the main test
 suite regardless of the GIT_LENS_ENABLED flag. Upstream HTTP is mocked.
 """
+import json
+import os
+import subprocess
+import sys
 from unittest.mock import MagicMock, patch
 
 from django.core.cache import cache
@@ -712,3 +716,278 @@ class NoRedirectTests(SimpleTestCase):
                     fetch(token, "o/r", LensConfig(), LensFilters())
                 # Generic upstream error, not a more specific subclass.
                 self.assertIs(type(cm.exception), providers.LensError)
+
+
+class MaxPagesSettingTests(SimpleTestCase):
+    """The issue page cap is operator-set since #1580 (GIT_LENS_MAX_PAGES)."""
+
+    def test_default_keeps_the_historical_300_issue_cap(self):
+        # No env var in the test settings: existing installs behave identically.
+        self.assertEqual(providers.DEFAULT_MAX_PAGES, 3)
+        self.assertEqual(providers.MAX_PAGES, 3)
+        self.assertEqual(providers.MAX_ISSUES, 300)
+
+    def test_clamp_keeps_in_range_values(self):
+        for value in (1, 3, 5, providers.MAX_PAGES_CEILING):
+            self.assertEqual(providers.clamp_max_pages(value), value)
+
+    def test_clamp_bounds_out_of_range_values(self):
+        # Zero/negative would silently disable the lens; huge values would make one
+        # fetch unbounded. Both clamp instead of raising at boot.
+        self.assertEqual(providers.clamp_max_pages(0), 1)
+        self.assertEqual(providers.clamp_max_pages(-4), 1)
+        self.assertEqual(providers.clamp_max_pages(500), providers.MAX_PAGES_CEILING)
+
+    def test_clamp_falls_back_to_default_for_non_int(self):
+        for value in (None, "", "abc", "2.5", 2.5, True, False):
+            self.assertEqual(providers.clamp_max_pages(value), providers.DEFAULT_MAX_PAGES)
+
+    def test_clamp_parses_the_env_string(self):
+        # settings.py reads the env var as a string so a typo cannot stop the boot.
+        self.assertEqual(providers.clamp_max_pages("7"), 7)
+        self.assertEqual(providers.clamp_max_pages(" 5 "), 5)
+        self.assertEqual(providers.clamp_max_pages("50"), providers.MAX_PAGES_CEILING)
+        self.assertEqual(providers.clamp_max_pages("0"), 1)
+
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_reads_up_to_a_raised_page_cap(self, mock_get):
+        full = [{"iid": n, "title": "t", "web_url": "u", "state": "opened", "labels": [], "assignees": []}
+                for n in range(providers.PER_PAGE)]
+        mock_get.return_value = _resp(full)
+        with patch.object(providers, "MAX_PAGES", 5):
+            data = providers.gitlab_fetch(None, "g/p", LensConfig("state", "milestone"), LensFilters())
+        self.assertEqual(mock_get.call_count, 5)
+        self.assertEqual(len(data.issues), 500)
+        self.assertTrue(data.truncated)
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_reads_up_to_a_raised_page_cap(self, mock_get):
+        full = [{"number": n, "title": "t", "html_url": "u", "state": "open", "labels": [], "assignees": []}
+                for n in range(providers.PER_PAGE)]
+        mock_get.return_value = _resp(full)
+        with patch.object(providers, "MAX_PAGES", 5):
+            data = providers.github_fetch("tok", "o/r", LensConfig("state", "milestone"), LensFilters())
+        self.assertEqual(mock_get.call_count, 5)
+        self.assertEqual(len(data.issues), 500)
+        self.assertTrue(data.truncated)
+
+
+
+# Settings are evaluated in a subprocess (same pattern as test_fuzz_stub._eval):
+# MAX_PAGES and the lock TTL are module-level constants derived at import time, so
+# the only honest test of the env var -> settings -> providers -> views wiring is a
+# fresh interpreter. GIT_LENS_ENABLED is set so git_lens.views can import its models.
+_MAX_PAGES_SCRIPT = """\
+import json, os
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "visiban.settings")
+import django
+django.setup()
+from git_lens import providers, views
+print(json.dumps({
+    "MAX_PAGES": providers.MAX_PAGES,
+    "LOCK_TTL": views.LENS_FETCH_LOCK_TTL,
+    "BOUNDS": views.lens_bounds(),
+}))
+"""
+
+
+class MaxPagesEnvWiringTests(SimpleTestCase):
+    """#1580: GIT_LENS_MAX_PAGES actually reaches the page cap, the fetch lock and
+    the admin bounds report, and a bogus value degrades to the default."""
+
+    databases = []
+
+    def _eval(self, **overrides):
+        env = {
+            "DJANGO_SECRET_KEY": "test-secret-key-not-change-me-in-production",
+            "DATABASE_URL": "sqlite:///dev.db",
+            # The child gets a clean environment, so DEBUG must be set here: without
+            # it settings.py takes the production path and rejects the default
+            # localhost CORS origin. A local backend/.env hides that; CI has none.
+            "DEBUG": "True",
+            "GIT_LENS_ENABLED": "true",
+            **overrides,
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        }
+        result = subprocess.run(
+            [sys.executable, "-c", _MAX_PAGES_SCRIPT],
+            env=env, capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout.strip().splitlines()[-1])
+
+    def _worst_case_calls(self, pages):
+        return pages + providers.CLOSED_PAGES + 2 * providers.MAX_AUX_PAGES + 1
+
+    def test_raised_value_reaches_providers_lock_and_bounds(self):
+        out = self._eval(GIT_LENS_MAX_PAGES="5")
+        self.assertEqual(out["MAX_PAGES"], 5)
+        self.assertEqual(out["BOUNDS"]["max_issue_pages"], 5)
+        calls = self._worst_case_calls(5)
+        self.assertEqual(out["BOUNDS"]["max_outbound_calls_per_fetch"], calls)
+        self.assertGreaterEqual(out["LOCK_TTL"], calls * providers.REQUEST_TIMEOUT)
+
+    def test_bogus_value_falls_back_to_the_default(self):
+        out = self._eval(GIT_LENS_MAX_PAGES="bogus")
+        self.assertEqual(out["MAX_PAGES"], providers.DEFAULT_MAX_PAGES)
+        self.assertEqual(out["BOUNDS"]["max_issue_pages"], providers.DEFAULT_MAX_PAGES)
+        calls = self._worst_case_calls(providers.DEFAULT_MAX_PAGES)
+        self.assertEqual(out["BOUNDS"]["max_outbound_calls_per_fetch"], calls)
+        self.assertGreaterEqual(out["LOCK_TTL"], calls * providers.REQUEST_TIMEOUT)
+
+    def test_lock_ttl_grows_with_the_setting(self):
+        self.assertGreater(
+            self._eval(GIT_LENS_MAX_PAGES="5")["LOCK_TTL"],
+            self._eval(GIT_LENS_MAX_PAGES="bogus")["LOCK_TTL"],
+        )
+
+def _gl_raw(n, state="opened"):
+    return {"iid": n, "title": "t", "web_url": "u", "state": state, "labels": [], "assignees": []}
+
+
+def _gh_raw(n, state="open", pr=False):
+    raw = {"number": n, "title": "t", "html_url": "u", "state": state, "labels": [], "assignees": []}
+    if pr:
+        raw["pull_request"] = {"url": "x"}
+    return raw
+
+
+class ClosedLimitTests(SimpleTestCase):
+    """#1581: closed issues are read in their own capped pass so they never use
+    the open-issue page budget."""
+
+    def setUp(self):
+        cache.clear()
+
+    def _by_state(self, open_pages, closed_batch, gitlab=True):
+        open_state = "opened" if gitlab else "open"
+
+        def fake(url, params=None, **kwargs):
+            if params.get("state") == "closed":
+                return _resp(closed_batch)
+            self.assertEqual(params.get("state"), open_state)
+            page = params["page"]
+            return _resp(open_pages[page - 1] if page <= len(open_pages) else [])
+
+        return fake
+
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_reads_open_with_full_budget_then_one_capped_closed_page(self, mock_get):
+        full = [[_gl_raw(p * 1000 + n) for n in range(providers.PER_PAGE)] for p in range(providers.MAX_PAGES)]
+        closed = [_gl_raw(9000 + n, "closed") for n in range(20)]
+        mock_get.side_effect = self._by_state(full, closed)
+        data = providers.gitlab_fetch(None, "g/p", LensConfig("state", "milestone"), LensFilters(closed_limit=20))
+        self.assertEqual(mock_get.call_count, providers.MAX_PAGES + providers.CLOSED_PAGES)
+        open_issues = [i for i in data.issues if i.state == "open"]
+        self.assertEqual(len(open_issues), providers.MAX_ISSUES)  # not crowded out
+        self.assertEqual(len(data.issues) - len(open_issues), 20)
+        self.assertTrue(data.truncated)
+        self.assertTrue(data.closed_truncated)
+        self.assertEqual(data.closed_limit, 20)
+        closed_params = mock_get.call_args_list[-1].kwargs["params"]
+        self.assertEqual(closed_params["per_page"], 20)
+        self.assertEqual(closed_params["page"], 1)
+        self.assertEqual(closed_params["order_by"], "updated_at")
+        self.assertEqual(closed_params["sort"], "desc")
+
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_closed_page_short_of_the_limit_is_not_truncated(self, mock_get):
+        mock_get.side_effect = self._by_state([[_gl_raw(1)]], [_gl_raw(2, "closed")])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(closed_limit=50))
+        self.assertFalse(data.closed_truncated)
+        self.assertEqual(data.total_count, 2)
+        self.assertEqual(data.to_dict()["closed_limit"], 50)
+        self.assertFalse(data.to_dict()["closed_truncated"])
+
+    @patch("git_lens.providers.requests.get")
+    def test_zero_hides_closed_issues_without_a_closed_request(self, mock_get):
+        mock_get.side_effect = self._by_state([[_gl_raw(1)]], [_gl_raw(2, "closed")])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(closed_limit=0))
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertEqual([i.number for i in data.issues], [1])
+        self.assertEqual(data.closed_limit, 0)
+
+    @patch("git_lens.providers.requests.get")
+    def test_issue_closed_between_the_two_requests_renders_once(self, mock_get):
+        mock_get.side_effect = self._by_state([[_gl_raw(1)]], [_gl_raw(1, "closed"), _gl_raw(2, "closed")])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(closed_limit=20))
+        self.assertEqual(sorted(i.number for i in data.issues), [1, 2])
+
+    @patch("git_lens.providers.requests.get")
+    def test_state_filter_bypasses_the_closed_limit(self, mock_get):
+        mock_get.return_value = _resp([_gl_raw(5, "closed")])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(state="closed", closed_limit=20))
+        self.assertEqual(mock_get.call_count, 1)
+        params = mock_get.call_args_list[0].kwargs["params"]
+        self.assertEqual(params["state"], "closed")
+        self.assertEqual(params["per_page"], providers.PER_PAGE)  # full budget, not 20
+        self.assertIsNone(data.closed_limit)
+
+    @patch("git_lens.providers.requests.get")
+    def test_no_limit_keeps_the_single_all_states_read(self, mock_get):
+        mock_get.return_value = _resp([_gl_raw(1), _gl_raw(2, "closed")])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters())
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertNotIn("state", mock_get.call_args_list[0].kwargs["params"])
+        self.assertIsNone(data.closed_limit)
+
+    @patch("git_lens.providers.requests.get")
+    def test_out_of_choice_limit_uses_the_default_page_size(self, mock_get):
+        mock_get.side_effect = self._by_state([[_gl_raw(1)]], [])
+        providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(closed_limit=5000))
+        self.assertEqual(
+            mock_get.call_args_list[-1].kwargs["params"]["per_page"], providers.DEFAULT_CLOSED_LIMIT
+        )
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_closed_pass_sorts_by_update_and_skips_pull_requests(self, mock_get):
+        closed = [_gh_raw(10, "closed"), _gh_raw(11, "closed", pr=True)]
+        mock_get.side_effect = self._by_state([[_gh_raw(1)]], closed, gitlab=False)
+        data = providers.github_fetch("tok", "o/r", LensConfig(), LensFilters(closed_limit=20))
+        self.assertEqual(sorted(i.number for i in data.issues), [1, 10])
+        params = mock_get.call_args_list[-1].kwargs["params"]
+        self.assertEqual(params["state"], "closed")
+        self.assertEqual(params["sort"], "updated")
+        self.assertEqual(params["direction"], "desc")
+        self.assertEqual(params["per_page"], 20)
+        self.assertFalse(data.closed_truncated)
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_full_closed_page_is_truncated_even_after_dropping_prs(self, mock_get):
+        closed = [_gh_raw(100 + n, "closed", pr=(n % 2 == 0)) for n in range(20)]
+        mock_get.side_effect = self._by_state([[_gh_raw(1)]], closed, gitlab=False)
+        data = providers.github_fetch("tok", "o/r", LensConfig(), LensFilters(closed_limit=20))
+        self.assertTrue(data.closed_truncated)
+        self.assertIsNone(data.total_count)
+
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_closed_pass_carries_every_server_side_filter(self, mock_get):
+        mock_get.side_effect = self._by_state([[_gl_raw(1)]], [_gl_raw(2, "closed")])
+        providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(
+            labels=("bug", "ui"), assignee="ana", milestone="v1", closed_limit=20,
+        ))
+        params = mock_get.call_args_list[-1].kwargs["params"]
+        self.assertEqual(params["state"], "closed")
+        self.assertEqual(params["labels"], "bug,ui")
+        self.assertEqual(params["assignee_username"], "ana")
+        self.assertEqual(params["milestone"], "v1")
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_closed_pass_carries_every_server_side_filter(self, mock_get):
+        by_state = self._by_state([[_gh_raw(1)]], [_gh_raw(2, "closed")], gitlab=False)
+
+        def fake(url, params=None, **kwargs):
+            if url.endswith("/milestones"):
+                return _resp([{"title": "v1", "number": 7}])
+            return by_state(url, params=params, **kwargs)
+
+        mock_get.side_effect = fake
+        providers.github_fetch("tok", "o/r", LensConfig(), LensFilters(
+            labels=("bug", "ui"), assignee="ana", milestone="v1", closed_limit=20,
+        ))
+        params = mock_get.call_args_list[-1].kwargs["params"]
+        self.assertEqual(params["state"], "closed")
+        self.assertEqual(params["labels"], "bug,ui")
+        self.assertEqual(params["assignee"], "ana")
+        self.assertEqual(params["milestone"], "7")

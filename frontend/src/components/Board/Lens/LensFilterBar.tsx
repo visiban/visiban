@@ -3,12 +3,14 @@ import { useInlineEditEscape } from "../../../hooks/useInlineEditEscape";
 import CheckboxDropdown from "../../Common/CheckboxDropdown";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import HideFilterBarButton from "../HideFilterBarButton";
-import { LENS_NONE, MAX_LENS_LABELS } from "./lensDims";
+import { DEFAULT_LENS_CLOSED_LIMIT, LENS_NONE, MAX_LENS_LABELS, type LensClosedLimit } from "./lensDims";
 
 export type LensState = "all" | "open" | "closed";
 
 interface Props {
   state: LensState;
+  /** How many recently updated closed issues to include when `state` is all (#1581). */
+  closedLimit: LensClosedLimit;
   /** Milestone title, the `__none__` sentinel, or "" for all. Free text — see note below. */
   milestone: string;
   /** AND-ed label names (server-side). */
@@ -23,6 +25,7 @@ interface Props {
   availableAssignees: string[];
   activeCount: number;
   onStateChange: (s: LensState) => void;
+  onClosedLimitChange: (c: LensClosedLimit) => void;
   onMilestoneChange: (m: string) => void;
   onLabelsChange: (l: string[]) => void;
   onAssigneeChange: (a: string) => void;
@@ -37,6 +40,16 @@ const STATE_OPTIONS = [
   { value: "open", label: "State: Open" },
   { value: "closed", label: "State: Closed" },
 ];
+
+const CLOSED_OPTIONS: { value: LensClosedLimit; label: string }[] = [
+  { value: "0", label: "Closed: Hidden" },
+  { value: "20", label: "Closed: Last 20" },
+  { value: "50", label: "Closed: Last 50" },
+  { value: "100", label: "Closed: Last 100" },
+  { value: "all", label: "Closed: All" },
+];
+const DEFAULT_CLOSED_LABEL =
+  CLOSED_OPTIONS.find((o) => o.value === DEFAULT_LENS_CLOSED_LIMIT)?.label ?? "Closed";
 
 /**
  * The display spelling of the `__none__` milestone sentinel. The milestone control
@@ -66,6 +79,7 @@ const milestoneFromInput = (v: string) =>
  */
 export default function LensFilterBar({
   state,
+  closedLimit,
   milestone,
   labels,
   assignee,
@@ -75,6 +89,7 @@ export default function LensFilterBar({
   availableAssignees,
   activeCount,
   onStateChange,
+  onClosedLimitChange,
   onMilestoneChange,
   onLabelsChange,
   onAssigneeChange,
@@ -157,6 +172,16 @@ export default function LensFilterBar({
         selected={state === "all" ? null : state}
         onChange={(v) => onStateChange((v as LensState) ?? "all")}
       />
+      {/* Closed-issue limit (#1581). Only meaningful with State: All — a state
+          filter asks for one state outright, so the control steps aside then. */}
+      {state === "all" && (
+        <SingleSelectDropdown<LensClosedLimit>
+          label={DEFAULT_CLOSED_LABEL}
+          options={CLOSED_OPTIONS}
+          selected={closedLimit === DEFAULT_LENS_CLOSED_LIMIT ? null : closedLimit}
+          onChange={(v) => onClosedLimitChange(v ?? DEFAULT_LENS_CLOSED_LIMIT)}
+        />
+      )}
 
       <input
         list="lens-milestone-options"

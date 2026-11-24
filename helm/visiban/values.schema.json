@@ -108,6 +108,12 @@
               "description": "GIT_LENS_ENABLED (#1835). true enables the Issue Board Lens (adds the git_lens app and its tables); false (default) leaves the variable unset.",
               "type": "boolean"
             },
+            "gitLensMaxPages": {
+              "description": "GIT_LENS_MAX_PAGES (#1580). Pages of 100 issues one Issue Board Lens refresh may load, 1 to 10. null (default) leaves the variable unset, so the backend default of 3 (300 issues) applies.",
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 10
+            },
             "webhooksEnabled": {
               "description": "WEBHOOKS_ENABLED (#863). true lets board admins register outbound webhooks; false (default) leaves the variable unset. Refused together with demo.enabled.",
               "type": "boolean"

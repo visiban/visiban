@@ -40,9 +40,47 @@ from .types import (
 )
 
 # --- tuning ---------------------------------------------------------------
-PER_PAGE = 100
-MAX_PAGES = 3  # hard cap → at most 300 issues per board in v1
+PER_PAGE = 100  # already both providers' per-page maximum
+DEFAULT_MAX_PAGES = 3  # → 300 issues per board, the pre-#1580 hard cap
+# Ceiling on the operator setting. Every page is one more outbound call charged to
+# the shared provider rate limit (anonymous GitLab reads are billed to the
+# instance's own IP) and ten more seconds of worst-case fetch time, so the setting
+# is a dial, not an off switch for the bound.
+MAX_PAGES_CEILING = 10
+
+
+def clamp_max_pages(value) -> int:
+    """``GIT_LENS_MAX_PAGES`` reduced to a usable page count.
+
+    Out-of-range values clamp to 1..``MAX_PAGES_CEILING`` rather than raising, and
+    anything that is not an int falls back to the default: a misconfigured env var
+    should degrade the lens to a sane cap, never stop the app booting or make the
+    fetch unbounded.
+    """
+    if isinstance(value, str):
+        try:
+            value = int(value.strip())
+        except ValueError:
+            return DEFAULT_MAX_PAGES
+    if isinstance(value, bool) or not isinstance(value, int):
+        return DEFAULT_MAX_PAGES
+    return max(1, min(MAX_PAGES_CEILING, value))
+
+
+MAX_PAGES = clamp_max_pages(getattr(settings, "GIT_LENS_MAX_PAGES", DEFAULT_MAX_PAGES))
 MAX_ISSUES = PER_PAGE * MAX_PAGES
+# Closed-issue limit (#1581). With no state filter, open issues get the whole page
+# budget and closed issues are read separately: ONE page of the most recently
+# updated ones, sized to the limit. A fixed choice set (not free text) keeps the
+# cache-key fan-out it adds to five values, and the single page keeps the extra
+# outbound cost to one call (CLOSED_PAGES, counted in views' worst-case formula).
+# DEFAULT_CLOSED_LIMIT is the web app's default, which it sends explicitly; the
+# API's own default (no closed_limit param) stays the single state=all read, so
+# the 1.x response contract is unchanged. It is also the fallback for an
+# out-of-choice value reaching a provider directly.
+CLOSED_LIMIT_CHOICES = (0, 20, 50, 100)
+DEFAULT_CLOSED_LIMIT = 50
+CLOSED_PAGES = 1
 # Branches + open MRs are only fetched for the "pipeline" column dim, and are
 # capped harder than issues: the linking only needs recent/active branches and
 # the open-MR set, so a low cap keeps the extra outbound calls bounded.
@@ -458,7 +496,30 @@ def apply_pivot(issues: list[NormalizedIssue], config: LensConfig):
     return columns, swimlanes, issues
 
 
-def _finalize(issues, truncated, provider, repo, source_url, config) -> LensData:
+def _applied_closed_limit(filters: LensFilters) -> int | None:
+    """The closed-issue limit a fetch applies, or None for the single state=all pass.
+
+    Only an unfiltered-state fetch splits open from closed: ``state=open`` never
+    reads closed issues and ``state=closed`` is an explicit request for them, which
+    gets the full page budget. A value outside the choice set is treated as the
+    default rather than trusted, so a direct caller cannot size the closed page.
+    """
+    if filters.state is not None or filters.closed_limit is None:
+        return None
+    if filters.closed_limit not in CLOSED_LIMIT_CHOICES:
+        return DEFAULT_CLOSED_LIMIT
+    return filters.closed_limit
+
+
+def _merge_closed(issues: list[NormalizedIssue], closed: list[NormalizedIssue]) -> None:
+    """Append the closed pass, skipping any issue the open pass already holds (one
+    closed between the two requests would otherwise render twice)."""
+    seen = {i.number for i in issues}
+    issues.extend(i for i in closed if i.number not in seen)
+
+
+def _finalize(issues, truncated, provider, repo, source_url, config, closed_limit=None,
+              closed_truncated=False) -> LensData:
     columns, swimlanes, issues = apply_pivot(issues, config)
     return LensData(
         columns=columns,
@@ -470,7 +531,9 @@ def _finalize(issues, truncated, provider, repo, source_url, config) -> LensData
         source_url=source_url,
         truncated=truncated,
         # When truncated we don't know the true total without extra calls, so omit it.
-        total_count=None if truncated else len(issues),
+        total_count=None if truncated or closed_truncated else len(issues),
+        closed_limit=closed_limit,
+        closed_truncated=closed_truncated,
         # Milestone suggestions for the filter combobox, derived from the fetched
         # issues — the GitLab/GitHub milestones-LIST endpoints require auth even for
         # public repos, so we cannot list them anonymously. The filter itself accepts
@@ -624,7 +687,11 @@ def github_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     repo_path = "/".join(quote(seg, safe="") for seg in repo.split("/"))
     source_url = f"https://github.com/{repo}"
 
-    state_param = filters.state if filters.state in ("open", "closed") else "all"
+    closed_limit = _applied_closed_limit(filters)
+    if closed_limit is not None:
+        state_param = "open"  # closed issues come from their own capped pass below
+    else:
+        state_param = filters.state if filters.state in ("open", "closed") else "all"
     base_params: dict[str, str | int] = {"state": state_param, "per_page": PER_PAGE}
 
     # Label + assignee go straight to GitHub. Both values are user-controlled, so
@@ -656,7 +723,7 @@ def github_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
             # honest answer, and it costs zero further requests. Falling back to a
             # client-side pass here would make "no such milestone" indistinguishable
             # from "no matches inside the fetched window".
-            return _finalize([], False, "github", repo, source_url, config)
+            return _finalize([], False, "github", repo, source_url, config, closed_limit)
         else:
             # The roster was capped at one page, so the title may live on a page we
             # never read: resolution is unknown, not negative. Degrade to the
@@ -689,6 +756,26 @@ def github_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     else:
         truncated = True  # hit the page cap with full pages → more may exist
 
+    closed_truncated = False
+    if closed_limit:
+        resp = _provider_get(
+            f"https://api.github.com/repos/{repo_path}/issues",
+            headers=headers,
+            params={
+                **base_params, "state": "closed", "per_page": closed_limit, "page": 1,
+                "sort": "updated", "direction": "desc",
+            },
+            raise_for=_raise_for_github,
+            provider="github",
+            kind="issues",
+            repo=repo,
+        )
+        batch = resp.json() or []
+        # Judged on the raw page: pull requests are dropped below, so a full page
+        # can yield fewer issues and still mean more closed issues exist.
+        closed_truncated = len(batch) >= closed_limit
+        _merge_closed(issues, [_github_issue(raw) for raw in batch if "pull_request" not in raw])
+
     if client_side_milestone:
         issues = _filter_by_milestone(issues, filters.milestone)
         truncated = True
@@ -696,7 +783,7 @@ def github_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     if config.column_dim == "pipeline":
         _enrich_github_pipeline(issues, repo_path, headers, repo)
 
-    return _finalize(issues, truncated, "github", repo, source_url, config)
+    return _finalize(issues, truncated, "github", repo, source_url, config, closed_limit, closed_truncated)
 
 
 def _enrich_github_pipeline(issues, repo_path, headers, repo="") -> None:
@@ -782,7 +869,10 @@ def gitlab_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     # user-controlled and are passed via `params` (requests URL-encodes them),
     # never interpolated into the URL.
     base_params = {"per_page": PER_PAGE, "scope": "all", "with_labels_details": "true"}
-    if filters.state in ("open", "closed"):
+    closed_limit = _applied_closed_limit(filters)
+    if closed_limit is not None:
+        base_params["state"] = "opened"  # closed issues come from their own capped pass
+    elif filters.state in ("open", "closed"):
         base_params["state"] = "opened" if filters.state == "open" else "closed"
     if filters.milestone:
         base_params["milestone"] = "None" if filters.milestone == _NONE else filters.milestone
@@ -813,10 +903,31 @@ def gitlab_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     else:
         truncated = True
 
+    closed_truncated = False
+    if closed_limit:
+        resp = _provider_get(
+            f"{base}/issues",
+            headers=headers,
+            params={
+                **base_params, "state": "closed", "per_page": closed_limit, "page": 1,
+                "order_by": "updated_at", "sort": "desc",
+            },
+            raise_for=_raise_for_gitlab,
+            provider="gitlab",
+            kind="issues",
+            repo=repo,
+        )
+        batch = resp.json() or []
+        closed_truncated = len(batch) >= closed_limit
+        _merge_closed(issues, [_gitlab_issue(raw) for raw in batch])
+
     if config.column_dim == "pipeline":
         _enrich_gitlab_pipeline(issues, base, headers, repo)
 
-    return _finalize(issues, truncated, "gitlab", repo, f"{GITLAB_BASE}/{repo}", config)
+    return _finalize(
+        issues, truncated, "gitlab", repo, f"{GITLAB_BASE}/{repo}", config,
+        closed_limit, closed_truncated,
+    )
 
 
 def _enrich_gitlab_pipeline(issues, project_base, headers, repo="") -> None:

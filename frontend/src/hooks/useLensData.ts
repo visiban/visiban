@@ -81,6 +81,8 @@ export interface LensFilterState {
   labels?: string[];
   /** A single username. */
   assignee?: string;
+  /** Closed-issue limit (#1581): "0" | "20" | "50" | "100" | "all"; omit for the API default (`all`). */
+  closedLimit?: string;
 }
 
 export interface UseLensDataOptions {
@@ -108,6 +110,7 @@ export function useLensData(
   const state = filters?.state;
   const milestone = filters?.milestone;
   const assignee = filters?.assignee;
+  const closedLimit = filters?.closedLimit;
   // Depend on the canonical STRING, not the array: a fresh `labels` array every
   // render would re-create `run` every render and refetch in a loop. This is also
   // exactly the value sent upstream, so the dependency and the request cannot drift.
@@ -140,6 +143,7 @@ export function useLensData(
       milestone,
       labels: labels || undefined,
       assignee,
+      closed_limit: closedLimit,
       // The Refresh button forces a re-fetch past the per-repo cache's soft-TTL.
       refresh: force ? 1 : undefined,
     })
@@ -157,7 +161,7 @@ export function useLensData(
         setLoading(false);
         setRefetching(false);
       });
-  }, [boardId, columnDim, swimlaneDim, state, milestone, labels, assignee]);
+  }, [boardId, columnDim, swimlaneDim, state, milestone, labels, assignee, closedLimit]);
 
   useEffect(() => {
     run();

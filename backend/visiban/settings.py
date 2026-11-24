@@ -306,6 +306,13 @@ _OIDC_ENABLED = bool(_OIDC_CLIENT_ID and _OIDC_CLIENT_SECRET and _OIDC_SERVER_UR
 # a read-only Visiban board. Off by default so operators who don't use it never
 # expose the surface area; the app and its routes stay dormant when False.
 GIT_LENS_ENABLED = env.bool("GIT_LENS_ENABLED", default=False)
+# How many 100-issue pages one lens fetch may read (#1580). The default of 3 keeps
+# the historical 300-issue cap; git_lens.providers clamps the value to 1-10 so a
+# typo can neither disable the lens nor make one fetch unbounded. Raising it scales
+# the per-fetch outbound-call bound and the fetch lock TTL with it (git_lens.views).
+# Read as a string on purpose: env.int would refuse to boot on a non-number, and
+# clamp_max_pages turns any unusable value into the default instead.
+GIT_LENS_MAX_PAGES = env.str("GIT_LENS_MAX_PAGES", default="3")
 
 # MCP (Model Context Protocol) server — exposes Visiban boards to AI agents
 # over the Streamable HTTP transport at /mcp (#511). Off by default: it is a

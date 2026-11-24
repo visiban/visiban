@@ -95,6 +95,12 @@ backend:
     # container applies them on rollout.
     mcpServerEnabled: false
     gitLensEnabled: false
+    # GIT_LENS_MAX_PAGES (#1580): pages of 100 issues one lens refresh may load,
+    # 1-10. null (default) renders nothing, so the backend default of 3 (300
+    # issues) applies. The frontend nginx's /api/ read timeout is fixed
+    # (nginx's 60 s default), so a slow refresh above 3 can return 504 while
+    # the fetch still fills the cache (see docs/administration/configuration.md).
+    gitLensMaxPages: null
     # Outbound webhooks (#863). true renders WEBHOOKS_ENABLED=true on every
     # backend container; also enable webhooks.dispatcher below, or nothing is
     # delivered. Refused together with demo.enabled. docs/features/webhooks.md.

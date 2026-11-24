@@ -97,3 +97,30 @@ describe('LensProvenanceBanner', () => {
     )
   })
 })
+
+describe('LensProvenanceBanner closed-issue limit (#1581)', () => {
+  it('names the closed limit when more closed issues exist beyond it', () => {
+    render(<LensProvenanceBanner {...base} closedLimit={50} closedTruncated />)
+    expect(screen.getByTestId('lens-closed-note')).toHaveTextContent(
+      'Showing up to 50 most recently updated closed issues',
+    )
+  })
+
+  it('says closed issues are hidden at a limit of 0', () => {
+    render(<LensProvenanceBanner {...base} closedLimit={0} />)
+    expect(screen.getByTestId('lens-closed-note')).toHaveTextContent('Closed issues hidden')
+  })
+
+  it('says nothing when every closed issue fits, or no limit applied', () => {
+    const { unmount } = render(<LensProvenanceBanner {...base} closedLimit={50} closedTruncated={false} />)
+    expect(screen.queryByTestId('lens-closed-note')).not.toBeInTheDocument()
+    unmount()
+    render(<LensProvenanceBanner {...base} closedLimit={null} />)
+    expect(screen.queryByTestId('lens-closed-note')).not.toBeInTheDocument()
+  })
+
+  it('counts open issues in the cap warning when the cap bounded only open issues', () => {
+    render(<LensProvenanceBanner {...base} truncated shownCount={300} openOnly />)
+    expect(screen.getByText(/Showing first 300 open issues/)).toBeInTheDocument()
+  })
+})

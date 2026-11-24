@@ -15,7 +15,7 @@ Set `GIT_LENS_ENABLED=true`, then pick a provider and `owner/repo` in **Board Se
 
 **The big picture:** the lens is a live view of the source repository, which stays the single source of truth. There's no sync, no webhooks, and no write-back to the provider. Visiban only reads.
 
-**Yes, but:** public repositories only, read-only, 300 issues per refresh, and manual refresh. See [Limitations in this release](#limitations-in-this-release).
+**Yes, but:** public repositories only, read-only, 300 issues per refresh by default (an operator can raise it to 1,000), and manual refresh. See [Limitations in this release](#limitations-in-this-release).
 
 ---
 
@@ -162,12 +162,23 @@ A chevron at the right end of the row (**Hide filter bar**) closes it and return
 | Filter | Behavior |
 |---|---|
 | **State** | Show only open or only closed issues. |
+| **Closed** | With **State: All**, how many closed issues to show: **Hidden**, **Last 20**, **Last 50** (the default), **Last 100**, or **All**. See [Closed issues](#closed-issues). Hidden while a state filter is set. *(new in 1.3)* |
 | **Milestone** | Scope the board to one milestone. Type a title, pick one of the suggestions, or choose **(no milestone)** to see only issues that have not been assigned to one. |
 | **Label** | Tick up to five labels. Labels combine with **and** — an issue must carry *every* ticked label to appear. |
 | **Assignee** | Scope to a single person. One at a time: GitHub and GitLab cannot filter by several assignees in one request. |
 | **Title or number** | Narrows what is already on screen by issue title or `#number`. |
 
-State, milestone, label, and assignee are applied **at the provider**, before issues are fetched. On a large repository that matters: filtering to a milestone or label reaches issues beyond the 300-issue cap, so a filtered board can show work an unfiltered one can't. The title/number box only narrows the issues already loaded.
+State, milestone, label, and assignee are applied **at the provider**, before issues are fetched. On a large repository that matters: filtering to a milestone or label reaches issues beyond the issue cap, so a filtered board can show work an unfiltered one can't. The title/number box only narrows the issues already loaded.
+
+### Closed issues
+
+On a repository with a long history, closed issues used to fill the **Done** column and use up the issue cap, crowding out open work. Since 1.3 the lens loads **open issues first**, with the whole issue cap, and then the **50 most recently updated closed issues** on top. Closed issues never count against the cap for open ones.
+
+Change the number with the **Closed** filter. **Hidden** shows open issues only. **All** goes back to the earlier behavior, where open and closed issues share the cap. When more closed issues exist than are shown, the provenance banner says so ("Showing up to 50 most recently updated closed issues"; "up to" because on GitHub pull requests count toward the limit and are then left out, so fewer issues can appear); with **Hidden** it says "Closed issues hidden". GitHub and GitLab don't report how many closed issues there are without extra requests, so the banner doesn't give a count.
+
+"Most recently updated" is the closest order both providers offer: a closed issue that someone comments on moves back up the list.
+
+The choice is stored in the page URL like the other filters, so it survives **Refresh**, a change of pivot, and a shared link. It counts as a filter on the **Filters** button when it isn't the default, and **Clear** resets it.
 
 All filters are stored in the page URL, so you can copy and share a filtered board as a link. The **Filters** button shows how many are active; **Clear** removes them all.
 
@@ -221,11 +232,13 @@ GitLab public repositories are read anonymously and need no linked account.
 
 ## Large repositories
 
-Repositories with more than **300 open issues** are capped. The lens shows the first 300 issues and a notice:
+By default the lens loads at most **300 issues** per refresh (three pages of 100). When a repository has more, the provenance banner shows a warning:
 
-> Showing the first 300 issues. This repository has more — consider filtering by milestone or label.
+> ⚠ Showing first 300 open issues
 
-The cap applies per refresh and cannot be raised in this release.
+The cap then counts open issues only, because closed issues are loaded separately (see the **Closed** filter above). With **Closed: All**, open and closed issues share the cap and the warning reads "Showing first 300 issues". With a filter active it reads "Showing first N matching open issues — more match beyond the fetch limit" instead ("matching issues" with **Closed: All**, or when a **State** filter is set).
+
+The cap applies per refresh. An operator can raise it for the whole instance with `GIT_LENS_MAX_PAGES` (pages of 100, default `3`, at most `10` for 1,000 issues); see [Configuration](../administration/configuration.md). Each extra page is one more request to the provider per refresh. *(new in 1.3)*
 
 ---
 
@@ -237,7 +250,7 @@ The cap applies per refresh and cannot be raised in this release.
 | Read-only | Issues cannot be created, edited, closed, or labeled from Visiban. |
 | Single repository per board | Each board can have at most one lens configuration. |
 | No automatic refresh | Data must be refreshed manually. |
-| 300-issue cap | Only the first 300 issues are loaded per refresh. |
+| Issue cap | At most 300 issues are loaded per refresh by default, 1,000 at most when the operator raises `GIT_LENS_MAX_PAGES`. |
 | GitHub OAuth required | GitHub repositories require a linked GitHub account for the user viewing the Lens tab. |
 
 ---
@@ -251,5 +264,5 @@ The cap applies per refresh and cannot be raised in this release.
 | "GitHub account not linked" prompt. | Link your GitHub account in **Settings → Connected accounts** and reload the Lens tab. |
 | "GitHub API error (301)" or another upstream error after the repository was renamed or transferred. | The Lens does not follow redirects, so a moved repository returns an upstream error. Update the connection's repository slug to the new `owner/name`. |
 | Issues are missing or stale. | Click **Refresh** in the provenance banner above the board to pull the latest data from the provider. |
-| The 300-issue cap notice appears. | Filter the view by milestone, label, or assignee to focus on a subset of work. Those filters are applied at the provider, so they reach issues beyond the cap. The cap itself can't be removed in this release. |
+| The issue cap notice appears. | Filter the view by milestone, label, or assignee to focus on a subset of work. Those filters are applied at the provider, so they reach issues beyond the cap. An operator can raise the cap to at most 1,000 issues with `GIT_LENS_MAX_PAGES`. |
 | A GitHub milestone filter returns an empty board. | No milestone with that exact title exists in the repository. Milestone titles are matched exactly, including capitalization, so pick one from the suggestions to be sure. |

@@ -309,4 +309,54 @@ describe('LensView', () => {
     )
     vi.useRealTimers()
   })
+
+  describe('closed-issue limit (#1581)', () => {
+    it('passes a non-default limit from the URL into the fetch', () => {
+      setup('/?closed_limit=0', true)
+      expect(mockUseLensData).toHaveBeenLastCalledWith(
+        5, expect.objectContaining({ filters: expect.objectContaining({ closedLimit: '0' }) }),
+      )
+    })
+
+    it('sends closed_limit=50 explicitly by default, since the API default is all', () => {
+      // The API keeps its pre-#1581 default (all) for the 1.x contract, so the
+      // SPA's 50 must be on the request whenever no state filter is set.
+      for (const url of ['/', '/?closed_limit=50', '/?closed_limit=bogus']) {
+        mockUseLensData.mockClear()
+        const { unmount } = setup(url, true)
+        const [, opts] = mockUseLensData.mock.calls.at(-1) as [number, { filters: { closedLimit?: string } }]
+        expect(opts.filters.closedLimit, url).toBe('50')
+        unmount()
+      }
+    })
+
+    it('omits the limit under a state filter', () => {
+      setup('/?state=open&closed_limit=0', true)
+      const [, opts] = mockUseLensData.mock.calls.at(-1) as [number, { filters: { closedLimit?: string } }]
+      expect(opts.filters.closedLimit).toBeUndefined()
+    })
+
+    it('writes a choice to the URL and re-fetches, and Clear resets it', async () => {
+      const user = userEvent.setup()
+      setup('/', true, ['v1'])
+      mockUseLensData.mockClear()
+      await user.click(screen.getByRole('button', { name: /Closed: Last 50/ }))
+      await user.click(screen.getByRole('menuitem', { name: 'Closed: Last 100' }))
+      expect(mockUseLensData).toHaveBeenLastCalledWith(
+        5, expect.objectContaining({ filters: expect.objectContaining({ closedLimit: '100' }) }),
+      )
+      expect(screen.getByText(/1 filter ·/)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Clear' }))
+      const [, opts] = mockUseLensData.mock.calls.at(-1) as [number, { filters: { closedLimit?: string } }]
+      expect(opts.filters.closedLimit).toBe('50')
+    })
+
+    it('counts only open issues in the cap warning when a closed limit applied', () => {
+      const data = lensData(['v1', 'v2'])
+      ;(data.issues[1] as { state: string }).state = 'closed'
+      setup('/', false, ['v1', 'v2'], { ...data, truncated: true, closed_limit: 50, closed_truncated: true })
+      expect(screen.getByText(/Showing first 1 open issue$/)).toBeInTheDocument()
+      expect(screen.getByTestId('lens-closed-note')).toHaveTextContent('50 most recently updated')
+    })
+  })
 })

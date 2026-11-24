@@ -71,6 +71,8 @@ Returned by the board data endpoint. Contains the full issue grid for a board at
 | `source` | object | `{ provider, repo, url }` — identifies the upstream source |
 | `truncated` | boolean | `true` when the provider returned more issues than the server fetched. When `true`, `total_count` (if available) indicates the full result size. |
 | `total_count` | integer / null | Total issue count reported by the provider, or `null` when the provider does not expose this value |
+| `closed_limit` | integer / null | The closed-issue limit applied to this response (see the `closed_limit` query parameter), or `null` when none was (a `state` filter is set, or `closed_limit` is `all` or not sent). When it is set, `truncated` refers to **open** issues only. Additive field *(new in 1.3)*. |
+| `closed_truncated` | boolean | `true` when more closed issues exist beyond `closed_limit`. The provider does not report how many without extra requests, so no count is given; `total_count` is `null` when this is `true`. Additive field *(new in 1.3)*. |
 | `available_milestones` | array of strings | Milestone titles found in the fetched issues, in alphabetical order. Intended for the filter's autocomplete. This list is derived from the fetched issues, not an exhaustive repo milestone list (the milestones-list endpoints require auth even for public repos, so they are not called). The `milestone` query parameter accepts any title, including ones not in this list. |
 
 **Issue object** (each element of `issues`):
@@ -246,21 +248,22 @@ Fetch live issue data from the remote provider for a board, pivoted into columns
 | `milestone` | string | Filter to a single milestone by title. Use the synthetic value `"__none__"` to return only issues with no milestone. Max 255 characters. Applied **server-side** on both providers (see [Filtering](#filtering)). Omitting returns all milestones. |
 | `labels` | string | Comma-separated label names. Applied **server-side** on both providers and **AND-ed** — an issue must carry *every* listed label to match. At most 5 labels; extras are dropped rather than rejected. Values are trimmed, deduplicated and sorted server-side, so `?labels=b,a` and `?labels=a,b` are the same request. Label names are matched **case-sensitively** (both providers preserve label case). Each value is capped at 255 characters. |
 | `assignee` | string | Filter to issues assigned to a single username. Applied **server-side** on both providers. Deliberately single-valued: neither the GitLab nor the GitHub API can express "assigned to any of N" in one call. Max 255 characters. |
+| `closed_limit` | string | How many closed issues to include when no `state` filter is set. `"0"`, `"20"`, `"50"` or `"100"`: open issues are read first with the whole fetch budget, then that many of the **most recently updated** closed issues are read in one extra request, so closed issues never take budget from open ones (`"0"` hides closed issues). `"all"` is the single all-states read of earlier releases, where closed issues share the budget. Default `"all"`, so a request without this parameter returns the same result as before 1.3; any other value is treated as `"all"`. The web app sends `"50"` unless the user picks another value. Ignored when `state` is set. *(new in 1.3)* |
 | `refresh` | string | `"1"` or `"true"` forces a re-fetch from the provider past the ~60s server cache, so the response carries a fresh `fetched_at`. Rate-limited per user, per repository (see [Refresh and rate limits](#refresh-and-rate-limits)); a request inside the cooldown is served the cached copy instead — it does not error. |
 
-All filter parameters are **optional** and default to "no filter". Unrecognized or
+All parameters are **optional**. The pivot parameters default to the saved connection, `closed_limit` defaults to `"all"`, `refresh` defaults to off, and the filter parameters (`state`, `milestone`, `labels`, `assignee`) default to "no filter". Unrecognized or
 empty values are ignored rather than rejected: a lens URL is a shareable snapshot
 that can outlive the data it points at, so a link carrying a stale value still
 renders a board instead of returning `400`.
 
-All seven parameters above are declared in the generated OpenAPI schema (`/api/schema/`) when `GIT_LENS_ENABLED=true`, each as an optional string. Accepted values are described, not declared as an `enum`, because unrecognized values are ignored rather than rejected. There is no text-search parameter (see [Filtering](#filtering)).
+All eight parameters above are declared in the generated OpenAPI schema (`/api/schema/`) when `GIT_LENS_ENABLED=true`, each as an optional string. Accepted values are described, not declared as an `enum`, because unrecognized values are ignored rather than rejected. There is no text-search parameter (see [Filtering](#filtering)).
 
 !!! note
     Ad-hoc pivot overrides via query parameters affect only the current response. The saved LensConnection on the board is not changed.
 
 ### Filtering
 
-The `state`, `milestone`, `labels` and `assignee` parameters narrow which issues are returned. All four are applied **server-side** — pushed into the upstream provider query before any fetching occurs — so that a filter can surface issues that fall outside the default 300-issue fetch budget (3 pages × 100 per page).
+The `state`, `milestone`, `labels` and `assignee` parameters narrow which issues are returned. All four are applied **server-side** — pushed into the upstream provider query before any fetching occurs — so that a filter can surface issues that fall outside the issue fetch budget: 3 pages × 100 per page (300 issues) by default, configurable per instance with `GIT_LENS_MAX_PAGES` up to 10 pages (1,000 issues). The admin usage report's `bounds.max_issue_pages` shows the live value.
 
 **GitLab** — `state`, `milestone`, `labels` (as `labels=`) and `assignee` (as `assignee_username=`) are all pushed to the GitLab API query. A `?milestone=Sprint+5` request asks GitLab for _only_ that milestone's issues, which means a milestone with more than 300 issues can still be fully retrieved within the budget (the fetch budget applies to the filtered set, not the full repository).
 
@@ -595,8 +598,8 @@ for brevity. The real response repeats `outbound_by_kind` for every kind
     "max_aux_pages": 2,
     "per_page": 100,
     "request_timeout_seconds": 10,
-    "max_outbound_calls_per_fetch": 8,
-    "max_outbound_calls_per_user_per_window": 384
+    "max_outbound_calls_per_fetch": 9,
+    "max_outbound_calls_per_user_per_window": 432
   }
 }
 ```

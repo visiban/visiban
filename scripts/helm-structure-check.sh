@@ -2380,6 +2380,27 @@ check_db_pool() {
   [ "$bad" -eq 0 ] && pass "DATABASE_POOL is absent by default and with dbPool null, and true in the backend container when enabled"
 }
 
+check_git_lens_max_pages() {
+  section "18b. GIT_LENS_MAX_PAGES is absent by default and renders the set value in every backend-image container (#1580)"
+  local got bad=0
+  got="$(backend_env_value GIT_LENS_MAX_PAGES)"
+  if [ -n "$got" ]; then
+    fail "GIT_LENS_MAX_PAGES renders by default, expected absent: $got"; bad=1
+  fi
+  got="$(backend_env_value GIT_LENS_MAX_PAGES --set backend.settings.gitLensMaxPages=5)"
+  if ! grep -qE '^deployment/backend=5$' <<< "$got" || grep -vqE '=5$' <<< "$got"; then
+    fail "gitLensMaxPages=5 does not render GIT_LENS_MAX_PAGES=5 everywhere: ${got:-<none>}"; bad=1
+  fi
+  # The schema bounds it to 1..10, matching the backend clamp.
+  for v in 0 11; do
+    got="$(backend_env_value GIT_LENS_MAX_PAGES --set "backend.settings.gitLensMaxPages=$v")"
+    if [ "$got" != "RENDER-ERROR" ]; then
+      fail "gitLensMaxPages=$v should fail schema validation but rendered: ${got:-<none>}"; bad=1
+    fi
+  done
+  [ "$bad" -eq 0 ] && pass "GIT_LENS_MAX_PAGES is absent by default, renders the set value in the backend container, and is bounded 1..10 by the schema"
+}
+
 # ---------------------------------------------------------------------------
 # 19. The webhook-secret sweep CronJob survives `--reuse-values` (#2119).
 # ---------------------------------------------------------------------------
@@ -2483,6 +2504,7 @@ run_all_checks() {
   check_num_proxies_default
   check_feature_flags
   check_db_pool
+  check_git_lens_max_pages
   check_sweep_webhook_secrets_fallback
   check_dispatcher_egress_policy
   check_share_cache_and_rollout

@@ -12,10 +12,13 @@ import LensFilterBar, { type LensState } from "./LensFilterBar";
 import LensProvenanceBanner from "./LensProvenanceBanner";
 import {
   COLUMN_DIM_KEYS,
+  DEFAULT_LENS_CLOSED_LIMIT,
   SWIMLANE_DIM_KEYS,
   lensFilterActiveCount,
+  parseLensClosedLimit,
   parseLensLabels,
   serializeLensLabels,
+  type LensClosedLimit,
 } from "./lensDims";
 
 interface Props {
@@ -56,6 +59,11 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
   // client-side over the fetched set. All URL-persisted like the pivot.
   const rawState = searchParams.get("state");
   const stateFilter: LensState = rawState === "open" || rawState === "closed" ? rawState : "all";
+  // Closed-issue limit (#1581) — validated like the pivot. The default is omitted
+  // from the URL so an untouched board keeps its plain link, but it is ALWAYS sent
+  // to the API: the API's own default is the pre-#1581 all-states read (the 1.x
+  // response contract), so the web app's 50 has to be asked for explicitly.
+  const closedLimit = parseLensClosedLimit(searchParams.get("closed_limit"));
   const milestone = searchParams.get("milestone") ?? "";
   // Canonicalized on read, exactly as the server canonicalizes it, so a hand-edited
   // or reordered shared link lands on the same cache key as the UI would produce.
@@ -77,6 +85,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
       milestone: milestone || undefined,
       labels,
       assignee: assignee || undefined,
+      closedLimit: stateFilter === "all" ? closedLimit : undefined,
     },
   });
 
@@ -196,6 +205,12 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
       else prev.set("state", next);
       return prev;
     }, { replace: true });
+  const setClosedLimit = (next: LensClosedLimit) =>
+    setSearchParams((prev) => {
+      if (next === DEFAULT_LENS_CLOSED_LIMIT) prev.delete("closed_limit");
+      else prev.set("closed_limit", next);
+      return prev;
+    }, { replace: true });
   const setMilestone = (next: string) =>
     setSearchParams((prev) => {
       if (next) prev.set("milestone", next);
@@ -228,6 +243,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
   const clearFilters = () =>
     setSearchParams((prev) => {
       prev.delete("state");
+      prev.delete("closed_limit");
       prev.delete("milestone");
       prev.delete("labels");
       prev.delete("assignee");
@@ -240,6 +256,15 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
   const activeCount = lensFilterActiveCount(searchParams);
   const filtersActive =
     stateFilter !== "all" || milestone !== "" || labels.length > 0 || assignee !== "";
+
+  // With a closed limit applied the page cap only ever bounds OPEN issues, so the
+  // truncation warning counts those; memoized so typing in the q box doesn't recount.
+  const capCount = useMemo(() => {
+    if (!data) return 0;
+    return data.closed_limit != null
+      ? data.issues.filter((i) => i.state === "open").length
+      : data.issues.length;
+  }, [data]);
 
   // Client-side text filter over the fetched set (title substring / number prefix).
   const filteredData = useMemo(() => {
@@ -259,6 +284,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
       {data && showFilters && (
         <LensFilterBar
           state={stateFilter}
+          closedLimit={closedLimit}
           milestone={milestone}
           labels={labels}
           assignee={assignee}
@@ -268,6 +294,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
           availableAssignees={availableAssignees}
           activeCount={activeCount}
           onStateChange={setStateFilter}
+          onClosedLimitChange={setClosedLimit}
           onMilestoneChange={setMilestone}
           onLabelsChange={setLabels}
           onAssigneeChange={setAssignee}
@@ -285,7 +312,10 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
           repo={data.source.repo}
           url={data.source.url}
           truncated={data.truncated}
-          shownCount={data.issues.length}
+          shownCount={capCount}
+          openOnly={data.closed_limit != null}
+          closedLimit={data.closed_limit}
+          closedTruncated={data.closed_truncated}
           filtersActive={filtersActive}
           fetchedAt={data.fetched_at}
           refetching={refetching}

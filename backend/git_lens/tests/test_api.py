@@ -812,6 +812,81 @@ class LensBoardRenderTests(TestCase):
         self.assertFalse(seen["filters"].active)
 
     @patch("git_lens.views.providers.get_provider")
+    def test_closed_limit_is_parsed_and_canonicalized(self, mock_get_provider):
+        """#1581: ``closed_limit`` defaults to the single all-states read (absent,
+        ``all`` or unrecognized, fail-open like every other lens param) so the 1.x
+        API keeps its pre-#1581 output, and with a state filter set it collapses to
+        that default so it cannot mint a second cache key for a board the provider
+        renders identically. Only the SPA opts in to 50, by sending it."""
+        self._connect("gitlab")
+        seen = {}
+
+        def capture(token, repo, config, filters):
+            seen["filters"] = filters
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = capture
+        default = None
+        cases = [
+            ("", default),
+            ("?closed_limit=50", 50),
+            ("?closed_limit=0", 0),
+            ("?closed_limit=20", 20),
+            ("?closed_limit=100", 100),
+            ("?closed_limit=all", None),
+            ("?closed_limit=7", default),
+            ("?closed_limit=-1", default),
+            ("?closed_limit=bogus", default),
+            ("?state=open&closed_limit=0", default),
+            ("?state=closed&closed_limit=all", default),
+        ]
+        for query, expected in cases:
+            with self.subTest(query=query):
+                cache.clear()
+                resp = self.client.get(self.url + query)
+                self.assertEqual(resp.status_code, status.HTTP_200_OK)
+                self.assertEqual(seen["filters"].closed_limit, expected)
+
+    @patch("git_lens.providers.requests.get")
+    def test_absent_closed_limit_keeps_the_pre_1581_output(self, mock_get):
+        """1.x API contract (#1581 completeness BLOCKER): a plain GET with no
+        ``closed_limit`` must return exactly what it did before #1581 — one
+        interleaved state=all read, every closed issue inside the page cap (not
+        just 50), the old ``truncated``/``total_count`` meaning, and
+        ``closed_limit``/``closed_truncated`` reported as unapplied."""
+        self._connect("gitlab")
+        raw = [
+            {"iid": n, "title": "t", "web_url": "u",
+             "state": "closed" if n % 4 else "opened", "labels": [], "assignees": []}
+            for n in range(1, 81)
+        ]
+        mock_get.return_value = MagicMock(
+            status_code=200, headers={}, json=MagicMock(return_value=raw)
+        )
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertNotIn("state", mock_get.call_args_list[0].kwargs["params"])
+        closed = [i for i in resp.data["issues"] if i["state"] == "closed"]
+        self.assertEqual(len(closed), 60)  # more than the SPA's 50, none dropped
+        self.assertEqual(len(resp.data["issues"]), 80)
+        self.assertFalse(resp.data["truncated"])
+        self.assertEqual(resp.data["total_count"], 80)
+        self.assertIsNone(resp.data["closed_limit"])
+        self.assertFalse(resp.data["closed_truncated"])
+
+    def test_closed_limit_is_part_of_the_cache_key(self):
+        from git_lens.types import LensFilters
+        from git_lens.views import _board_cache_key
+
+        args = ("gitlab", "g/p", "status", "milestone")
+        keys = {
+            _board_cache_key(*args, filters=LensFilters(closed_limit=c))
+            for c in (None, 0, 20, 50, 100)
+        }
+        self.assertEqual(len(keys), 5)
+
+    @patch("git_lens.views.providers.get_provider")
     def test_refresh_with_filters_refetches_the_filtered_key_not_unfiltered(
         self, mock_get_provider
     ):
@@ -874,7 +949,7 @@ class LensBoardRenderTests(TestCase):
         from git_lens import providers as _p
         from git_lens import views as _v
 
-        worst = (_p.MAX_PAGES + 2 * _p.MAX_AUX_PAGES + 1) * _p.REQUEST_TIMEOUT
+        worst = (_p.MAX_PAGES + _p.CLOSED_PAGES + 2 * _p.MAX_AUX_PAGES + 1) * _p.REQUEST_TIMEOUT
         self.assertGreaterEqual(
             _v.LENS_FETCH_LOCK_TTL, worst,
             "lock TTL must cover issue pages, both aux paginations, "
@@ -883,6 +958,27 @@ class LensBoardRenderTests(TestCase):
         # Pin the two formulas together so a change to one without the other fails
         # here rather than quietly halving this test's value.
         self.assertEqual(worst, _v._WORST_CASE_FETCH_SECONDS)
+
+    def test_lock_ttl_is_unchanged_at_the_default_page_cap(self):
+        """#1580 derives the lock TTL from the worst case; at the default page cap
+        it must stay the historical 90 seconds so existing installs are unchanged."""
+        from git_lens import providers as _p
+        from git_lens import views as _v
+
+        self.assertEqual(_p.MAX_PAGES, _p.DEFAULT_MAX_PAGES)
+        self.assertEqual(_v.LENS_FETCH_LOCK_TTL, 90)
+
+    def test_lock_ttl_grows_with_a_raised_page_cap(self):
+        """At the ceiling the worst case exceeds 90 s, so a fixed TTL would expire
+        mid-fetch. The derivation must cover the ceiling's worst case."""
+        from git_lens import providers as _p
+
+        from git_lens import views as _v
+
+        calls = _p.MAX_PAGES_CEILING + _p.CLOSED_PAGES + 2 * _p.MAX_AUX_PAGES + 1
+        worst = calls * _p.REQUEST_TIMEOUT
+        self.assertGreater(worst, 90)
+        self.assertGreaterEqual(_v._lock_ttl_for(calls), worst)
 
     def test_filtered_cache_window_stays_inside_the_fetch_budget_window(self):
         """Capacity invariant behind the filtered-entry TTL (#1067 perf-check).
@@ -982,8 +1078,11 @@ class LensBoardRenderTests(TestCase):
         self.assertEqual(first.status_code, status.HTTP_200_OK)
 
         # Force the cached copy past its soft-TTL so the next read revalidates.
-        # The view always passes a LensFilters (empty here), so the key must too.
-        key = _board_cache_key("gitlab", "g/p", "status", "milestone", filters=LensFilters())
+        # The view always passes its parsed filters; with no closed_limit param
+        # that is the all-states default (None, #1581), so the key must match.
+        key = _board_cache_key(
+            "gitlab", "g/p", "status", "milestone", filters=LensFilters(),
+        )
         entry = cache.get(key)
         entry["soft_expires"] = time.time() - 1
         cache.set(key, entry, 600)
@@ -1009,7 +1108,11 @@ class LensBoardRenderTests(TestCase):
         first = self.client.get(self.url)
         self.assertEqual(first.status_code, status.HTTP_200_OK)
 
-        key = _board_cache_key("gitlab", "g/p", "status", "milestone", filters=LensFilters())
+        # The view always passes its parsed filters; with no closed_limit param
+        # that is the all-states default (None, #1581), so the key must match.
+        key = _board_cache_key(
+            "gitlab", "g/p", "status", "milestone", filters=LensFilters(),
+        )
         entry = cache.get(key)
         entry["soft_expires"] = time.time() - 1
         cache.set(key, entry, 600)
@@ -1062,7 +1165,7 @@ class LensBoardSchemaParametersTests(TestCase):
 
     EXPECTED = {
         "column_dim", "swimlane_dim", "state", "milestone", "labels",
-        "assignee", "refresh",
+        "assignee", "closed_limit", "refresh",
     }
 
     def _params(self):
