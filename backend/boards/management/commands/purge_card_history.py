@@ -422,6 +422,9 @@ class Command(BaseCommand):
                     # Gate transitions (#1102) count like blocks.
                     gates.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
                     .order_by().values("_uid"),
+                    # And override rows (#1923).
+                    overrides.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
+                    .order_by().values("_uid"),
                     # So do activity rows (#1799).
                     activities.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
                     .order_by().values("_uid"),
@@ -435,6 +438,7 @@ class Command(BaseCommand):
                 rows.order_by().values("board_id")
                 .union(
                     blocks.order_by().values("board_id"), gates.order_by().values("board_id"),
+                    overrides.order_by().values("board_id"),
                     activities.annotate(_board=Coalesce(F("board_id"), F("card__board_id")))
                     .order_by().values("_board"),
                 )
@@ -445,6 +449,7 @@ class Command(BaseCommand):
                 f"Dry run: would delete {count} {scope} and {blocks.count()} block row(s) "
                 f"and {gates.count()} gate transition row(s) "
                 f"and {activities.count()} activity row(s) "
+                f"and {overrides.count()} override row(s) "
                 f"({cards} card(s), {boards} board(s)) and redact {event_count} "
                 "change-feed event(s). Re-run with --yes to delete."
             )
@@ -478,13 +483,16 @@ class Command(BaseCommand):
             _, per_model = gates.order_by().delete()
             deleted_gates = per_model.get(CardGateTransition._meta.label, 0)
             _, per_model = overrides.order_by().delete()
-            deleted_gates += per_model.get(CardOverride._meta.label, 0)
+            deleted_overrides = per_model.get(CardOverride._meta.label, 0)
             # A queryset delete, which never calls the refusing
             # CardActivity.delete() (#1799).
             _, per_model = activities.order_by().delete()
             deleted_activities = per_model.get(CardActivity._meta.label, 0)
             redacted = self._redact(events)
-            if deleted or deleted_blocks or deleted_gates or deleted_activities or redacted:
+            if (
+                deleted or deleted_blocks or deleted_gates or deleted_overrides
+                or deleted_activities or redacted
+            ):
                 AdminActionLog.record(
                     action=AdminActionLog.Action.CARD_HISTORY_PURGED,
                     source=AdminActionLog.Source.CLI,
@@ -497,19 +505,24 @@ class Command(BaseCommand):
                         "deleted_block_count": deleted_blocks,
                         # Additive (#1102).
                         "deleted_gate_transition_count": deleted_gates,
+                        # Additive (#1923).
+                        "deleted_override_count": deleted_overrides,
                         # Additive (#1799).
                         "deleted_activity_count": deleted_activities,
                         "redacted_event_count": redacted,
                     },
                 )
 
-        if deleted or deleted_blocks or deleted_gates or deleted_activities or redacted:
+        if (
+            deleted or deleted_blocks or deleted_gates or deleted_overrides
+            or deleted_activities or redacted
+        ):
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Deleted {deleted} {scope} and {deleted_blocks} block row(s), and "
                     f"redacted {redacted} change-feed event(s), and deleted "
-                    f"{deleted_activities} activity row(s) (#1799); recorded in the admin "
-                    "action log."
+                    f"{deleted_activities} activity row(s) (#1799) and {deleted_overrides} "
+                    "override row(s); recorded in the admin action log."
                 )
             )
         else:

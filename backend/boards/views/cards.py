@@ -1038,7 +1038,13 @@ class CardViewSet(viewsets.ModelViewSet):
         """
         board, role = self._board_and_role()
         card_services.require_mutation_role(actor=request.user, board=board, role=role)
-        return super().create(request, *args, **kwargs)
+        self._create_override = None
+        response = super().create(request, *args, **kwargs)
+        if self._create_override:
+            # Additive (#1923), as the move and restore bodies carry it:
+            # present only when a limit was overridden.
+            response.data["override"] = self._create_override
+        return response
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
@@ -1069,6 +1075,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # broadcast payload already computed the open visit (#459), so hand it
         # over rather than spending a query on the same answer.
         serializer.instance._column_entered_at = result.payload["column_entered_at"]
+        self._create_override = result.payload.get("override")
 
     def perform_destroy(self, instance):
         board, role = self._board_and_role()

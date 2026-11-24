@@ -70,7 +70,7 @@ On Kubernetes, run the same command with `kubectl exec` in a backend pod.
 | `--include-live-cards` | Also delete matching history, and redact matching change-feed events, of cards that still exist. Needs `--card` or `--board`. |
 | `--yes` | Delete and redact. Without it the command only reports what would be deleted and redacted. |
 
-Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (`deleted_count` is movements, `deleted_block_count` blocks, `redacted_event_count` change-feed events and `deleted_gate_transition_count` gate transition rows, all since 1.3). Gate transitions, the pass and reopen rows of [gated stages](../api/cards.md#gated-stages-and-gate-transitions-13-1102), are matched by the same selectors and erased in the same run.
+Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (`deleted_count` is movements, `deleted_block_count` blocks, `redacted_event_count` change-feed events `deleted_gate_transition_count` gate transition rows and `deleted_override_count` [force override](../api/cards.md#force-overrides-assignee-basis-reasons-and-audit-since-13-1923) rows, all since 1.3). Gate transitions, the pass and reopen rows of [gated stages](../api/cards.md#gated-stages-and-gate-transitions-13-1102), are matched by the same selectors and erased in the same run.
 
 Dates are `YYYY-MM-DD` (midnight UTC at the start of that day) or an ISO 8601 datetime (UTC when it has no offset). `--since 2026-03-01 --before 2026-04-01` covers exactly March.
 

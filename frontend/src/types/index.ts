@@ -2952,7 +2952,7 @@ export interface CardOverrideInfo {
   reason: string;
 }
 
-/** `card.created` and `card.unarchived` bodies: the card, plus `override` when a limit was forced (#1923). */
+/** `card.created` and `card.unarchived` frames, and the REST create and restore bodies: the card, plus `override` when a limit was forced (#1923). */
 export type CardPlacementPayload = Card & { override?: CardOverrideInfo };
 
 /**

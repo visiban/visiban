@@ -12,26 +12,29 @@
 """
 
 import threading
+from io import StringIO
 from types import SimpleNamespace
 from unittest import skipUnless
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
+from django.core.management import call_command
 from django.db import connection, connections
 from django.test import RequestFactory, TestCase, TransactionTestCase
 from rest_framework.test import APIClient
 
-from accounts.models import User
+from accounts.models import AdminActionLog, User
 from boards.admin import BoardAdmin, CardAdmin, SwimlaneAdmin
 from boards.management.commands.purge_card_history import redact_card_event_payload
 from boards.models import (
-    Board, BoardMembership, BoardSettingChange, Card, CardActivity, CardOverride, Column,
-    Swimlane,
+    Board, BoardMembership, BoardSettingChange, Card, CardActivity, CardOverride,
+    Column, Swimlane, SwimlaneTeamMember,
 )
 from boards.permissions import SITE_ADMIN
 from boards.services import cards as card_services
 from boards.services.errors import ForceNotPermitted
 from boards.tests.lock_wait import assert_blocked_on_lock
+from mcp_server import tools as mcp_tools
 
 PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
 R = BoardMembership.Role
@@ -361,7 +364,6 @@ class AssignedByWritePathTests(_Fixture, TestCase):
         self.assertEqual(self.card.assigned_by_id, staff.pk)
 
     def test_clear_viewer_assignees_clears_assigned_by(self):
-        from django.core.management import call_command
         BoardMembership.objects.filter(board=self.board, user=self.member).update(role=R.VIEWER)
         call_command("clear_viewer_assignees", "--board", str(self.board.pk), verbosity=0)
         self.card.refresh_from_db()
@@ -592,3 +594,106 @@ class AssigneeEligibilityLockTests(_Fixture, TransactionTestCase):
         self.assertFalse(CardOverride.objects.exists())
         self.card.refresh_from_db()
         self.assertEqual(self.card.column_id, self.src.pk)
+
+
+class CreateBodyOverrideTests(_Fixture, TestCase):
+    def setUp(self):
+        self._setup_board()
+        self._bc = patch(PATCH_BROADCAST)
+        self._bc.start()
+        self.addCleanup(self._bc.stop)
+
+    def _create(self, column, query=""):
+        return self._client(self.admin).post(
+            f"/api/v1/boards/{self.board.pk}/cards/{query}",
+            {"title": "N", "column": column.pk, "swimlane": self.lane.pk}, format="json",
+        )
+
+    def test_forced_create_body_carries_override(self):
+        resp = self._create(self.dst, "?force=true")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()["override"]["kinds"], ["wip"])
+        self.assertEqual(resp.json()["override"]["actor_basis"], "admin")
+
+    def test_unforced_create_body_has_no_override_key(self):
+        resp = self._create(self.src, "?force=true")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertNotIn("override", resp.json())
+
+
+class PurgeOverrideCountTests(_Fixture, TestCase):
+    def setUp(self):
+        self._setup_board()
+        with patch(PATCH_BROADCAST):
+            resp = self._move(self.member, reason="urgent")
+        assert resp.status_code == 200, resp.content
+        User.objects.create_superuser(username="ao_root", password="pass", email="r@x.test")
+        self.uid = self.card.uid
+        with patch(PATCH_BROADCAST):
+            self.card.delete()
+
+    def _purge(self, *extra):
+        out = StringIO()
+        call_command(
+            "purge_card_history", "--actor", "ao_root", "--card", self.uid, *extra, stdout=out,
+        )
+        return out.getvalue()
+
+    def test_overrides_are_counted_apart_from_gate_transitions(self):
+        self.assertIn("1 override row(s)", self._purge())
+        self.assertIn("1 override row(s)", self._purge("--yes"))
+        metadata = AdminActionLog.objects.get(
+            action=AdminActionLog.Action.CARD_HISTORY_PURGED,
+        ).metadata
+        self.assertEqual(metadata["deleted_override_count"], 1)
+        self.assertEqual(metadata["deleted_gate_transition_count"], 0)
+
+
+class ServiceCallerAssignedByTests(_Fixture, TestCase):
+    """MCP and Add child stamp ``assigned_by`` with the actor."""
+
+    def setUp(self):
+        self._setup_board()
+        self._bc = patch(PATCH_BROADCAST)
+        self._bc.start()
+        self.addCleanup(self._bc.stop)
+
+    def _tool(self, fn, **kwargs):
+        # Called directly, so it runs whether or not MCP_SERVER_ENABLED is set.
+        with patch("mcp_server.tools.get_current_user", return_value=self.admin):
+            result = fn(**kwargs)
+        self.assertNotIn("error", result)
+        return result
+
+    def test_mcp_create_card_stamps_the_actor(self):
+        result = self._tool(
+            mcp_tools.create_card, board_id=self.board.pk, column_id=self.src.pk,
+            swimlane_id=self.lane.pk, title="Via MCP", assignee=self.member.username,
+        )
+        self.assertEqual(Card.objects.get(pk=result["id"]).assigned_by_id, self.admin.pk)
+
+    def test_mcp_update_card_stamps_the_actor(self):
+        Card.objects.filter(pk=self.card.pk).update(assigned_by=None)
+        self._tool(mcp_tools.update_card, card_id=self.card.pk, assignee=self.other.username)
+        self.card.refresh_from_db()
+        self.assertEqual(
+            (self.card.assignee_id, self.card.assigned_by_id), (self.other.pk, self.admin.pk),
+        )
+
+    def test_child_card_default_assignee_stamps_the_actor(self):
+        Board.objects.filter(pk=self.board.pk).update(cards_can_have_children=True)
+        delivery = Board.objects.create(name="Delivery", owner=self.admin)
+        Column.objects.create(board=delivery, name="Todo", position=0, allow_card_creation=True)
+        Swimlane.objects.create(board=delivery, name="Lane", position=0)
+        for user, role in ((self.admin, R.ADMIN), (self.member, R.MEMBER)):
+            BoardMembership.objects.create(board=delivery, user=user, role=role)
+        SwimlaneTeamMember.objects.create(swimlane=self.lane, user=self.member)
+        resp = self._client(self.admin).post(
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/children/",
+            {"title": "Child", "board_id": delivery.pk}, format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        child = Card.objects.get(board=delivery, title="Child")
+        self.assertEqual(
+            (child.assignee_id, child.assigned_by_id), (self.member.pk, self.admin.pk),
+        )
