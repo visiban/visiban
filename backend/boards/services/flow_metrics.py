@@ -1216,7 +1216,12 @@ def load_recent_dwell(
     board's cards archived before the range, or live in a done column. That
     is the exact complement of the other terms (``archived_at`` is compared
     only where it is set, and ``column`` and ``is_done`` are NOT NULL), so the
-    kept set is the same. The done columns come from ``columns``, which
+    kept set is the same. That holds for a consistent ``columns`` snapshot:
+    ``done_ids`` comes from the caller's ``columns`` list while the live term
+    reads ``column__is_done`` in the database, so a column flipped to done
+    between the caller's columns read and this query can drop a live card
+    that moved in range from that one response (both callers read ``columns``
+    immediately before the load). The done columns come from ``columns``, which
     ``load_board_flow`` already requires to be the board's columns and which
     ``note`` below reads for the same rule; naming them as ids keeps a join to
     ``columns`` out of the subquery, which on the aged board flipped the

@@ -367,7 +367,7 @@ Board health summary: per-swimlane card counts, stage distribution, and velocity
 | `stage_distribution` | object | Card count per column for this swimlane (all columns, including zero counts) |
 | `velocity_7d` | integer | Cards whose first entry into a done column fell in the last 7 days, archived since or not (counts cards, not moves; *changed in 1.3*, #448) |
 | `velocity_30d` | integer | The same over the last 30 days |
-| `blocked_cards` | integer | *Added in 1.3* (#1149). Active cards in this swimlane (not archived and not in a done column, the cards `active_cards` counts) that are blocked now, manually or by an active `blocks` relation (the card's [`is_blocked`](cards.md#block-and-unblock-since-13)). One more aggregate query |
+| `blocked_cards` | integer | *Added in 1.3* (#1149). Active cards in this swimlane (not archived and not in a done column, the cards `active_cards` counts) that are blocked now, manually or by an active `blocks` relation (the card's [`is_blocked`](cards.md#block-and-unblock-since-13)). Counted in the same grouped query as the per-column card counts behind `stage_distribution` (#2432), so it adds no query |
 | `extension_panels` | array | `[]` in OSS. Panels registered through the `ANALYTICS_EXTENSIONS` hook, limited to those whose `min_role` the caller meets (see [Panel visibility by role](#panel-visibility-by-role)); the web UI renders them in the Summary tab below the swimlane table. See [Extension panel payload](#extension-panel-payload) |
 
 #### Extension panel payload
