@@ -96,12 +96,15 @@ class AnalyticsSingleHistoryTests(_Shape):
         reads = [q["sql"] for q in ctx.captured_queries if q["sql"].split(" FROM ", 1)[-1].startswith(f'"{table}"')]
         self.assertEqual(len(reads), 1, reads)
         card_table = Card._meta.db_table
-        card_reads = [q["sql"] for q in ctx.captured_queries if q["sql"].split(" FROM ", 1)[-1].startswith(f'"{card_table}"')]
+        # The card read carries the planned-link subqueries in its select list (#2554), so find the
+        # outer read by its own FROM clause, not by the first " FROM " in the text.
+        card_from = f' FROM "{card_table}" '
+        card_reads = [q["sql"] for q in ctx.captured_queries if q["sql"].startswith(f'SELECT "{card_table}"."id"') and card_from in q["sql"]]
         # The flow load's card read selects no per-card movement annotation
         # (the four correlated subqueries are gone); movements appear only in
         # its WHERE narrowing.
         self.assertTrue(card_reads)
-        self.assertTrue(all(f'"{table}"' not in sql.split(" FROM ", 1)[0] for sql in card_reads), card_reads)
+        self.assertTrue(all(f'"{table}"' not in sql.split(card_from, 1)[0] for sql in card_reads), card_reads)
 
 
     def test_a_live_done_card_idle_since_before_the_buffer_is_not_loaded(self):

@@ -20,7 +20,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, BoardMembership, Card, CardBlock, CardMovement, CardRelation, Column, CustomFieldDefinition,
+    Board, BoardMembership, Card, CardBlock, CardMovement, CardParentLink, CardRelation, Column, CustomFieldDefinition,
     CustomFieldValue, Label, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
 )
 from boards.serializers import _annotate_column_entered_at
@@ -1955,6 +1955,49 @@ class NeedsAttentionTests(FlowFixture):
         card = self.path(self.backlog, 20)
         item = self.items()[card.uid]
         self.assertEqual((item["reasons"], item["age_days"], item["unmoved_days"]), (["stalled"], None, 20))
+
+    def plan(self, card, *, released_days_ago=None):
+        """Make ``card`` a planned child (#2371), optionally released that many days ago."""
+        parent = self.card(self.doing, created=1, title="Parent")
+        return CardParentLink.objects.create(
+            parent=parent, child=card, needed_at_column=self.doing,
+            planned_released_at=self.ago(released_days_ago) if released_days_ago is not None else None,
+        )
+
+    def test_a_planned_child_is_never_stalled(self):
+        """#2554: a planned child in To do is not stalled however long it sat; its twin is."""
+        planned = self.path(self.backlog, 40)
+        twin = self.path(self.backlog, 40)
+        self.plan(planned)
+        items = self.items(stalled_days=14)
+        self.assertNotIn(planned.uid, items)
+        self.assertEqual(items[twin.uid]["reasons"], ["stalled"])
+
+    def test_a_planned_child_with_no_movement_rows_is_never_stalled(self):
+        card = self.card(self.backlog, created=200)
+        self.plan(card)
+        self.assertNotIn(card.uid, self.items(stalled_days=14))
+
+    def test_a_released_child_is_measured_from_its_release(self):
+        """#2554: same rule as is_stale: the clock is the later of last move and release."""
+        recent = self.path(self.backlog, 40)
+        self.plan(recent, released_days_ago=3)
+        old = self.path(self.backlog, 40)
+        self.plan(old, released_days_ago=20)
+        items = self.items(stalled_days=14)
+        self.assertNotIn(recent.uid, items)
+        self.assertEqual((items[old.uid]["reasons"], items[old.uid]["unmoved_days"]), (["stalled"], 20))
+
+    def test_a_release_older_than_the_last_move_does_not_extend_the_clock(self):
+        card = self.path(self.backlog, 40, self.doing, 5)
+        self.plan(card, released_days_ago=30)
+        self.assertNotIn(card.uid, self.items(stalled_days=14))
+
+    def test_a_planned_child_can_still_be_blocked(self):
+        card = self.path(self.backlog, 40)
+        self.plan(card)
+        Card.objects.filter(pk=card.pk).update(blocked_at=self.ago(2))
+        self.assertEqual(self.items(stalled_days=14)[card.uid]["reasons"], ["blocked"])
 
     def test_a_card_with_no_movement_rows_is_stalled_from_its_creation(self):
         """#2291: imported or legacy data has no live movement, so unmoved time counts from created_at."""

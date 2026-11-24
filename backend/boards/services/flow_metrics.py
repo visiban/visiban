@@ -440,6 +440,11 @@ class CardFlow:
     # The card's latest movement of any kind that is not dated after the
     # request, for "needs attention" (#2260). None when it has none.
     last_moved_at: datetime.datetime | None = None
+    # The planned-child rule (#2371, #2554), read off the same two predicates
+    # ``serializers._annotate_is_stale`` uses: planned and not yet released,
+    # and when the planned link was released.
+    planned_active: bool = False
+    planned_released_at: datetime.datetime | None = None
     reopens: list = field(default_factory=list)
     # Done entries from a not-done column after the first completion: each
     # closes the round of work its reopen started (#2297).
@@ -854,6 +859,10 @@ def load_board_flow(
 
 def _card_flows(selected):
     """One bare ``CardFlow`` per card of ``selected``, by id: the card row, nothing analyzed yet."""
+    # Local import: serializers import this module's siblings. The planned annotations ride the
+    # existing card query as subqueries, so the analytics query count does not move (#2554).
+    from ..serializers import _annotate_planned_clock
+
     return [
         CardFlow(
             id=row["id"], uid=row["uid"], title=row["title"], swimlane_id=row["swimlane_id"],
@@ -861,11 +870,12 @@ def _card_flows(selected):
             archived_at=row["archived_at"], blocked_at=row["blocked_at"],
             column_uid=row["column__uid"], blocked_reason=row["blocked_reason"],
             swimlane_name=row["swimlane__name"], column_id=row["column_id"], position=row["position"],
+            planned_active=bool(row["_planned_active"]), planned_released_at=row["_planned_released_at"],
         )
-        for row in selected.order_by("id").values(
+        for row in _annotate_planned_clock(selected).order_by("id").values(
             "id", "uid", "title", "swimlane_id", "assignee_id", "created_at",
             "archived_at", "blocked_at", "column__uid", "blocked_reason", "swimlane__name",
-            "column_id", "position",
+            "column_id", "position", "_planned_active", "_planned_released_at",
         )
     ]
 
@@ -2017,13 +2027,21 @@ def needs_attention(flow, flow_range, *, stalled_days):
         # without this fallback it could never be stalled (#2291). ``created_at`` is the import time unless
         # the importer set it, and Card has no separate import timestamp.
         unmoved_since = card.last_moved_at if card.last_moved_at is not None else card.created_at
+        # Planned children (#2554): never stalled while planned, and a released one is measured
+        # from the later of its last move and its release, the rule ``_annotate_is_stale`` applies
+        # to every other surface (Rule 10).
+        planned_exempt = card.planned_active
+        if card.planned_released_at is not None and (
+            unmoved_since is None or card.planned_released_at > unmoved_since
+        ):
+            unmoved_since = card.planned_released_at
         unmoved_days = _days_between(unmoved_since, flow.now)
         reasons = []
         if card.id in blocked:
             reasons.append("blocked")
         if age_days is not None and p85 is not None and age_days > p85:
             reasons.append("past_p85")
-        if unmoved_days is not None and unmoved_days > stalled_days:
+        if not planned_exempt and unmoved_days is not None and unmoved_days > stalled_days:
             reasons.append("stalled")
         if reasons:
             entries.append((card, age_days, unmoved_days, reasons))
