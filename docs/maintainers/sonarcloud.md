@@ -43,8 +43,8 @@ host defaults to sonarcloud.io, so `SONAR_HOST_URL` is not set.
     expire at any time. The first symptom is a yellow `sonar:scan` on the nightly pipeline, and
     nothing alerts on it.
 
-`SONAR_TOKEN` is **protected**, so GitLab injects it only into pipelines on a protected branch
-or tag. That is why the schedule must target `main`: a schedule on an unprotected branch runs
+**Watch out:** `SONAR_TOKEN` is **protected**, so GitLab injects it only into pipelines on a protected branch
+or tag. The schedule must therefore target `main`: a schedule on an unprotected branch runs
 `sonar:scan` with no token.
 
 ### Create the token
@@ -75,10 +75,12 @@ For this token:
 
 ## The pipeline schedule
 
-Schedules are GitLab project configuration, not files in the repository, so a deleted or
-deactivated schedule leaves no commit to review. The Sonar job rides on the **Nightly**
-schedule shared with the CVE/OSV scans, the deep schema fuzz, and kaizen. The full table of
-what each schedule runs is in [CI Gate Self-Tests](../development/ci-gates.md).
+The Sonar job rides on the **Nightly** schedule shared with the CVE/OSV scans, the deep schema fuzz, and kaizen.
+
+**Watch out:** Schedules are GitLab project configuration, not files in the repository, so a deleted or
+deactivated schedule leaves no commit to review.
+
+**Go deeper:** The full table of what each schedule runs is in [CI Gate Self-Tests](../development/ci-gates.md).
 
 ### Create or restore it
 
@@ -94,12 +96,13 @@ what each schedule runs is in [CI Gate Self-Tests](../development/ci-gates.md).
 | Activated | Yes |
 
 If the schedule already exists, only confirm that `SONAR_SCHEDULED=true` is among its
-variables. The Sonar job needs only that one variable; the others belong to the neighboring
-jobs. The nightly load test has its own separate schedule (`LOAD_TEST_SCHEDULE=true`) and is
-unrelated.
+variables.
 
-A schedule runs as the user who owns it. If that user is removed from the project, GitLab can
-stop running their schedules, so after any membership change check that the schedule still
+- The Sonar job needs only that one variable; the others belong to the neighboring jobs.
+- The nightly load test has its own separate schedule (`LOAD_TEST_SCHEDULE=true`) and is unrelated.
+
+**Watch out:** A schedule runs as the user who owns it. If that user is removed from the project, GitLab can
+stop running their schedules. After any membership change, check that the schedule still
 shows a next-run time, and use **Take ownership** if it does not.
 
 ### Verify
@@ -123,9 +126,11 @@ pipeline** on `main` with `SONAR_SCHEDULED=true`. Then:
 
 ## When the nightly `sonar:scan` is yellow
 
-`sonar:scan` is `allow_failure: true`, so it never makes the pipeline red, and nothing alerts
+**Watch out:** `sonar:scan` is `allow_failure: true`, so it never makes the pipeline red, and nothing alerts
 on it. Check the schedule's pipeline history periodically, or the dashboard's last-analysis
-date. To diagnose a yellow job, read its log and match the symptom:
+date.
+
+To diagnose a yellow job, read its log and match the symptom:
 
 | Symptom in the log | Likely cause | Fix |
 |---|---|---|
@@ -143,9 +148,11 @@ guard pass.
 
 ## The "review every new hotspot" rule
 
-SonarCloud security hotspots are code that is security-sensitive but not necessarily wrong. A
+The policy is **no unreviewed hotspots**.
+
+**Why it matters:** SonarCloud security hotspots are code that is security-sensitive but not necessarily wrong. A
 human must decide, and the dashboard counts unreviewed ones against the Security Review
-rating. The policy is **no unreviewed hotspots**.
+rating.
 
 1. When a hotspot appears (the dashboard or a new-code notification shows it), open **Security
    Hotspots** and read the finding and its guidance.
@@ -158,7 +165,7 @@ rating. The policy is **no unreviewed hotspots**.
 5. Do this when it appears, not at release time. Hotspots reviewed late are reviewed from
    memory.
 
-Reviewing a hotspot needs a specific project permission in SonarCloud (called "Administer
+**Yes, but:** Reviewing a hotspot needs a specific project permission in SonarCloud (called "Administer
 Security Hotspots" in the current UI). If you cannot see the status controls, ask an
 organization admin.
 
