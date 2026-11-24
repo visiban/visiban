@@ -29,7 +29,7 @@ describe where it lives instead.
 `release-main-pipeline-guard` (#1154) reads the `main` pipeline and its jobs at a release
 tag's commit before anything is published (see
 [Known CI Failures](known-ci-failures.md#release-main-pipeline-guard-refuses-to-publish-a-release-tag)).
-It needs `GITLAB_API_TOKEN` and **refuses every release tag while the variable is unset**.
+**Watch out:** It needs `GITLAB_API_TOKEN` and **refuses every release tag while the variable is unset**.
 It never falls back to an unauthenticated read.
 
 **Current token (created 2026-10-31, #1996):** `visiban-release-guard-read`, owned by
@@ -37,18 +37,20 @@ It never falls back to an unauthenticated read.
 The owner is deliberately **not** a member of `visiban/visiban-enterprise`: this variable lives
 in the public project's CI, so its token must not be able to read private enterprise code.
 
-When rotating or recreating it, use a **personal access token** with the **`read_api`** scope.
-Its owner needs **Reporter role or higher** on `visiban/visiban` for the guard, so the token can
-still read pipelines if they ever stop being public, and **Maintainer** for
-`schedule-config-check` (below). Prefer a dedicated bot user over a maintainer's own account:
-the token reads with its owner's permissions and stops working when that account loses access.
+**How it works:** When rotating or recreating it, use a **personal access token** with the **`read_api`** scope.
 
-Project and group access tokens and service accounts are not options here. On GitLab.com
+- Its owner needs **Reporter role or higher** on `visiban/visiban` for the guard, so the token can
+  still read pipelines if they ever stop being public, and **Maintainer** for
+  `schedule-config-check` (below).
+- Prefer a dedicated bot user over a maintainer's own account:
+  the token reads with its owner's permissions and stops working when that account loses access.
+
+**Yes, but:** Project and group access tokens and service accounts are not options here. On GitLab.com
 they need Premium or Ultimate, and the `visiban` group is on the Free plan (checked
 2026-10-26 via `GET /namespaces/visiban`: `plan: free`). `RUNNER_STATUS_TOKEN` is a personal
 token for the same reason.
 
-**Minimum role depends on the reader.** The guard needs Reporter. `schedule-config-check`
+**Watch out:** **Minimum role depends on the reader.** The guard needs Reporter. `schedule-config-check`
 needs **Maintainer**, or the token's owner must own the schedules. GitLab's pipeline
 schedules API returns a schedule's `variables` only to Maintainers, Owners and the schedule's
 owner, and that check reads the variables. With a Reporter-owned token it would see every
@@ -58,11 +60,12 @@ the scheduled pipelines red: a Developer- or Reporter-owned token is worse than 
 account with a `read_api` token serves both.
 
 Store it as a CI/CD variable named `GITLAB_API_TOKEN`, **masked** and **protected**, with
-**Expand variable reference** off. `v*` tags are protected on `visiban/visiban` (Maintainers),
-so it reaches tag pipelines. A GitLab.com personal access token expires within
-365 days, so record its expiry in the inventory table above. The guard sends it as `PRIVATE-TOKEN` and never prints
-it. Creating it also turns on the other readers in the inventory row
-(`schedule-config-check` stops warning and starts asserting).
+**Expand variable reference** off.
+
+- `v*` tags are protected on `visiban/visiban` (Maintainers), so it reaches tag pipelines.
+- A GitLab.com personal access token expires within 365 days, so record its expiry in the inventory table above.
+- The guard sends it as `PRIVATE-TOKEN` and never prints it.
+- Creating it also turns on the other readers in the inventory row (`schedule-config-check` stops warning and starts asserting).
 
 **The enterprise mirror needs its own.** `visiban/visiban-enterprise` receives every tag and
 runs the same `.gitlab-ci.yml`, so its `v*` tag pipelines run the guard too, against the
@@ -110,7 +113,7 @@ Why not something narrower:
 
 ## `RUNNER_STATUS_TOKEN`
 
-Added in **#1084** for `arm64-runner-preflight`. The GitLab Runners API is not part of the
+**The big picture:** Added in **#1084** for `arm64-runner-preflight`. The GitLab Runners API is not part of the
 CI_JOB_TOKEN-allowed endpoint set, so this job cannot authenticate with the ambient
 `CI_JOB_TOKEN` the way most other jobs in this file do for registry pushes — it needs an
 actual PAT. It is a **fine-grained** PAT with the `read_runner` permission, scoped to the
@@ -139,7 +142,9 @@ job queries the group Runners endpoint (`/groups/visiban/runners`) to match.
    queries that endpoint instead.
 
 `.gitlab-ci.yml` now references `RUNNER_STATUS_TOKEN` against `/groups/visiban/runners`, to
-match what's actually configured and granted. If this variable is ever rotated or recreated,
+match what's actually configured and granted.
+
+**Watch out:** If this variable is ever rotated or recreated,
 keep the name as `RUNNER_STATUS_TOKEN`, the `read_runner` group-scoped permission, and the
 group endpoint — do not reintroduce `RUNNERS_READ_TOKEN` or point it back at the project
 endpoint.
@@ -182,14 +187,14 @@ personal token, ideally a bot user's. Project access tokens need Premium on GitL
 the `visiban` group is on Free (see [above](#gitlab_api_token-and-the-release-guard)). Neither token exists yet. Until one
 does, both jobs only report what they would have filed.
 
-The fallback **ties the two tokens' rotation together**. If only `KAIZEN_API_TOKEN` is
+**Watch out:** The fallback **ties the two tokens' rotation together**. If only `KAIZEN_API_TOKEN` is
 configured, it is also the deep-fuzz filer, so revoking or rotating it silently stops deep-fuzz
 filing too. Rotate or revoke it as a deep-fuzz credential as well as a kaizen one. To separate
 them, create `FUZZ_DEEP_API_TOKEN`, which takes precedence.
 
 ## `DOCS_DEPLOY_TOKEN` — historical note and current status
 
-A memory note dated 2026-04-07 recorded `DOCS_DEPLOY_TOKEN` as mistakenly set to a GitHub
+**Yes, but:** A memory note dated 2026-04-07 recorded `DOCS_DEPLOY_TOKEN` as mistakenly set to a GitHub
 PAT (`ghp_...`), which GitLab's git auth would reject when `mike` tries to push to
 `gh-pages`. As of this writing (2026-09-14), that is **not** the current failure mode: the
 `gh-pages` pipeline has completed successfully multiple times today, which requires
