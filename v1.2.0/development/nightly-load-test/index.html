@@ -4734,7 +4734,7 @@
 <tr>
 <td>Flow metrics</td>
 <td><code>GET /api/v1/boards/{id}/metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention,swimlanes}/</code></td>
-<td>Each replays movement history in Python (<a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>). Since <a href="https://gitlab.com/visiban/visiban/-/issues/2425">#2425</a> only the cards that can change the requested range are replayed (every live card, plus any card archived, created or moved since the range opened), so cost follows the board's live and recent work, not its age. <code>cumulative-flow</code> still reads every older card's movements once, folded card by card, because finished work stays in the done band for ever: it keeps one dict entry per skipped card (per-card, not per-movement), and its latency still grows with the board's history. Gated since <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigned their budgets from NUC job 18170442650</td>
+<td>Each replays movement history in Python (<a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>). Since <a href="https://gitlab.com/visiban/visiban/-/issues/2425">#2425</a> only the cards that can change the requested range are replayed (every live card, plus any card archived, created or moved since the range opened), so cost follows the board's live and recent work, not its age. <code>cumulative-flow</code> still places every older card, because finished work stays in the done band for ever, but since <a href="https://gitlab.com/visiban/visiban/-/issues/2444">#2444</a> it reads only the at most three rows per card that decide where the card rests (the first row, the last transition, the last archive-type row), chosen in SQL, not the card's whole history. It still places every older card, so its cost grows with the number of archived cards: it is not bounded by the board's age. See <a href="#cumulative-flows-whole-history-read-2444">the #2444 section</a>. Gated since <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigned their budgets from NUC job 18170442650</td>
 </tr>
 <tr>
 <td>Single-request overview</td>
@@ -4744,7 +4744,7 @@
 <tr>
 <td>Aged-board reads</td>
 <td>The summary, <code>analytics/?days=90&amp;limit=300</code>, <code>analytics/?days=365</code> (uncapped), the eight <code>metrics/*</code> reads (uncapped) and <code>metrics/overview/?days=90&amp;limit=300</code> on the aged board (<code>aged_board_summary</code>, <code>aged_board_analytics</code>, <code>aged_board_analytics_365</code>, <code>aged_flow_*</code>)</td>
-<td>The same active cards as the load-test board plus years of archived history (<a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a>). Analytics breaks on board <em>age</em>, not on the shape of the active board: in the 2026-11-20 stress run the same 2.4k active cards cost 8-10x more per <code>metrics/*</code> request with three years of archived cards behind them. <code>aged_flow_cumulative_flow</code> also makes <a href="https://gitlab.com/visiban/visiban/-/issues/2444">#2444</a> visible (it reads the whole history for any range, and so does <code>metrics/cumulative-flow/?date=</code>, the drill-down the overview does not send). The MCP <code>board_flow_metrics</code> tool is not timed here; since <a href="https://gitlab.com/visiban/visiban/-/issues/2445">#2445</a> it uses the same range-bounded load as <code>metrics/*</code>, pinned by <code>BoardFlowMetricsAgedTests</code> in <code>mcp_server/tests/test_mcp_flow.py</code>. Run as <code>loadtest_analytics</code>, 10 timed requests each (an aged request costs seconds), so its p95 is the slowest sample</td>
+<td>The same active cards as the load-test board plus years of archived history (<a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a>). Analytics breaks on board <em>age</em>, not on the shape of the active board: in the 2026-11-20 stress run the same 2.4k active cards cost 8-10x more per <code>metrics/*</code> request with three years of archived cards behind them. <code>aged_flow_cumulative_flow</code> and <code>aged_flow_cumulative_flow_day</code> (<code>metrics/cumulative-flow/?date=</code>, a day 540 days back, the drill-down the overview does not send) measure the <a href="https://gitlab.com/visiban/visiban/-/issues/2444">#2444</a> bound: both read at most three rows per card (four for a drill-down day), not its whole history, but both still place every card older than the range, so both grow with the archived card count. The MCP <code>board_flow_metrics</code> tool is not timed here; since <a href="https://gitlab.com/visiban/visiban/-/issues/2445">#2445</a> it uses the same range-bounded load as <code>metrics/*</code>, pinned by <code>BoardFlowMetricsAgedTests</code> in <code>mcp_server/tests/test_mcp_flow.py</code>. Run as <code>loadtest_analytics</code>, 10 timed requests each (an aged request costs seconds), so its p95 is the slowest sample</td>
 </tr>
 <tr>
 <td>Overview fan-out</td>
@@ -5591,6 +5591,126 @@ check (#1298) is not a latency scenario and has no budget.</p>
 </table>
 <p>The aged board keeps the #2425 win. Its <code>wip-age</code> was 324 ms p50 with either predicate, against 756 ms for the whole-history load. No budget changed. The residual of about 5-8% over <code>2655a9f81</code> on the load-test board wasn't attributed. It's inside the 1.4x budget factor.</p>
 <p>The closing check is the manual <code>nightly-load-test</code> job on the NUC: its p95 for all eight flow scenarios (<code>cycle-time</code>, <code>throughput</code>, <code>cumulative-flow</code>, <code>wip-age</code>, <code>dwell</code>, <code>blocked</code>, <code>attention</code>, <code>swimlanes</code>) must come back under their budgets. The local DRF-client table above covers only four of the eight (<code>wip-age</code>, <code>attention</code>, <code>cycle-time</code>, <code>cumulative-flow</code>); <code>throughput</code>, <code>dwell</code>, <code>blocked</code> and <code>swimlanes</code> were not measured locally.</p>
+<h2 id="cumulative-flows-whole-history-read-2444">Cumulative flow's whole-history read — #2444<a class="headerlink" href="#cumulative-flows-whole-history-read-2444" title="Permanent link">&para;</a></h2>
+<p>After <a href="https://gitlab.com/visiban/visiban/-/issues/2425">#2425</a>, <code>metrics/cumulative-flow</code> still streamed every skipped card's whole movement history to find the band it rests in. The <code>?date=</code> drill-down still loaded the board's whole history through <code>load_board_flow</code>.</p>
+<p>Both now go through <code>flow_metrics._deciding_rows</code>, which reads per card only the rows <code>_replay_placements</code> can depend on:</p>
+<ul>
+<li>the first row;</li>
+<li>the last transition;</li>
+<li>the last archive-type row;</li>
+<li>for a drill-down day only, the last archive-type row after that day. That row decides whether an admin-set <code>archived_at</code> counts.</li>
+</ul>
+<p>The rows are chosen in one uncorrelated statement with two <code>ROW_NUMBER()</code> windows, and the replay is unchanged, so every response is byte-identical. <code>load_cumulative_day</code> serves the drill-down.</p>
+<h3 id="measured-local-not-the-nuc">Measured (local, not the NUC)<a class="headerlink" href="#measured-local-not-the-nuc" title="Permanent link">&para;</a></h3>
+<p>Setup:</p>
+<ul>
+<li>The numbers are in-process service calls (load plus payload, the drill-down's card directory included) on local PostgreSQL. No HTTP request was timed.</li>
+<li>The fixture is <code>seed_demo_data --force --scale 20 --aged-generations 12</code> followed by <code>VACUUM ANALYZE</code>. The aged board has 31,330 cards and 329,563 movements. The load-test board has 2,395 cards and 24,919 movements, and it stands in for the "80 days" row.</li>
+<li>The drill-down day is 540 days back.</li>
+<li>Each figure is the median of 7 runs, in ms.</li>
+<li>"py-peak" is the <code>tracemalloc</code> peak, not RSS: <code>/proc</code> is not available on macOS.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Request</th>
+<th>Board</th>
+<th>main</th>
+<th>#2444</th>
+<th>py-peak main → #2444</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cumulative-flow</code> (90 days)</td>
+<td>aged</td>
+<td>1,083</td>
+<td>772</td>
+<td>31.6 → 31.4 MiB</td>
+</tr>
+<tr>
+<td><code>cumulative-flow</code> (90 days)</td>
+<td>load-test</td>
+<td>130</td>
+<td>128</td>
+<td>11.7 → 11.7 MiB</td>
+</tr>
+<tr>
+<td><code>cumulative-flow?date=</code></td>
+<td>aged</td>
+<td>1,488</td>
+<td>653</td>
+<td>150.0 → 43.3 MiB</td>
+</tr>
+<tr>
+<td><code>cumulative-flow?date=</code></td>
+<td>load-test</td>
+<td>120</td>
+<td>45</td>
+<td>11.7 → 3.3 MiB</td>
+</tr>
+<tr>
+<td><code>wip-age</code>, for reference</td>
+<td>aged / load-test</td>
+<td>—</td>
+<td>295 / 137 (2.15x)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><code>EXPLAIN (ANALYZE, BUFFERS)</code> on the deciding-rows statement:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Rows read by the windows</th>
+<th>Rows returned</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Range (skipped cards)</td>
+<td>278,861</td>
+<td>46,750</td>
+<td>398 ms</td>
+</tr>
+<tr>
+<td>Drill-down (all cards)</td>
+<td>329,563</td>
+<td>44,212</td>
+<td>500 ms</td>
+</tr>
+</tbody>
+</table>
+<p>Both windows are fed by an incremental sort presorted on <code>card_id</code> from <code>card_movements_card_id</code>. That sort is an in-memory quicksort with a 31 kB peak per group and no spill. An index on <code>(card, moved_at, id)</code> would not remove it, because the second window partitions on the computed <code>kind</code>. No index was added.</p>
+<p><strong>The #2425 1.5x acceptance is not met, for latency or for memory.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Request</th>
+<th>Latency, aged / load-test</th>
+<th><code>tracemalloc</code> peak, aged / load-test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cumulative-flow</code></td>
+<td>6.0x (772 / 128 ms)</td>
+<td>2.7x (31.4 / 11.7 MiB)</td>
+</tr>
+<tr>
+<td><code>cumulative-flow?date=</code></td>
+<td>14.5x (653 / 45 ms)</td>
+<td>13.1x (43.3 / 3.3 MiB)</td>
+</tr>
+</tbody>
+</table>
+<p>Caveat: the load-test board has no history 540 days back, so its drill-down day is empty and the drill-down ratio (14.5x here, 11.4x for the probes) is not a like-for-like comparison. The range ratio (about 6x) is the meaningful one. The "not met" verdict stands either way.</p>
+<p>The remaining cost is server-side: the windows still read every row of the selected cards (about 400-500 ms), although only three or four per card reach Python. Both requests also place every card older than the range, so the rows that reach Python grow with the archived card count.</p>
+<p>Per-card <code>LIMIT 1</code> probes through a new <code>(card, moved_at, id)</code> index were also tried. In a same-run A/B of the deciding read alone (same rows), the window statement took 575 ms for the range and 708 ms for the drill-down, and the probes 610 ms and 861 ms, so the probes were slightly slower and were not kept. The 6.4x and 11.4x ratios above come from a different run than the 6.0x and 14.5x, on a machine about 40% slower in the second, so the two sets are not comparable with each other. Only a stored placement per settled card (or per day) could reach 1.5x.</p>
+<p><code>aged_flow_cumulative_flow_day</code> is pending under #2430 with its siblings until a NUC run measures it.</p>
+<p>Follow-up: #2559 (stored per-card resting placements).</p>
 
 
 
