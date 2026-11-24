@@ -13,7 +13,7 @@ Visiban has five ways to break work down or track progress inside a column. Pick
 | Tool | Use when | Belongs to | What it shows on the board |
 |---|---|---|---|
 | [Checklist](board.md#card-detail-panel) | to-dos inside one card, done or not done | the card | a `✓ 3/7` count on the card face |
-| [Child card](board.md#child-cards-setting) (on a child board) | a piece of the work needs its own workflow, usually on another team's board | the card | child progress on the parent card's footer |
+| [Child card](board.md#child-cards-setting) (on another board that holds children) | a piece of the work needs its own workflow, usually on another team's board | the card | child progress on the parent card's footer |
 | [Sub-columns](board.md#sub-columns-and-tracks-13) | every card in a column passes the same ordered steps | the column | the card's position in the gated stage (or a progress bar with **Show sub-columns** off) |
 | [Tracks](board.md#sub-columns-and-tracks-13) | every card in a column needs the same checks, in any order | the column | one chip per track on the card |
 | [Entry criteria](column-policies.md) (column policy) | remind the mover what "ready" means on entry | the column | nothing on the card; shown on the column header and when a card enters |

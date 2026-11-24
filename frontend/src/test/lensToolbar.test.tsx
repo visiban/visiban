@@ -66,6 +66,27 @@ describe('LensToolbar', () => {
     expect(screen.getByRole('button', { name: 'Filters, 2 active' })).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('tooltip names the active count when the bar is hidden (singular and plural) (#2556)', async () => {
+    const user = userEvent.setup()
+    setup({ url: '/?state=open', showFilters: false })
+    await user.hover(screen.getByRole('button', { name: 'Filters, 1 active' }))
+    expect(await screen.findByText('1 filter active (bar hidden)')).toBeInTheDocument()
+  })
+
+  it('tooltip pluralizes the hidden-bar count (#2556)', async () => {
+    const user = userEvent.setup()
+    setup({ url: '/?state=open&milestone=0.3', showFilters: false })
+    await user.hover(screen.getByRole('button', { name: 'Filters, 2 active' }))
+    expect(await screen.findByText('2 filters active (bar hidden)')).toBeInTheDocument()
+  })
+
+  it('tooltip stays "Hide filters (F)" while the bar is shown, even with active filters (#2556)', async () => {
+    const user = userEvent.setup()
+    setup({ url: '/?state=open', showFilters: true })
+    await user.hover(screen.getByRole('button', { name: 'Filters, 1 active' }))
+    expect(await screen.findByText('Hide filters (F)')).toBeInTheDocument()
+  })
+
   it('marks the active layout toggle with the underline cue, not tint alone (#2188)', () => {
     setup()
     const filters = screen.getByRole('button', { name: 'Filters' })
