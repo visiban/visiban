@@ -1,3 +1,4 @@
+import type React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import type { BoardFull, CustomFieldDefinition, CustomFieldSet, CustomFieldValue } from "../types";
@@ -9,14 +10,18 @@ import { pruneSetFields, pruneSetLane } from "../utils/fieldSets";
 import { withCardDefinitions } from "../hooks/useBoard";
 import CustomFieldValueInput from "../components/Card/CustomFieldValueInput";
 
-vi.mock("../components/Card/CustomFieldEditRow", () => ({
-  default: ({ definition, value }: { definition: CustomFieldDefinition; value?: string }) => (
-    <input aria-label={definition.name} defaultValue={value ?? ""} />
-  ),
-}));
+// Stubbed by default; a test that needs the real editor behavior flips `realRow`.
+const rowMode = vi.hoisted(() => ({ realRow: false }));
+vi.mock("../components/Card/CustomFieldEditRow", async (importOriginal) => {
+  const Real = (await importOriginal<typeof import("../components/Card/CustomFieldEditRow")>()).default;
+  return {
+    default: (props: React.ComponentProps<typeof Real>) =>
+      rowMode.realRow ? <Real {...props} /> : <input aria-label={props.definition.name} defaultValue={props.value ?? ""} />,
+  };
+});
 vi.mock("../api/boards", () => ({
   createFieldSet: vi.fn(), updateFieldSet: vi.fn(), deleteFieldSet: vi.fn(), listFieldSets: vi.fn(),
-  reorderFieldSets: vi.fn(), reorderCustomFields: vi.fn(), copyFieldSet: vi.fn(), listBoards: vi.fn(), listCustomFieldDefinitions: vi.fn(),
+  reorderFieldSets: vi.fn(), reorderCustomFields: vi.fn(), copyFieldSet: vi.fn(), listAllBoards: vi.fn(), listCustomFieldDefinitions: vi.fn(),
 }));
 import * as api from "../api/boards";
 import FieldSetBlocks, { MAXIMIZE_ESCAPE_PRIORITY } from "../components/Card/FieldSetBlocks";
@@ -239,7 +244,7 @@ describe("BoardSettingsFieldSetsSection", () => {
   });
 
   it("does not report a failed copy when only the field re-read fails", async () => {
-    vi.mocked(api.listBoards).mockResolvedValue([{ id: 9, name: "Source" }] as never);
+    vi.mocked(api.listAllBoards).mockResolvedValue([{ id: 9, name: "Source" }] as never);
     vi.mocked(api.listFieldSets).mockResolvedValue([fset(20, "Qual", [31])]);
     vi.mocked(api.listCustomFieldDefinitions).mockResolvedValueOnce([def(31, "Fresh")]).mockRejectedValueOnce(new Error("x"));
     vi.mocked(api.copyFieldSet).mockResolvedValue(fset(21, "Qual", [5]));
@@ -270,7 +275,7 @@ describe("BoardSettingsFieldSetsSection", () => {
   });
 
   it("copy previews reuse / create outcomes and copies", async () => {
-    vi.mocked(api.listBoards).mockResolvedValue([{ id: 1, name: "Here" }, { id: 9, name: "Source" }] as never);
+    vi.mocked(api.listAllBoards).mockResolvedValue([{ id: 1, name: "Here" }, { id: 9, name: "Source" }] as never);
     vi.mocked(api.listFieldSets).mockResolvedValue([fset(20, "MEDDIC", [31, 32, 33])]);
     vi.mocked(api.listCustomFieldDefinitions).mockResolvedValue([def(31, "Notes"), def(32, "Metrics"), def(33, "Brand new")]);
     vi.mocked(api.copyFieldSet).mockResolvedValue(fset(21, "MEDDIC (copy)", [5]));
@@ -282,7 +287,7 @@ describe("BoardSettingsFieldSetsSection", () => {
     fireEvent.change(screen.getByLabelText("Field set"), { target: { value: "20" } });
     expect(screen.getByLabelText("Name")).toHaveValue("MEDDIC (copy)");
     expect(screen.getByText("— Uses existing field")).toBeInTheDocument();
-    expect(screen.getByText("— Creates Metrics (copied)")).toBeInTheDocument();
+    expect(screen.getByText("— Creates a copy of Metrics")).toBeInTheDocument();
     expect(screen.getByText("— Creates new field")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Copy field set" }));
     await waitFor(() => expect(api.copyFieldSet).toHaveBeenCalledWith(1, { source_board: 9, source_set: 20, name: "MEDDIC (copy)" }));
@@ -340,6 +345,22 @@ describe("FieldSetBlocks focus, empty states and live updates (#2570)", () => {
     expect(screen.queryByText(/MEDDIC was removed/)).toBeNull();
     act(() => { input.blur(); });
     expect(screen.getByText(/MEDDIC was removed/)).toBeInTheDocument();
+  });
+
+  it("keeps focus on the Maximize layer after Escape reverts a text field", () => {
+    rowMode.realRow = true;
+    try {
+      renderBlocks();
+      fireEvent.click(screen.getByRole("button", { name: "Maximize MEDDIC" }));
+      const layer = screen.getByTestId("field-set-maximized");
+      const input = layer.querySelector("input")!;
+      act(() => { input.focus(); });
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(layer).toHaveFocus();
+      expect(screen.getByTestId("field-set-maximized")).toBeInTheDocument();
+    } finally {
+      rowMode.realRow = false;
+    }
   });
 
   it("announces a focused field's move once its row blurs", () => {
@@ -453,7 +474,7 @@ describe("Field sets settings focus, guard and errors (#2570)", () => {
   });
 
   it("copy panel focuses Board, drops stale answers, blocks a double copy and returns focus", async () => {
-    vi.mocked(api.listBoards).mockResolvedValue([{ id: 9, name: "Source" }, { id: 8, name: "Slow" }] as never);
+    vi.mocked(api.listAllBoards).mockResolvedValue([{ id: 9, name: "Source" }, { id: 8, name: "Slow" }] as never);
     let releaseSlow: (v: CustomFieldSet[]) => void = () => {};
     vi.mocked(api.listFieldSets).mockImplementation((id) => (id === 8
       ? new Promise<CustomFieldSet[]>((r) => { releaseSlow = r; })

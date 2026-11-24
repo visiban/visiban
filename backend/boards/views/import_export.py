@@ -3999,6 +3999,8 @@ class BoardImportExportMixin:
                         "labels": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "custom_fields": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "swimlane_custom_fields": drf_serializers.ListField(child=drf_serializers.DictField()),
+                        # Field sets (#2570).
+                        "field_sets": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "cards": drf_serializers.ListField(child=drf_serializers.DictField()),
                         # Retained history of hard-deleted cards (#1796).
                         "deleted_card_history": drf_serializers.ListField(child=drf_serializers.DictField()),

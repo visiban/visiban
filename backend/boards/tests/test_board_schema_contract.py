@@ -426,6 +426,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "default_child_board",
             # Additive (#2212): what a parent card is called.
             "parent_name_singular", "parent_name_plural",
+            # Additive (#2570): custom field sets.
+            "custom_field_sets",
         ])
         self.assertIsInstance(body["allowed_priorities"], list)
         self.assertEqual(body["current_user_role"], "admin")

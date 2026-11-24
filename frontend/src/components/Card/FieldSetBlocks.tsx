@@ -181,7 +181,7 @@ function FieldGrid({ block, values, props, gridClass, cellClass }: {
         <div
           key={definition.id}
           data-fact-section={`field:${definition.id}`}
-          tabIndex={-1}
+         
           className={`focus:outline-none ${WIDE_TYPES.has(definition.field_type) ? "sm:col-span-2" : ""} ${cellClass ?? ""}`}
         >
           <CustomFieldEditRow
@@ -431,8 +431,8 @@ function FieldSetMaximized({ layerRef: ref, anchor, blocks, index, cardTitle, va
     </button>
   );
   return createPortal(
-    <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="field-set-max-title"
-      className="absolute inset-0 z-10 bg-surface flex flex-col rounded-[inherit] overflow-hidden" data-testid="field-set-maximized">
+    <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="field-set-max-title" tabIndex={-1}
+      className="absolute inset-0 z-10 bg-surface flex flex-col rounded-[inherit] overflow-hidden focus:outline-none" data-testid="field-set-maximized">
       <div className="flex items-center gap-3 px-5 py-3 border-b border-line flex-wrap">
         <div className="min-w-0 flex-1">
           <p className="text-xs text-fg-muted truncate" title={`${cardTitle} › Field sets`}>{cardTitle} › Field sets</p>

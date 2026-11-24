@@ -94,6 +94,17 @@ export const joinBoard = async (token: string) =>
 export const listBoards = () =>
   client.get<{ results: Board[] }>("/api/v1/boards/").then((r) => r.data.results);
 
+/** Every board the caller can see, walking all pages; for pickers that must not stop at page one (#2570). */
+export const listAllBoards = async () => {
+  const boards: Board[] = [];
+  for (let offset = 0; ; ) {
+    const { data } = await client.get<{ count: number; results: Board[] }>("/api/v1/boards/", { params: { offset, page_size: 200 } });
+    boards.push(...data.results);
+    offset += data.results.length;
+    if (data.results.length === 0 || offset >= data.count) return boards;
+  }
+};
+
 export const listBoardTemplates = () =>
   client.get<BoardTemplate[]>("/api/v1/boards/templates/").then((r) => r.data);
 

@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { BoardFull, CustomFieldDefinition, CustomFieldSet } from "../../types";
-import { copyFieldSet, listBoards, listCustomFieldDefinitions, listFieldSets } from "../../api/boards";
+import { copyFieldSet, listAllBoards, listCustomFieldDefinitions, listFieldSets } from "../../api/boards";
 import { Button, buttonClasses } from "../Page";
 import ModalWrapper from "../shared/ModalWrapper";
 import { apiErrorMessage } from "../../utils/fieldSetSettings";
@@ -43,13 +43,14 @@ export default function CopyFieldSetDialog({ board, onClose, onCopied }: { board
       .then(([s, d]) => { if (mine !== request.current) return; setSourceSets(s); setSourceDefs(d); setLoading(false); })
       .catch(() => { if (mine !== request.current) return; setError("Could not load that board's field sets."); setLoading(false); });
   };
-  useEffect(() => { listBoards().then((bs) => setBoards(bs.filter((b) => b.id !== board.id).map((b) => ({ id: b.id, name: b.name })))).catch(() => setError("Could not load your boards.")); }, [board.id]);
+  useEffect(() => { listAllBoards().then((bs) => setBoards(bs.filter((b) => b.id !== board.id).map((b) => ({ id: b.id, name: b.name })))).catch(() => setError("Could not load your boards.")); }, [board.id]);
   const chosen = sourceSets.find((s) => s.id === sourceSet) ?? null;
   const preview = chosen ? sourceDefs.filter((d) => chosen.field_ids.includes(d.id)).map((d) => {
     const local = board.custom_field_definitions.find((l) => l.name === d.name);
     const grouped = local && (board.custom_field_sets ?? []).some((s) => s.field_ids.includes(local.id));
     if (local && local.field_type === d.field_type && !grouped) return { d, text: "Uses existing field" };
-    if (local) return { d, text: `Creates ${d.name} (copied)` };
+    // The server picks the suffix ("(copied)", "(copied 2)", ...), so name none.
+    if (local) return { d, text: `Creates a copy of ${d.name}` };
     return { d, text: "Creates new field" };
   }) : [];
   const adds = preview.filter((p) => p.text !== "Uses existing field").length;
