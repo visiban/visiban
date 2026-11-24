@@ -801,6 +801,10 @@ class MaxPagesEnvWiringTests(SimpleTestCase):
         env = {
             "DJANGO_SECRET_KEY": "test-secret-key-not-change-me-in-production",
             "DATABASE_URL": "sqlite:///dev.db",
+            # The child gets a clean environment, so DEBUG must be set here: without
+            # it settings.py takes the production path and rejects the default
+            # localhost CORS origin. A local backend/.env hides that; CI has none.
+            "DEBUG": "True",
             "GIT_LENS_ENABLED": "true",
             **overrides,
             "PATH": os.environ.get("PATH", ""),
