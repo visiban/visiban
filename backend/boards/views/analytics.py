@@ -482,8 +482,10 @@ class ThroughputQuerySerializer(_ListLimitMixin, GroupedFlowMetricsQuerySerializ
 class FlowOverviewQuerySerializer(ThroughputQuerySerializer):
     """``metrics/overview`` (#2426): the filters, ``group_by`` and throughput's ``period``.
 
-    No cumulative-flow ``date``: that drill-down reads the whole history and
-    stays on its own endpoint; a stray one is ignored like any unknown parameter.
+    No cumulative-flow ``date``: that drill-down lists every card of the board
+    resting in a band that day, so it loads every card (with only the few
+    movement rows that decide its placement, #2444) and stays on its own
+    endpoint; a stray one is ignored like any unknown parameter.
     """
 
 
@@ -643,18 +645,11 @@ def _flow_range(params, now):
     return flow_metrics.rolling_range(params.get("days", flow_metrics.DEFAULT_RANGE_DAYS), now=now)
 
 
-def _load_flow(board, params, now):
-    """The board's whole history under the filters: only cumulative flow's ``date`` drill-down needs it."""
-    return flow_metrics.load_board_flow(
-        board, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"), now=now,
-    )
-
-
 def _load_range_flow(board, params, now, flow_range):
     """Only the cards that can change a metric inside ``flow_range`` (#2425, see ``can_affect_range``).
 
     Cost follows the cards live now or active since the range opened, not the
-    board's age; the numbers are the same as on ``_load_flow``.
+    board's age; the numbers are the same as on a whole-history ``load_board_flow``.
     """
     return flow_metrics.load_range_flow(
         board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
@@ -1908,8 +1903,12 @@ class BoardAnalyticsMixin:
             )
             return Response(flow_metrics.cumulative_flow(flow, flow_range))
         # One day's card list names every card resting in each band that day,
-        # finished work from any year included, so it reads the whole history.
-        flow = _load_flow(board, params, now)
+        # finished work from any year included, so every filtered card is
+        # loaded, but only the few rows that decide where it rests at the end
+        # of that day, not its whole history (#2444).
+        flow = flow_metrics.load_cumulative_day(
+            board, day, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
+        )
         payload = flow_metrics.cumulative_flow_cards(flow, day)
         payload["cards"] = flow_metrics.card_directory(
             flow, (uid for column in payload["columns"] for uid in column["card_uids"]),

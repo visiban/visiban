@@ -1555,9 +1555,9 @@ class EndpointQueryCountTests(EndpointFixture):
             # Mirrored as block_card does, so attention's block_reason is read at both sizes (#2281).
             Card.objects.filter(pk=wip.pk).update(blocked_at=self.ago(1), blocked_reason="r")
 
-    def count(self, metric):
+    def count(self, metric, **params):
         with CaptureQueriesContext(connection) as ctx:
-            resp = self.client.get(self.url(metric))
+            resp = self.client.get(self.url(metric), params)
         self.assertEqual(resp.status_code, 200)
         if metric == "attention":
             # An empty list would skip the relation and directory queries this guards.
@@ -1575,6 +1575,22 @@ class EndpointQueryCountTests(EndpointFixture):
                 scaled = self.count(metric)
                 self.assertEqual(scaled, baseline[metric], f"{metric} grew with the board")
                 self.assertLessEqual(scaled, self.BUDGET[metric])
+
+    # The cumulative-flow day drill-down (`?date=`, #2444) is a different read
+    # from the range: the board and its role, the columns, the cards and their
+    # deciding rows, and the directory's assignees. Measured at 5 on SQLite and
+    # pinned exactly, since the growth check above already fails on any drift.
+    # It is not in METRICS, so pinned here.
+    DAY_BUDGET = 5
+
+    def test_cumulative_flow_day_drill_down_stays_within_budget_and_does_not_grow(self):
+        day = (self.now - datetime.timedelta(days=2)).date().isoformat()
+        self.seed(3)
+        baseline = self.count("cumulative-flow", date=day)
+        self.seed(12)
+        scaled = self.count("cumulative-flow", date=day)
+        self.assertEqual(scaled, baseline, "the day drill-down grew with the board")
+        self.assertLessEqual(scaled, self.DAY_BUDGET)
 
 
 # ── #2260: flow numbers for the Analytics redesign ─────────────────────────

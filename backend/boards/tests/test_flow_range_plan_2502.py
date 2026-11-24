@@ -45,7 +45,12 @@ class RangeLoadPlanShapeTests(FlowFixture):
 
     def test_no_range_load_statement_correlates_card_movements_to_the_card(self):
         """The #2502 shape: a correlated EXISTS over card_movements in any statement fails here."""
-        for loader in (fm.load_range_flow, fm.load_cumulative_flow):
+        def day_loader(board, flow_range, *, now):
+            # The drill-down reads one day; the plan shape rule is the same (#2444).
+            return fm.load_cumulative_day(board, flow_range.last_day, now=now)
+
+        day_loader.__name__ = "load_cumulative_day"
+        for loader in (fm.load_range_flow, fm.load_cumulative_flow, day_loader):
             _, statements = self.range_queries(loader)
             movement_terms = [sql for sql in statements if 'FROM "cards"' in sql and '"card_movements"' in sql]
             with self.subTest(loader=loader.__name__):

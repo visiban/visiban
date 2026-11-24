@@ -25,7 +25,8 @@ import datetime
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
-from django.db.models import Exists, F, OuterRef, Q
+from django.db.models import Case, CharField, Exists, F, OuterRef, Q, Value, When, Window
+from django.db.models.functions import Concat, RowNumber
 from django.utils import timezone
 
 from ..models import (
@@ -149,6 +150,31 @@ def _column_key(snapshot_uid, fk_uid, name):
     if name:
         return _NameKey(name)
     return None
+
+
+def _present(field_name):
+    """``field_name`` is truthy in Python's sense: neither NULL nor ``''``."""
+    return Q(**{f"{field_name}__isnull": False}) & ~Q(**{field_name: ""})
+
+
+def _sql_column_key(side):
+    """``_column_key`` for the ``from``/``to`` ``side`` of a movement row, as a SQL expression (#2444).
+
+    Used only to pick which rows ``_deciding_rows`` reads; every key the
+    replay compares is still built in Python from the raw fields. Each branch
+    is type-prefixed (``u`` for a uid, snapshot or FK, ``n`` for a name) so a
+    column name never equals a uid, as ``_NameKey`` keeps them apart in
+    Python. The snapshot uid and the FK's uid share a prefix because Python
+    compares them as the same plain string.
+    """
+    uid, fk_uid, name = f"{side}_column_uid", f"{side}_column__uid", f"{side}_column_name"
+    return Case(
+        When(_present(uid), then=Concat(Value("u"), F(uid), output_field=CharField())),
+        When(_present(fk_uid), then=Concat(Value("u"), F(fk_uid), output_field=CharField())),
+        When(_present(name), then=Concat(Value("n"), F(name), output_field=CharField())),
+        default=Value(None, output_field=CharField()),
+        output_field=CharField(),
+    )
 
 
 # ── Percentiles ────────────────────────────────────────────────────────────
@@ -796,20 +822,7 @@ def load_board_flow(
     selected = _base_cards(board, swimlane_id, label_id)
     if cards_matching is not None:
         selected = selected.filter(cards_matching)
-    cards = [
-        CardFlow(
-            id=row["id"], uid=row["uid"], title=row["title"], swimlane_id=row["swimlane_id"],
-            assignee_id=row["assignee_id"], created_at=row["created_at"],
-            archived_at=row["archived_at"], blocked_at=row["blocked_at"],
-            column_uid=row["column__uid"], blocked_reason=row["blocked_reason"],
-            swimlane_name=row["swimlane__name"], column_id=row["column_id"], position=row["position"],
-        )
-        for row in selected.order_by("id").values(
-            "id", "uid", "title", "swimlane_id", "assignee_id", "created_at",
-            "archived_at", "blocked_at", "column__uid", "blocked_reason", "swimlane__name",
-            "column_id", "position",
-        )
-    ]
+    cards = _card_flows(selected)
 
     rows_by_card: dict[int, list] = {}
     for card_id, movement in _movement_rows(selected, column_ids=on_card_rows is not None):
@@ -838,6 +851,51 @@ def load_board_flow(
     )
 
 
+def _card_flows(selected):
+    """One bare ``CardFlow`` per card of ``selected``, by id: the card row, nothing analyzed yet."""
+    return [
+        CardFlow(
+            id=row["id"], uid=row["uid"], title=row["title"], swimlane_id=row["swimlane_id"],
+            assignee_id=row["assignee_id"], created_at=row["created_at"],
+            archived_at=row["archived_at"], blocked_at=row["blocked_at"],
+            column_uid=row["column__uid"], blocked_reason=row["blocked_reason"],
+            swimlane_name=row["swimlane__name"], column_id=row["column_id"], position=row["position"],
+        )
+        for row in selected.order_by("id").values(
+            "id", "uid", "title", "swimlane_id", "assignee_id", "created_at",
+            "archived_at", "blocked_at", "column__uid", "blocked_reason", "swimlane__name",
+            "column_id", "position",
+        )
+    ]
+
+
+_MOVEMENT_FIELDS = (
+    "card_id", "moved_at", "movement_type",
+    "from_column_uid", "from_column__uid", "from_column_name",
+    "to_column_uid", "to_column__uid", "to_column_name", "to_gates_passed", "id",
+    # The local FK columns, never ``to_swimlane__*``: no join (#2334).
+    "to_swimlane_id",
+)
+
+
+def _movement_from_row(row, interned, column_ids):
+    """``(card_id, _Movement)`` from one ``_MOVEMENT_FIELDS`` row (plus ``to_column_id`` with ``column_ids``)."""
+    (
+        card_id, moved_at, kind, from_uid, from_fk, from_name, to_uid, to_fk, to_name, to_gates, movement_id,
+        to_lane,
+    ) = row[:12]
+    to_column_id = interned.setdefault(row[12], row[12]) if column_ids else None
+    return card_id, _Movement(
+        moved_at, kind,
+        _column_key(from_uid, from_fk, from_name),
+        _column_key(to_uid, to_fk, to_name),
+        to_gates,
+        movement_id,
+        to_lane,
+        to_column_id,
+    )
+
+
 def _movement_rows(selected, *, column_ids=False):
     """``(card_id, _Movement)`` for every movement of ``selected``, by card then ``(moved_at, id)``.
 
@@ -845,15 +903,7 @@ def _movement_rows(selected, *, column_ids=False):
     holds one card's history at a time. ``column_ids`` also reads the raw
     ``to_column_id`` (a local column, no join) into ``_Movement.to_column_id``.
     """
-    fields = (
-        "card_id", "moved_at", "movement_type",
-        "from_column_uid", "from_column__uid", "from_column_name",
-        "to_column_uid", "to_column__uid", "to_column_name", "to_gates_passed", "id",
-        # The local FK columns, never ``to_swimlane__*``: no join (#2334).
-        "to_swimlane_id",
-    )
-    if column_ids:
-        fields = (*fields, "to_column_id")
+    fields = (*_MOVEMENT_FIELDS, "to_column_id") if column_ids else _MOVEMENT_FIELDS
     movements = (
         CardMovement.objects.filter(card__in=selected.order_by().values("id"))
         .order_by("card_id", "moved_at", "id")
@@ -863,20 +913,98 @@ def _movement_rows(selected, *, column_ids=False):
     # every row, and on a year of history that is ~600k ints (#2451).
     interned: dict = {}
     for row in movements.iterator(chunk_size=2000):
-        (
-            card_id, moved_at, kind, from_uid, from_fk, from_name, to_uid, to_fk, to_name, to_gates, movement_id,
-            to_lane,
-        ) = row[:12]
-        to_column_id = interned.setdefault(row[12], row[12]) if column_ids else None
-        yield card_id, _Movement(
-            moved_at, kind,
-            _column_key(from_uid, from_fk, from_name),
-            _column_key(to_uid, to_fk, to_name),
-            to_gates,
-            movement_id,
-            to_lane,
-            to_column_id,
+        yield _movement_from_row(row, interned, column_ids)
+
+
+# The ``kind`` ``_deciding_rows`` gives a row: a transition, an archive-type
+# row (before ``as_of``, or at or after it), anything else.
+_TRANSITION, _ARCHIVE_BEFORE, _ARCHIVE_AFTER, _OTHER = "T", "A", "Z", "O"
+
+
+def _movement_kinds(movements, as_of):
+    """``movements`` annotated with ``from_key``/``to_key`` (``_sql_column_key``) and ``kind`` (#2444).
+
+    ``kind`` is ``T`` for a transition (``_Movement.is_transition``), ``A``
+    for an archive-type row, ``O`` otherwise. With ``as_of``, only a row
+    dated before it is ``T`` or ``A``; an archive-type row at or after it is
+    ``Z``, and a later transition is ``O``.
+    """
+    before = Q() if as_of is None else Q(moved_at__lt=as_of)
+    archive = Q(movement_type__in=[_ARCHIVED, _UNARCHIVED])
+    transition = (
+        Q(movement_type=_MOVE) & Q(from_key__isnull=False) & Q(to_key__isnull=False) & ~Q(from_key=F("to_key"))
+    )
+    whens = [When(transition & before, then=Value(_TRANSITION)), When(archive & before, then=Value(_ARCHIVE_BEFORE))]
+    if as_of is not None:
+        whens.append(When(archive, then=Value(_ARCHIVE_AFTER)))
+    return movements.annotate(from_key=_sql_column_key("from"), to_key=_sql_column_key("to")).annotate(
+        kind=Case(*whens, default=Value(_OTHER), output_field=CharField()),
+    )
+
+
+def _deciding_rows(cards, *, now, as_of=None):
+    """``(card_id, [_Movement])`` per card of ``cards`` with any row: only the rows its placement needs (#2444).
+
+    Each card's list is in ``(moved_at, id)`` order and holds at most three
+    rows, four with ``as_of``. WHY that is enough for ``_replay_placements``
+    (``_live_rows`` first cuts at ``now``, so the read keeps ``moved_at <=
+    now``: on rows in ``moved_at`` order that is the same cut):
+
+    * Its start, and so its first position, reads only the first live row:
+      the creation row (``_creation_row`` is the first row or nothing), or
+      that row's source and ``moved_at``.
+    * Its position after any moment is the ``to_key`` of the last transition
+      at or before it (or the start); nothing else moves it.
+    * Its archived state after any moment is the last archive-type row at or
+      before it, or the synthetic ``archived_at``, which is added only when
+      the last archive-type row of the *whole* live history is not
+      ``archived``.
+
+    Without ``as_of`` the caller reads the last placement only: the first
+    row, the last transition and the last archive-type row (three). With
+    ``as_of`` (the drill-down, ``as_of = midnight(D + 1)``) the caller reads
+    the last placement before ``as_of``: the first row, the last transition
+    before ``as_of``, the last archive-type row before it, and the last
+    archive-type row at or after it (up to ``now``), which only decides
+    whether the synthetic ``archived_at`` exists (four). A dropped row never
+    moves a kept one relative to another, and rows that tie on ``moved_at``
+    keep their ``id`` order, which is all the stable sort reads.
+
+    ``kind`` is decided on ``_sql_column_key``, the SQL mirror of
+    ``_column_key``, only to choose rows; the kept rows' keys are rebuilt in
+    Python by ``_movement_from_row``, so the replay never reads a SQL key.
+
+    One statement, uncorrelated: ``card_id IN (<cards>)`` carries the board
+    bound, and the window functions rank inside each card (no ``DISTINCT
+    ON``, which SQLite lacks; no per-card subquery, see #2502).
+    """
+    movements = (
+        _movement_kinds(
+            CardMovement.objects.filter(card_id__in=cards.order_by().values("id"), moved_at__lte=now), as_of,
         )
+        .annotate(
+            first_rank=Window(
+                RowNumber(), partition_by=[F("card_id")], order_by=[F("moved_at").asc(), F("id").asc()],
+            ),
+            kind_rank=Window(
+                RowNumber(), partition_by=[F("card_id"), F("kind")], order_by=[F("moved_at").desc(), F("id").desc()],
+            ),
+        )
+        .filter(Q(first_rank=1) | Q(kind__in=[_TRANSITION, _ARCHIVE_BEFORE, _ARCHIVE_AFTER], kind_rank=1))
+        .order_by("card_id", "moved_at", "id")
+        .values_list(*_MOVEMENT_FIELDS)
+    )
+    interned: dict = {}
+    current_id, history = None, []
+    for row in movements.iterator(chunk_size=2000):
+        card_id, movement = _movement_from_row(row, interned, False)
+        if card_id != current_id:
+            if current_id is not None:
+                yield current_id, history
+            current_id, history = card_id, []
+        history.append(movement)
+    if current_id is not None:
+        yield current_id, history
 
 
 class _GateStage(NamedTuple):
@@ -1185,12 +1313,12 @@ def load_cumulative_flow(board, flow_range, *, now, swimlane_id=None, label_id=N
 
     A card ``can_affect_range`` skips has every placement dated before the
     first bucketed day, so the diagram reads only its last one, for the whole
-    window, and none of its band changes fall inside it. Its history is
-    folded to that one placement as the rows stream past, card by card, so
-    memory holds one skipped card's movements at a time rather than all of
-    them; ``_replay_placements`` itself decides the placement, so the rule is
-    the one the full load applies. Two queries more than a range load: the
-    skipped cards and their movements.
+    window, and none of its band changes fall inside it. Only the (at most
+    three) rows that placement depends on are read per card
+    (``_deciding_rows``, #2444), so the cost follows the skipped cards, not
+    their whole history; ``_replay_placements`` itself decides the
+    placement, so the rule is the one the full load applies. Two queries
+    more than a range load: the skipped cards and their deciding rows.
     """
     flow = load_range_flow(
         board, flow_range, now=now, swimlane_id=swimlane_id, label_id=label_id, columns=columns,
@@ -1225,20 +1353,60 @@ def load_cumulative_flow(board, flow_range, *, now, swimlane_id=None, label_id=N
         if placement is not _OFF_DIAGRAM:
             counts[placement] = counts.get(placement, 0) + 1
 
-    current_id, history = None, []
-    for card_id, movement in _movement_rows(settled):
-        if card_id != current_id:
-            if current_id is not None:
-                rest(current_id, history)
-            current_id, history = card_id, []
-        history.append(movement)
-    if current_id is not None:
-        rest(current_id, history)
+    for card_id, history in _deciding_rows(settled, now=now):
+        rest(card_id, history)
     # Skipped cards with no movement at all rest where ``created_at`` placed them.
     for card_id in list(cards):
         rest(card_id, [])
     flow.settled_placements = counts
     return flow
+
+
+def load_cumulative_day(board, day, *, now, swimlane_id=None, label_id=None, columns=None):
+    """The snapshot ``cumulative_flow_cards`` reads for one ``day``'s drill-down (#2444).
+
+    Every card the filter selects is loaded, finished work from any year
+    included (it still rests in the done band that day), but only the rows
+    its placement at the end of ``day`` depends on (``_deciding_rows`` with
+    ``as_of`` the next midnight: at most four per card), not its whole
+    history. ``_replay_placements`` decides the placement on those rows, so
+    the answer is the one a full load gives (``CumulativeDayEquivalenceTests``).
+
+    The result is partial on purpose: each card's ``placements`` are right
+    only up to the end of ``day``, and nothing ``_analyze_card`` fills (visits,
+    completions, lanes) is set, nor ``gate_last``. Only
+    ``cumulative_flow_cards`` and ``card_directory`` may read it. Three
+    queries: the columns (unless passed), the cards and their deciding rows,
+    plus ``card_directory``'s assignees. The endpoint as a whole runs five
+    (``EndpointQueryCountTests.DAY_BUDGET`` pins it).
+    """
+    if columns is None:
+        columns = list(Column.objects.filter(board=board).order_by("position"))
+    done_uids = {c.uid for c in columns if c.is_done}
+    selected = _base_cards(board, swimlane_id, label_id)
+    cards = _card_flows(selected)
+    by_id = {card.id: card for card in cards}
+    as_of = _midnight(day + datetime.timedelta(days=1))
+
+    def place(card, history):
+        live, _ = _live_rows(history, now)
+        card.placements = _replay_placements(card, live, _creation_row(live), done_uids, now)
+
+    placed = set()
+    for card_id, history in _deciding_rows(selected, now=now, as_of=as_of):
+        # A card added between the two reads has rows but no CardFlow; it is
+        # not in this day's answer, as for ``load_cumulative_flow``'s race.
+        if (card := by_id.get(card_id)) is not None:
+            place(card, history)
+            placed.add(card_id)
+    for card in cards:
+        if card.id not in placed:
+            place(card, [])
+    return BoardFlow(
+        board=board, now=now, columns=columns, cards=cards,
+        done_uids=done_uids, current_uids={c.uid for c in columns},
+        swimlane_id=swimlane_id, label_id=label_id, committed_uids=None, gate_last={},
+    )
 
 
 def card_directory(flow, uids):
