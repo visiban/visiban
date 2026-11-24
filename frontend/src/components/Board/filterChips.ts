@@ -7,6 +7,7 @@ import type { LaneValueFormatter } from "../../utils/laneFilter";
 import { numberFilterDisplay } from "../../utils/numberFilter";
 import { stageSubColumns } from "../../utils/stages";
 import { parentFilterLabel } from "../../utils/parentFilter";
+import { plannedFilterChipLabel } from "../../utils/plannedFilter";
 import { DUE_DATE_OPTIONS, TRACK_STATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
 import type { FilterState } from "./FilterBar";
 
@@ -122,6 +123,18 @@ export function buildFilterChips(
       label: `Parent: ${parentLabel}`,
       onDismiss: () => {
         const { parentFilter: _dropped, ...rest } = filters;
+        onChange(rest);
+      },
+    });
+  }
+
+  // #2550 — "Planned: hidden" / "Planned: only"; removing it is Any again.
+  if (filters.plannedFilter !== undefined) {
+    chips.push({
+      key: "planned",
+      label: plannedFilterChipLabel(filters.plannedFilter),
+      onDismiss: () => {
+        const { plannedFilter: _dropped, ...rest } = filters;
         onChange(rest);
       },
     });

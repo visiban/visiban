@@ -3,6 +3,7 @@ import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import type { CustomFieldFilterValue, FilterState } from "../components/Board/FilterBar";
 import { sanitizeSubColumnIds, sanitizeTrackStates } from "../utils/stageFilter";
 import { sanitizeParentFilter } from "../utils/parentFilter";
+import { sanitizePlannedFilter } from "../utils/plannedFilter";
 import { sanitizeLaneFilter } from "../utils/laneFilter";
 import { isValidNumberFilterValue, normalizeFiltersForSave } from "../utils/numberFilter";
 
@@ -61,11 +62,14 @@ function load(boardId: number, pinnedFieldIds: number[]): FilterState {
     const trackStates = sanitizeTrackStates(parsed.trackStates);
     // #2209 — absent in state persisted before the Parent filter existed.
     const parentFilter = sanitizeParentFilter(parsed.parentFilter);
+    // #2550 — absent in state persisted before the Planned filter existed.
+    const plannedFilter = sanitizePlannedFilter(parsed.plannedFilter);
     return {
       ...(laneFilter ? { laneFilter } : {}),
       ...(subColumnIds ? { subColumnIds } : {}),
       ...(trackStates ? { trackStates } : {}),
       ...(parentFilter !== undefined ? { parentFilter } : {}),
+      ...(plannedFilter !== undefined ? { plannedFilter } : {}),
       search: typeof parsed.search === "string" ? parsed.search : "",
       assigneeIds: Array.isArray(parsed.assigneeIds) ? (parsed.assigneeIds as number[]) : [],
       labelIds: Array.isArray(parsed.labelIds) ? (parsed.labelIds as number[]) : [],

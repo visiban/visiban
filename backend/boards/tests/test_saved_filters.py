@@ -1012,6 +1012,28 @@ class SavedFilterStageFilterStateTests(TestCase):
                 r = self._post({**EMPTY_FILTER_STATE, "parentFilter": value})
                 self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_planned_filter_round_trips_and_is_type_checked(self):
+        """#2550 — plannedFilter is optional: "hide" or "only"; absent is Any."""
+        import json
+        from pathlib import Path
+
+        from boards.serializers import SavedFilterSerializer as S
+
+        for value in ("hide", "only"):
+            with self.subTest(value):
+                r = self.client.post(
+                    self.url, {"name": f"Planned {value}", "state_json": {**EMPTY_FILTER_STATE, "plannedFilter": value}},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+                self.assertEqual(r.data["state_json"]["plannedFilter"], value)
+        for value in ("any", "", "Hide", True, None, 1, ["hide"]):
+            with self.subTest(value):
+                r = self._post({**EMPTY_FILTER_STATE, "plannedFilter": value})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        fixture = json.loads((Path(__file__).parent / "fixtures" / "filter_state_keys.json").read_text())
+        self.assertEqual(sorted(S._PLANNED_FILTER_VALUES), sorted(fixture["plannedFilterValues"]))
+
     def test_parent_filter_bound_matches_shared_fixture(self):
         import json
         from pathlib import Path

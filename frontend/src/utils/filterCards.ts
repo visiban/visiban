@@ -9,6 +9,7 @@ import { matchesStageFilters, type StageFilterContext } from "./stageFilter";
 import { isNumberFilterActive, matchesNumberFilter } from "./numberFilter";
 import { matchesParentFilter } from "./parentFilter";
 import { activeDueDate } from "./plannedFields";
+import { matchesPlannedFilter } from "./plannedFilter";
 
 /**
  * Whether any *client-side* filter dimension is active — everything
@@ -35,7 +36,8 @@ export function hasActiveClientFilters(filters: FilterState): boolean {
     !!filters.blockedOnly ||
     (filters.subColumnIds?.length ?? 0) > 0 ||
     (filters.trackStates?.length ?? 0) > 0 ||
-    filters.parentFilter !== undefined
+    filters.parentFilter !== undefined ||
+    filters.plannedFilter !== undefined
   );
 }
 
@@ -178,6 +180,8 @@ export function filterCards(
 
       // #1149 — manual or relation block, the same union the card face shows.
       if (filters.blockedOnly && !isCardBlocked(card)) return false;
+      // #2550 — the Planned filter, on the card's own planned state.
+      if (!matchesPlannedFilter(card, filters.plannedFilter)) return false;
 
       if (filters.dueDate !== null) {
         if (filters.dueDate === "none" && card.due_date !== null) return false;

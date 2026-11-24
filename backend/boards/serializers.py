@@ -5995,8 +5995,12 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _STATE_V1_KEYS = {
         "search", "assigneeIds", "labelIds", "priorities", "dueDate", "blockedOnly",
         "customFields", "visibleCustomFieldFilterIds", "laneFilter",
-        "subColumnIds", "trackStates", "parentFilter",
+        "subColumnIds", "trackStates", "parentFilter", "plannedFilter",
     }
+    # plannedFilter (#2550) is additive and optional: "hide" or "only" planned
+    # children, matched client-side on the card's own planned state. Mirrored
+    # in frontend/src/utils/plannedFilter.ts (pinned by filter_state_keys.json).
+    _PLANNED_FILTER_VALUES = {"hide", "only"}
     # parentFilter (#2209) is additive and optional: "any", "none" or one
     # parent card id, matched client-side on Card.parent. The id is never
     # resolved here: the client names only parents the viewer can open, and a
@@ -6056,7 +6060,7 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     state_json = serializers.DictField(
         help_text=(
             "Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate, "
-            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter, subColumnIds, trackStates, parentFilter}."
+            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter, subColumnIds, trackStates, parentFilter, plannedFilter}."
         ),
     )
 
@@ -6137,6 +6141,10 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     'state_json.parentFilter must be "any", "none" or a card id.'
                 )
+        if "plannedFilter" in value:
+            pl = value["plannedFilter"]
+            if not (isinstance(pl, str) and pl in self._PLANNED_FILTER_VALUES):
+                raise serializers.ValidationError('state_json.plannedFilter must be "hide" or "only".')
         if "customFields" in value:
             self._validate_custom_fields(value["customFields"])
         if "laneFilter" in value:

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type RefObject } from "react";
 import type { TrackState } from "../../utils/stages";
 import type { ParentFilter } from "../../utils/parentFilter";
+import type { PlannedFilter } from "../../utils/plannedFilter";
 import type { BoardFull, BoardUser, CustomFieldDefinition, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
@@ -98,6 +99,11 @@ export interface FilterState {
    * from EMPTY_FILTER (absent = Any), like `subColumnIds`. Matched on `Card.parent`.
    */
   parentFilter?: ParentFilter;
+  /**
+   * #2550 — the Planned filter on a child board: "hide" or "only" planned children. Optional and absent
+   * from EMPTY_FILTER (absent = Any), like `parentFilter`. Matched on the card's own `planned` field.
+   */
+  plannedFilter?: PlannedFilter;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
@@ -125,6 +131,7 @@ export function countActiveFilters(f: FilterState): number {
     (f.subColumnIds?.length ?? 0) > 0,
     (f.trackStates?.length ?? 0) > 0,
     f.parentFilter !== undefined,
+    f.plannedFilter !== undefined,
     // #2205 — all lane rules count as one dimension; the per-rule count is on the Lanes trigger.
     isLaneFilterActive(f.laneFilter),
   ].filter(Boolean).length;
