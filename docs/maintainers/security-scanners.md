@@ -27,16 +27,18 @@ into a red job; it does not stop a leak. `secret-detection-gate` (`scripts/secre
 with a `--self-test` run before each real invocation) reads `gl-secret-detection-report.json`
 and fails on any unsuppressed finding of any severity, or if the report is missing or unusable.
 
-Component-generated jobs (`secret_detection`, `semgrep-sast`) are not literal job keys
-in a plain reading of `.gitlab-ci.yml`; they come from the `include:` block, and the
+**Go deeper:** Component-generated jobs (`secret_detection`, `semgrep-sast`) are not literal job keys
+in a plain reading of `.gitlab-ci.yml`. They come from the `include:` block, and the
 "Scanner blocking policy" section of `.gitlab-ci.yml` overrides them. Look there when
 changing whether either one blocks.
 
 ## Component versions are pinned
 
-Both components are pinned to an exact version, never `@~latest`. To bump one, confirm the
-version exists (`glab api "projects/components%2Fsast/releases"`), read its release notes,
-and change it in its own MR.
+Both components are pinned to an exact version, never `@~latest`. To bump one:
+
+1. Confirm the version exists (`glab api "projects/components%2Fsast/releases"`).
+2. Read its release notes.
+3. Change it in its own MR.
 
 ## Semgrep: severity gate and expiring suppressions
 
@@ -57,11 +59,14 @@ To accept a High/Critical finding, add an entry to `.gitlab/sast-suppressions.js
 }
 ```
 
-Matching is exact: `rule` must equal the finding's name or one of its identifier values, and
-`file` must equal the path or match the glob (`*` also crosses `/`). Substrings and bare
-directory prefixes do not match, and entries that are empty or wildcard-only (`*`, `**/*`)
-are rejected. `expires` is required and may be at most 90 days out. An expired entry **fails the gate**,
-so a temporary acceptance has to be revisited. Prefer fixing the code.
+**How it works:** Matching is exact.
+
+- `rule` must equal the finding's name or one of its identifier values.
+- `file` must equal the path or match the glob (`*` also crosses `/`).
+- Substrings and bare directory prefixes do not match, and entries that are empty or wildcard-only (`*`, `**/*`) are rejected.
+- `expires` is required and may be at most 90 days out.
+
+**Watch out:** An expired entry **fails the gate**, so a temporary acceptance has to be revisited. Prefer fixing the code.
 
 ## Secret detection allowlist
 
@@ -85,17 +90,17 @@ glob `file`, `expires` at most 90 days out, expired entries fail the gate), and 
 covered by `gitleaks-history`, and an MR's own commits by `gitleaks-commits`; the existing history was triaged locally before it became
 blocking.
 
-If `gitleaks-commits` flags an intermediate commit, do not just annotate the final tree: with
+**Watch out:** If `gitleaks-commits` flags an intermediate commit, do not just annotate the final tree: with
 `merge_method=merge` every commit enters `main`'s history, so rewrite the branch to drop the
 literal (or add a narrow commit-scoped entry in `.gitleaks.toml`) before merging. In an MR pipeline `gitleaks-commits` reads the MR branch's own `.gitleaks.toml`, so an allowlist entry added on the branch takes effect for that MR; this is the same trust model as `gitleaks-scan`, so reviewers must scrutinize `.gitleaks.toml` diffs.
 
-If `gitleaks-history` flags an old commit, treat the credential as compromised: rotate it
+**Watch out:** If `gitleaks-history` flags an old commit, treat the credential as compromised: rotate it
 first, because the history is public on the GitHub and enterprise mirrors. Rewriting history
 does not un-leak it.
 
 ## Blocking scanners fail closed
 
-Because `semgrep-sast` is blocking, an analyzer crash or registry timeout blocks MRs and
+**Why it matters:** Because `semgrep-sast` is blocking, an analyzer crash or registry timeout blocks MRs and
 `main`. Retry the job; do not flip `allow_failure` back to `true`. `sast-severity-gate`
 fails if the report is missing or unparsable. `gitleaks-history` and `gitleaks-commits` fail if the
 clone is shallow (or, for `gitleaks-commits`, the MR diff base is missing), so they can never
@@ -108,7 +113,7 @@ leaves the gate failing closed on the missing report.
 
 ## Verifying a scanner still blocks
 
-Never push a planted credential to check this; branches mirror to public GitHub. Run the
+**Watch out:** Never push a planted credential to check this; branches mirror to public GitHub. Run the
 scanner locally, in memory, instead:
 
 ```bash
@@ -124,7 +129,9 @@ reports it.
 
 ## npm `overrides` pins in `frontend/package.json`
 
-`package.json` cannot hold comments, so this page is the record. This section documents only
+`package.json` cannot hold comments, so this page is the record.
+
+**Yes, but:** This section documents only
 the `postcss-selector-parser` pin below; the other entries in the `overrides` block
 (`axios`, `follow-redirects`, `markdown-it`) are not recorded here; that is tracked in #1649.
 
