@@ -312,6 +312,20 @@ class FieldSetExportImportTests(FieldSetTestBase):
         self.assertEqual([s.name for s in sets[0].swimlanes.all()], ["Enterprise"])
         self.assertEqual(sets[0].description, "Qualify")
 
+    def test_round_trip_keeps_lane_scope_after_the_last_lane_is_deleted(self):
+        lane2 = _make_swimlane(self.board, "Enterprise", 1)
+        self._create(name="MEDDIC", field_ids=[self.f1.id], scope="swimlanes", swimlanes=[lane2.id])
+        lane2.delete()
+        data = json.loads(self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json").content)
+        self.assertEqual((data["field_sets"][0]["scope"], data["field_sets"][0]["swimlanes"]), ("swimlanes", []))
+        f = io.BytesIO(json.dumps(data).encode())
+        f.name = "board.json"
+        r = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
+        self.assertEqual(r.status_code, 201, r.data)
+        field_set = Board.objects.get(pk=r.data["id"]).custom_field_sets.get()
+        self.assertEqual(field_set.scope, "swimlanes")
+        self.assertEqual(list(field_set.swimlanes.all()), [])
+
     def test_import_refuses_unhashable_values_with_a_400(self):
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         data = json.loads(r.content)

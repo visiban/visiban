@@ -233,6 +233,37 @@ describe("BoardSettingsFieldSetsSection", () => {
     expect(apiErrorMessage(new Error("boom"), "fallback")).toBe("fallback");
   });
 
+  it("does not report a failed copy when only the field re-read fails", async () => {
+    vi.mocked(api.listBoards).mockResolvedValue([{ id: 9, name: "Source" }] as never);
+    vi.mocked(api.listFieldSets).mockResolvedValue([fset(20, "Qual", [31])]);
+    vi.mocked(api.listCustomFieldDefinitions).mockResolvedValueOnce([def(31, "Fresh")]).mockRejectedValueOnce(new Error("x"));
+    vi.mocked(api.copyFieldSet).mockResolvedValue(fset(21, "Qual", [5]));
+    render(<BoardSettingsFieldSetsSection board={board} isAdmin onFieldSetsUpdated={vi.fn()} onFieldsUpdated={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy from another board" }));
+    await screen.findByRole("option", { name: "Source" });
+    fireEvent.change(screen.getByLabelText("Board"), { target: { value: "9" } });
+    await screen.findByRole("option", { name: "Qual" });
+    fireEvent.change(screen.getByLabelText("Field set"), { target: { value: "20" } });
+    fireEvent.click(screen.getByRole("button", { name: "Copy field set" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Qual was copied, but its fields could not be loaded.");
+    expect(screen.queryByText("Could not copy the field set.")).toBeNull();
+    expect(screen.queryByLabelText("Board")).toBeNull();
+  });
+
+  it("closes the open row without a discard prompt when its set is deleted elsewhere", () => {
+    let guard: ((proceed: () => void) => boolean) | null = null;
+    const view = (sets: CustomFieldSet[]) => (
+      <BoardSettingsFieldSetsSection board={{ ...board, custom_field_sets: sets } as BoardFull} isAdmin
+        onFieldSetsUpdated={vi.fn()} onFieldsUpdated={vi.fn()} registerCloseGuard={(g) => { guard = g; }} />
+    );
+    const { rerender } = render(view(board.custom_field_sets!));
+    fireEvent.click(screen.getByRole("button", { name: /^MEDDIC/ }));
+    rerender(view([board.custom_field_sets![1]]));
+    expect(screen.queryByLabelText("Name")).toBeNull();
+    expect(guard!(vi.fn())).toBe(false);
+    expect(screen.queryByText(/Discard changes/)).toBeNull();
+  });
+
   it("copy previews reuse / create outcomes and copies", async () => {
     vi.mocked(api.listBoards).mockResolvedValue([{ id: 1, name: "Here" }, { id: 9, name: "Source" }] as never);
     vi.mocked(api.listFieldSets).mockResolvedValue([fset(20, "MEDDIC", [31, 32, 33])]);
@@ -304,6 +335,23 @@ describe("FieldSetBlocks focus, empty states and live updates (#2570)", () => {
     expect(screen.queryByText(/MEDDIC was removed/)).toBeNull();
     act(() => { input.blur(); });
     expect(screen.getByText(/MEDDIC was removed/)).toBeInTheDocument();
+  });
+
+  it("announces a focused field's move once its row blurs", () => {
+    const { props, rerender } = renderBlocks();
+    const move = (sets: CustomFieldSet[]) => {
+      const input = screen.getByLabelText("Notes");
+      input.focus();
+      rerender(<div role="dialog"><FieldSetBlocks {...props} sets={sets} /></div>);
+      // Held: nothing is announced while the row keeps focus.
+      expect(screen.getByLabelText("Notes")).toHaveFocus();
+      act(() => { input.blur(); });
+    };
+    move([fset(1, "MEDDIC", [1, 2, 3], { description: "Qualify" }), fset(2, "Money", [4, 5])]);
+    expect(screen.getByText("Notes moved to Money.")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "All fields" })[1]);
+    move(props.sets);
+    expect(screen.getByText("Notes moved to Other fields.")).toBeInTheDocument();
   });
 
   it("reveals a deep-linked field: closes Maximize and expands the owning block", () => {
@@ -428,5 +476,29 @@ describe("Field sets settings focus, guard and errors (#2570)", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("group", { name: "Copy a field set" })).toBeNull();
     expect(trigger).toHaveFocus();
+  });
+});
+
+describe("read-only field row in a set block (#2570)", () => {
+  it("says Not set for an empty value, including an empty multi-select, but never for a checkbox", async () => {
+    const { default: Row } = await vi.importActual<typeof import("../components/Card/CustomFieldEditRow")>("../components/Card/CustomFieldEditRow");
+    const row = (definition: CustomFieldDefinition, value?: string) => (
+      <Row definition={definition} value={value} disabled onSave={vi.fn()} fieldSetCell />
+    );
+    const view = render(row(def(4, "Tags", "multi_select"), "[]"));
+    expect(screen.getByText("Not set")).toBeInTheDocument();
+    view.rerender(row(def(5, "Notes")));
+    expect(screen.getByText("Not set")).toBeInTheDocument();
+    view.rerender(row(def(3, "Signed", "checkbox")));
+    expect(screen.getByText("Signed")).toBeInTheDocument();
+    expect(screen.queryByText("Not set")).toBeNull();
+    expect(screen.queryByText("No")).toBeNull();
+  });
+
+  it("renders the real rows with canEdit false", async () => {
+    const { default: Row } = await vi.importActual<typeof import("../components/Card/CustomFieldEditRow")>("../components/Card/CustomFieldEditRow");
+    render(<Row definition={def(3, "Signed", "checkbox")} value="true" disabled onSave={vi.fn()} fieldSetCell />);
+    expect(screen.getByText("Signed")).toBeInTheDocument();
+    expect(screen.getByText("Yes")).toBeInTheDocument();
   });
 });

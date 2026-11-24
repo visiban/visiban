@@ -213,10 +213,19 @@ export default function FieldSetBlocks(props: Props) {
     const active = document.activeElement;
     // The Maximize layer is portaled into the sheet, outside rootRef.
     const container = [rootRef.current, layerRef.current].find((n) => n && active && n.contains(active)) ?? null;
+    const row = active?.closest("[data-fact-section]");
+    const heldId = container && row ? Number(row.getAttribute("data-fact-section")?.slice("field:".length)) : null;
     const apply = () => {
       setSets((prev) => {
         const gone = prev.filter((p) => !props.sets.some((s) => s.uid === p.uid));
         if (gone.length > 0) setAnnouncement(`${gone.map((g) => g.name).join(", ")} was removed. Its fields are now under Other fields.`);
+        else if (heldId !== null) {
+          // The field being edited changed set while its row held the old grouping.
+          const from = prev.find((s) => s.field_ids.includes(heldId));
+          const to = props.sets.find((s) => s.field_ids.includes(heldId));
+          const field = definitions.find((d) => d.id === heldId);
+          if (field && from?.uid !== to?.uid) setAnnouncement(`${field.name} moved to ${to?.name ?? "Other fields"}.`);
+        }
         return props.sets;
       });
       if (!container) return;
@@ -227,7 +236,6 @@ export default function FieldSetBlocks(props: Props) {
         (other ?? headingRef.current)?.focus();
       });
     };
-    const row = active?.closest("[data-fact-section]");
     if (container && row) {
       const onOut = (event: Event) => {
         const next = (event as FocusEvent).relatedTarget;

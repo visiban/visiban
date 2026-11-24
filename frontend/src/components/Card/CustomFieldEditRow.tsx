@@ -5,6 +5,7 @@ import CustomFieldValueDisplay from "./CustomFieldValueDisplay";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
 import { thresholdLevel, thresholdPhrase, urlErrorFromServer } from "../../utils/customFieldValue";
+import { isValueFilled } from "../../utils/fieldSets";
 import ThresholdMark from "./ThresholdMark";
 
 const CARD_DETAIL_FIELD_ESCAPE_PRIORITY = 41;
@@ -64,10 +65,12 @@ export default function CustomFieldEditRow({ definition, value, disabled, onSave
 
   return (
     <div>
-      {!isCheckbox && (
+      {/* A read-only checkbox has no ToggleField to name it; in a set block it keeps its label. */}
+      {(!isCheckbox || (disabled && fieldSetCell)) && (
         <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">{definition.name}</p>
       )}
-      {disabled && fieldSetCell && !value ? (
+      {/* Never for a checkbox: a missing one must not read as "No" or as unfilled. */}
+      {disabled && fieldSetCell && !isCheckbox && !isValueFilled(definition, value) ? (
         <p className="text-sm text-fg-muted">Not set</p>
       ) : disabled ? (
         <CustomFieldValueDisplay definition={definition} value={value} variant="detail" userDateFormat={userDateFormat} />

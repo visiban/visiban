@@ -2674,7 +2674,8 @@ The JSON export carries `field_sets`, each with `name`, `description`, `position
 `default_size`, `scope`, `fields` (custom field names) and `swimlanes` (swimlane names).
 `schema_version` stays `2`; an older importer ignores the key. Import validates the list as
 the API does (cap, names, one set per field) and returns `400` naming the bad entry. A
-lane-scoped set whose lane list is empty imports as `scope: "all"`.
+lane-scoped set whose lane list is empty (its last swimlane was deleted) stays
+`scope: "swimlanes"` with no lanes, so a round-trip does not change where it shows.
 
 ---
 

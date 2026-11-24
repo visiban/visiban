@@ -99,6 +99,21 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
     setPendingLeave(() => proceed);
     return true;
   }, [dirty]);
+  // The open set was deleted elsewhere: close its row, or the stale draft reads
+  // as dirty and asks to "Discard changes" to something that no longer exists.
+  // Only for a set seen here: a just-created one may not be in props yet.
+  const seenOpen = useRef<number | null>(null);
+  useEffect(() => {
+    if (openSet) { seenOpen.current = openSet.id; return; }
+    if (typeof openId !== "number" || seenOpen.current !== openId) return;
+    seenOpen.current = null;
+    setOpenId(null);
+    setDraft(draftOf(null));
+    setPendingLeave(null);
+    setConfirmDelete(false);
+    focusNext.current = () => (document.activeElement === document.body ? headingRef.current : null);
+  }, [openId, openSet]);
+
   useEffect(() => {
     registerCloseGuard?.(guard);
     return () => registerCloseGuard?.(null);
@@ -211,7 +226,14 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
       {copyOpen && isAdmin && (
         <CopyFieldSetPanel board={board} onClose={closeCopy} onCopied={async (created) => {
           onFieldSetsUpdated((prev) => (prev.some((s) => s.id === created.id) ? prev : [...prev, created]));
-          onFieldsUpdated(await listCustomFieldDefinitions(board.id));
+          // The copy exists now: a failed re-read must not read as a failed copy,
+          // or the retry makes a duplicate.
+          setError(null);
+          try {
+            onFieldsUpdated(await listCustomFieldDefinitions(board.id));
+          } catch {
+            setError({ where: "section", text: `${created.name} was copied, but its fields could not be loaded. Reload the page to see them.` });
+          }
           closeCopy();
           setStatus(`${created.name} copied.`);
         }} />

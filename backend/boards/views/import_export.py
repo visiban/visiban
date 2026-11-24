@@ -683,10 +683,8 @@ def _validate_import_field_sets(raw, field_names, swimlane_names):
         for lname in lanes:
             if not isinstance(lname, str) or lname not in swimlane_names:
                 return None, f"{where}: 'swimlanes' references an undefined swimlane: {_bounded_repr(lname)}"
-        if scope == CustomFieldSet.Scope.SWIMLANES and not lanes:
-            # A lane-scoped set with no lanes would hide on every card; fall
-            # back to every card rather than refusing the whole file.
-            scope = CustomFieldSet.Scope.ALL
+        # A lane-scoped set with no lanes is kept as it is (deleting its last
+        # lane leaves exactly that), so a round-trip does not change behavior.
         entries.append({
             "name": name, "description": (desc or "").strip() or None,
             "default_size": size, "scope": scope, "fields": fields,
