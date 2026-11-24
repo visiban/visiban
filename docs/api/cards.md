@@ -1071,7 +1071,7 @@ single-item lists; that was normalized before 1.2.0, #1660.)
 
 An unknown `direction` is rejected as an ordinary field error on `direction`.
 
-Cycles longer than two hops (A → B → C → A) are **not** detected and are
+**Yes, but:** Cycles longer than two hops (A → B → C → A) are **not** detected and are
 permitted.
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/relations/{relation_id}/`
@@ -1260,7 +1260,7 @@ registered or visible to you. `GET` only.
 | `value` | Typed as above, or `null` (not set). |
 | `display` | Optional preformatted read string, at most 200 characters, shown instead of `value`. |
 
-Values, labels and titles are plain text: clients must not render them as HTML.
+**Watch out:** Values, labels and titles are plain text: clients must not render them as HTML.
 The server drops a section that breaks any rule whole (it is never truncated),
 and an extension that raises is left out while the others still render. Never
 on the card payload, `/full/`, the card list, MCP, export or the public share.
