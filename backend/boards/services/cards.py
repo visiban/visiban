@@ -1752,9 +1752,11 @@ def _require_cells_locked(*, board, card_id, cells, locked_pks, current_version)
 
 def _move_relevant_state(card):
     """The fields ``move_card``'s gates and cell lock were decided on."""
+    # ``assigned_by_id`` (#1923): the assignee override is decided on it, and
+    # a SET_NULL from deleting the assigner changes it without a version bump.
     return (
         card.version, card.column_id, card.swimlane_id,
-        card.assignee_id, card.created_by_id,
+        card.assignee_id, card.created_by_id, card.assigned_by_id,
     )
 
 
