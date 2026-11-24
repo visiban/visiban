@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   MAX_LENS_LABELS,
   lensFilterActiveCount,
+  parseLensClosedLimit,
+  DEFAULT_LENS_CLOSED_LIMIT,
   parseLensLabels,
   serializeLensLabels,
 } from '../components/Board/Lens/lensDims'
@@ -61,5 +63,23 @@ describe('lensFilterActiveCount', () => {
 
   it('ignores blank and unrecognized values', () => {
     expect(count('state=bogus&milestone=&labels=&assignee=%20&q=%20')).toBe(0)
+  })
+})
+
+describe('parseLensClosedLimit (#1581)', () => {
+  it('accepts every choice and falls back to the server default otherwise', () => {
+    for (const v of ['0', '20', '50', '100', 'all']) expect(parseLensClosedLimit(v)).toBe(v)
+    for (const v of [null, '', '7', '-1', 'ALL', ' 20']) expect(parseLensClosedLimit(v)).toBe(DEFAULT_LENS_CLOSED_LIMIT)
+    expect(DEFAULT_LENS_CLOSED_LIMIT).toBe('50')
+  })
+
+  it('counts a non-default closed limit as a filter, only with no state filter', () => {
+    const count = (qs: string) => lensFilterActiveCount(new URLSearchParams(qs))
+    expect(count('closed_limit=0')).toBe(1)
+    expect(count('closed_limit=all')).toBe(1)
+    expect(count('closed_limit=50')).toBe(0)
+    expect(count('closed_limit=bogus')).toBe(0)
+    // A state filter makes the limit moot, so it is not counted twice.
+    expect(count('state=open&closed_limit=0')).toBe(1)
   })
 })

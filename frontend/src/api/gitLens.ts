@@ -47,6 +47,8 @@ export const getLensBoard = (
     labels?: string;
     /** Single username — neither provider supports multi-assignee in one call. */
     assignee?: string;
+    /** "0" | "20" | "50" | "100" | "all" (#1581); omit for the server default (50). */
+    closed_limit?: string;
     // 1 = force a re-fetch past the per-repo cache (the Refresh button).
     refresh?: number;
   },
@@ -60,6 +62,7 @@ export const getLensBoard = (
         ...(pivot?.milestone ? { milestone: pivot.milestone } : {}),
         ...(pivot?.labels ? { labels: pivot.labels } : {}),
         ...(pivot?.assignee ? { assignee: pivot.assignee } : {}),
+        ...(pivot?.closed_limit ? { closed_limit: pivot.closed_limit } : {}),
         ...(pivot?.refresh ? { refresh: pivot.refresh } : {}),
       },
     })

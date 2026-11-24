@@ -759,3 +759,123 @@ class MaxPagesSettingTests(SimpleTestCase):
         self.assertEqual(mock_get.call_count, 5)
         self.assertEqual(len(data.issues), 500)
         self.assertTrue(data.truncated)
+
+
+def _gl_raw(n, state="opened"):
+    return {"iid": n, "title": "t", "web_url": "u", "state": state, "labels": [], "assignees": []}
+
+
+def _gh_raw(n, state="open", pr=False):
+    raw = {"number": n, "title": "t", "html_url": "u", "state": state, "labels": [], "assignees": []}
+    if pr:
+        raw["pull_request"] = {"url": "x"}
+    return raw
+
+
+class ClosedLimitTests(SimpleTestCase):
+    """#1581: closed issues are read in their own capped pass so they never use
+    the open-issue page budget."""
+
+    def setUp(self):
+        cache.clear()
+
+    def _by_state(self, open_pages, closed_batch, gitlab=True):
+        open_state = "opened" if gitlab else "open"
+
+        def fake(url, params=None, **kwargs):
+            if params.get("state") == "closed":
+                return _resp(closed_batch)
+            self.assertEqual(params.get("state"), open_state)
+            page = params["page"]
+            return _resp(open_pages[page - 1] if page <= len(open_pages) else [])
+
+        return fake
+
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_reads_open_with_full_budget_then_one_capped_closed_page(self, mock_get):
+        full = [[_gl_raw(p * 1000 + n) for n in range(providers.PER_PAGE)] for p in range(providers.MAX_PAGES)]
+        closed = [_gl_raw(9000 + n, "closed") for n in range(20)]
+        mock_get.side_effect = self._by_state(full, closed)
+        data = providers.gitlab_fetch(None, "g/p", LensConfig("state", "milestone"), LensFilters(closed_limit=20))
+        self.assertEqual(mock_get.call_count, providers.MAX_PAGES + providers.CLOSED_PAGES)
+        open_issues = [i for i in data.issues if i.state == "open"]
+        self.assertEqual(len(open_issues), providers.MAX_ISSUES)  # not crowded out
+        self.assertEqual(len(data.issues) - len(open_issues), 20)
+        self.assertTrue(data.truncated)
+        self.assertTrue(data.closed_truncated)
+        self.assertEqual(data.closed_limit, 20)
+        closed_params = mock_get.call_args_list[-1].kwargs["params"]
+        self.assertEqual(closed_params["per_page"], 20)
+        self.assertEqual(closed_params["page"], 1)
+        self.assertEqual(closed_params["order_by"], "updated_at")
+        self.assertEqual(closed_params["sort"], "desc")
+
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_closed_page_short_of_the_limit_is_not_truncated(self, mock_get):
+        mock_get.side_effect = self._by_state([[_gl_raw(1)]], [_gl_raw(2, "closed")])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(closed_limit=50))
+        self.assertFalse(data.closed_truncated)
+        self.assertEqual(data.total_count, 2)
+        self.assertEqual(data.to_dict()["closed_limit"], 50)
+        self.assertFalse(data.to_dict()["closed_truncated"])
+
+    @patch("git_lens.providers.requests.get")
+    def test_zero_hides_closed_issues_without_a_closed_request(self, mock_get):
+        mock_get.side_effect = self._by_state([[_gl_raw(1)]], [_gl_raw(2, "closed")])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(closed_limit=0))
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertEqual([i.number for i in data.issues], [1])
+        self.assertEqual(data.closed_limit, 0)
+
+    @patch("git_lens.providers.requests.get")
+    def test_issue_closed_between_the_two_requests_renders_once(self, mock_get):
+        mock_get.side_effect = self._by_state([[_gl_raw(1)]], [_gl_raw(1, "closed"), _gl_raw(2, "closed")])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(closed_limit=20))
+        self.assertEqual(sorted(i.number for i in data.issues), [1, 2])
+
+    @patch("git_lens.providers.requests.get")
+    def test_state_filter_bypasses_the_closed_limit(self, mock_get):
+        mock_get.return_value = _resp([_gl_raw(5, "closed")])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(state="closed", closed_limit=20))
+        self.assertEqual(mock_get.call_count, 1)
+        params = mock_get.call_args_list[0].kwargs["params"]
+        self.assertEqual(params["state"], "closed")
+        self.assertEqual(params["per_page"], providers.PER_PAGE)  # full budget, not 20
+        self.assertIsNone(data.closed_limit)
+
+    @patch("git_lens.providers.requests.get")
+    def test_no_limit_keeps_the_single_all_states_read(self, mock_get):
+        mock_get.return_value = _resp([_gl_raw(1), _gl_raw(2, "closed")])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters())
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertNotIn("state", mock_get.call_args_list[0].kwargs["params"])
+        self.assertIsNone(data.closed_limit)
+
+    @patch("git_lens.providers.requests.get")
+    def test_out_of_choice_limit_uses_the_default_page_size(self, mock_get):
+        mock_get.side_effect = self._by_state([[_gl_raw(1)]], [])
+        providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(closed_limit=5000))
+        self.assertEqual(
+            mock_get.call_args_list[-1].kwargs["params"]["per_page"], providers.DEFAULT_CLOSED_LIMIT
+        )
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_closed_pass_sorts_by_update_and_skips_pull_requests(self, mock_get):
+        closed = [_gh_raw(10, "closed"), _gh_raw(11, "closed", pr=True)]
+        mock_get.side_effect = self._by_state([[_gh_raw(1)]], closed, gitlab=False)
+        data = providers.github_fetch("tok", "o/r", LensConfig(), LensFilters(closed_limit=20))
+        self.assertEqual(sorted(i.number for i in data.issues), [1, 10])
+        params = mock_get.call_args_list[-1].kwargs["params"]
+        self.assertEqual(params["state"], "closed")
+        self.assertEqual(params["sort"], "updated")
+        self.assertEqual(params["direction"], "desc")
+        self.assertEqual(params["per_page"], 20)
+        self.assertFalse(data.closed_truncated)
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_full_closed_page_is_truncated_even_after_dropping_prs(self, mock_get):
+        closed = [_gh_raw(100 + n, "closed", pr=(n % 2 == 0)) for n in range(20)]
+        mock_get.side_effect = self._by_state([[_gh_raw(1)]], closed, gitlab=False)
+        data = providers.github_fetch("tok", "o/r", LensConfig(), LensFilters(closed_limit=20))
+        self.assertTrue(data.closed_truncated)
+        self.assertIsNone(data.total_count)

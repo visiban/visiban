@@ -90,7 +90,7 @@ class BoundsTests(TestCase):
         self.assertEqual(b["fetch_budget_per_user"], views.LENS_USER_FETCH_BUDGET)
         self.assertEqual(
             b["max_outbound_calls_per_fetch"],
-            providers.MAX_PAGES + 2 * providers.MAX_AUX_PAGES + 1,
+            providers.MAX_PAGES + providers.CLOSED_PAGES + 2 * providers.MAX_AUX_PAGES + 1,
         )
         self.assertEqual(
             b["max_outbound_calls_per_user_per_window"],
@@ -115,7 +115,9 @@ class BoundsTests(TestCase):
 
         mock_get.side_effect = fake_get
         providers.github_fetch(
-            "tok", "o/r", LensConfig(column_dim="pipeline"), LensFilters(milestone="m")
+            "tok", "o/r", LensConfig(column_dim="pipeline"),
+            # closed_limit set: the open pass plus the one capped closed page (#1581).
+            LensFilters(milestone="m", closed_limit=providers.DEFAULT_CLOSED_LIMIT),
         )
         bound = views.lens_bounds()["max_outbound_calls_per_fetch"]
         self.assertEqual(mock_get.call_count, bound)
@@ -146,7 +148,10 @@ class BoardOutcomeCounterTests(TestCase):
             self.assertEqual(counts[outcome], expected.get(outcome, 0), outcome)
 
     def _expire_soft_ttl(self):
-        key = views._board_cache_key("gitlab", "g/p", "status", "milestone", None, LensFilters())
+        key = views._board_cache_key(
+            "gitlab", "g/p", "status", "milestone", None,
+            LensFilters(closed_limit=providers.DEFAULT_CLOSED_LIMIT),
+        )
         entry = cache.get(key)
         entry["soft_expires"] = time.time() - 1
         cache.set(key, entry, 600)

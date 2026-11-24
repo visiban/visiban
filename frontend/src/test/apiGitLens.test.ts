@@ -84,6 +84,14 @@ describe('gitLens API', () => {
       expect(client.get).toHaveBeenCalledWith('/api/v1/git-lens/board/5/', { params: {} })
     })
 
+    it('sends closed_limit only when set (#1581)', async () => {
+      vi.mocked(client.get).mockResolvedValue({ data: sampleData })
+      await getLensBoard(5, { closed_limit: '0' })
+      expect(client.get).toHaveBeenCalledWith('/api/v1/git-lens/board/5/', { params: { closed_limit: '0' } })
+      await getLensBoard(5, { closed_limit: '' })
+      expect(client.get).toHaveBeenLastCalledWith('/api/v1/git-lens/board/5/', { params: {} })
+    })
+
     it('includes refresh=1 for the force-refetch path and omits it otherwise', async () => {
       vi.mocked(client.get).mockResolvedValue({ data: sampleData })
       await getLensBoard(5, { refresh: 1 })

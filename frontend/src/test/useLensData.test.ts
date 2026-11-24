@@ -19,6 +19,8 @@ const sampleData: LensData = {
   source: { provider: 'github', repo: 'acme/widgets', url: 'https://github.com/acme/widgets' },
   truncated: false,
   total_count: 0,
+  closed_limit: null,
+  closed_truncated: false,
   available_milestones: [],
 }
 
@@ -49,8 +51,22 @@ describe('useLensData', () => {
       milestone: undefined,
       labels: undefined,
       assignee: undefined,
+      closed_limit: undefined,
       refresh: undefined,
     })
+  })
+
+  it('sends the closed-issue limit and refetches when it changes (#1581)', async () => {
+    mockGetLensBoard.mockResolvedValue(sampleData)
+    const { result, rerender } = renderHook(
+      ({ closedLimit }) => useLensData(5, { filters: { closedLimit } }),
+      { initialProps: { closedLimit: '20' as string | undefined } },
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockGetLensBoard.mock.calls[0][1]).toMatchObject({ closed_limit: '20' })
+    rerender({ closedLimit: 'all' })
+    await waitFor(() => expect(mockGetLensBoard).toHaveBeenCalledTimes(2))
+    expect(mockGetLensBoard.mock.calls[1][1]).toMatchObject({ closed_limit: 'all' })
   })
 
   it('sends label and assignee as server-side params', async () => {

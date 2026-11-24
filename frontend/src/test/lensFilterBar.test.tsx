@@ -9,6 +9,7 @@ import { stallEventLoopAfterWaitFor } from './eventLoopStall'
 function setup(overrides: Partial<React.ComponentProps<typeof LensFilterBar>> = {}) {
   const props: React.ComponentProps<typeof LensFilterBar> = {
     state: 'all',
+    closedLimit: '50',
     milestone: '',
     labels: [],
     assignee: '',
@@ -18,6 +19,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof LensFilterBar>> = 
     availableAssignees: ['alice', 'bob'],
     activeCount: 0,
     onStateChange: vi.fn(),
+    onClosedLimitChange: vi.fn(),
     onMilestoneChange: vi.fn(),
     onLabelsChange: vi.fn(),
     onAssigneeChange: vi.fn(),
@@ -225,9 +227,9 @@ describe('LensFilterBar', () => {
 
   it('syncs external milestone and assignee changes (Clear, a shared URL) back into the inputs', () => {
     const props: React.ComponentProps<typeof LensFilterBar> = {
-      state: 'all', milestone: '1.2', labels: [], assignee: 'alice', q: '',
+      state: 'all', closedLimit: '50', milestone: '1.2', labels: [], assignee: 'alice', q: '',
       availableMilestones: [], availableLabels: [], availableAssignees: [], activeCount: 2,
-      onStateChange: vi.fn(), onMilestoneChange: vi.fn(), onLabelsChange: vi.fn(),
+      onStateChange: vi.fn(), onClosedLimitChange: vi.fn(), onMilestoneChange: vi.fn(), onLabelsChange: vi.fn(),
       onAssigneeChange: vi.fn(), onQChange: vi.fn(), onClear: vi.fn(),
     }
     const { rerender } = render(<LensFilterBar {...props} />)
@@ -259,7 +261,7 @@ describe('LensFilterBar', () => {
       return (
         <>
           <LensFilterBar
-            state="all" milestone="1.2" labels={[]} assignee="alice" q=""
+            state="all" closedLimit="50" onClosedLimitChange={vi.fn()} milestone="1.2" labels={[]} assignee="alice" q=""
             availableMilestones={[]} availableLabels={[]} availableAssignees={[]} activeCount={0}
             onStateChange={vi.fn()} onMilestoneChange={vi.fn()} onLabelsChange={vi.fn()}
             onAssigneeChange={vi.fn()} onQChange={vi.fn()} onClear={vi.fn()}
@@ -287,10 +289,32 @@ describe('LensFilterBar — Escape in the text inputs (#1860)', () => {
     const user = userEvent.setup()
     const onLower = vi.fn()
     const onQChange = vi.fn()
-    render(<><EscapeLowerHandlers onLower={onLower} /><LensFilterBar state="all" milestone="" labels={[]} assignee="" q="x" availableMilestones={[]} availableLabels={[]} availableAssignees={[]} activeCount={0} onStateChange={vi.fn()} onMilestoneChange={vi.fn()} onLabelsChange={vi.fn()} onAssigneeChange={vi.fn()} onQChange={onQChange} onClear={vi.fn()} /></>)
+    render(<><EscapeLowerHandlers onLower={onLower} /><LensFilterBar state="all" closedLimit="50" onClosedLimitChange={vi.fn()} milestone="" labels={[]} assignee="" q="x" availableMilestones={[]} availableLabels={[]} availableAssignees={[]} activeCount={0} onStateChange={vi.fn()} onMilestoneChange={vi.fn()} onLabelsChange={vi.fn()} onAssigneeChange={vi.fn()} onQChange={onQChange} onClear={vi.fn()} /></>)
     await user.click(screen.getByLabelText('Filter issues by title or number'))
     await user.keyboard('{Escape}')
     expect(onQChange).toHaveBeenCalledWith('')
     expect(onLower).not.toHaveBeenCalled()
+  })
+})
+
+describe('LensFilterBar closed-issue limit (#1581)', () => {
+  afterEach(cleanup)
+
+  it('shows the default limit on the trigger and reports a new choice', async () => {
+    const user = userEvent.setup()
+    const props = setup()
+    await user.click(screen.getByRole('button', { name: /Closed: Last 50/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Closed: Hidden' }))
+    expect(props.onClosedLimitChange).toHaveBeenCalledWith('0')
+  })
+
+  it('shows a non-default choice on the trigger', () => {
+    setup({ closedLimit: 'all' })
+    expect(screen.getByRole('button', { name: /Closed: All/ })).toBeInTheDocument()
+  })
+
+  it('steps aside when a state filter is set', () => {
+    setup({ state: 'open' })
+    expect(screen.queryByRole('button', { name: /Closed:/ })).not.toBeInTheDocument()
   })
 })

@@ -116,8 +116,23 @@ def _parse_filters(request) -> LensFilters:
         request.query_params.get("assignee") or ""
     ).strip()[:MAX_FILTER_VALUE_LEN] or None
 
+    # Closed-issue limit (#1581): "all" restores the single state=all pass, an int
+    # from the fixed choice set caps the closed pass, anything else (absent
+    # included) is the default. Canonicalized to the default whenever a state
+    # filter is set, because the provider ignores it then and a distinct value
+    # would only mint a second cache key for the same board.
+    raw_closed = request.query_params.get("closed_limit")
+    closed_limit: int | None = providers.DEFAULT_CLOSED_LIMIT
+    if raw_closed == "all":
+        closed_limit = None
+    elif raw_closed in {str(c) for c in providers.CLOSED_LIMIT_CHOICES}:
+        closed_limit = int(raw_closed)
+    if state is not None:
+        closed_limit = providers.DEFAULT_CLOSED_LIMIT
+
     return LensFilters(
-        state=state, milestone=milestone, labels=labels, assignee=assignee
+        state=state, milestone=milestone, labels=labels, assignee=assignee,
+        closed_limit=closed_limit,
     )
 
 # Per-repo lens-board cache. The board is shared, so the cache is keyed by
@@ -171,11 +186,17 @@ LENS_USER_FETCH_BUDGET = LENS_FETCH_BUDGET * 4
 # reports it as the per-fetch bound; one constant means the reported bound and the
 # lock guarantee can never disagree.
 #
+# Since #1581 an unfiltered-state fetch reads open issues with the full MAX_PAGES
+# budget and then ONE capped page of recently updated closed issues
+# (CLOSED_PAGES), so that leg is one more call in the formula.
+#
 # Since #1580 MAX_PAGES is operator-set (VISIBAN_GIT_LENS_MAX_PAGES, clamped), so
 # the lock TTL is DERIVED from the worst case rather than fixed: at the default page
 # cap it is the historical 90 seconds, and raising the cap lengthens the lock with it
 # instead of letting it expire mid-fetch.
-_WORST_CASE_CALLS_PER_FETCH = providers.MAX_PAGES + 2 * providers.MAX_AUX_PAGES + 1
+_WORST_CASE_CALLS_PER_FETCH = (
+    providers.MAX_PAGES + providers.CLOSED_PAGES + 2 * providers.MAX_AUX_PAGES + 1
+)
 _WORST_CASE_FETCH_SECONDS = _WORST_CASE_CALLS_PER_FETCH * providers.REQUEST_TIMEOUT
 
 
@@ -188,7 +209,7 @@ def _lock_ttl_for(calls_per_fetch: int) -> int:
 LENS_FETCH_LOCK_TTL = _lock_ttl_for(_WORST_CASE_CALLS_PER_FETCH)  # single-flight lock
 assert LENS_FETCH_LOCK_TTL >= _WORST_CASE_FETCH_SECONDS, (
     "LENS_FETCH_LOCK_TTL must exceed the worst-case provider fetch duration "
-    "((MAX_PAGES + 2 * MAX_AUX_PAGES + 1) * REQUEST_TIMEOUT)"
+    "((MAX_PAGES + CLOSED_PAGES + 2 * MAX_AUX_PAGES + 1) * REQUEST_TIMEOUT)"
 )
 
 # Explicit permission chain, mirroring every other board-scoped view in the
@@ -339,6 +360,7 @@ def _board_cache_key(provider, repo, column_dim, swimlane_dim, user_scope=None, 
             f.milestone,
             list(f.labels),
             f.assignee,
+            f.closed_limit,
         ],
         separators=(",", ":"),
     )
@@ -352,8 +374,8 @@ def _board_cache_key(provider, repo, column_dim, swimlane_dim, user_scope=None, 
     # (#1067 security-review).
     digest = hashlib.sha256(preimage.encode()).hexdigest()
     scope = f":u{user_scope}" if user_scope is not None else ""
-    # v4: the preimage grammar changed (see above). Old v3 entries simply age out.
-    return f"git_lens:board:v4{scope}:{digest}"
+    # v5: closed_limit joined the preimage (#1581). Old v4 entries simply age out.
+    return f"git_lens:board:v5{scope}:{digest}"
 
 
 def _lock_key(cache_key: str) -> str:
@@ -449,6 +471,7 @@ LENS_BOARD_QUERY_PARAMETERS = [
     _q("milestone", "Filter to one milestone by title, or `__none__` for issues with no milestone. Trimmed, max 255 characters."),
     _q("labels", "Comma-separated label names, AND-ed (an issue must carry every one). Trimmed, deduplicated and sorted; at most 5 (extras dropped); case-sensitive; each max 255 characters."),
     _q("assignee", "Filter to issues assigned to a single username (single-valued by design). Trimmed, max 255 characters."),
+    _q("closed_limit", "With no `state` filter, how many closed issues to include: `0`, `20`, `50` or `100` of the most recently updated, read separately so they never use the open-issue budget; `all` restores the single all-states read. Default `50`; any other value is the default. Ignored when `state` is set."),
     _q("refresh", "`1` or `true` forces a re-fetch past the soft cache TTL. Rate-limited per user and repository; inside the cooldown the cached copy is served instead."),
 ]
 

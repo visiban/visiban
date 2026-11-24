@@ -2250,6 +2250,12 @@ export interface LensData {
   truncated: boolean;
   /** Total issue count upstream, or null when the provider does not report it. */
   total_count: number | null;
+  /** The closed-issue limit the server applied (#1581): at most this many of the
+   *  most recently updated closed issues are included. `null` when no limit was
+   *  applied (a state filter is set, or `closed_limit=all` was requested). */
+  closed_limit: number | null;
+  /** True when more closed issues exist beyond `closed_limit`. */
+  closed_truncated: boolean;
   /** Milestone titles seen in the fetched issues — autocomplete suggestions for the
    *  milestone filter. The filter accepts any typed value (server-side), so a
    *  milestone outside the fetched window can still be filtered to. */

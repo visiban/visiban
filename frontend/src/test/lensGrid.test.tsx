@@ -23,6 +23,8 @@ const data: LensData = {
   source: { provider: 'gitlab', repo: 'g/p', url: 'https://gitlab.com/g/p' },
   truncated: false,
   total_count: 1,
+  closed_limit: null,
+  closed_truncated: false,
   available_milestones: ['v1.0', 'v1.2', 'v0.9'],
 }
 

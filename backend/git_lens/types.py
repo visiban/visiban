@@ -46,9 +46,21 @@ class LensFilters:
     milestone: str | None = None
     labels: tuple[str, ...] = ()   # AND-ed; pre-sorted/deduped/capped
     assignee: str | None = None    # single username
+    # How many closed issues an unfiltered-state fetch may include (#1581). An int
+    # means "open issues with the full page budget, then at most this many of the
+    # most recently updated closed issues", so closed work can no longer crowd open
+    # work out of the cap; 0 hides closed issues. None is the pre-#1581 behavior:
+    # one interleaved state=all pagination. Ignored when ``state`` is set (the
+    # caller asked for one state outright). The view defaults it to 50
+    # (``providers.DEFAULT_CLOSED_LIMIT``); this dataclass defaults to None so a
+    # direct provider caller keeps the old semantics.
+    closed_limit: int | None = None
 
     @property
     def active(self) -> bool:
+        # closed_limit is deliberately not counted: it has five possible values,
+        # so it cannot drive the long-tail key fan-out the shorter filtered TTL
+        # exists for, and the default board should keep the full shared window.
         return bool(self.state or self.milestone or self.labels or self.assignee)
 
 
@@ -124,6 +136,11 @@ class LensData:
     source_url: str
     truncated: bool = False
     total_count: int | None = None
+    # The closed-issue limit this fetch applied (#1581), or None when none was
+    # (a state filter was set, or the caller asked for all closed issues).
+    # ``closed_truncated`` is True when more closed issues exist beyond it.
+    closed_limit: int | None = None
+    closed_truncated: bool = False
     # All milestone titles in the repo (not just those on the fetched issues), so
     # the milestone filter can offer a milestone whose issues fall outside the
     # fetch budget — the whole point of server-side milestone filtering.
@@ -142,5 +159,7 @@ class LensData:
             },
             "truncated": self.truncated,
             "total_count": self.total_count,
+            "closed_limit": self.closed_limit,
+            "closed_truncated": self.closed_truncated,
             "available_milestones": self.available_milestones,
         }

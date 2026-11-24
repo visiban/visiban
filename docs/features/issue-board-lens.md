@@ -162,12 +162,23 @@ A chevron at the right end of the row (**Hide filter bar**) closes it and return
 | Filter | Behavior |
 |---|---|
 | **State** | Show only open or only closed issues. |
+| **Closed** | With **State: All**, how many closed issues to show: **Hidden**, **Last 20**, **Last 50** (the default), **Last 100**, or **All**. See [Closed issues](#closed-issues). Hidden while a state filter is set. *(new in 1.3)* |
 | **Milestone** | Scope the board to one milestone. Type a title, pick one of the suggestions, or choose **(no milestone)** to see only issues that have not been assigned to one. |
 | **Label** | Tick up to five labels. Labels combine with **and** — an issue must carry *every* ticked label to appear. |
 | **Assignee** | Scope to a single person. One at a time: GitHub and GitLab cannot filter by several assignees in one request. |
 | **Title or number** | Narrows what is already on screen by issue title or `#number`. |
 
 State, milestone, label, and assignee are applied **at the provider**, before issues are fetched. On a large repository that matters: filtering to a milestone or label reaches issues beyond the issue cap, so a filtered board can show work an unfiltered one can't. The title/number box only narrows the issues already loaded.
+
+### Closed issues
+
+On a repository with a long history, closed issues used to fill the **Done** column and use up the issue cap, crowding out open work. Since 1.3 the lens loads **open issues first**, with the whole issue cap, and then the **50 most recently updated closed issues** on top. Closed issues never count against the cap for open ones.
+
+Change the number with the **Closed** filter. **Hidden** shows open issues only. **All** goes back to the earlier behavior, where open and closed issues share the cap. When more closed issues exist than are shown, the provenance banner says so ("Showing the 50 most recently updated closed issues"); with **Hidden** it says "Closed issues hidden". GitHub and GitLab don't report how many closed issues there are without extra requests, so the banner doesn't give a count.
+
+"Most recently updated" is the closest order both providers offer: a closed issue that someone comments on moves back up the list.
+
+The choice is stored in the page URL like the other filters, so it survives **Refresh**, a change of pivot, and a shared link. It counts as a filter on the **Filters** button when it isn't the default, and **Clear** resets it.
 
 All filters are stored in the page URL, so you can copy and share a filtered board as a link. The **Filters** button shows how many are active; **Clear** removes them all.
 

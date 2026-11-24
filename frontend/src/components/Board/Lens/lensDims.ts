@@ -69,6 +69,25 @@ export const MAX_LENS_SIDEBAR_WIDTH = 480;
 export const MIN_LENS_COL_WIDTH = 160;
 export const MAX_LENS_COL_WIDTH = 640;
 
+/**
+ * Closed-issue limit choices (#1581), as sent in `?closed_limit=`. With no state
+ * filter the server reads open issues with the whole fetch budget and then at
+ * most this many of the most recently updated closed issues, so closed work can
+ * no longer crowd open work out of the cap. Mirrors the backend's
+ * `CLOSED_LIMIT_CHOICES` plus `all` (the old single all-states read).
+ */
+export const LENS_CLOSED_LIMITS = ["0", "20", "50", "100", "all"] as const;
+export type LensClosedLimit = (typeof LENS_CLOSED_LIMITS)[number];
+/** The server default — the URL omits the param for it. */
+export const DEFAULT_LENS_CLOSED_LIMIT: LensClosedLimit = "50";
+
+/** `?closed_limit=` read back, falling back to the default exactly as the server does. */
+export function parseLensClosedLimit(raw: string | null): LensClosedLimit {
+  return (LENS_CLOSED_LIMITS as readonly string[]).includes(raw ?? "")
+    ? (raw as LensClosedLimit)
+    : DEFAULT_LENS_CLOSED_LIMIT;
+}
+
 /** Number of active filters from the URL params — the Row-2 Filters badge and
  *  the provenance banner both read this, so it lives in one place. Counts one per
  *  active *dimension*, not one per selected label. */
@@ -78,8 +97,14 @@ export function lensFilterActiveCount(params: URLSearchParams): number {
   const assignee = (params.get("assignee") ?? "").trim();
   const labels = parseLensLabels(params.get("labels"));
   const q = (params.get("q") ?? "").trim();
+  const stateSet = state === "open" || state === "closed";
+  // The closed limit only applies with no state filter, so it counts only then,
+  // and only when it differs from the default every board starts with.
+  const closedLimitSet =
+    !stateSet && parseLensClosedLimit(params.get("closed_limit")) !== DEFAULT_LENS_CLOSED_LIMIT;
   return (
-    (state === "open" || state === "closed" ? 1 : 0) +
+    (stateSet ? 1 : 0) +
+    (closedLimitSet ? 1 : 0) +
     (milestone ? 1 : 0) +
     (labels.length > 0 ? 1 : 0) +
     (assignee ? 1 : 0) +
