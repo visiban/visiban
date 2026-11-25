@@ -3623,6 +3623,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#in-app-help-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In-app help links
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#local-development" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4812,6 +4823,29 @@
 <p><strong>Why it matters:</strong> In production, <code>DB_PASSWORD</code>, <code>REDIS_PASSWORD</code>, and <code>APP_VERSION</code> are required, and <code>DJANGO_SECRET_KEY</code> must be unique and kept secret.</p>
 <p><strong>The big picture:</strong> start with your environment (<a href="#local-development">local development</a>, <a href="#gitlab-ci-pipeline">GitLab CI pipeline</a>, <a href="#production-deployment">production</a>), then the feature sections: <a href="#reverse-proxies-and-the-client-ip">reverse proxies</a>, <a href="#optional-features-off-by-default">optional features</a>, <a href="#import-limits">import limits</a>, <a href="#email-smtp">email</a>, <a href="#demo-mode">demo mode</a>, <a href="#variables-documented-on-other-pages">variables documented elsewhere</a>, <a href="#health-check-endpoints">health checks</a>, <a href="#deprecated-environment-variable-names">deprecated names</a>.</p>
 <hr />
+<h2 id="in-app-help-links">In-app help links<a class="headerlink" href="#in-app-help-links" title="Permanent link">&para;</a></h2>
+<p><em>(new in 1.3)</em> The "?" and "Learn more" links in the app open the Visiban docs in a new tab, matched to the version you run: a 1.3.x install links to <code>docs.visiban.com/1.3/...</code>, a prerelease build to <code>/next/</code>, and a build whose version is missing or not a release number to <code>/latest/</code>. A build from <code>main</code> reports the last released version, so its links point at that version's docs until a 1.3 prerelease is cut.</p>
+<p>To point them at your own documentation mirror (for example on an air-gapped network), set the <code>VITE_DOCS_BASE_URL</code> build argument when you build the frontend image:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>build<span class="w"> </span>--build-arg<span class="w"> </span><span class="nv">VITE_DOCS_BASE_URL</span><span class="o">=</span>https://docs.example.internal/visiban<span class="w"> </span>frontend/
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Meaning</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VITE_DOCS_BASE_URL</code></td>
+<td>Docs base URL, <code>http://</code> or <code>https://</code> only. Used exactly as given (a trailing slash is ignored) with no version segment added, so the mirror should serve one doc set at that address. Anything else is ignored.</td>
+<td>empty (<code>https://docs.visiban.com</code>, version-matched)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Watch out:</strong> this is a build-time setting baked into the JavaScript bundle, so it can't be changed on a prebuilt release image. A runtime setting is not part of this release (tracked in #2604), so until then prebuilt images cannot be overridden.</p>
+<hr />
 <h2 id="local-development">Local development<a class="headerlink" href="#local-development" title="Permanent link">&para;</a></h2>
 <p>Copy <code>.env.example</code> to <code>.env</code> in the repository root and fill in the values below.</p>
 <table>
@@ -4878,7 +4912,7 @@
 <p>Valkey has no authentication in development, so no variable is needed.</p>
 <h3 id="frontend-local-override">Frontend local override<a class="headerlink" href="#frontend-local-override" title="Permanent link">&para;</a></h3>
 <p>When running the Vite dev server directly (<code>npm run dev</code>), create <code>frontend/.env.local</code> with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8000
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8000
 </code></pre></div>
 <p>This file is gitignored and excluded from Docker builds via <code>frontend/.dockerignore</code>.</p>
 <p><strong>Watch out:</strong> never set <code>VITE_API_URL</code> to a <code>localhost</code> value in a Docker image. It is baked into the JS bundle and breaks WebSocket connections for any client accessing from a non-localhost address. The correct value for all Docker builds (dev compose, prod compose, Helm) is an empty string, which makes the frontend resolve the API relative to <code>window.location.origin</code>.</p>
@@ -5137,12 +5171,12 @@
 </tbody>
 </table>
 <p>Example using a values file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>visiban<span class="w"> </span>./helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.frontendUrl<span class="o">=</span><span class="s2">"https://boards.example.com"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.siteDomain<span class="o">=</span><span class="s2">"boards.example.com"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span><span class="s2">"v1.0.0"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span><span class="s2">"v1.0.0"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>visiban<span class="w"> </span>./helm/visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.frontendUrl<span class="o">=</span><span class="s2">"https://boards.example.com"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.siteDomain<span class="o">=</span><span class="s2">"boards.example.com"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span><span class="s2">"v1.0.0"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span><span class="s2">"v1.0.0"</span>
 </code></pre></div>
 <hr />
 <h2 id="reverse-proxies-and-the-client-ip">Reverse proxies and the client IP<a class="headerlink" href="#reverse-proxies-and-the-client-ip" title="Permanent link">&para;</a></h2>
@@ -5357,14 +5391,14 @@
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">backend</span><span class="p">:</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">requests</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">250m</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1Gi</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">limits</span><span class="p">:</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000m</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2Gi</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">backend</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">requests</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">      </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">250m</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">      </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1Gi</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">limits</span><span class="p">:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000m</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2Gi</span>
 </code></pre></div>
 <p>The latencies above are from a laptop on a full core. The default <code>cpu: 500m</code> limit roughly doubles the wall time of a heavy request. Raise <code>limits.cpu</code> if Analytics on a large board feels slow. If you enable <code>backendAutoscaling</code>, keep <code>requests.cpu</code> set, because the autoscaler needs it.</p>
 <p><strong>Yes, but:</strong> <code>daphne</code> keeps its high-water mark. After a burst of Analytics requests the process does not give the memory back: it sat at 703 MB before the next burst after a 1,128 MB peak, and at 1,407 MB after a 1,956 MB peak. A pod that survived one heavy open starts the next one closer to its limit. This is CPython allocator behavior (arenas and fragmentation), not a leak in Visiban code, and it was not proven to grow without bound. Leave headroom above the peak, not just above idle.</p>
@@ -5715,7 +5749,7 @@ cost CPU time, not memory; they are bounded by the fixed ceiling of four times
 <code>ANALYTICS_MAX_MOVEMENTS</code>, so even a runaway pass ends. Rows are counted as
 they are read: a request over a limit is refused once it has read up to that
 limit, and holds its slot until then. Size a pod so that:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>baseline memory + ANALYTICS_MAX_CONCURRENT × (one request's peak at ANALYTICS_MAX_MOVEMENTS) &lt; the pod's memory limit
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>baseline memory + ANALYTICS_MAX_CONCURRENT × (one request's peak at ANALYTICS_MAX_MOVEMENTS) &lt; the pod's memory limit
 </code></pre></div>
 <p>The defaults are a starting point for the chart's default <code>512Mi</code> memory and
 <code>500m</code> CPU limits, to be tuned for each deployment. As a rough estimate (an
@@ -5915,24 +5949,24 @@ Settings are never merged across the two:</p>
 </tbody>
 </table>
 <h3 id="example-gmail-google-workspace">Example: Gmail / Google Workspace<a class="headerlink" href="#example-gmail-google-workspace" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">EMAIL_HOST</span><span class="o">=</span>smtp.gmail.com
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">EMAIL_PORT</span><span class="o">=</span><span class="m">587</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">EMAIL_HOST_USER</span><span class="o">=</span>noreply@yourdomain.com
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nv">EMAIL_HOST_PASSWORD</span><span class="o">=</span>your-app-password
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nv">EMAIL_USE_TLS</span><span class="o">=</span><span class="nb">true</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nv">DEFAULT_FROM_EMAIL</span><span class="o">=</span>noreply@yourdomain.com
-</code></pre></div>
-<h3 id="example-amazon-ses">Example: Amazon SES<a class="headerlink" href="#example-amazon-ses" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">EMAIL_HOST</span><span class="o">=</span>email-smtp.us-east-1.amazonaws.com
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">EMAIL_HOST</span><span class="o">=</span>smtp.gmail.com
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">EMAIL_PORT</span><span class="o">=</span><span class="m">587</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nv">EMAIL_HOST_USER</span><span class="o">=</span>AKIAIOSFODNN7EXAMPLE
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nv">EMAIL_HOST_PASSWORD</span><span class="o">=</span>your-ses-smtp-password
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nv">EMAIL_HOST_USER</span><span class="o">=</span>noreply@yourdomain.com
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nv">EMAIL_HOST_PASSWORD</span><span class="o">=</span>your-app-password
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nv">EMAIL_USE_TLS</span><span class="o">=</span><span class="nb">true</span>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nv">DEFAULT_FROM_EMAIL</span><span class="o">=</span>noreply@yourdomain.com
 </code></pre></div>
+<h3 id="example-amazon-ses">Example: Amazon SES<a class="headerlink" href="#example-amazon-ses" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">EMAIL_HOST</span><span class="o">=</span>email-smtp.us-east-1.amazonaws.com
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">EMAIL_PORT</span><span class="o">=</span><span class="m">587</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nv">EMAIL_HOST_USER</span><span class="o">=</span>AKIAIOSFODNN7EXAMPLE
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nv">EMAIL_HOST_PASSWORD</span><span class="o">=</span>your-ses-smtp-password
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nv">EMAIL_USE_TLS</span><span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="nv">DEFAULT_FROM_EMAIL</span><span class="o">=</span>noreply@yourdomain.com
+</code></pre></div>
 <h3 id="console-backend-development">Console backend (development)<a class="headerlink" href="#console-backend-development" title="Permanent link">&para;</a></h3>
 <p>To print emails to stdout instead of sending them (useful for development):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">EMAIL_BACKEND</span><span class="o">=</span>django.core.mail.backends.console.EmailBackend
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">EMAIL_BACKEND</span><span class="o">=</span>django.core.mail.backends.console.EmailBackend
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
