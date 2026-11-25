@@ -4816,10 +4816,10 @@
 </tr>
 <tr>
 <td><code>backend-license-check</code> / <code>frontend-license-check</code></td>
-<td>GPL-2.0 / GPL-3.0 dependencies</td>
-<td>MR</td>
-<td>No (<code>allow_failure: true</code>; warn only)</td>
-<td>n/a (MR only)</td>
+<td>A blocklist over <code>backend/requirements.lock</code> and the frontend dependency tree: GPL, AGPL, SSPL, BUSL, any license containing the word "proprietary", and empty or unknown values. Other unrecognized strings pass (<code>scripts/license-gate.py</code>; LGPL and MPL are allowed)</td>
+<td>MR and <code>main</code></td>
+<td>Yes</td>
+<td>Yes (runs and blocks on every scheduled <code>main</code> pipeline except the Sonar one)</td>
 </tr>
 <tr>
 <td><code>sonar:scan</code></td>

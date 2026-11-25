@@ -2943,6 +2943,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#foreign-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Foreign keys
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#a-not-null-column-with-a-default" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4781,6 +4792,89 @@ machine-enforced.</p>
 </table>
 <p><strong>Watch out:</strong> The field-level patterns are the easiest to reach for and the easiest to miss in review. <code>makemigrations</code> generates them silently from a one-word model change, and nothing in the generated file says "index". <code>unique=True</code> in particular doesn't look like an index at all, but Django implements it as one, under the same lock. Declare the index in the model's <code>Meta.indexes</code> (or the uniqueness in <code>Meta.constraints</code>) instead, and add it concurrently.</p>
 <p>The check also fails a migration that uses a concurrent operation without setting <code>atomic = False</code>. That combination raises <code>NotSupportedError</code> at <code>migrate</code> time. It's loud, but only once it reaches an environment that runs migrations: usually CI at the earliest and production at the worst.</p>
+<h3 id="foreign-keys">Foreign keys<a class="headerlink" href="#foreign-keys" title="Permanent link">&para;</a></h3>
+<p>The same check fails on foreign-key changes that name no index at all (#1798):</p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Flagged</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AddField</code> of a <code>ForeignKey</code> without <code>db_index=False</code></td>
+<td>yes</td>
+<td>set <code>db_index=False</code>, then add the index concurrently (see <a href="#adding-a-foreign-key">Adding a foreign key</a>)</td>
+</tr>
+<tr>
+<td><code>AddField</code> of a <code>OneToOneField</code></td>
+<td>yes, even with <code>db_index=False</code></td>
+<td>its unique index can't be turned off; add a <code>ForeignKey</code> and build the unique index separately</td>
+</tr>
+<tr>
+<td><code>AlterField</code> that turns a <code>ForeignKey</code> index from <code>db_index=False</code> back on, or turns a <code>OneToOneField</code> or <code>unique=True</code> key into an indexed <code>ForeignKey</code></td>
+<td>yes</td>
+<td>set <code>db_index=False</code></td>
+</tr>
+<tr>
+<td><code>AlterField</code> that changes <code>null</code> on a <code>ForeignKey</code> / <code>OneToOneField</code>, in either direction</td>
+<td>yes</td>
+<td>see <a href="#changing-an-existing-foreign-keys-nullability">Changing an existing foreign key's nullability</a></td>
+</tr>
+<tr>
+<td><code>AlterField</code> that turns another column into a foreign key</td>
+<td>yes, unless it sets <code>db_constraint=False</code> and builds no index</td>
+<td>see <a href="#a-foreign-key-on-a-column-that-already-holds-data">A foreign key on a column that already holds data</a></td>
+</tr>
+<tr>
+<td><code>AlterField</code> that turns a field into a <code>OneToOneField</code></td>
+<td>yes</td>
+<td>build the unique index separately</td>
+</tr>
+<tr>
+<td><code>AlterField</code> that turns <code>db_constraint=False</code> back on</td>
+<td>yes</td>
+<td>see <a href="#a-foreign-key-on-a-column-that-already-holds-data">A foreign key on a column that already holds data</a></td>
+</tr>
+<tr>
+<td>any other database-relevant change to a constrained key: <code>to</code>, <code>to_field</code>, <code>db_index</code>, <code>default</code>, <code>db_default</code>, the column name, the field class, and so on</td>
+<td>yes</td>
+<td>change the database by hand and record the definition with <code>SeparateDatabaseAndState</code></td>
+</tr>
+<tr>
+<td><code>blank</code>, <code>choices</code>, <code>editable</code>, <code>error_messages</code>, <code>help_text</code>, <code>limit_choices_to</code>, <code>on_delete</code>, <code>related_name</code>, <code>related_query_name</code>, <code>validators</code>, <code>verbose_name</code> or <code>db_comment</code></td>
+<td><strong>no</strong></td>
+<td>Django keeps the constraint</td>
+</tr>
+<tr>
+<td><code>AlterField</code> that leaves <code>db_constraint=False</code>, including one that turns it off</td>
+<td><strong>no</strong> (the index rows above still apply)</td>
+<td>no constraint is created, so nothing is validated</td>
+</tr>
+<tr>
+<td>any of the above on a table created earlier in the same migration</td>
+<td><strong>no</strong></td>
+<td>the table is empty</td>
+</tr>
+<tr>
+<td>any of the above under <code>SeparateDatabaseAndState(state_operations=...)</code></td>
+<td><strong>no</strong></td>
+<td>state only, emits no DDL</td>
+</tr>
+</tbody>
+</table>
+<p>An <code>AlterField</code> states only the new definition, so the check learns the old one by replaying
+the same app's earlier migrations in filename order, following <code>RenameField</code> and
+<code>RenameModel</code>. If it can't find the earlier definition, or <code>null</code> isn't written as a literal,
+it flags the operation. It compares source text, so respelling a value (or renaming the
+target model) can flag an operation that changes nothing; use the exemption comment there. Custom <code>AlterField</code> subclasses such as
+<code>DropNotNullKeepingForeignKey</code> aren't flagged, but the definition they set is recorded.</p>
+<p>Four applied migrations predate these rules and are listed in
+<code>GRANDFATHERED_FOREIGN_KEY</code>: <code>accounts/0011_user_default_board</code>,
+<code>boards/0009_board_group</code>, <code>boards/0017_notification_actor_action_type</code> and
+<code>boards/0044_cardchecklist_created_by</code>. The older rules still apply to them.</p>
 <hr />
 <h3 id="a-not-null-column-with-a-default">A NOT NULL column with a default<a class="headerlink" href="#a-not-null-column-with-a-default" title="Permanent link">&para;</a></h3>
 <p>Use <code>db_default=</code> for a <code>NOT NULL</code> column, so the database keeps the default.</p>
@@ -4931,8 +5025,9 @@ anything that isn't a <code>CheckConstraint</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">AddConstraintNotValid</span><span class="p">(</span><span class="n">model_name</span><span class="o">=</span><span class="s2">"card"</span><span class="p">,</span> <span class="n">constraint</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">UniqueConstraint</span><span class="p">(</span><span class="o">...</span><span class="p">))</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="go">TypeError: AddConstraintNotValid.constraint must be a check constraint.</span>
 </code></pre></div>
-<p><code>check_migration_concurrency</code> doesn't look at foreign-key validation either way — see
-below — so which recipe applies is a judgment call the check can't make for you. It comes
+<p><code>check_migration_concurrency</code> flags the index a foreign key builds and an <code>AlterField</code> that
+creates or re-creates its constraint (see <a href="#foreign-keys">Foreign keys</a>), but not the
+validation of a constraint that comes with a new column, so which recipe applies is a judgment call the check can't make for you. It comes
 down to whether the column being constrained already holds data.</p>
 <h3 id="a-new-nullable-column-on-an-existing-table">A new, nullable column on an existing table<a class="headerlink" href="#a-new-nullable-column-on-an-existing-table" title="Permanent link">&para;</a></h3>
 <p>If the column is brand new, every row gets <code>NULL</code> the instant it's added, and PostgreSQL
@@ -4969,12 +5064,12 @@ check. A plain <code>AddField</code> is safe inline, constraint included:</p>
 <p><code>boards/0044_cardchecklist_created_by</code> and <code>accounts/0031_user_pending_email_address</code>
 (#1273) are the precedents in the tree — both add a nullable <code>ForeignKey</code> to an existing
 table in one plain <code>AddField</code>, no <code>NOT VALID</code> split needed.</p>
-<p><code>db_index=False</code> is the part worth not skipping. <code>ForeignKey</code> builds a b-tree index on the
+<p><code>db_index=False</code> is required; the check fails without it. <code>ForeignKey</code> builds a b-tree index on the
 column by default — same as an explicit <code>db_index=True</code> on any other field — and that index
 build <em>does</em> scan the whole table under <code>ACCESS EXCLUSIVE</code>, whether the new column's values
 are <code>NULL</code> or not. <code>accounts/0031</code> splits it out for exactly this reason: <code>db_index=False</code>
 here, then a separate <code>AddIndexConcurrently</code> in <code>accounts/0032_user_pending_email_addr_idx</code>.
-Follow that shape for new work — <code>boards/0044</code> predates the split and left its default index
+Follow that shape — <code>boards/0044</code> predates the split and left its default index
 inline, which was only harmless because <code>cardchecklist</code> was small at the time.</p>
 <p>The constraint half is cheap for a new column, not free. Even with every row <code>NULL</code>,
 PostgreSQL still emits <code>ADD CONSTRAINT ... FOREIGN KEY</code> and validates the column against the
@@ -5103,9 +5198,10 @@ this shape against <code>check_migration_constraint_safety.py</code> yourself be
 <h3 id="teaching-the-checker-to-see-this">Teaching the checker to see this<a class="headerlink" href="#teaching-the-checker-to-see-this" title="Permanent link">&para;</a></h3>
 <p>Optional follow-up, out of scope for this page:</p>
 <ul>
-<li><code>check_migration_concurrency</code> could flag an <code>AddField</code>/<code>AlterField</code> that adds a
-  <code>ForeignKey</code> with <code>db_constraint</code> left at its default (<code>True</code>) against an app's
-  non-initial migration, the same way it already flags <code>db_index=True</code>.</li>
+<li><code>check_migration_concurrency</code> could flag an <code>AddField</code> that adds a <code>ForeignKey</code> with
+  <code>db_constraint</code> left at its default (<code>True</code>) on an existing table. Today it flags that
+  field's index, not the constraint's validation. Tracked as
+  <a href="https://gitlab.com/visiban/visiban/-/issues/2620">#2620</a>.</li>
 <li><code>check_migration_constraint_safety</code>'s adjacent-migration exemption can't tell a genuine
   data-repair <code>RunPython</code> from a schema-only one like the <code>NOT VALID</code> step above — both
   satisfy <code>has_top_level_repair()</code> by name alone. Narrowing that exemption would need the
@@ -5114,7 +5210,7 @@ this shape against <code>check_migration_constraint_safety.py</code> yourself be
   not verify a repair step touches the <em>right</em> rows" above) — so this is a real trade-off to
   work out, not a one-line fix.</li>
 </ul>
-<p>No issue is currently filed for either; file one before picking either up rather than
+<p>No issue is currently filed for the second; file one before picking it up rather than
 inferring scope from this paragraph.</p>
 <h3 id="changing-an-existing-foreign-keys-nullability">Changing an existing foreign key's nullability<a class="headerlink" href="#changing-an-existing-foreign-keys-nullability" title="Permanent link">&para;</a></h3>
 <p>A plain <code>AlterField</code> that only adds <code>null=True</code> to a <code>ForeignKey</code> looks catalog-only, and it
@@ -5127,7 +5223,9 @@ it emits no SQL). <code>sqlmigrate</code> shows the full sequence:</p>
 </code></pre></div>
 <p>The re-<code>ADD</code> validates every row against the referenced table, holding <code>ACCESS EXCLUSIVE</code> on
 the referencing table (the migration is atomic) and <code>SHARE ROW EXCLUSIVE</code> on the referenced
-one for the whole scan. Neither checker flags it yet (#1798).</p>
+one for the whole scan. <code>check_migration_concurrency</code> fails on it (see
+<a href="#foreign-keys">Foreign keys</a>); <code>check_migration_constraint_safety</code> doesn't look at lock
+duration and only flags the <code>null=False</code> direction when it's written out.</p>
 <p>The change that's needed is only <code>ALTER COLUMN ... DROP NOT NULL</code>, which is
 catalog-only and leaves the existing constraint in place. <code>boards/0079_cardmovement_card_nullable</code>
 (#1469) is the precedent: a small <code>AlterField</code> subclass whose PostgreSQL <code>database_forwards</code>
@@ -5137,6 +5235,10 @@ rebuilds the table, which is fine locally). Its <code>database_backwards</code> 
 holds <code>NULL</code>, rather than deleting data to restore <code>NOT NULL</code>. Confirm the result with
 <code>python manage.py sqlmigrate &lt;app&gt; &lt;migration&gt;</code> against PostgreSQL: the output should be the
 single <code>DROP NOT NULL</code>.</p>
+<p>The check doesn't flag that subclass. It also covers only the <code>DROP NOT NULL</code> direction:
+making a foreign key <code>NOT NULL</code> scans the table whichever way it's written. If a plain
+<code>AlterField</code> really is acceptable (a table known to stay small), add
+<code># concurrency-exempt: &lt;reason&gt;</code>.</p>
 <hr />
 <h2 id="sqlite">SQLite<a class="headerlink" href="#sqlite" title="Permanent link">&para;</a></h2>
 <p>Visiban supports a SQLite configuration for local development and small single-user installs,
@@ -5487,7 +5589,7 @@ fourteen above, without any of them changing.</p>
 <p>Found by the 1.2 pre-release audit (#1662). The shipped migrations weren't edited, because
 installs have already run them; these are documented instead.</p>
 <ul>
-<li><strong>Foreign keys are not flagged by the concurrency checker.</strong> <code>accounts/0031</code> adds a nullable
+<li><strong>Foreign-key validation is not flagged by the concurrency checker.</strong> <code>accounts/0031</code> adds a nullable
   FK (<code>pending_email_address</code>). Even with <code>db_index=False</code>, PostgreSQL emits
   <code>ADD CONSTRAINT ... FOREIGN KEY</code>, which takes <code>SHARE ROW EXCLUSIVE</code> on <code>users</code> and
   <code>account_emailaddress</code> briefly. With every row <code>NULL</code> this is fast. For future FKs on large
