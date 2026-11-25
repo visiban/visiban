@@ -142,11 +142,17 @@ It creates, alongside the normal demo board:
 
     An eighth board, **Product Roadmap (Trello import)**, is a Trello export, imported ([#1908](https://gitlab.com/visiban/visiban/-/issues/1908)). The command feeds the Trello export under `backend/boards/tests/fixtures/` through the real [Trello importer](../features/trello-import.md), so the board carries genuine **import provenance**: each comment keeps the Trello author's name as text and starts "(imported from Trello)", and the cards keep their exported creation dates.
 
-    - **Created last,** after every other board, so Sales Territory (Overlay) stays at `/boards/6`.
+    - **Created after every showcase board,** so Sales Territory (Overlay) stays at `/boards/6`. Simple Kanban is appended after it (see below).
     - **History:** the importer deliberately writes no movement or activity history, so the seed adds what the API would have written (a creation movement per card, an archive movement for the archived card, and an activity for each value a card holds), credited to the importing admin. The board passes the same history check as the others.
     - **Dates are not moved** to the reset day: the cards keep the export's historical dates, so they read as old.
     - **Shape:** the importer's test fixture (`backend/boards/tests/fixtures/trello_export.json`), so editing that fixture changes the demo.
     - **Members:** the accounts seated on the other showcase boards are seated here too, the visitor as a plain member.
+
+    A ninth board, **Simple Kanban** ([#2600](https://gitlab.com/visiban/visiban/-/issues/2600)), is the dead-simple first-run board for a visitor who just wants to see a Kanban board: one swimlane (Team), four columns (Backlog, To Do, Doing, Done) and ten cards with a few assignees and labels, a couple of comments and a short movement history, so the Activity tab is not empty. It has no custom fields, checklists, relations, links, sub-columns, tracks or overlays; simple is the feature.
+
+    - **Created last,** after the Trello import. The reset restarts the id sequences, so appending keeps Sales Territory (Overlay) at `/boards/6`, and because the board list is ordered by most recently updated, the board created last is listed first, where a new visitor lands. The other showcase boards stay behind it.
+    - **Reset:** it is part of the same board list the hourly reset seeds (`seed_demo_data --force --wipe --demo-site --reset-database`), so it is recreated on every reset. Its columns follow the Simple Kanban [template](../getting-started/board-setup.md) without the Review column.
+    - **Members:** the demo accounts are seated as on the other showcase boards, the visitor as a plain member.
 
     Not on the hosted demo, by design: an MCP connection. The demo mints no tokens, so [ask your own agent](../features/mcp-demo-walkthrough.md) on a local instance instead.
 
