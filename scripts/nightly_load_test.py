@@ -988,7 +988,7 @@ def _self_test():
         failures.append(f"exit run: checkpoints after each measurement held {_snap_keys}, expected {_want_snaps}")
     _part = _exit_output(_snaps[1] if len(_snaps) > 1 else {}, [], n_opens, 2, cap1, n_opens, complete=False)
     if _part.get("complete") is not False or _part.get("passed") is not False \
-            or _part.get("measured_so_far", {}).get("cumulative_flow_p95_ms") != 1000.0:
+            or not math.isclose(_part.get("measured_so_far", {}).get("cumulative_flow_p95_ms", math.nan), 1000.0):
         failures.append(f"exit run: a partial artifact is not marked incomplete and failed with its figures so far: {_part}")
     with tempfile.TemporaryDirectory() as _tmp:
         _art = os.path.join(_tmp, "exit.json")
@@ -1194,7 +1194,7 @@ def _self_test():
         failures.append(f"exit run idle wait: a free slot did not return at once: {_slot(['ok'])}")
     if _slot(["busy", "timeout", "busy", "ok"]) != (6.0, [2, 2, 2]):
         failures.append(f"exit run idle wait: busy, timeout, busy, ok gave {_slot(['busy', 'timeout', 'busy', 'ok'])}")
-    if _slot(["busy", "too_large"])[0] != 2.0:
+    if not math.isclose(_slot(["busy", "too_large"])[0], 2.0):
         failures.append("exit run idle wait: a too_large probe (admitted) did not count as a free slot")
     _never = _slot([], budget=10, poll=2)
     if not isinstance(_never[0], ExitServerNotIdle) or len(_never[1]) != 5 or "10s" not in str(_never[0]):
@@ -1224,7 +1224,8 @@ def _self_test():
         failures.append("exit run idle wait: at cap 2 with no CPU check wired, an admitted probe passed")
     if _slot(["ok"], cap=1, quiet=lambda: False) != (0.0, []):
         failures.append("exit run idle wait: at cap 1 the admitted probe alone does not prove the slot free")
-    if _parse_proc_stat_cpu_seconds("1234 (python3 (x) y) S 1 2 3 4 5 6 7 8 9 10 250 150 0 0", 100) != 4.0:
+    if not math.isclose(_parse_proc_stat_cpu_seconds("1234 (python3 (x) y) S 1 2 3 4 5 6 7 8 9 10 250 150 0 0", 100),
+                        4.0):
         failures.append("exit run: /proc/<pid>/stat utime + stime not read as CPU seconds")
     if EXIT_IDLE_PROBE_TIMEOUT[1] <= 8:
         failures.append("exit run: the idle probe's read timeout does not outlast the server's 8 s REST wait")
@@ -1313,8 +1314,9 @@ def _self_test():
         failures.append(f"exit run ops: measured requests used timeouts {_measured_timeouts}, not {EXIT_REQUEST_TIMEOUT}")
     if not isinstance(_raises(rec_ops.wait_idle), str):
         failures.append("exit run ops: wait_idle with no probe wired did not refuse")
-    if _ExitOps(_RecSession(), "https://x", 9, _rec_peak, concurrent=None, alive=None, iterations=1, warmup=0,
-                wait_idle=lambda: 4.0).wait_idle() != 4.0:
+    _wired_wait = _ExitOps(_RecSession(), "https://x", 9, _rec_peak, concurrent=None, alive=None, iterations=1,
+                           warmup=0, wait_idle=lambda: 4.0).wait_idle()
+    if not math.isclose(_wired_wait, 4.0):
         failures.append("exit run ops: wait_idle does not run the wired probe")
     del requested[:]
     fx = rec_ops.fixture()
