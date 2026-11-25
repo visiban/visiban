@@ -25,7 +25,7 @@ MCP_SERVER_ENABLED=true   # backend environment; restart the backend
 
 ## Enabling the server
 
-Set it on the backend and restart:
+Set `MCP_SERVER_ENABLED=true` on the backend and restart:
 
 ```bash
 MCP_SERVER_ENABLED=true
@@ -501,7 +501,9 @@ Flow metrics for one board over a rolling window, from the same service as the R
 
 **Yes, but:** WIP has no REST endpoint of its own (the closest is `metrics/wip-age/`'s `columns[].wip_count`).
 
-The `blocked` block follows the window and `swimlane_id` (since #2280), but it has the shape of the older `/analytics/` blocked-time block, not of `metrics/blocked/`: days rounded to 0.1, columns keyed by name rather than `column_uid`, and reasons ranked by how many blocks they have, then by time. All board roles may call it; it needs only `mcp:read` and spends from the [compute bucket](#rate-limiting).
+The `blocked` block follows the window and `swimlane_id` (since #2280), but it has the shape of the older `/analytics/` blocked-time block, not of `metrics/blocked/`: days rounded to 0.1, columns keyed by name rather than `column_uid`, and reasons ranked by how many blocks they have, then by time.
+
+All board roles may call `board_flow_metrics`; it needs only `mcp:read` and spends from the [compute bucket](#rate-limiting).
 
 **Arguments:** `board_id` (integer, required); `window_days` (integer 1 to 365, default `90`, the REST `days` default); `swimlane_id` (integer, optional, must belong to the board).
 

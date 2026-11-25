@@ -434,12 +434,13 @@ That baseline's findings were triaged in #1120: version-prefix fuzzing noise and
 500 on non-numeric board-scoped path parameters were fixed outright (see the `backend-schema-fuzz`
 job comment in `.gitlab-ci.yml` for the mechanism); admin-only 403s were accepted as documented
 residual scope (only 9 operations sit behind `IsSiteAdmin`, all separately covered by
-`accounts/tests/test_admin_api.py` and friends). Seeding real ids for reachability (above) then
-surfaced the schema-accuracy bug #1108 fixed on `CardSerializer` and #1119 is tracking for
-`Group`/`GroupDetail` on several more serializers — filed as
-[#1123](https://gitlab.com/visiban/visiban/-/issues/1123) — plus a structural gap where most
-write endpoints' `400` validation-error response isn't documented at all — filed as
-[#1124](https://gitlab.com/visiban/visiban/-/issues/1124).
+`accounts/tests/test_admin_api.py` and friends). Seeding real ids for
+reachability (above) then surfaced the same bug class that #1108 fixed on `CardSerializer`, and
+that #1119 tracked for `Group`/`GroupDetail`, on several more serializers (`Board`, `BoardFull`,
+`BoardUser`, `CurrentUser`; filed as
+[#1123](https://gitlab.com/visiban/visiban/-/issues/1123)). It also surfaced a structural gap:
+most write endpoints' `400` validation-error response was not documented at all (filed as
+[#1124](https://gitlab.com/visiban/visiban/-/issues/1124)).
 
 Neither blocked this flip: both were
 recorded as scoped, justified entries in `backend/schemathesis-baseline.json`
