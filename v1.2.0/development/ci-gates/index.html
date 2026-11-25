@@ -2469,6 +2469,8 @@
       
         
       
+        
+      
     
     
     
@@ -3197,6 +3199,34 @@
     
   
     Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../help-link-anchors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Help Link Anchor Check
   
 
     
@@ -4790,6 +4820,11 @@ self-test, add a member function and a <code>fold_member</code> line rather than
 <td><code>scripts/ci-fold.sh</code></td>
 <td><code>lint-selftests-alpine</code> (<code>ci-fold-selftest</code> member)</td>
 <td>#2523: the runner the folded self-test jobs source. Self-test proves a failing member does not stop later ones and is named in the summary, a member stops at its first failing command, an all-green run passes, and a member marked not-on-tag is skipped when <code>CI_COMMIT_TAG</code> is set.</td>
+</tr>
+<tr>
+<td><code>scripts/check-help-link-anchors.py</code></td>
+<td><code>help-link-anchors</code></td>
+<td>#2591: <code>--self-test</code> builds a throwaway docs tree and proves a missing anchor (named by topic key, path and anchor), a missing page, and an unparseable registry each fail, a heading inside a code fence is not an anchor, and the Concepts reverse check only warns. See <a href="../help-link-anchors/">Help link anchors</a>.</td>
 </tr>
 <tr>
 <td><code>scripts/check-gate-selftest-parity.sh</code></td>
