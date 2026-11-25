@@ -199,6 +199,20 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     if (p.field_definition !== n.field_definition || p.value !== n.value) return false;
   }
 
+  // Dimension plans (#1922): "N need attention" reads each plan's target date.
+  // A plan write bumps the card's updated_at today, but the face must not rely
+  // on that, so compare the plans themselves: length, then each plan's field
+  // and updated_at (a plan's own write stamp), plus target_date, the one field
+  // the face reads.
+  const prevPlans = prev.card.dimension_plans ?? [];
+  const nextPlans = next.card.dimension_plans ?? [];
+  if (prevPlans.length !== nextPlans.length) return false;
+  for (let i = 0; i < prevPlans.length; i++) {
+    const p = prevPlans[i];
+    const n = nextPlans[i];
+    if (p.field_id !== n.field_id || p.updated_at !== n.updated_at || p.target_date !== n.target_date) return false;
+  }
+
   return (
     prev.onClick === next.onClick &&
     prev.overlay === next.overlay &&

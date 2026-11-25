@@ -134,7 +134,8 @@ export function buildFieldRows(card: Card, definitions: CustomFieldDefinition[])
 
 /** "2 of 8 pinned to the card". */
 export function pinnedNote(definitions: CustomFieldDefinition[]): string {
-  // Dimensions never pin to the card face (#1921), so they count on neither side.
+  // Dimensions pin from their own pool as state chips (#1922), not as value
+  // chips, so they count on neither side of this note.
   const fields = definitions.filter((d) => !isDimensionField(d));
   const pinned = fields.filter((d) => d.show_on_card).length;
   return `${pinned} of ${fields.length} pinned to the card`;

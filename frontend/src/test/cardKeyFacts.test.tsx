@@ -148,6 +148,15 @@ describe('buildKeyFacts (#1916)', () => {
     expect(facts[3].label).toBe('Deal value $40k. Go to Deal value')
   })
 
+  it('never turns a pinned dimension into a raw-value fact (#1922)', () => {
+    const dimension = { ...dealField, id: 57, name: 'Security', field_type: 'dropdown', choices: ['Pending'], is_dimension: true } as CustomFieldDefinition
+    const card = makeCard({ custom_field_values: [{ field_definition: 55, value: '9000' }, { field_definition: 57, value: 'Pending' }] })
+    const facts = buildKeyFacts(input(card, makeBoard({ custom_field_definitions: [dealField, dimension] })))
+    const texts = facts.map((f) => f.text).join(' | ')
+    expect(texts).toContain('Deal value')
+    expect(texts).not.toContain('Security')
+  })
+
   it('omits a pinned field with no value and an unpinned field with one', () => {
     const unpinned = { ...dealField, id: 56, name: 'Stage', show_on_card: false }
     const card = makeCard({ custom_field_values: [{ field_definition: 56, value: 'Won' }] })

@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { DimensionChips } from "../components/Card/TrackChips";
 import { attentionText, dimensionsNeedingAttention, pinnedDimensionStates, DIMENSION_PIN_CAP } from "../utils/dimensionChips";
 import type { Card, CustomFieldDefinition } from "../types";
+import { isPinnedValueField } from "../utils/stages";
 
 const def = (id: number, name: string, extra: Partial<CustomFieldDefinition> = {}) => ({
   id, name, field_type: "dropdown", choices: ["Pending", "Approved", "Waived"], position: id,
@@ -69,5 +70,13 @@ describe("DimensionChips (#1922)", () => {
   it("prints the state at phone width", () => {
     render(<DimensionChips dimensions={[{ id: 1, name: "Security", state: "open", fromLane: false }]} attention={[]} spelledOut />);
     expect(screen.getAllByText("Security: open")).toHaveLength(2);
+  });
+});
+
+describe("isPinnedValueField (#1922)", () => {
+  it("is a pinned non-dimension field only", () => {
+    expect(isPinnedValueField({ show_on_card: true, is_dimension: false })).toBe(true);
+    expect(isPinnedValueField({ show_on_card: true, is_dimension: true })).toBe(false);
+    expect(isPinnedValueField({ show_on_card: false, is_dimension: false })).toBe(false);
   });
 });

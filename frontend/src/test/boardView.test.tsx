@@ -1766,6 +1766,27 @@ describe('BoardView', () => {
       expect(footer).toHaveTextContent('Priority')
       expect(footer).not.toHaveTextContent('Hidden')
     })
+
+    it('defaults the visible filter fields to pinned value fields, never a pinned dimension (#1922)', () => {
+      localStorage.removeItem('board:1:filters')
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ custom_field_definitions: [pinned('Priority'), { ...(pinned('Security') as object), id: 3, is_dimension: true } as never] }),
+      })
+      capturedFilterBarProps = {}
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      expect(capturedFilterBarProps.filters?.visibleCustomFieldFilterIds).toEqual([1])
+    })
+
+    it('leaves a pinned dimension out of the pinned-field list (#1922)', () => {
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ custom_field_definitions: [pinned('Priority'), { ...(pinned('Security') as object), id: 3, is_dimension: true } as never] }),
+      })
+      render(<BoardView {...defaultProps()} />)
+      const footer = openViewPanel().getByTestId('view-menu-card-fields')
+      expect(footer).toHaveTextContent('Priority')
+      expect(footer).not.toHaveTextContent('Security')
+    })
   })
 
   describe('Activity drawer and card sheet are mutually exclusive (#2274)', () => {

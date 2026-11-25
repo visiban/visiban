@@ -17,6 +17,7 @@ import type { ThresholdLevel } from "./customFieldValue";
 import type { ThresholdDirection } from "../types";
 import { formatDueDate } from "./date";
 import { activeDueDate } from "./plannedFields";
+import { isPinnedValueField } from "./stages";
 
 /** What a fact jumps to. A `field:<id>` target is a pinned custom field's row. */
 export type KeyFactTarget = "move" | "assignee" | "due" | `field:${number}`;
@@ -117,9 +118,10 @@ export function buildKeyFacts({ card, board, userTimezone, userDateFormat, now =
   }
 
   // Board-specific facts (deal value, stage) come only from pinned fields that
-  // have a value, within the pin cap the board already enforces.
+  // have a value, within the pin cap the board already enforces. Pinned
+  // dimensions are state chips, never raw-value facts (#1922).
   const pinned = [...board.custom_field_definitions]
-    .filter((d: CustomFieldDefinition) => d.show_on_card)
+    .filter((d: CustomFieldDefinition) => isPinnedValueField(d))
     .sort((a, b) => a.position - b.position);
   for (const def of pinned) {
     const entry = card.custom_field_values.find((v) => v.field_definition === def.id);

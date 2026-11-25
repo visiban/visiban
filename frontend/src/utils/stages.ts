@@ -188,6 +188,16 @@ export function isDimensionField(def: Pick<CustomFieldDefinition, "is_dimension"
 }
 
 /**
+ * A field pinned as a value chip: `show_on_card` and not a dimension. A pinned
+ * dimension is a state chip from its own pool (#1922), so every consumer of
+ * "the board's pinned fields" (key facts, the view menu's "On the card" list,
+ * the default filter set) reads this, never bare `show_on_card`.
+ */
+export function isPinnedValueField(def: Pick<CustomFieldDefinition, "is_dimension" | "show_on_card">): boolean {
+  return def.show_on_card && !isDimensionField(def);
+}
+
+/**
  * Per-sub-column counts for a split stage's header summary (#2386): "Doing" working, "Ready" waiting.
  * The last sub-column is counted as waiting (spec § Sub-columns and tracks).
  */
