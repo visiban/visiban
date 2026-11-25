@@ -31,6 +31,16 @@ When a section header (e.g. "My Boards", "Groups") carries action buttons:
 - Secondary action (e.g. "Import"): Secondary (bordered) or Quiet button variant — **not** `text-info`; that color is reserved for active filter/selection states
 - Do **not** use a full-width dashed bottom button as the primary creation affordance when the section already has content — that pattern reads as an empty state
 
+## In-app help links (#2589)
+
+- **Docs links render only through `HelpLink` (`components/Common/HelpLink.tsx`), keyed by a typed topic in `help/topics.ts`. Never write a `docs.visiban.com` URL or an `<a href>` to docs in a component.** `docsUrl(topic)` (`help/docsUrl.ts`) builds the version-matched URL: `/X.Y/` for a release build, `/next/` for a prerelease, `/latest/` when the version is not semver, and a `VITE_DOCS_BASE_URL` build-time override used verbatim. The registry owns the accessible name: `Learn more about <subject>, opens docs`. Add a topic to the registry (path ends in `/`, anchor without `#`); #2591 checks each anchor against the docs.
+- **Static only (#2542).** A help link is visible text or a "?" glyph beside a heading. No banners, tours, first-run dots, dismissal state or persistence.
+- **Placement.** In the heading row, right after the heading text (`flex items-center gap-1.5`), not floating and not in the right-aligned header-actions group. Inside a callout, the `text` variant is the last line of the body.
+- **One per section.** Never per control, row or toolbar button: a help link is a real tab stop. Dense toolbars have none.
+- **Variants.** `icon` (default; 20px "?" circle; `Tooltip` shows the registry summary; `aria-label` is the name; no `title`) beside headings. `text` ("Learn more", `text-info underline`, external glyph, sr-only suffix) inside callouts and prose. `text-info` is allowed here because it is a link, not an action button (see Section header actions).
+- **Touch and focus.** 44px hit area below `sm` via `max-sm:` with negative margins so the desktop layout does not change (the parent must not clip them). Focus ring `focus:outline-none focus:ring-2 focus:ring-primary-emphasis`. Always `target="_blank" rel="noopener noreferrer"`.
+- **Menu items.** `UserMenu` "Help & docs" stays a `role="menuitem"` anchor and takes only its `href` from `docsUrl("home")`.
+
 ## Buttons
 
 Seven variants — use no others (#2475; Danger outline added in #2504). `components/Page/buttonClasses.ts` (`buttonClasses(variant)`, `<Button variant>` in `components/Page`) is the source of truth for new code; existing call sites spell the same classes out.

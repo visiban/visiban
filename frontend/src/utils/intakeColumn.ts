@@ -1,8 +1,5 @@
 import type { Column } from "../types";
 
-/** Where the Analytics docs explain the intake column and the bottleneck pick (#2298). */
-export const BOTTLENECK_DOCS_URL = "https://docs.visiban.com/features/analytics/#bottleneck";
-
 /**
  * The board's intake column: its first not-done column by position (#2298).
  *

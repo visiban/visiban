@@ -76,8 +76,8 @@ describe('EditColumnModal intake callout (#2298)', () => {
   it('links to the Analytics bottleneck docs in a new tab', async () => {
     renderEdit(column(), true)
     await userEvent.click(screen.getByRole('button', { name: 'More' }))
-    const link = screen.getByRole('link', { name: /How bottleneck detection works/ })
-    expect(link).toHaveAttribute('href', 'https://docs.visiban.com/features/analytics/#bottleneck')
+    const link = screen.getByRole('link', { name: 'Learn more about bottleneck detection, opens docs' })
+    expect(link.getAttribute('href')).toMatch(/^https:\/\/docs\.visiban\.com\/(latest|next|\d+\.\d+)\/features\/analytics\/#bottleneck$/)
     expect(link).toHaveAttribute('target', '_blank')
     expect(link.getAttribute('rel')).toMatch(/noopener/)
     expect(link.getAttribute('rel')).toMatch(/noreferrer/)

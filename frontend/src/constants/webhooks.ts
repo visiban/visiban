@@ -296,6 +296,3 @@ export const SECRET_LEFT_COPY: Record<"create" | "rotate", string> = {
 
 /** How long a row changed elsewhere keeps its tag (1.3 UI spec Part 9). */
 export const CHANGED_ELSEWHERE_MS = 30_000;
-
-export const WEBHOOKS_DOCS_URL = "https://docs.visiban.com/features/webhooks/";
-export const WEBHOOKS_VERIFY_URL = "https://docs.visiban.com/api/webhooks/#verifying-signatures";

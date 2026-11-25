@@ -20,6 +20,12 @@ RUN npm ci --include=dev && npm ci --include=dev
 ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
 
+# VITE_DOCS_BASE_URL (#2589): empty → in-app help links go to docs.visiban.com,
+# matched to this build's version. Set it to your own docs mirror (http/https,
+# used as given, no version segment added) when you rebuild the image.
+ARG VITE_DOCS_BASE_URL=""
+ENV VITE_DOCS_BASE_URL=$VITE_DOCS_BASE_URL
+
 # NODE_OPTIONS can be set at build time (e.g. --max-old-space-size=1024) to
 # cap Node's heap on memory-constrained CI runners.  Empty by default so
 # production builds are unaffected.

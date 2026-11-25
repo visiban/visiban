@@ -1,10 +1,13 @@
-import { WEBHOOKS_DOCS_URL } from "../../../constants/webhooks";
+import HelpLink from "../../Common/HelpLink";
 
 /** Feature off: no button that implies a board admin can turn it on (spec Part 8). */
 export function WebhooksOffNotice() {
   return (
     <section aria-labelledby="webhooks-heading" className="flex flex-col gap-3">
-      <h3 id="webhooks-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Webhooks</h3>
+      <div className="flex items-center gap-1.5">
+        <h3 id="webhooks-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Webhooks</h3>
+        <HelpLink topic="webhooks" />
+      </div>
       <div role="note" className="flex gap-3 rounded-lg border border-line bg-sunken px-3 py-3 text-sm text-fg-secondary">
         <svg viewBox="0 0 16 16" className="w-5 h-5 shrink-0 text-fg-tertiary" aria-hidden="true">
           <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -17,15 +20,7 @@ export function WebhooksOffNotice() {
             Board admins can't change this here, so ask whoever runs your Visiban server.
           </p>
           <p className="text-xs text-fg-tertiary">
-            When they're on, a webhook sends a signed POST to an address you choose each time something changes on this board.{" "}
-            <a
-              href={WEBHOOKS_DOCS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-            >
-              How webhooks work
-            </a>
+            When they're on, a webhook sends a signed POST to an address you choose each time something changes on this board.
           </p>
         </div>
       </div>
