@@ -87,9 +87,11 @@ vi.mock('react-router-dom', () => ({
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
   useNavigate: () => vi.fn(),
 }))
+const { getBoardMovements } = vi.hoisted(() => ({ getBoardMovements: vi.fn() }))
 vi.mock('../api/boards', () => ({
   exportBoardCsv: vi.fn(),
   exportBoardJson: vi.fn(),
+  getBoardMovements,
 }))
 vi.mock('../components/Board/SummaryView', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/AnalyticsView', () => ({ default: () => <div /> }))
@@ -239,6 +241,8 @@ describe('BoardView.collectActivityEvent', () => {
   beforeEach(() => {
     drawerCalls.length = 0
     mockBoardContextValue = makeContext()
+    getBoardMovements.mockReset()
+    getBoardMovements.mockResolvedValue({ results: [], count: 0, offset: 0, page_size: 50 })
   })
 
   it('card.moved produces a "move" entry with actor display name and column transition', async () => {
@@ -252,7 +256,7 @@ describe('BoardView.collectActivityEvent', () => {
           movement: {
             from_column_name: 'To Do',
             to_column_name: 'In Progress',
-            user: { display_name: 'Alice Smith' },
+            moved_by: { display_name: 'Alice Smith' },
           },
         },
       })
@@ -357,5 +361,77 @@ describe('BoardView.collectActivityEvent', () => {
     })
     await openDrawer()
     expect(screen.queryAllByTestId('activity-entry')).toHaveLength(0)
+  })
+  // #2596: the drawer used to hold only socket events received since the page
+  // loaded, so it read "No activity yet" on every fresh load however busy the
+  // board was (the hosted demo's seeded moves never showed).
+  describe('saved history (#2596)', () => {
+    const movement = (over: Record<string, unknown>) => ({
+      id: 1, card_uid: 'c1', card_title: 'Fix nav bug',
+      from_column: 1, from_column_name: 'To Do', from_column_uid: 'col1',
+      to_column: 2, to_column_name: 'In Progress', to_column_uid: 'col2',
+      moved_by: { id: 7, username: 'alice', display_name: 'Alice Smith' },
+      moved_at: new Date(Date.now() - 60_000).toISOString(), notes: '', movement_type: 'move',
+      ...over,
+    })
+
+    it('opening the drawer loads the last 7 days of moves and creations, archive rows excluded', async () => {
+      getBoardMovements.mockResolvedValue({
+        results: [
+          movement({ id: 2 }),
+          movement({ id: 1, from_column: null, from_column_name: '', from_column_uid: '', notes: 'Card created',
+            moved_at: new Date(Date.now() - 120_000).toISOString() }),
+        ],
+        count: 2, offset: 0, page_size: 50,
+      })
+      render(<BoardView />)
+      await act(async () => {})
+      expect(getBoardMovements).not.toHaveBeenCalled()
+      await openDrawer()
+      await act(async () => {})
+      expect(getBoardMovements).toHaveBeenCalledTimes(1)
+      const [boardId, params] = getBoardMovements.mock.calls[0]
+      expect(boardId).toBe(1)
+      expect(params.exclude_type).toBe('archived,unarchived')
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      expect(params.moved_after).toBe(sevenDaysAgo)
+      const entries = screen.getAllByTestId('activity-entry')
+      expect(entries).toHaveLength(2)
+      expect(entries[0]).toHaveAttribute('data-kind', 'move')
+      expect(entries[0].querySelector('[data-testid="actor"]')?.textContent).toBe('Alice Smith')
+      expect(entries[0].querySelector('[data-testid="headline"]')?.textContent).toBe('moved Fix nav bug')
+      expect(entries[0].querySelector('[data-testid="detail"]')?.textContent).toBe('To Do → In Progress')
+      expect(entries[1]).toHaveAttribute('data-kind', 'create')
+      expect(entries[1].querySelector('[data-testid="headline"]')?.textContent).toBe('created Fix nav bug')
+    })
+
+    it('a live move already loaded from history is listed once', async () => {
+      getBoardMovements.mockResolvedValue({ results: [movement({ id: 5 })], count: 1, offset: 0, page_size: 50 })
+      render(<BoardView />)
+      await act(async () => {})
+      await openDrawer()
+      await act(async () => {})
+      act(() => {
+        getOnEvent.dispatch({
+          event: 'card.moved',
+          data: { card: { title: 'Fix nav bug' }, movement: movement({ id: 5 }) },
+        })
+      })
+      expect(screen.getAllByTestId('activity-entry')).toHaveLength(1)
+    })
+
+    it('a failed load leaves the live rows', async () => {
+      getBoardMovements.mockRejectedValue(new Error('offline'))
+      render(<BoardView />)
+      await act(async () => {})
+      act(() => {
+        getOnEvent.dispatch({ event: 'member.added', data: { user: { display_name: 'Carol' } } })
+      })
+      await openDrawer()
+      await act(async () => {})
+      const entries = screen.getAllByTestId('activity-entry')
+      expect(entries).toHaveLength(1)
+      expect(entries[0]).toHaveAttribute('data-kind', 'member')
+    })
   })
 })

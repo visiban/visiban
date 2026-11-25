@@ -1782,6 +1782,55 @@ class DemoSiteHistoryReconciliationTests(TestCase):
         self.assertFalse(CardActivity.objects.filter(actor=visitor).exists())
         self.assertFalse(CardMovement.objects.filter(moved_by=visitor).exists())
 
+    def test_every_moved_card_shows_activity_to_the_visitor(self):
+        """#2596 guard: a seeded card with simulated moves has activity in the
+        History tab the published visitor reads, not only its moves.
+
+        Read through the timeline endpoint, as the visitor, so a change that
+        stops the trail being written, dates it outside the card, or makes the
+        endpoint hide it from a demo visitor fails here."""
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(User.objects.get(username="visitor"))
+        moved = (
+            Card.objects.filter(movements__movement_type="move", movements__from_column__isnull=False)
+            .distinct().order_by("id")
+        )
+        self.assertGreater(moved.count(), 100)
+        for card in moved:
+            with self.subTest(board=card.board.name, card=card.title):
+                r = client.get(f"/api/v1/boards/{card.board_id}/cards/{card.pk}/timeline/", {"limit": 200})
+                self.assertEqual(r.status_code, 200)
+                kinds = {e["kind"] for e in r.data["results"]}
+                self.assertLessEqual({"move", "activity"}, kinds)
+
+    def test_every_board_with_moves_has_recent_moves_for_the_activity_drawer(self):
+        """#2596 guard: the board Activity drawer opens with the board's moves
+        from the last 7 days (its widest window), read from the board
+        movements endpoint with archive rows excluded, exactly as the drawer
+        asks. A demo board whose seeded moves all predate that window would
+        open the drawer empty again."""
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(User.objects.get(username="visitor"))
+        week_ago = (timezone.now() - datetime.timedelta(days=7)).date().isoformat()
+        # Column moves, not creations: the Trello import's history keeps the
+        # source file's dates and has no moves of its own.
+        boards = Board.objects.filter(
+            cards__movements__movement_type="move", cards__movements__from_column__isnull=False,
+        ).distinct().order_by("id")
+        self.assertGreaterEqual(boards.count(), 8)
+        for board in boards:
+            with self.subTest(board.name):
+                r = client.get(
+                    f"/api/v1/boards/{board.pk}/movements/",
+                    {"moved_after": week_ago, "exclude_type": "archived,unarchived"},
+                )
+                self.assertEqual(r.status_code, 200)
+                self.assertGreater(r.data["count"], 0)
+
 
 @override_settings(**_DEMO_SITE_SETTINGS)
 class DemoSiteOverlayBoardTests(TestCase):

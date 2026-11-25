@@ -72,7 +72,7 @@ describe('activity drawer row for card.moved (#1102)', () => {
     expect(cardMovedActivity({ card: { title: 'X' } }).detail).toBe('Reordered within its cell')
   })
   it('keeps the column move wording when movement is present', () => {
-    const row = cardMovedActivity({ card: { title: 'X' }, movement: { from_column_name: 'A', to_column_name: 'B', user: { display_name: 'Maya' } } })
+    const row = cardMovedActivity({ card: { title: 'X' }, movement: { from_column_name: 'A', to_column_name: 'B', moved_by: { display_name: 'Maya' } } })
     expect(row).toMatchObject({ actor: 'Maya', headline: 'moved X', detail: 'A → B' })
   })
 })

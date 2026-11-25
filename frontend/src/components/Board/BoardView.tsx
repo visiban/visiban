@@ -106,6 +106,7 @@ import { useDeferredResync } from "../../hooks/useDeferredResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
 import BoardActivityDrawer from "./BoardActivityDrawer";
 import type { ActivityEntry, DrawerTab } from "./BoardActivityDrawer";
+import { createEntryId, mergeActivityFeeds, movementEntryId, useBoardActivityHistory } from "./boardActivityHistory";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 import { useGridOverlayPref } from "../../hooks/useGridOverlayPref";
@@ -1164,11 +1165,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const d = event.data as Record<string, unknown>;
     if (event.event === "card.moved") {
       // In-stage moves carry no `movement` (#1102); the helper names the sub-column.
-      entry = { id: crypto.randomUUID(), timestamp: new Date(), kind: "move", ...cardMovedActivity(d) };
-    } else if (event.event === "card.created") {
-      const card = d as { title?: string; created_by?: { display_name?: string } };
+      // The movement id is the saved row's id too (#2596), so a move already
+      // loaded from history is not listed twice.
+      const movementId = (d.movement as { id?: number } | undefined)?.id;
       entry = {
-        id: crypto.randomUUID(),
+        id: movementId !== undefined ? movementEntryId(movementId) : crypto.randomUUID(),
+        timestamp: new Date(), kind: "move", ...cardMovedActivity(d),
+      };
+    } else if (event.event === "card.created") {
+      const card = d as { uid?: string; title?: string; created_by?: { display_name?: string } };
+      entry = {
+        id: card.uid ? createEntryId(card.uid) : crypto.randomUUID(),
         timestamp: new Date(),
         kind: "create",
         actor: card.created_by?.display_name ?? "Someone",
@@ -1689,6 +1696,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     [],
   );
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([]);
+  // Saved moves and creations (#2596), loaded on the drawer's first open so
+  // Recent is never empty on a fresh page load; live socket rows merge on top.
+  const savedActivity = useBoardActivityHistory(board.id, drawerOpen);
+  const drawerFeed = useMemo(() => mergeActivityFeeds(savedActivity, activityFeed), [savedActivity, activityFeed]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const showArchived = drawerView === "archived" && selectedCard === null;
   const setShowArchived = useCallback(
@@ -3949,7 +3960,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
         {drawerOpen && (
           <BoardActivityDrawer
-            feed={activityFeed}
+            feed={drawerFeed}
             onClose={() => setDrawerOpen(false)}
             onOpenHistory={() => setSearchParams({ view: "history" }, { replace: true })}
             tab={drawerView ?? "recent"}
