@@ -856,6 +856,8 @@
       
         
       
+        
+      
     
     
     
@@ -2067,6 +2069,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts at a Glance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../trello-import/" class="md-nav__link">
         
   
@@ -2823,7 +2853,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_30" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_31" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2845,14 +2875,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_30" id="__nav_3_30_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_31" id="__nav_3_31_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_30_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_30">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_31_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_31">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5557,7 +5587,7 @@
 <ul>
 <li><strong>WIP limit</strong> and <strong>Weight limit.</strong> Leave a field empty, or enter <code>0</code>, for no limit. The helper under each field shows the row's current count ("Now 4"). When the new limit is already below that count, a note says so and says what happens next for the enforcement you selected: nothing already in the row moves; with <strong>Block, admins can override</strong> new cards are refused unless a board admin overrides, with <strong>Block for everyone</strong> they are refused for everyone, and when the limit is not enforced (<strong>Follow board settings</strong> on a board that enforces nothing) it only shows on the row.</li>
 <li><strong>Columns that count.</strong> Only cards in the checked columns count toward the row's limits. By default every column not marked as done counts, so a finished card stops counting the moment it reaches a done column. Deleting a column removes it from every row's selection; a row left with none goes back to the default.</li>
-<li><strong>When the row is full.</strong> <strong>Follow board settings</strong> (the default) applies the board's <strong>Enforce WIP limits</strong>, <strong>Enforce WIP hard</strong> and <strong>Enforce weight limits</strong> rules, exactly as for columns. <strong>Block, admins can override</strong> refuses the move and lets a board admin move anyway (and the card's assignee, <a href="#letting-a-cards-assignee-move-it-anyway-since-13">when enabled</a> and unless they assigned the card to themselves). <strong>Block for everyone</strong> is the hard mode: nobody, board admins included, can add a card past the row's WIP limit. A weight limit can always be overridden by a board admin, as on columns, and by the assignee on the same terms.</li>
+<li><strong>When the row is full.</strong> <strong>Follow board settings</strong> (the default) applies the board's <strong>Enforce WIP limits</strong> (including <strong>Hard mode (no admin override)</strong>) and <strong>Enforce weight limits</strong> rules, exactly as for columns. <strong>Block, admins can override</strong> refuses the move and lets a board admin move anyway (and the card's assignee, <a href="#letting-a-cards-assignee-move-it-anyway-since-13">when enabled</a> and unless they assigned the card to themselves). <strong>Block for everyone</strong> is the hard mode: nobody, board admins included, can add a card past the row's WIP limit. A weight limit can always be overridden by a board admin, as on columns, and by the assignee on the same terms.</li>
 </ul>
 <p><strong>What the row shows.</strong> Once a row has a limit, its band shows one state line in the right-hand stats, worst state first:</p>
 <table>
@@ -5639,6 +5669,7 @@
 <li>If the <code>?focus=</code> URL param contains an ID that no longer exists on the board, it is silently ignored.</li>
 </ul>
 <h2 id="child-cards-setting">Child cards setting<a class="headerlink" href="#child-cards-setting" title="Permanent link">&para;</a></h2>
+<p><a id="child-cards"></a></p>
 <p><em>Added in 1.3 (#2208).</em> Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board whose cards can have children is a parent board, and the child cards live on another board. A board with that setting off is an ordinary board that can <em>hold</em> children; it is a child board only once it holds children, or when another board names it as its default child board. A card is never both a parent and a child, so each card stays within two tiers. To decide between a child card and a checklist item, see <a href="../breaking-work-down/">Breaking work down: which tool?</a>.</p>
 <p>A board admin chooses which one in <strong>Board settings → Rules &amp; limits → Child cards</strong> with the <strong>Cards on this board can have children</strong> switch. It is off by default, so every existing board stays an ordinary board and nothing changes until an admin turns it on. Boards that never use hierarchy are never asked to pick a role. Other members see the choice as a read-only line.</p>
 <p>The switch can be refused, and then it stays focusable but dimmed (<code>aria-disabled</code>). Activating it moves focus to a <strong>"A child can't also have children"</strong> list that says why: cards on this board are children of cards on another board, or another board names this one as its default child board (with a <strong>Change on <board></strong> link when you administer that board, or "Ask an admin of that board" when you do not, or cannot open it). When cards here are children, <strong>Show the N cards</strong> (or <strong>Show the card</strong> for one) closes settings and filters the board to them (Parent: Any parent). Only turning it <strong>on</strong> can be refused. Fix the cause and the line clears. If the server still refuses the change (for example a card was linked a moment ago), the reason is shown under the switch. If the check itself cannot be made, a line under the switch says "Couldn't check whether this can change" with a <strong>Retry</strong> button; the server still refuses a change that isn't allowed.</p>
@@ -5669,6 +5700,7 @@
 <li><strong>Delete confirm:</strong> the confirm for deleting a board that holds children of cards on other boards says how many parents lose them, naming the parent boards you can open and "another board you can't open" for the rest.</li>
 </ul>
 <h3 id="planned-children">Planned children<a class="headerlink" href="#planned-children" title="Permanent link">&para;</a></h3>
+<p><a id="planned-child"></a></p>
 <p><em>Added in 1.3 (#2371).</em> A child can be work you already know the parent will need at a <strong>later stage</strong>, for example a workshop needed once the parent reaches Proposal. Such a child is a real card in the child board's first column (To do), but it is <strong>planned</strong>: it waits quietly until it is needed.</p>
 <ul>
 <li><strong>Needed.</strong> Add child accepts an optional <strong>Needed</strong> value: <strong>Now</strong> (the default, and every child before 1.3) or a column on the parent's board after the one the parent is in. Through the API this is <code>needed_at_column</code> on <code>POST .../children/</code>.</li>
@@ -5711,10 +5743,11 @@
 <li>When a filter is active, any cell that contains matching cards pulses with a blue highlight and shows the match count, so hidden results are visible without expanding every column. With your operating system's "reduce motion" setting on, matching cells show a static highlight instead of pulsing.</li>
 </ul>
 <h2 id="columns">Columns<a class="headerlink" href="#columns" title="Permanent link">&para;</a></h2>
+<p><a id="board-columns"></a></p>
 <p>Columns represent pipeline stages. Each column has:</p>
 <ul>
 <li><strong>Name</strong> and <strong>color</strong> — a preset or a <a href="#custom-colors">custom color</a></li>
-<li><strong>WIP limit</strong> — maximum number of active cards allowed. The column header shows <code>count / limit</code> with a meter; when the limit is exceeded the line reads <code>count / limit over</code> in warning text and the meter turns warning-colored, so the over-limit state is visible at a distance (#963, #2270). If the board has <strong>Enforce WIP limits</strong> enabled (Board settings → Rules &amp; limits), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a <code>409</code> error — board admins (or the card's assignee, when enabled) can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged. See <a href="#hard-wip-enforcement">Hard WIP enforcement</a> for a stricter mode. Optionally, the <strong>Show at-limit WIP indicator</strong> board setting (off by default) surfaces the <em>at</em>-limit case too — see <a href="#at-limit-wip-indicator">At-limit WIP indicator</a> below.</li>
+<li><a id="wip-limit"></a><strong>WIP limit</strong> — maximum number of active cards allowed. The column header shows <code>count / limit</code> with a meter; when the limit is exceeded the line reads <code>count / limit over</code> in warning text and the meter turns warning-colored, so the over-limit state is visible at a distance (#963, #2270). If the board has <strong>Enforce WIP limits</strong> enabled (Board settings → Rules &amp; limits), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a <code>409</code> error — board admins (or the card's assignee, when enabled) can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged. See <a href="#hard-wip-enforcement">Hard WIP enforcement</a> for a stricter mode. Optionally, the <strong>Show at-limit WIP indicator</strong> board setting (off by default) surfaces the <em>at</em>-limit case too — see <a href="#at-limit-wip-indicator">At-limit WIP indicator</a> below.</li>
 <li><strong>Weight limit</strong> — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the count line adds <code>Weight weight/limit</code> in warning text. If the board has <strong>Enforce weight limits</strong> enabled (Board settings → Rules &amp; limits), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a <code>409</code> error; board admins (or the card's assignee, when enabled) can override with <code>?force=true</code>. Lowering a card's weight is never blocked. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged.</li>
 <li><strong>Allow card creation</strong> — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected</li>
 <li><strong>Done column</strong> — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")</li>
@@ -5750,14 +5783,14 @@
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>By default, WIP limit enforcement is "soft": board admins can bypass a full column by appending <code>?force=true</code> to the request. The <strong>Enforce WIP hard</strong> board setting removes this override entirely. When enabled:</p>
+<p>By default, WIP limit enforcement is "soft": board admins can bypass a full column by appending <code>?force=true</code> to the request. The <strong>Hard mode (no admin override)</strong> board setting removes this override entirely. When enabled:</p>
 <ul>
 <li>Moving a card into a column at or over its WIP limit, creating a card in it, and restoring an archived card into it are blocked for <strong>all roles</strong>, including board admins and site admins.</li>
 <li>The <code>?force=true</code> query parameter is ignored. There is no bypass.</li>
 <li>The API returns a <code>409</code> error with <code>code: "wip_hard_blocked"</code>.</li>
 <li>The toast indicator uses a <code>⛔</code> icon instead of <code>⚠</code> to distinguish hard blocks from soft blocks.</li>
 </ul>
-<p>Hard enforcement is <strong>off by default</strong>. Enable it in <strong>Board settings → Rules &amp; limits → Enforce WIP hard</strong>. Toggling it on requires an inline confirmation step because the change takes effect immediately and applies board-wide.</p>
+<p>Hard enforcement is <strong>off by default</strong>. Enable it in <strong>Board settings → Rules &amp; limits → Enforce WIP limits → Hard mode (no admin override)</strong>. Toggling it on requires an inline confirmation step because the change takes effect immediately and applies board-wide.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Hard WIP enforcement is useful for teams that treat WIP limits as a strict policy rather than a guideline. To unblock a column, move a card out of it or ask an admin to raise the WIP limit.</p>
@@ -5779,7 +5812,7 @@
 <li>Columns <strong>over</strong> their limit are unaffected: the existing <code>⚠ Over WIP</code> treatment always takes precedence.</li>
 <li>Columns under the limit are unaffected: always <code>N cards</code>.</li>
 </ul>
-<p>This setting is purely ambient: it does not change limit enforcement, which is controlled independently by <strong>Enforce WIP limits</strong> / <strong>Enforce WIP hard</strong> above (#973).</p>
+<p>This setting is purely ambient: it does not change limit enforcement, which is controlled independently by <strong>Enforce WIP limits</strong> / <strong>Hard mode (no admin override)</strong> above (#973).</p>
 <h2 id="custom-colors">Custom colors<a class="headerlink" href="#custom-colors" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.3</strong></p>
@@ -5853,6 +5886,7 @@
 </ul>
 <p>The open card is marked on the board with the same ring as the detail panel. Click another card (or Shift+click it) to swap the peek to it; click an empty part of the board, press <strong>Escape</strong> or select <strong>Close</strong> to close it, and focus returns to the card. Only one of the peek sheet, the detail panel and the <a href="#activity-drawer">Activity drawer</a> is open at a time: opening one closes the others. While the detail panel is open, clicking another card switches the panel, and Shift+click does too (it does not open the peek). Opening a card from a link, the command palette or a relation opens the detail panel directly.</p>
 <h3 id="card-detail-panel">Card detail panel<a class="headerlink" href="#card-detail-panel" title="Permanent link">&para;</a></h3>
+<p><a id="checklist"></a></p>
 <p>Click a card to open its <strong>detail panel</strong> (from the peek sheet, click <strong>Open card</strong>; focus lands on that button when the peek opens). Where it opens depends on the window width. <em>Changed in 1.2 (#1914): before 1.2 the panel always opened at the right edge of the window, over a dimmed board.</em></p>
 <ul>
 <li><strong>1280 px and wider:</strong> the panel opens next to the card's column (on a stage with sub-columns, next to the card's sub-column), to its right if there is room, otherwise to its left. A small tail on the panel's outer edge points at the card (the panel gets a thin blue outline), and the card gets a thick blue border and ring while it is open. The board is not dimmed. If neither side has room (the panel never covers the swimlane names), the card's column is scrolled off to the side, or the card isn't on the board (for example, it is filtered out or its swimlane is collapsed), the panel opens at the right edge instead. A card scrolled out of view up or down keeps the panel next to its column; the tail then becomes a wedge near the panel's top or bottom corner, pointing up or down toward the card.</li>
@@ -6684,7 +6718,7 @@
 </tr>
 <tr>
 <td>Fields</td>
-<td>Card fields, Swimlane fields</td>
+<td>Card fields, Field sets, Swimlane fields</td>
 </tr>
 <tr>
 <td>Access</td>
@@ -6969,6 +7003,7 @@
 </tbody>
 </table>
 <h2 id="sub-columns-and-tracks-13">Sub-columns and tracks (1.3)<a class="headerlink" href="#sub-columns-and-tracks-13" title="Permanent link">&para;</a></h2>
+<p><a id="sub-columns-and-tracks"></a></p>
 <p>A column can be split into ordered <strong>sub-columns</strong> (#1102), and it can show <strong>tracks</strong>: checks that can finish in any order (#1920). If the order of the checks matters, use sub-columns. If it doesn't, use tracks. Both apply to every card in the column; for one card's own to-dos, use its checklist. <a href="../breaking-work-down/">Breaking work down: which tool?</a> compares all five options.</p>
 <p><strong>Sub-columns.</strong> A stage has no sub-columns or 2 to 4 of them. On the board it takes one column's width per sub-column, with one drop area per sub-column and a dashed line between them. An empty sub-column in a populated stage shows its own name, and the sub-column under a dragged card shows its name too. The column header adds one row with a cell per sub-column, lined up with those dashed lines: the name in bold (up to two lines) above its count (screen readers hear "Doing: 5 working"). Working sub-columns show the bare count, and the last shows "N waiting". One WIP limit covers the whole stage. To move a card between sub-columns, drag it, or open the card menu (Menu key or Shift+F10), choose <strong>Move to…</strong> and pick "Move on to <next>" or "Move back to <previous>".</p>
 <ul>
@@ -6980,7 +7015,7 @@
 <li>The card peek's <strong>Move</strong> lists every sub-column of a gated stage ("Discovery: Ready"), so you can move a card to another sub-column from there too. On a phone, <strong>Move earlier</strong> and <strong>Move later</strong> step within the card's own sub-column.</li>
 </ul>
 <p><strong>Tracks.</strong> Each track on a card is shown as a chip: a check mark for done, an empty circle for open, or a dash for not applicable. The chip's icon and fill both change, so the state does not rely on color. At phone width, the chip also says the state in words ("Technical: done"). A track's value is set like any other custom field, in the <strong>Custom fields</strong> section of the card detail panel. A chip is not a control you can tick: its tooltip and a line that screen readers read before the chips say "set in the card's Custom fields". Two visible lines say the same: "Set in the card's Custom fields." under the tracks in the card peek, and "Tracks show as chips on the card." at the top of <strong>Custom fields</strong> in the card detail (<em>since 1.3</em>, #2542). Tracks don't appear in the peek's field list and can't be pinned to the card face. See <a href="../custom-fields/#dimension-fields-13">Dimension fields</a>.</p>
-<p><strong>Stage settings.</strong> Board admins open them from the column menu: <strong>Stage settings…</strong> (or the <strong>Stage</strong> tab of the column settings). On a phone, the <strong>Column actions</strong> menu has a <strong>Stage settings</strong> button. The tab opens with one line defining the term: "A stage is a column. This tab holds its sub-columns and tracks." Each section's helper line says it applies to every card in the column; the tracks line adds "For one card's to-dos, use its checklist."</p>
+<p><a id="stage-settings"></a><strong>Stage settings.</strong> Board admins open them from the column menu: <strong>Stage settings…</strong> (or the <strong>Stage</strong> tab of the column settings). On a phone, the <strong>Column actions</strong> menu has a <strong>Stage settings</strong> button. The tab opens with one line defining the term: "A stage is a column. This tab holds its sub-columns and tracks." Each section's helper line says it applies to every card in the column; the tracks line adds "For one card's to-dos, use its checklist."</p>
 <ul>
 <li><strong>Sub-columns, in order:</strong> rename, add (up to 4), remove or reorder them. Use the ↑ and ↓ buttons beside a sub-column to move it. Its cards move with it and stay in that sub-column, and the move is not recorded as a card passing or reopening a step. Removing a sub-column moves its cards back to the sub-column before it. Reorder and remove in separate saves: a save that does both is refused, and the arrow buttons are unavailable while a removal is waiting to be saved.</li>
 <li><strong>Tracks, any order:</strong> <strong>Add track</strong> creates a dropdown field with the choices "Done" and "Not applicable". You can also add a track field that already exists. Edit a track's name in place to rename it: this renames its field everywhere it is used, and every card's value and swimlane exception for it stay. A track name can't be empty or match another track or field on the board. Removing a track only takes it off this stage; the field and its values stay.</li>
