@@ -179,6 +179,10 @@ class NotificationUnreadCountView(APIView):
         TokenHasScope,
     ]
 
+    # Declared (#1793): a hand-built body published as a bodiless 200.
+    @extend_schema(
+        responses={200: inline_serializer(name="NotificationUnreadCount", fields={"count": serializers.IntegerField()})},
+    )
     def get(self, request):
         # Filter to currently-accessible boards so the count stays in sync
         # with the list endpoint (#987) -- otherwise the bell would show a

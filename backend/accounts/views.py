@@ -378,6 +378,23 @@ class AuthProvidersView(APIView):
 
     permission_classes = [AllowAny]
 
+    # Declared (#1793): the body is built by hand, so drf-spectacular had
+    # published a bodiless 200. Every key is always present; ``oidc_name`` is
+    # null exactly when ``oidc`` is false.
+    @extend_schema(
+        responses={
+            200: inline_serializer(
+                name="AuthProviders",
+                fields={
+                    "google": serializers.BooleanField(),
+                    "github": serializers.BooleanField(),
+                    "gitlab": serializers.BooleanField(),
+                    "oidc": serializers.BooleanField(),
+                    "oidc_name": serializers.CharField(allow_null=True),
+                },
+            ),
+        },
+    )
     def get(self, request):
         providers = settings.SOCIALACCOUNT_PROVIDERS
         oidc_apps = providers.get("openid_connect", {}).get("APPS", [])

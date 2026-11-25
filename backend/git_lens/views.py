@@ -39,6 +39,7 @@ from .serializers import (
     _VALID_COLUMN_DIMS,
     _VALID_SWIMLANE_DIMS,
     LensConnectionSerializer,
+    LensDataSerializer,
     LensUsageSerializer,
 )
 from .types import LensConfig, LensFilters
@@ -477,6 +478,19 @@ LENS_BOARD_QUERY_PARAMETERS = [
 ]
 
 
+def _lens_error_schema(name, code):
+    """Schema only (#1793): a lens board ``{detail, code}`` error body.
+
+    ``code`` is a plain string so no new enum component is published.
+    """
+    return OpenApiResponse(
+        response=inline_serializer(
+            name=name, fields={"detail": serializers.CharField(), "code": serializers.CharField()},
+        ),
+        description=f"`code` is `{code}`.",
+    )
+
+
 class LensConnectionView(APIView):
     """Read/configure/detach the lens connection for a board.
 
@@ -596,7 +610,18 @@ class LensBoardView(APIView):
 
     permission_classes = _BOARD_PERMISSIONS
 
-    @extend_schema(parameters=LENS_BOARD_QUERY_PARAMETERS)
+    # 200 declared (#1647): the body is hand-built from dataclasses, so without
+    # it the published 200 was ``{}`` and response conformance could not see it.
+    @extend_schema(
+        parameters=LENS_BOARD_QUERY_PARAMETERS,
+        responses={
+            200: LensDataSerializer,
+            304: OpenApiResponse(description="`If-None-Match` matched the current ETag. No body."),
+            409: _lens_error_schema("LensBoardAuthRequired", "auth_required"),
+            502: _lens_error_schema("LensBoardProviderError", "lens_error"),
+            503: _lens_error_schema("LensBoardUnavailable", "lens_unavailable"),
+        },
+    )
     def get(self, request, board_id):
         board, _role = get_board_for_user(board_id, request.user, slim=True)
         conn = LensConnection.objects.filter(board=board).first()

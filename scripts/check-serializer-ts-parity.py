@@ -320,6 +320,14 @@ COMPONENT_MAP = {
     "AdminUser": "AdminUser",
     "Board": "Board",
     "BoardExportLog": "BoardExportLogEntry",
+    # Parent/child reads built as dicts (#1793).
+    "BoardDeleteImpact": "BoardDeleteImpact",
+    "CardChildRow": "CardChildRow",
+    "CardChildrenRead": "CardChildrenRead",
+    "ChildBoardOptions": "ChildBoardOptions",
+    "ChildrenSettingBlockers": "ChildrenSettingBlockers",
+    "ChildrenViewColumn": "CardChildrenColumn",
+    "DefaultChildBoardOptions": "DefaultChildBoardOptions",
     "BoardFull": "BoardFull",
     "BoardInviteLink": "BoardInviteLink",
     "BoardInviteLinkCreateResponse": "CreatedBoardInviteLink",
@@ -353,6 +361,14 @@ COMPONENT_MAP = {
     # git_lens (#1338): only in the schema when GIT_LENS_ENABLED is on, which
     # generate_schema() below forces for exactly this reason.
     "LensConnection": "LensConnection",
+    # The rendered lens board (#1647): schema-only serializers mirroring the
+    # git_lens/types.py dataclasses the view serves.
+    "LensAxis": "LensAxis",
+    "LensData": "LensData",
+    "LensLabel": "LensLabel",
+    "LensPipelineEvidence": "LensPipelineEvidence",
+    "LensUser": "LensUser",
+    "NormalizedIssue": "NormalizedIssue",
     "LinkedCard": "RelatedCardRef",
     "Notification": "Notification",
     "OwnedBoardSummary": "OwnedBoardSummary",

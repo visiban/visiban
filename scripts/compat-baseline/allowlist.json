@@ -1,3 +1,104 @@
 {
- "allow": []
+ "allow": [
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/boards/{board_pk}/cards/{id}/activities/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/boards/{board_pk}/cards/{id}/attachments/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/boards/{board_pk}/cards/{id}/checklist/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER POST /api/v1/boards/{board_pk}/cards/{id}/checklist/reorder/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/boards/{board_pk}/cards/{id}/comments/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/boards/{board_pk}/cards/{id}/movements/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/boards/{board_pk}/cards/{id}/relations/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER POST /api/v1/boards/{board_pk}/columns/reorder/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER POST /api/v1/boards/{board_pk}/custom-fields/reorder/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER POST /api/v1/boards/{board_pk}/swimlane-custom-fields/reorder/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER POST /api/v1/boards/{board_pk}/swimlanes/reorder/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/boards/{id}/export-history/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/boards/{id}/invite-links/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/boards/{id}/saved-filters/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/groups/{id}/boards/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/groups/{id}/descendant-boards/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/groups/{id}/invite-links/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/groups/{id}/labels/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/groups/{id}/members/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  },
+  {
+   "key": "REMOVED_PARAMETER GET /api/v1/groups/{id}/subgroups/ query:ordering",
+   "issue": "#1757",
+   "reason": "documentation correction, no runtime change: the schema listed ?ordering= on a non-list action that never applies OrderingFilter to the rows it returns (it runs at most on get_object()'s single-row lookup), so the parameter never changed the response; drop at the next baseline roll"
+  }
+ ]
 }

@@ -4424,6 +4424,136 @@ class ChildCandidateSerializer(serializers.Serializer):
     )
 
 
+# --- Schema only (#1793): parent/child reads built as dicts by ``card_links`` ---
+# Never run by the views; ``test_handwritten_get_schema_1793`` validates live
+# responses against the generated schema. ``required=False`` marks the keys a
+# response omits. Hidden entries carry only ``hidden``.
+
+
+class ChildBoardRefSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+
+
+class DefaultOfEntrySerializer(serializers.Serializer):
+    hidden = serializers.BooleanField(help_text="True for a board the caller cannot open: no other key is sent.")
+    id = serializers.IntegerField(required=False)
+    name = serializers.CharField(required=False)
+    can_change = serializers.BooleanField(required=False)
+
+
+class ChildrenSettingBlockersSerializer(serializers.Serializer):
+    """``GET /boards/{id}/children-setting-blockers/``."""
+
+    child_cards = serializers.IntegerField()
+    parent_cards = serializers.IntegerField()
+    default_of = DefaultOfEntrySerializer(many=True)
+
+
+class DefaultChildBoardOptionsSerializer(serializers.Serializer):
+    """``GET /boards/{id}/default-child-board-options/``."""
+
+    boards = ChildBoardRefSerializer(many=True)
+    boards_total = serializers.IntegerField()
+
+
+class BoardDeleteImpactSerializer(serializers.Serializer):
+    """``GET /boards/{id}/delete-impact/``."""
+
+    child_cards = serializers.IntegerField()
+    parent_boards = ChildBoardRefSerializer(many=True)
+    hidden_parent_boards = serializers.BooleanField()
+    parent_cards = serializers.IntegerField()
+
+
+class FixedChildBoardSerializer(serializers.Serializer):
+    hidden = serializers.BooleanField(help_text="True for a board the caller cannot open: no other key is sent.")
+    id = serializers.IntegerField(required=False)
+    name = serializers.CharField(required=False)
+    can_add = serializers.BooleanField(required=False)
+    default_assignee_id = serializers.IntegerField(
+        required=False, allow_null=True, help_text="Sent only when `default_team` is not null.",
+    )
+
+
+class ChildBoardOptionSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    can_set_default = serializers.BooleanField()
+    default_assignee_id = serializers.IntegerField(
+        required=False, allow_null=True, help_text="Sent only when `default_team` is not null.",
+    )
+
+
+class ChildDefaultTeamSerializer(serializers.Serializer):
+    swimlane = ChildBoardRefSerializer(help_text="The parent card's lane (`{id, name}`).")
+    member_ids = serializers.ListField(child=serializers.IntegerField())
+
+
+class ChildBoardOptionsSerializer(serializers.Serializer):
+    """``GET /boards/{board_pk}/cards/{id}/child-board-options/``."""
+
+    fixed_board = FixedChildBoardSerializer(allow_null=True)
+    default = ChildBoardRefSerializer(allow_null=True)
+    boards = ChildBoardOptionSerializer(many=True)
+    can_set_default = serializers.BooleanField()
+    boards_total = serializers.IntegerField()
+    # A plain string: a second ``disabled_reason`` choice set would rename
+    # ``ChildCandidateDisabledReasonEnum``.
+    disabled_reason = serializers.CharField(allow_null=True, help_text='"parent_archived" or null.')
+    default_team = ChildDefaultTeamSerializer(allow_null=True)
+
+
+class CardChildLabelSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    color = serializers.CharField()
+
+
+class CardChildRowSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    board_id = serializers.IntegerField()
+    column_id = serializers.IntegerField()
+    column_name = serializers.CharField()
+    swimlane_id = serializers.IntegerField()
+    swimlane_name = serializers.CharField()
+    archived = serializers.BooleanField()
+    position = serializers.IntegerField()
+    assignee = BoardUserSerializer(allow_null=True)
+    assigned_by = serializers.IntegerField(allow_null=True)
+    blocked = serializers.BooleanField()
+    blocked_at = serializers.DateTimeField(allow_null=True)
+    priority = serializers.ChoiceField(choices=Card.Priority.choices)
+    due_date = serializers.DateField(allow_null=True)
+    labels = CardChildLabelSerializer(many=True)
+    planned = serializers.BooleanField()
+
+
+class CardChildrenBoardSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    # Pinned to EffectiveBoardRoleEnum in visiban/schema_hooks.py.
+    role = serializers.ChoiceField(choices=[*BoardMembership.Role.choices, ("site_admin", "Site admin")])
+    enforce_wip_limits = serializers.BooleanField()
+    enforce_wip_hard = serializers.BooleanField()
+    allow_assignee_override = serializers.BooleanField()
+    columns = ChildrenViewColumnSerializer(many=True)
+
+
+class CardChildrenReadSerializer(serializers.Serializer):
+    """``GET /boards/{board_pk}/cards/{id}/children/``."""
+
+    count = serializers.IntegerField()
+    visible = serializers.BooleanField()
+    offset = serializers.IntegerField()
+    limit = serializers.IntegerField()
+    results = CardChildRowSerializer(many=True)
+    board = CardChildrenBoardSerializer(
+        required=False, help_text="Sent only on a visible read of a card that has children.",
+    )
+
+
 class CardSerializer(serializers.ModelSerializer):
     # ParkedLabelListSerializer (#1223, same pattern as custom_field_values
     # below, #1212) reads the to_attr list _card_queryset() parks the labels

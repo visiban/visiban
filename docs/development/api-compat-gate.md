@@ -119,7 +119,7 @@ Out of scope: `MUTATION_SHARD`, `MUTATION_SHARDS`, `MUTATION_TARGET`, `CI_NODE_I
 
 ## Allow-listing a deliberate break
 
-Put an intentional break (a planned major bump, or a removal of an item already deprecated for a full release) in `scripts/compat-baseline/allowlist.json`. Every entry needs an `issue` (`#1234`) and a `reason`, and exactly one target:
+Put an intentional break (a planned major bump, or a removal of an item already deprecated for a full release) in `scripts/compat-baseline/allowlist.json`. A documentation correction goes there too: the schema stops advertising something the server never did, such as a parameter it never read, and runtime behavior is unchanged. Its `reason` must say so. Every entry needs an `issue` (`#1234`) and a `reason`, and exactly one target:
 
 ```json
 {"allow": [
@@ -160,7 +160,7 @@ The only entries today are the Git Lens REST endpoints. The `lens_connection.*` 
 
 The baseline was rolled from v1.1.0 to v1.2.0 in #2101. The v1.1.0 schema predated the schema-hygiene work (#1135-#1138, #1209, #1080, #1695, #1783, #1788, #1792) and documented fallback serializers for many hand-written actions, so the allow-list carried 587 entries for findings that were documentation corrections, not runtime changes (the reasons are in the allow-list's git history, before #2101). Against the v1.2.0 schema none of them fire, so the allow-list is empty again, including the `#1912` entry for `DELETE /api/v1/admin/invite-links/{id}/`: the v1.2.0 schema already declares that operation's real `200` response.
 
-**Watch out:** The roll freezes the schema HEAD generated at the tag. An operation that still documents a fallback serializer at the tag carries that error into the baseline, and correcting it later reads as a removal that needs its own issue-referenced allow-list entry. Hand-written `GET`s that publish no response body are tracked in #1793.
+**Watch out:** The roll freezes the schema HEAD generated at the tag. An operation that still documents a fallback serializer at the tag carries that error into the baseline, and correcting it later reads as a removal that needs its own issue-referenced allow-list entry. The hand-written `GET`s that published no response body were given typed bodies in #1793 and #1647; adding a body is additive and needed no entry. Removing `?ordering=` from the operations that never read it (#1757) did: the v1.2.0 baseline froze the parameter on 20 custom actions and `reorder` operations, so each removal is a `key` entry citing #1757. Those entries go stale, and are deleted, when the baseline is rolled to 1.3.0.
 
 ## Running it locally
 
