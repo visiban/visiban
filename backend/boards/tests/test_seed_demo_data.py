@@ -1782,6 +1782,71 @@ class DemoSiteHistoryReconciliationTests(TestCase):
         self.assertFalse(CardActivity.objects.filter(actor=visitor).exists())
         self.assertFalse(CardMovement.objects.filter(moved_by=visitor).exists())
 
+    def test_every_moved_card_shows_activity_to_the_visitor(self):
+        """#2596 guard: a seeded card with simulated moves has activity in the
+        History tab the published visitor reads, not only its moves.
+
+        Read through the timeline endpoint, as the visitor, so a change that
+        stops the trail being written, dates it outside the card, or makes the
+        endpoint hide it from a demo visitor fails here."""
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(User.objects.get(username="visitor"))
+        moved = (
+            Card.objects.filter(movements__movement_type="move", movements__from_column__isnull=False)
+            .distinct().order_by("id")
+        )
+        self.assertGreater(moved.count(), 100)
+        for card in moved:
+            with self.subTest(board=card.board.name, card=card.title):
+                r = client.get(f"/api/v1/boards/{card.board_id}/cards/{card.pk}/timeline/", {"limit": 200})
+                self.assertEqual(r.status_code, 200)
+                kinds = {e["kind"] for e in r.data["results"]}
+                self.assertLessEqual({"move", "activity"}, kinds)
+
+    def test_every_board_with_moves_has_recent_moves_for_the_activity_drawer(self):
+        """#2596 guard: the board Activity drawer opens on rows, not "No
+        activity yet", for every demo board with moves.
+
+        Asks the board movements endpoint exactly as the drawer does (7 days
+        back by date, archive rows excluded, pages followed up to its 100-row
+        cap) and then applies the drawer's own windows to what comes back:
+        the 24h default, and the 7-day window it widens to once on open when
+        the last 24 hours are empty (BoardActivityDrawer, tested in
+        boardActivityDrawer.test.tsx "auto-widen to 7 days"). The seeded
+        boards' latest moves are days before seed time (the staleness tints
+        and stalled-card analytics depend on that), so the demo relies on the
+        widen: the window the visitor actually sees must hold rows."""
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(User.objects.get(username="visitor"))
+        now = timezone.now()
+        week_ago = (now - datetime.timedelta(days=7)).date().isoformat()
+        # Column moves, not creations: the Trello import's history keeps the
+        # source file's dates and has no moves of its own.
+        boards = Board.objects.filter(
+            cards__movements__movement_type="move", cards__movements__from_column__isnull=False,
+        ).distinct().order_by("id")
+        self.assertGreaterEqual(boards.count(), 8)
+        for board in boards:
+            with self.subTest(board.name):
+                rows = []
+                while len(rows) < 100:
+                    r = client.get(
+                        f"/api/v1/boards/{board.pk}/movements/",
+                        {"moved_after": week_ago, "exclude_type": "archived,unarchived", "offset": len(rows)},
+                    )
+                    self.assertEqual(r.status_code, 200)
+                    rows.extend(r.data["results"])
+                    if not r.data["results"] or len(rows) >= r.data["count"]:
+                        break
+                times = [datetime.datetime.fromisoformat(m["moved_at"]) for m in rows[:100]]
+                in_day = sum(t >= now - datetime.timedelta(hours=24) for t in times)
+                in_week = sum(t >= now - datetime.timedelta(days=7) for t in times)
+                shown = in_day if in_day else in_week
+                self.assertGreater(shown, 0, f"24h: {in_day}, 7d: {in_week}")
 
 @override_settings(**_DEMO_SITE_SETTINGS)
 class DemoSiteOverlayBoardTests(TestCase):

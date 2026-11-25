@@ -34,9 +34,16 @@ async function openBoard(page: Page, theme: 'light' | 'dark', search = '') {
   }, theme)
   await routeAuth(page)
   await routeBoard(page, REDESIGN_BOARD as unknown as Parameters<typeof routeBoard>[1])
-  // The activity drawer lists live `card.moved` events (it keeps no history of its own), so
-  // replay the sample's moves over the socket after it connects: the reference shows seven.
+  // The activity drawer's saved-history request (#2596) answers with no rows (an unrouted
+  // request would fail and show the drawer's error row in the capture), so replay the
+  // sample's moves as live `card.moved` events after the socket connects: the reference
+  // shows seven.
+  await page.route(new RegExp(`/api/v1/boards/${REDESIGN_BOARD.id}/movements/(\\?.*)?$`), (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, offset: 0, page_size: 50, results: [] }) }),
+  )
   // Each event carries the card as it already is on the board, so the board does not change.
+  // The movement id matters (#2596): the clock is frozen, so every row ties on time and the
+  // drawer orders ties by id. Without it each row gets a random id and the order shuffles.
   await page.routeWebSocket(`**/ws/boards/${REDESIGN_BOARD.id}/`, (ws) => {
     ws.send(JSON.stringify({ event: 'connected', data: {} }))
     setTimeout(() => {
@@ -44,7 +51,7 @@ async function openBoard(page: Page, theme: 'light' | 'dark', search = '') {
         const card = REDESIGN_BOARD.cards.find((c) => c.uid === m.card_uid)
         ws.send(JSON.stringify({
           event: 'card.moved',
-          data: { card, movement: { from_column_name: m.from_column_name, to_column_name: m.to_column_name, user: m.moved_by } },
+          data: { card, movement: { id: m.id, from_column_name: m.from_column_name, to_column_name: m.to_column_name, moved_by: m.moved_by } },
         }))
       }
     }, 1_000)

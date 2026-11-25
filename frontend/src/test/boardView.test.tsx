@@ -101,6 +101,8 @@ vi.mock('../contexts/BoardContext', () => ({
 
 vi.mock('../api/boards', () => ({
   exportBoardCsv: vi.fn(),
+  // The Activity drawer loads saved moves on first open (#2596).
+  getBoardMovements: vi.fn().mockResolvedValue({ results: [], count: 0, offset: 0, page_size: 50 }),
   exportBoardJson: vi.fn(),
   // CommandPalette fetches board list when opened; resolve with empty list so tests
   // that open the palette don't hit an unmocked API call.

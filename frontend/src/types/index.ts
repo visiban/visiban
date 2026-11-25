@@ -261,6 +261,18 @@ export function userDisplayName(user: Pick<User, "display_name" | "username"> & 
   return user.display_name || user.first_name || user.username;
 }
 
+/**
+ * The actor name of an Activity drawer row (#2596), saved or live. One
+ * formatter for both, so a saved move and the same move arriving over the
+ * socket name their actor the same way; a payload with no user (a deleted
+ * account, a system event) reads "Someone".
+ */
+export function activityActorName(
+  user?: { display_name?: string | null; first_name?: string | null; username?: string | null } | null,
+): string {
+  return user?.display_name || user?.first_name || user?.username || "Someone";
+}
+
 /** A real membership row, as `/boards/{id}/members/` returns it. */
 export interface BoardMembership {
   id: number;
