@@ -4643,150 +4643,211 @@
 <h2 id="oidc-smoke-did-not-become-ready-within-240s"><code>oidc-smoke</code>: "did not become ready within 240s"<a class="headerlink" href="#oidc-smoke-did-not-become-ready-within-240s" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> <code>oidc-smoke</code> job fails with <code>Keycloak master realm ... did not become ready
 within 240s</code> (or whatever the current wait-timeout value is).</p>
-<p><strong>Root cause:</strong> this is <strong>not</strong> a slow boot, and raising the timeout will not fix it. GitLab's
-CI service DNS returns both an A record and an IPv6 ULA (<code>fd76::/8</code>) for the <code>keycloak</code>
-service alias, and glibc prefers IPv6. Reached over IPv6, Keycloak classifies the client as
-<em>external</em> — <code>SslRequired.EXTERNAL</code> only recognizes IPv4 private ranges as local — so the
-master realm's default <code>sslRequired=external</code> immediately refuses plain HTTP with:</p>
+<p><strong>Root cause:</strong> <strong>not</strong> a slow boot, and raising the timeout will not fix it.</p>
+<ul>
+<li>GitLab's CI service DNS returns both an A record and an IPv6 ULA (<code>fd76::/8</code>) for the
+  <code>keycloak</code> service alias, and glibc prefers IPv6.</li>
+<li>Reached over IPv6, Keycloak classifies the client as <em>external</em>: <code>SslRequired.EXTERNAL</code> only
+  recognizes IPv4 private ranges as local.</li>
+<li>So the master realm's default <code>sslRequired=external</code> immediately refuses plain HTTP with:</li>
+</ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>403 {"error":"invalid_request","error_description":"HTTPS required"}
 </code></pre></div>
-<p>Keycloak's own service log shows <code>started in 17s</code>-ish <em>before</em> polling even begins — always
-check the service log (<code>CI_DEBUG_SERVICES: "true"</code> is already enabled on this job) before
-trusting a "timeout" at face value. Pinning <code>/etc/hosts</code> does not help; the resolver still
-returns both records.</p>
-<p><strong>Fix:</strong> address Keycloak by its resolved <strong>IPv4 literal</strong> (<code>getent ahostsv4 keycloak</code>),
-substituted into both <code>KEYCLOAK_BASE</code> and <code>OIDC_SERVER_URL</code> so the provisioner and Django
-agree on the issuer. This is already implemented in <code>scripts/oidc_provision.py</code> and
-<code>.gitlab-ci.yml</code>'s <code>oidc-smoke</code> job (see the <code>before_script</code> comment there) as of <strong>!853</strong>
-— <code>oidc-smoke</code> went from a ~5 minute failure to green in 1m36s. If this regresses, check
-that the IPv4-literal substitution wasn't reverted.</p>
+<p><strong>Watch out:</strong> Check the service log before trusting a "timeout" at face value
+(<code>CI_DEBUG_SERVICES: "true"</code> is already enabled on this job). Keycloak's own log shows
+<code>started in 17s</code>-ish <em>before</em> polling even begins. Pinning <code>/etc/hosts</code> does not help; the
+resolver still returns both records.</p>
+<p><strong>Fix:</strong> address Keycloak by its resolved <strong>IPv4 literal</strong> (<code>getent ahostsv4 keycloak</code>).</p>
+<ul>
+<li>Substitute it into both <code>KEYCLOAK_BASE</code> and <code>OIDC_SERVER_URL</code>, so the provisioner and Django
+  agree on the issuer.</li>
+<li>Already implemented as of <strong>!853</strong>, in <code>scripts/oidc_provision.py</code> and <code>.gitlab-ci.yml</code>'s
+  <code>oidc-smoke</code> job (see the <code>before_script</code> comment there). <code>oidc-smoke</code> went from a ~5 minute
+  failure to green in 1m36s.</li>
+<li>If this regresses, check that the IPv4-literal substitution wasn't reverted.</li>
+</ul>
 <p><strong>What hid this for six weeks:</strong> <code>_wait_for_url</code> in <code>scripts/oidc_provision.py</code> had a bare
-<code>except Exception: pass</code>, so every failure mode looked identical, and someone had already
-raised the timeout 120→240s on the (wrong) slow-boot assumption before the real cause was
-found.</p>
-<p><strong>Where the Django server output is:</strong> <code>oidc-smoke</code> redirects <code>runserver</code> output to the
-<code>oidc-smoke-server.log</code> job artifact (developer-only, 1 week) rather than the job log, and
-prints the last 200 lines of it on failure (#1611). Check the artifact if the smoke test
-reports a callback or session error that the job log does not explain.</p>
+<code>except Exception: pass</code>, so every failure mode looked identical. Someone had already raised
+the timeout 120→240s on the (wrong) slow-boot assumption before the real cause was found.</p>
+<p><strong>Where the Django server output is:</strong> check the <code>oidc-smoke-server.log</code> job artifact
+(developer-only, 1 week) if the smoke test reports a callback or session error that the job log
+does not explain. <code>oidc-smoke</code> redirects <code>runserver</code> output there rather than to the job log,
+and prints the last 200 lines of it on failure (#1611).</p>
 <h2 id="docker-push-cannot-connect-to-the-docker-daemon-at-unixvarrundockersock">Docker push: <code>Cannot connect to the Docker daemon at unix:///var/run/docker.sock</code><a class="headerlink" href="#docker-push-cannot-connect-to-the-docker-daemon-at-unixvarrundockersock" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> <code>backend-docker-push</code> or <code>frontend-docker-push</code> fails with this Docker daemon
 connection error.</p>
-<p><strong>Root cause (historical, pre-</strong>!852<strong>):</strong> these jobs ran <code>docker buildx</code> against a Docker
-socket mounted only by a specific self-hosted runner's <code>config.toml</code>. The jobs carried no
-<code>tags:</code>, so once that runner went stale (2026-07-18), the jobs silently scheduled onto a
-GitLab SaaS runner with no Docker socket at all.</p>
-<p><strong>Fix:</strong> the jobs were converted to <strong>kaniko</strong> in !852, which needs no Docker daemon and runs
-on any runner — this failure mode should no longer occur for amd64 pushes. If you see this
-error again, something has regressed the job definition back toward <code>docker buildx</code>; check
-<code>.gitlab-ci.yml</code>'s <code>.kaniko-push-common</code> template first. See
-<a href="../ci-runners/#docker-image-push-amd64-via-kaniko-arm64-via-a-dedicated-runner">CI Runners</a>
-for the full history, including how the arm64 gap this conversion left open was closed in
+<p><strong>Root cause (historical, pre-</strong>!852<strong>):</strong></p>
+<ul>
+<li>These jobs ran <code>docker buildx</code> against a Docker socket mounted only by a specific self-hosted
+  runner's <code>config.toml</code>.</li>
+<li>The jobs carried no <code>tags:</code>, so once that runner went stale (2026-07-18), they silently
+  scheduled onto a GitLab SaaS runner with no Docker socket at all.</li>
+</ul>
+<p><strong>Fix:</strong> !852 converted the jobs to <strong>kaniko</strong>, which needs no Docker daemon and runs on any
+runner, so this failure should no longer occur for amd64 pushes.</p>
+<p><strong>Watch out:</strong> If you see this error again, something has regressed the job definition back
+toward <code>docker buildx</code>. Check <code>.gitlab-ci.yml</code>'s <code>.kaniko-push-common</code> template first.</p>
+<p><strong>Go deeper:</strong> <a href="../ci-runners/#docker-image-push-amd64-via-kaniko-arm64-via-a-dedicated-runner">CI Runners</a>
+has the full history, including how the arm64 gap this conversion left open was closed in
 <strong>#1084</strong>.</p>
 <h2 id="arm64-docker-push-jobs-pending-forever-with-no-runner-picking-them-up">arm64 Docker push jobs pending forever with no runner picking them up<a class="headerlink" href="#arm64-docker-push-jobs-pending-forever-with-no-runner-picking-them-up" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> <code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code> sit <code>pending</code>
 indefinitely on a release tag pipeline, with no error — or <code>arm64-runner-preflight</code> fails
 with "no online runner tagged 'arm64' found".</p>
 <p><strong>Root cause:</strong> the dedicated Apple Silicon runner (<code>Max1-Runner-Visiban</code>, id <code>56802474</code>,
-see <a href="../ci-runners/#inventory">CI Runners</a>) is offline or its <code>arm64</code> tag was removed. GitLab
-has no native "pending too long" job failure — a job <code>timeout:</code> only covers execution time
-once a runner has picked up the job, not queue time — so without a preflight check, this
-looks identical to a slow pipeline rather than an infrastructure problem. This is the same
-<code>no_matching_runner</code> shape that caused <code>saas-linux-medium-arm64</code> to hang before !852 dropped
-arm64 from the kaniko conversion (verified on pipeline <code>2845582400</code>).</p>
-<p><strong>Fix:</strong> <code>arm64-runner-preflight</code> (added in <strong>#1084</strong>) queries the Runners API before either
-arm64 leg is scheduled and fails within seconds with a clear message if no runner tagged
-<code>arm64</code> is online, instead of letting the pipeline hang. If it fires, bring the runner back
-online (check the host's power/network and that the <code>gitlab-runner</code> service is running) and
-re-run the pipeline — do not raise a job <code>timeout:</code> to work around this, it will not help.
-If the preflight job itself fails with a <code>RUNNER_STATUS_TOKEN</code>-related error, see
-<a href="../tokens-and-rotation/#runner_status_token">Tokens and Rotation</a>.</p>
-<p><strong>Do not misread the runner's reported architecture:</strong> GitLab's Runners API reports
-<code>architecture: amd64</code> for this runner (the <code>gitlab-runner</code> binary runs under Rosetta) even
-though the host and every image it builds are genuinely native arm64 — this is a red herring,
-not evidence the wrong runner picked up the job.</p>
+see <a href="../ci-runners/#inventory">CI Runners</a>) is offline or its <code>arm64</code> tag was removed.</p>
+<ul>
+<li>GitLab has no native "pending too long" job failure: a job <code>timeout:</code> only covers execution
+  time once a runner has picked up the job, not queue time.</li>
+<li>So without a preflight check, this looks identical to a slow pipeline rather than an
+  infrastructure problem.</li>
+<li>It is the same <code>no_matching_runner</code> shape that caused <code>saas-linux-medium-arm64</code> to hang before
+  !852 dropped arm64 from the kaniko conversion (verified on pipeline <code>2845582400</code>).</li>
+</ul>
+<p><strong>Fix:</strong> if <code>arm64-runner-preflight</code> fires, bring the runner back online (check the host's
+power/network and that the <code>gitlab-runner</code> service is running) and re-run the pipeline. Do not
+raise a job <code>timeout:</code> to work around this; it will not help.</p>
+<ul>
+<li>The preflight (added in <strong>#1084</strong>) queries the Runners API before either arm64 leg is
+  scheduled, and fails within seconds with a clear message if no runner tagged <code>arm64</code> is online,
+  instead of letting the pipeline hang.</li>
+<li>If the preflight job itself fails with a <code>RUNNER_STATUS_TOKEN</code>-related error, see
+  <a href="../tokens-and-rotation/#runner_status_token">Tokens and Rotation</a>.</li>
+</ul>
+<p><strong>Watch out:</strong> Do not misread the runner's reported architecture. GitLab's Runners API reports
+<code>architecture: amd64</code> for this runner (the <code>gitlab-runner</code> binary runs under Rosetta), but the
+host and every image it builds are genuinely native arm64. This is a red herring, not evidence
+the wrong runner picked up the job.</p>
 <h2 id="self-hosted-runner-job-aborted-possibly-zombie-container-disconnected-from-network-bridge">Self-hosted runner job aborted: "Possibly zombie container ... disconnected from network bridge"<a class="headerlink" href="#self-hosted-runner-job-aborted-possibly-zombie-container-disconnected-from-network-bridge" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> a job scheduled on a self-hosted NUC runner (e.g. <code>backend-test-git-lens</code>) is
 aborted before any script line runs, with a GitLab Runner message resembling <code>Possibly zombie
 container ... disconnected from network bridge</code> in the job trace.</p>
-<p><strong>Root cause:</strong> a transient Docker networking fault on the runner host itself — the
-container's network bridge connection was lost between container creation and script start.
-Not caused by the job's own script or test code.</p>
-<p><strong>Fix:</strong> retry the job. Observed once during the review of the change that added
-<code>backend-test-git-lens</code> to every backend MR pipeline (rather than only <code>git_lens</code>-touching
-ones) — it passed cleanly on retry with no code change. If this recurs frequently rather than
-as an isolated event, check the runner's health (<code>glab api
-"projects/visiban%2Fvisiban/runners?type=group_type"</code>, or a specific runner's
-<code>glab api "runners/&lt;id&gt;"</code>) before assuming it's a code regression — see
-<a href="../ci-runners/#inventory">CI Runners</a>.</p>
-<p><strong>Why this matters more now:</strong> <code>backend-test-git-lens</code> moved from running only on <code>git_lens</code>
-changes to running on every <code>backend-test-coverage</code> run, so the self-hosted runner is drawn
-on roughly 3x more often than before. A previously-rare transient failure mode becomes a
-more visible source of pipeline noise.</p>
+<p><strong>Root cause:</strong> a transient Docker networking fault on the runner host. The container's network
+bridge connection was lost between container creation and script start. The job's own script or
+test code did not cause it.</p>
+<p><strong>Fix:</strong> retry the job.</p>
+<ul>
+<li>Observed once, during the review of the change that added <code>backend-test-git-lens</code> to every
+  backend MR pipeline (rather than only <code>git_lens</code>-touching ones). It passed cleanly on retry
+  with no code change.</li>
+<li>If this recurs frequently rather than as an isolated event, check the runner's health
+  (<code>glab api
+  "projects/visiban%2Fvisiban/runners?type=group_type"</code>, or a specific runner's
+  <code>glab api "runners/&lt;id&gt;"</code>) before assuming it's a code regression. See
+  <a href="../ci-runners/#inventory">CI Runners</a>.</li>
+</ul>
+<p><strong>Why it matters now:</strong> <code>backend-test-git-lens</code> moved from running only on <code>git_lens</code> changes to
+running on every <code>backend-test-coverage</code> run, so the self-hosted runner is drawn on roughly 3x
+more often than before. A previously rare transient failure becomes a more visible source of
+pipeline noise.</p>
 <h2 id="backend-schema-fuzz-failing-intermittently-this-is-not-a-known-flake"><code>backend-schema-fuzz</code> failing intermittently — this is NOT a known flake<a class="headerlink" href="#backend-schema-fuzz-failing-intermittently-this-is-not-a-known-flake" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> <code>backend-schema-fuzz</code> is red on one pipeline and green on the next, on an
 endpoint the MR never touched, e.g. <code>Undocumented HTTP status code</code> on a <code>POST</code>/<code>PUT</code>, or a
 <code>500</code> on <code>POST /api/v1/groups/</code>.</p>
-<p><strong>Root cause:</strong> a real defect (or an undocumented response) that only some random seeds reach.
-The job draws a fresh seed each run; a failing case is deterministic for its input, so a green
-re-run means a different seed did not hit it — not that the code is fine. On 2026-09-26 three
-main pipelines were red for exactly this reason (#1165).</p>
-<p><strong>Fix:</strong> do <strong>not</strong> retry it and do not add a <code>schemathesis-baseline.json</code> entry. Read the job's
-<code>FAILURES</code> section (operation, status, <code>Test Case ID</code>) and the <code>seed=</code> line the job prints. A
-5xx is an endpoint bug; an undocumented 4xx needs the response declared; a schema mismatch needs
-the serializer or annotation fixed. Replay on an MR with a <code>Fuzz-Seed: &lt;n&gt;</code> trailer on an empty head commit
-(or the pipeline variable <code>FUZZ_SEED=&lt;n&gt;</code> off MRs), or with <code>st replay &lt;id&gt;</code>. Full triage steps: <a href="../../api/openapi/#a-red-backend-schema-fuzz-job-is-never-a-flake"><code>docs/api/openapi.md</code></a>.
-Known still-open defects it can hit: #1166.</p>
+<p><strong>Root cause:</strong> a real defect (or an undocumented response) that only some random seeds reach.</p>
+<ul>
+<li>The job draws a fresh seed each run.</li>
+<li>A failing case is deterministic for its input, so a green re-run means a different seed did not
+  hit it, not that the code is fine.</li>
+<li>On 2026-09-26 three main pipelines were red for exactly this reason (#1165).</li>
+</ul>
+<p><strong>Fix:</strong> do <strong>not</strong> retry it and do not add a <code>schemathesis-baseline.json</code> entry.</p>
+<ol>
+<li>Read the job's <code>FAILURES</code> section (operation, status, <code>Test Case ID</code>) and the <code>seed=</code> line
+   the job prints.</li>
+<li>
+<p>Match the failure to its fix:</p>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Meaning or fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A 5xx</td>
+<td>an endpoint bug</td>
+</tr>
+<tr>
+<td>An undocumented 4xx</td>
+<td>declare the response</td>
+</tr>
+<tr>
+<td>A schema mismatch</td>
+<td>fix the serializer or annotation</td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p>Replay on an MR with a <code>Fuzz-Seed: &lt;n&gt;</code> trailer on an empty head commit (or the pipeline
+   variable <code>FUZZ_SEED=&lt;n&gt;</code> off MRs), or with <code>st replay &lt;id&gt;</code>.</p>
+</li>
+</ol>
+<p>Known still-open defects it can hit: #1166.</p>
+<p><strong>Go deeper:</strong> Full triage steps are in
+<a href="../../api/openapi/#a-red-backend-schema-fuzz-job-is-never-a-flake"><code>docs/api/openapi.md</code></a>.</p>
 <h2 id="docker-hub-429-too-many-requests-on-image-pulls">Docker Hub <code>429 Too Many Requests</code> on image pulls<a class="headerlink" href="#docker-hub-429-too-many-requests-on-image-pulls" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> a job fails resolving a Docker Hub image, e.g.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ERROR: failed to solve: python:3.12-slim: failed to resolve source metadata for
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docker.io/library/python:3.12-slim: unexpected status from HEAD request to
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>https://registry-1.docker.io/v2/library/python/manifests/3.12-slim: 429 Too Many Requests
 </code></pre></div>
-<p>Observed on <code>helm-install</code> and <code>helm-netpol</code> (job 16766757152/153, 2026-09-27), but the same
-signature can surface on any job that pulls a Docker Hub image — a runner <code>image:</code>/<code>services:</code>
+<p>Observed on <code>helm-install</code> and <code>helm-netpol</code> (job 16766757152/153, 2026-09-27). The same
+signature can surface on any job that pulls a Docker Hub image: a runner <code>image:</code>/<code>services:</code>
 entry, a kaniko <code>FROM</code>, or a live pull inside a <code>helm-install</code>/<code>helm-netpol</code> kind cluster.</p>
 <p><strong>Root cause:</strong> self-hosted runners pull Docker Hub images <strong>anonymously</strong> from a shared IP,
 which hits Docker Hub's anonymous-pull rate limit. The helm drills are the worst offender:
 each one boots a fresh <code>docker:dind</code> daemon with no credentials and no image cache, then pulls
 the full base-image + <code>kindest/node</code> + in-cluster (postgres/valkey) set again from the runner's
 IP.</p>
-<p><strong>Fix (#1198):</strong> every <code>image:</code>/<code>services:</code> entry in <code>.gitlab-ci.yml</code> that points at Docker Hub
-now resolves through <code>${DOCKERHUB_MIRROR}/&lt;image&gt;</code>, which defaults to the GitLab Dependency
-Proxy prefix
-(<code>${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}</code>) and which the runner authenticates to
-automatically, provided the runner host has no stale <code>gitlab.com</code> Docker credentials of its own
-(see the Access denied section below). The Dockerfiles take a <code>BASE_REGISTRY</code> build arg (default
-<code>docker.io/library</code>, unchanged for local/contributor builds) that CI's kaniko jobs point at the
-same mirror. The
-<code>.helm-drill-base</code> before_script logs the dind daemon itself in to
-<code>$CI_DEPENDENCY_PROXY_SERVER</code> (skipped when that's empty — see below), and
-<code>scripts/helm-install-drill.sh</code> / <code>scripts/helm-netpol-drill.sh</code> pull <code>kindest/node</code> and the
-in-cluster postgres/valkey/busybox images through the mirror before side-loading them with
-<code>kind load docker-image</code>, so nothing inside the kind cluster does a live Docker Hub pull either.</p>
+<p><strong>Fix (#1198):</strong> Docker Hub pulls now go through <code>${DOCKERHUB_MIRROR}</code>, which defaults to the
+GitLab Dependency Proxy prefix (<code>${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}</code>).</p>
+<ul>
+<li>Every <code>image:</code>/<code>services:</code> entry in <code>.gitlab-ci.yml</code> that points at Docker Hub resolves through
+  <code>${DOCKERHUB_MIRROR}/&lt;image&gt;</code>. The runner authenticates to the proxy automatically, provided
+  the runner host has no stale <code>gitlab.com</code> Docker credentials of its own (see the Access denied
+  section below).</li>
+<li>The Dockerfiles take a <code>BASE_REGISTRY</code> build arg (default <code>docker.io/library</code>, unchanged for
+  local/contributor builds) that CI's kaniko jobs point at the same mirror.</li>
+<li>The <code>.helm-drill-base</code> before_script logs the dind daemon itself in to
+  <code>$CI_DEPENDENCY_PROXY_SERVER</code> (skipped when that's empty, see below).</li>
+<li><code>scripts/helm-install-drill.sh</code> / <code>scripts/helm-netpol-drill.sh</code> pull <code>kindest/node</code> and the
+  in-cluster postgres/valkey/busybox images through the mirror before side-loading them with
+  <code>kind load docker-image</code>, so nothing inside the kind cluster does a live Docker Hub pull either.</li>
+</ul>
 <p><strong>Requires:</strong> the Dependency Proxy enabled for the <code>visiban</code> group (Settings → Packages and
-Registries → Dependency Proxy) — a one-time, human-applied group setting, not something a
+Registries → Dependency Proxy). It is a one-time, human-applied group setting, not something a
 pipeline can turn on. If this signature reappears, check that setting first before assuming the
-proxy rewrite regressed. Third-party registries (<code>quay.io</code>, <code>ghcr.io</code>, <code>gcr.io</code>,
-<code>mcr.microsoft.com</code>) are <strong>not</strong> routed through the proxy — GitLab's Dependency Proxy only
-mirrors Docker Hub — so a 429 from one of those is a different problem. See
+proxy rewrite regressed.</p>
+<p><strong>Yes, but:</strong> Third-party registries (<code>quay.io</code>, <code>ghcr.io</code>, <code>gcr.io</code>, <code>mcr.microsoft.com</code>) are
+<strong>not</strong> routed through the proxy, because GitLab's Dependency Proxy only mirrors Docker Hub. A
+429 from one of those is a different problem. See
 <a href="../ci-runners/#dependency-proxy">CI Runners</a> for the runner-side requirement.</p>
 <p><strong>On a fork or self-hosted instance:</strong> the Dependency Proxy is a group-level-only GitLab
-feature — it doesn't exist for personal namespaces — so a personal-namespace fork pipeline gets
-<code>CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX</code> (and therefore <code>DOCKERHUB_MIRROR</code>) empty. <code>image:</code>/
-<code>services:</code>/<code>name:</code> YAML keyword usages of <code>DOCKERHUB_MIRROR</code> cannot fall back on their own (no
-shell, no <code>:-</code> operator); set a project CI/CD variable <code>DOCKERHUB_MIRROR=docker.io</code> (or your own
-mirror) to fix those. <code>BASE_REGISTRY</code>/script usages fall back to <code>docker.io/library</code>
-automatically with no configuration needed. See
-<a href="../ci-runners/#dependency-proxy">CI Runners</a> point 4 for the full explanation.</p>
-<p><strong>arm64 release jobs (#1204):</strong> the arm64 release jobs (<code>.arm64-docker-push-base</code>,
-<code>backend-docker-push-arm64</code>, <code>frontend-docker-push-arm64</code>, #1084) were deliberately left out of
-the initial #1198 rollout — they were being rewritten by the separate !964, and !964 has since
-merged. Both jobs' <code>docker build</code> calls now pass the same
-<code>--build-arg BASE_REGISTRY="${DOCKERHUB_MIRROR:-docker.io/library}"</code> the amd64 kaniko legs use.
-Because these run on a real Docker daemon (shell executor) rather than kaniko, they need their
-own <code>docker login "$CI_DEPENDENCY_PROXY_SERVER"</code> in <code>before_script</code> (guarded on that variable
-being non-empty) and a matching <code>docker logout</code> in <code>after_script</code> — see
-<a href="../ci-runners/#dependency-proxy">CI Runners</a> for the full detail.</p>
+feature that doesn't exist for personal namespaces. A personal-namespace fork pipeline therefore
+gets <code>CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX</code> (and so <code>DOCKERHUB_MIRROR</code>) empty.</p>
+<ul>
+<li><code>image:</code>/<code>services:</code>/<code>name:</code> YAML keyword usages of <code>DOCKERHUB_MIRROR</code> cannot fall back on
+  their own (no shell, no <code>:-</code> operator). Set a project CI/CD variable
+  <code>DOCKERHUB_MIRROR=docker.io</code> (or your own mirror) to fix those.</li>
+<li><code>BASE_REGISTRY</code>/script usages fall back to <code>docker.io/library</code> automatically, with no
+  configuration needed.</li>
+<li>See <a href="../ci-runners/#dependency-proxy">CI Runners</a> point 4 for the full explanation.</li>
+</ul>
+<p><strong>arm64 release jobs (#1204):</strong> <code>.arm64-docker-push-base</code>, <code>backend-docker-push-arm64</code> and
+<code>frontend-docker-push-arm64</code> (#1084) now use the mirror too.</p>
+<ul>
+<li>They were deliberately left out of the initial #1198 rollout, because the separate !964 was
+  rewriting them. !964 has since merged.</li>
+<li>Both jobs' <code>docker build</code> calls pass the same
+  <code>--build-arg BASE_REGISTRY="${DOCKERHUB_MIRROR:-docker.io/library}"</code> the amd64 kaniko legs use.</li>
+<li>They run on a real Docker daemon (shell executor) rather than kaniko, so they need their own
+  <code>docker login "$CI_DEPENDENCY_PROXY_SERVER"</code> in <code>before_script</code> (guarded on that variable being
+  non-empty) and a matching <code>docker logout</code> in <code>after_script</code>.</li>
+<li>See <a href="../ci-runners/#dependency-proxy">CI Runners</a> for the full detail.</li>
+</ul>
 <h2 id="image-pull-http-basic-access-denied-from-the-dependency-proxy-on-one-runner">Image pull <code>HTTP Basic: Access denied</code> from the Dependency Proxy on one runner<a class="headerlink" href="#image-pull-http-basic-access-denied-from-the-dependency-proxy-on-one-runner" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> jobs fail with <code>failure_reason: runner_system_failure</code> in <code>prepare_executor</code>,
 before any script runs, and the log shows the runner using host credentials rather than the
@@ -4796,14 +4857,18 @@ job's:</p>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>WARNING: Failed to pull image ... HTTP Basic: Access denied
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>ERROR: Job failed: failed to pull image ...
 </code></pre></div>
-<p>Observed 2026-11-19 on <code>gitlab-runner-nuc-2-visiban</code> (runner id 56787877): about 35 jobs failed
-and reddened !1950, !1951 and !1952 (#2406). The same jobs passed on retry on another runner.</p>
-<p>Recurred 2026-11-20 on the same runner, reddening <code>frontend-lint</code> on !1961 and
-<code>frontend-license-check</code> on !1958. The host's <code>/root/.docker/config.json</code> held exactly one
-<code>auths</code> key, <code>gitlab.com:443</code>. After the runner was paused and that key removed, the runner was
-unpaused and a <code>node:22-alpine</code> job (<code>frontend-license-check</code>) started on it and got past the
-image pull. The recurrence means the stale entry is re-created by something on the host (a manual
-<code>docker login gitlab.com:443</code>, for example); if it returns, find what writes it rather than
+<p><strong>Observed:</strong></p>
+<ul>
+<li>2026-11-19 on <code>gitlab-runner-nuc-2-visiban</code> (runner id 56787877): about 35 jobs failed and
+  reddened !1950, !1951 and !1952 (#2406). The same jobs passed on retry on another runner.</li>
+<li>Recurred 2026-11-20 on the same runner, reddening <code>frontend-lint</code> on !1961 and
+  <code>frontend-license-check</code> on !1958. The host's <code>/root/.docker/config.json</code> held exactly one
+  <code>auths</code> key, <code>gitlab.com:443</code>. The runner was paused, that key removed, and the runner
+  unpaused; a <code>node:22-alpine</code> job (<code>frontend-license-check</code>) then started on it and got past the
+  image pull.</li>
+</ul>
+<p><strong>Watch out:</strong> The recurrence means something on the host re-creates the stale entry (a manual
+<code>docker login gitlab.com:443</code>, for example). If it returns, find what writes it rather than
 deleting it again.</p>
 <p><strong>Confirm it is one runner:</strong> the identical job passes when it lands on a different runner, and
 the failures cluster on one <code>runner.description</code>:</p>
@@ -4813,9 +4878,9 @@ the failures cluster on one <code>runner.description</code>:</p>
 </code></pre></div>
 <p><strong>Root cause:</strong> the runner host's <code>/root/.docker/config.json</code> holds a stale <code>gitlab.com:443</code>
 (or <code>gitlab.com</code>) auth entry. GitLab Runner prefers credentials found there over the job-scoped
-<code>CI_DEPENDENCY_PROXY_*</code> credentials, so every Dependency Proxy pull uses the dead credential.
-This cannot be fixed in <code>.gitlab-ci.yml</code>, and a runner that shares a tag with healthy runners
-cannot be routed around.</p>
+<code>CI_DEPENDENCY_PROXY_*</code> credentials, so every Dependency Proxy pull uses the dead credential.</p>
+<p><strong>Yes, but:</strong> <code>.gitlab-ci.yml</code> cannot fix this, and a runner that shares a tag with healthy
+runners cannot be routed around.</p>
 <p><strong>Fix:</strong></p>
 <ol>
 <li>Pause the runner so jobs stop landing on it:
@@ -4831,34 +4896,41 @@ cannot be routed around.</p>
 re-fails every time the broken runner picks it up. See
 <a href="../ci-runners/#dependency-proxy">CI Runners</a> point 2 for the runner-side precondition.</p>
 <h2 id="helm-publish-cosign-sign-fails-with-unauthorized-authentication-required"><code>helm-publish</code>: <code>cosign sign</code> fails with <code>UNAUTHORIZED: authentication required</code><a class="headerlink" href="#helm-publish-cosign-sign-fails-with-unauthorized-authentication-required" title="Permanent link">&para;</a></h2>
-<p><strong>Signature:</strong> <code>helm-publish</code> job fails after <code>helm push</code> has already succeeded — the chart is
-visible in the registry, but the job still fails at the <code>cosign sign</code> step:</p>
+<p><strong>Signature:</strong> <code>helm-publish</code> fails at the <code>cosign sign</code> step, after <code>helm push</code> has already
+succeeded. The chart is visible in the registry, but the job still fails:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Pushed: ghcr.io/visiban/charts/visiban:0.6.0
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Digest: sha256:...
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Error: signing [ghcr.io/visiban/charts/visiban@sha256:...]: accessing image: GET
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>https://ghcr.io/token?...: UNAUTHORIZED: authentication required
 </code></pre></div>
 <p><strong>Root cause:</strong> the job runs <code>helm registry login ghcr.io</code> before <code>helm push</code>, but never logs
-cosign in separately. <code>helm registry login</code> only populates Helm's own registry config; cosign
-resolves registry auth through go-containerregistry's default keychain (the Docker/OCI
-credential store), which <code>helm registry login</code> never touches. The two tools simply don't share
-a credential store, so <code>cosign sign</code> fails closed even though <code>helm push</code> — authenticated via a
-completely separate path — succeeds moments earlier. This was invisible until <code>v1.2.0-alpha.2</code>'s
-tag pipeline, the first one where the <code>appVersion</code> check (#1268) let execution reach this far.</p>
+cosign in separately. The two tools don't share a credential store:</p>
+<ul>
+<li><code>helm registry login</code> only populates Helm's own registry config.</li>
+<li>cosign resolves registry auth through go-containerregistry's default keychain (the Docker/OCI
+  credential store), which <code>helm registry login</code> never touches.</li>
+</ul>
+<p>So <code>cosign sign</code> fails closed even though <code>helm push</code>, authenticated by a completely separate
+path, succeeds moments earlier. This was invisible until <code>v1.2.0-alpha.2</code>'s tag pipeline, the
+first one where the <code>appVersion</code> check (#1268) let execution reach this far.</p>
 <p><strong>Fix:</strong> add <code>printf '%s' "$GHCR_TOKEN" | cosign login ghcr.io -u "$GHCR_USER" --password-stdin</code>
 alongside the existing <code>helm registry login</code> line, before <code>helm package</code>/<code>helm push</code>/<code>cosign
 sign</code> (#1284, <code>.gitlab-ci.yml</code>'s <code>helm-publish</code> job).</p>
-<p><strong>Note:</strong> every chart published before this fix (including <code>v1.2.0-alpha.2</code>'s
-<code>ghcr.io/visiban/charts/visiban:0.6.0</code>) is unsigned — the fix does not retroactively sign an
+<p><strong>Watch out:</strong> Every chart published before this fix (including <code>v1.2.0-alpha.2</code>'s
+<code>ghcr.io/visiban/charts/visiban:0.6.0</code>) is unsigned; the fix does not retroactively sign an
 already-pushed chart. If this signature reappears, check that the <code>cosign login</code> step wasn't
 dropped in a later edit to the job.</p>
 <h2 id="backend-image-attest-frontend-image-attest-fails-on-a-release-tag"><code>backend-image-attest</code> / <code>frontend-image-attest</code> fails on a release tag<a class="headerlink" href="#backend-image-attest-frontend-image-attest-fails-on-a-release-tag" title="Permanent link">&para;</a></h2>
-<p><strong>Signature:</strong> one of the <code>*-image-attest</code> jobs (#1153) fails after <code>*-manifest</code> succeeded.
-The multi-arch images are already live under their real tags on both registries. What is
-missing is some or all of their signatures and SBOM attestations. <code>helm-publish</code> needs both
-attest jobs, so <strong>the chart is not published</strong> for this release until they pass.
-<code>github-release</code> needs only the guard and the push and manifest jobs, not the attest jobs, so
-the GitHub Release is <strong>not</strong> blocked and may already exist.</p>
+<p><strong>Signature:</strong> one of the <code>*-image-attest</code> jobs (#1153) fails after <code>*-manifest</code> succeeded.</p>
+<p><strong>What it means:</strong></p>
+<ul>
+<li>The multi-arch images are already live under their real tags on both registries.</li>
+<li>Some or all of their signatures and SBOM attestations are missing.</li>
+<li><code>helm-publish</code> needs both attest jobs, so <strong>the chart is not published</strong> for this release until
+  they pass.</li>
+<li><code>github-release</code> needs only the guard and the push and manifest jobs, not the attest jobs, so
+  the GitHub Release is <strong>not</strong> blocked and may already exist.</li>
+</ul>
 <p><strong>Read the log first.</strong> <code>scripts/attest-image-sbom.sh</code> names the failing registry, digest and
 check. Common causes:</p>
 <ul>
@@ -4875,9 +4947,9 @@ check. Common causes:</p>
   but serves nothing back. Usually transient (registry or Rekor). Retry once.</li>
 <li>Sigstore (Fulcio/Rekor) outage: wait and retry.</li>
 </ul>
-<p><strong>First run after merge.</strong> The self-test stubs syft, cosign and crane, so their real
-contracts are first exercised on the first release tag cut after #1153 merges. A failure
-there most likely means one of these four assumptions was wrong:</p>
+<p><strong>First run after merge:</strong> the self-test stubs syft, cosign and crane, so their real contracts
+are first exercised on the first release tag cut after #1153 merges. A failure there most likely
+means one of these four assumptions was wrong:</p>
 <ol>
 <li>syft's <code>--source-name</code>/<code>--source-version</code> set <code>metadata.component.name</code>/<code>.version</code> in
    the CycloneDX output. These were confirmed with syft 1.51.1 against <code>v1.2.0-alpha.4</code>, but
@@ -4889,35 +4961,46 @@ there most likely means one of these four assumptions was wrong:</p>
 <li><code>cosign verify-attestation</code> prints one DSSE envelope per line on stdout, each with a
    base64 <code>payload</code>.</li>
 </ol>
-<p>Recovery: fix forward on a branch, then re-run the failed <code>*-image-attest</code> job on the tag
-pipeline. Its skips make a re-run safe. The images are already live under their real tags,
-so nothing is rolled back. <code>helm-publish</code> stays blocked until both attest jobs are green, so
-the chart ships late rather than pointing at unverifiable images. If the tag pipeline can no
-longer be re-run, use the backfill job (below).</p>
-<p><strong>Retrying is safe.</strong> On a tag pipeline the script skips any digest that already carries a
-verifying signature or SBOM from a <strong>release tag</strong> identity, and logs which identity matched.
-A retry therefore finishes only what is missing and stacks no duplicates. A signature left
-by the backfill job (<code>@refs/heads/main</code>) does not count, so the tag job signs over it and
-the release still verifies with the tag-only regexp. The backfill job accepts either
-identity. The script's <code>--force</code>
-flag re-attests digests that already verify, for example after a bad SBOM was attached. No CI
-job passes it, so using it takes a deliberate one-off change on a branch. It is never a
-routine retry.</p>
-<p><strong>If the tag pipeline can't be retried</strong> (e.g. it was canceled or its jobs expired), run the
-manual <code>image-attest-backfill</code> job on <code>main</code> with <code>BACKFILL_TAG=&lt;tag&gt;</code>. Its identity ends in
-<code>@refs/heads/main</code>, so that release must then be verified with the backfill regexp in
-<code>docs/administration/image-verification.md</code>. Backfill is trust-on-first-use: before running
-it, compare the tag's current digests (<code>scripts/attest-image-sbom.sh --image &lt;img&gt; --tag &lt;tag&gt;
---dry-run</code>) with the release pipeline's <code>*-manifest</code> log. Then publish the chart by retrying
-<code>helm-publish</code>.</p>
+<p><strong>Recovery:</strong></p>
+<ol>
+<li>Fix forward on a branch.</li>
+<li>Re-run the failed <code>*-image-attest</code> job on the tag pipeline. Its skips make a re-run safe.</li>
+<li>If the tag pipeline can no longer be re-run, use the backfill job (below).</li>
+</ol>
+<p>The images are already live under their real tags, so nothing is rolled back. <code>helm-publish</code>
+stays blocked until both attest jobs are green, so the chart ships late rather than pointing at
+unverifiable images.</p>
+<p><strong>Retrying is safe.</strong> On a tag pipeline the script:</p>
+<ul>
+<li>skips any digest that already carries a verifying signature or SBOM from a <strong>release tag</strong>
+  identity, and logs which identity matched. A retry therefore finishes only what is missing and
+  stacks no duplicates.</li>
+<li>does not count a signature left by the backfill job (<code>@refs/heads/main</code>), so the tag job signs
+  over it and the release still verifies with the tag-only regexp. The backfill job accepts either
+  identity.</li>
+</ul>
+<p><strong>Watch out:</strong> The script's <code>--force</code> flag re-attests digests that already verify, for example
+after a bad SBOM was attached. No CI job passes it, so using it takes a deliberate one-off change
+on a branch. It is never a routine retry.</p>
+<p><strong>If the tag pipeline can't be retried</strong> (for example it was canceled or its jobs expired):</p>
+<ol>
+<li>Compare the tag's current digests
+   (<code>scripts/attest-image-sbom.sh --image &lt;img&gt; --tag &lt;tag&gt;
+   --dry-run</code>) with the release pipeline's <code>*-manifest</code> log. Backfill is trust-on-first-use, so
+   do this before running it.</li>
+<li>Run the manual <code>image-attest-backfill</code> job on <code>main</code> with <code>BACKFILL_TAG=&lt;tag&gt;</code>.</li>
+<li>Publish the chart by retrying <code>helm-publish</code>.</li>
+</ol>
+<p><strong>Yes, but:</strong> The backfill identity ends in <code>@refs/heads/main</code>, so that release must then be
+verified with the backfill regexp in <code>docs/administration/image-verification.md</code>.</p>
 <h2 id="release-main-pipeline-guard-refuses-to-publish-a-release-tag"><code>release-main-pipeline-guard</code> refuses to publish a release tag<a class="headerlink" href="#release-main-pipeline-guard-refuses-to-publish-a-release-tag" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> on a <code>v*</code> tag pipeline, <code>release-main-pipeline-guard</code> (#1154) fails with
 <code>REFUSED: ...</code>, and every publish job (<code>*-docker-push</code>, <code>*-docker-push-arm64</code>,
 <code>*-manifest</code>, <code>*-image-attest</code>, <code>helm-publish</code>, <code>github-release</code>, <code>docs-deploy</code>) is
 <code>skipped</code>.</p>
-<p><strong>What already happened, and what did not.</strong> The guard gates only the tag pipeline's own
-jobs. For a tag cut by <code>scripts/release.sh</code>, these happened before or beside the tag pipeline
-and are <strong>not</strong> undone by a refusal:</p>
+<p><strong>What already happened:</strong> the guard gates only the tag pipeline's own jobs. For a tag cut by
+<code>scripts/release.sh</code>, these happened before or beside the tag pipeline, and a refusal does
+<strong>not</strong> undo them:</p>
 <ul>
 <li>The git tag exists on GitLab, and the push mirrors have already copied it to GitHub and to
   the enterprise repository.</li>
@@ -4927,15 +5010,22 @@ and are <strong>not</strong> undone by a refusal:</p>
   issues.</li>
 <li><code>release.sh</code> printed <code>Release &lt;tag&gt; is live</code>. That message only means it finished. It does
   not wait for the tag pipeline.</li>
-<li><strong>The versioned docs are not live.</strong> <code>release.sh</code> sets <code>APP_VERSION=&lt;tag&gt;</code> in <code>.env.example</code>
-  and edits <code>docs/</code>, so the release merge's own <code>main</code> pipeline runs <code>docs-deploy</code>, but that
-  run skips a version whose tag is not on origin yet (<code>resolve-docs-version.sh --require-tag</code>,
-  #1997) and deploys nothing. Only the tag pipeline's <code>docs-deploy</code>, which waits for the
-  guard, publishes the versioned docs, so a refusal leaves them unpublished. The refused tag stays
-  on origin, but <code>--require-tag</code> also requires the tag pipeline's <code>release-main-pipeline-guard</code>
-  job to be <code>success</code>, so a later <code>docs/**</code> or <code>mkdocs.yml</code> push to <code>main</code> skips that version
-  (#2398). It fails closed: a failed or unreadable status lookup fails the <code>main</code> <code>docs-deploy</code>
-  job rather than deploying. A docs edit pushed to <code>main</code> while the guard is still pending is skipped, and the tag pipeline then deploys from the tag commit, so re-run <code>docs-deploy</code> on <code>main</code> after the tag pipeline finishes.</li>
+</ul>
+<p><strong>Watch out:</strong> <strong>The versioned docs are not live.</strong></p>
+<ul>
+<li><code>release.sh</code> sets <code>APP_VERSION=&lt;tag&gt;</code> in <code>.env.example</code> and edits <code>docs/</code>, so the release
+  merge's own <code>main</code> pipeline runs <code>docs-deploy</code>. That run skips a version whose tag is not on
+  origin yet (<code>resolve-docs-version.sh --require-tag</code>, #1997) and deploys nothing.</li>
+<li>Only the tag pipeline's <code>docs-deploy</code>, which waits for the guard, publishes the versioned
+  docs, so a refusal leaves them unpublished.</li>
+<li>The refused tag stays on origin, but <code>--require-tag</code> also requires the tag pipeline's
+  <code>release-main-pipeline-guard</code> job to be <code>success</code>, so a later <code>docs/**</code> or <code>mkdocs.yml</code> push to
+  <code>main</code> skips that version (#2398).</li>
+<li>It fails closed: a failed or unreadable status lookup fails the <code>main</code> <code>docs-deploy</code> job rather
+  than deploying.</li>
+<li>A docs edit pushed to <code>main</code> while the guard is still pending is skipped, and the tag pipeline
+  then deploys from the tag commit, so re-run <code>docs-deploy</code> on <code>main</code> after the tag pipeline
+  finishes.</li>
 </ul>
 <p>What the refusal <strong>did</strong> stop, one tag-pipeline job each:</p>
 <table>
@@ -4997,16 +5087,21 @@ re-tagging. If the release has to be abandoned instead:</p>
    duplicate entry (#1270).</li>
 <li>Cut a new version once <code>main</code> is green.</li>
 </ol>
-<p><strong>What the guard checks:</strong> it finds the newest <code>main</code> pipeline at the tagged commit (source
-<code>push</code> or <code>web</code>; nightly <code>schedule</code> pipelines at the same commit are ignored, they run a
-different job set) and reads its jobs, not its top-level status. Every job must be
-<code>success</code> unless <code>scripts/wait-for-main-pipeline.py</code> lists it in <code>EXEMPT_JOBS</code> (cache
-warmers, the <code>main</code> image pushes, <code>docs-deploy</code>, and the manual on-demand tools). A failed
-<code>allow_failure: true</code> job counts as a failure here: a release does not ship over a red
-<code>backend-lint</code>, <code>oidc-smoke</code> or SAST analyzer. The one tolerated failure is
-<code>dep-scan-osv</code> exiting 2 (its MEDIUM/LOW warn tier). The jobs in <code>ALWAYS_REQUIRED</code> run on
-every <code>main</code> pipeline, so a missing one refuses too. A change-conditional job (most lint and
-drill jobs, #1266) may be absent when the merge did not touch its paths.</p>
+<p><strong>What the guard checks:</strong></p>
+<ul>
+<li>It finds the newest <code>main</code> pipeline at the tagged commit (source <code>push</code> or <code>web</code>; nightly
+  <code>schedule</code> pipelines at the same commit are ignored, they run a different job set).</li>
+<li>It reads that pipeline's jobs, not its top-level status.</li>
+<li>Every job must be <code>success</code> unless <code>scripts/wait-for-main-pipeline.py</code> lists it in
+  <code>EXEMPT_JOBS</code> (cache warmers, the <code>main</code> image pushes, <code>docs-deploy</code>, and the manual on-demand
+  tools).</li>
+<li>A failed <code>allow_failure: true</code> job counts as a failure here: a release does not ship over a red
+  <code>backend-lint</code>, <code>oidc-smoke</code> or SAST analyzer. The one tolerated failure is <code>dep-scan-osv</code>
+  exiting 2 (its MEDIUM/LOW warn tier).</li>
+<li>The jobs in <code>ALWAYS_REQUIRED</code> run on every <code>main</code> pipeline, so a missing one refuses too.</li>
+<li>A change-conditional job (most lint and drill jobs, #1266) may be absent when the merge did not
+  touch its paths.</li>
+</ul>
 <p><strong>Read the refusal line; each has one cause:</strong></p>
 <table>
 <thead>
@@ -5064,85 +5159,112 @@ drill jobs, #1266) may be absent when the merge did not touch its paths.</p>
 </tr>
 </tbody>
 </table>
-<p><strong>There is no bypass variable, on purpose.</strong> A flaky job is fixed by retrying it in the
-<code>main</code> pipeline, which leaves a record of what ran. A variable that skips the check would
-leave no such record. If an exemption is truly warranted (a new job that is not a check on
-the code), add it to <code>EXEMPT_JOBS</code> with its reason on a branch, so the change is reviewed.</p>
-<p><code>scripts/release.sh</code> still checks the merge commit's pipeline before it tags. That check runs
-on the maintainer's machine and reads the aggregate status. The guard runs in CI, so it also
-covers tags pushed by hand.</p>
+<p><strong>Watch out:</strong> <strong>There is no bypass variable, on purpose.</strong> Fix a flaky job by retrying it in the
+<code>main</code> pipeline, which leaves a record of what ran. A variable that skips the check would leave
+no such record. If an exemption is truly warranted (a new job that is not a check on the code),
+add it to <code>EXEMPT_JOBS</code> with its reason on a branch, so the change is reviewed.</p>
+<p><strong>Yes, but:</strong> <code>scripts/release.sh</code> still checks the merge commit's pipeline before it tags. That
+check runs on the maintainer's machine and reads the aggregate status. The guard runs in CI, so
+it also covers tags pushed by hand.</p>
 <h2 id="superseded-pipelines-end-canceled">Superseded pipelines end <code>canceled</code><a class="headerlink" href="#superseded-pipelines-end-canceled" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> an MR or <code>main</code> pipeline shows <code>canceled</code>, with most lint/test/security jobs
 <code>canceled</code> and nobody having pressed Cancel. A newer pipeline on the same ref exists.</p>
 <p><strong>Cause:</strong> this is intended (#2419, #2421). <code>default: interruptible: true</code> plus
 <code>workflow: auto_cancel: on_new_commit: interruptible</code> in <code>.gitlab-ci.yml</code> means a newer
-commit on the same ref cancels the older pipeline's read-only jobs. On an MR that is a new
-push to the branch. On <code>main</code> it is the next merge. Main is linear, so the newest <code>main</code>
-pipeline tests a superset of the canceled one. The trade-off: during a merge burst a failure is
-reported against the newest commit, not the merge that introduced it.</p>
-<p>Jobs with an external side effect are <code>interruptible: false</code> and are never canceled once they
-start: image, manifest and attestation pushes, <code>helm-publish</code>, <code>github-release</code>,
-<code>docs-deploy</code>, <code>pages</code>, <code>cleanup-merged-branches</code>, <code>seed-demo-data</code>, <code>kaizen-yield-watch</code>,
-<code>sonar:scan</code>, plus <code>release-main-pipeline-guard</code> (seconds on <code>main</code>; it is <code>docs-deploy</code>'s
-only need), the kind/Compose drills, and the scheduled-only long jobs (<code>backend-mutation</code>,
-<code>backend-mutation-report</code>, <code>nightly-load-test</code>, <code>backend-schema-fuzz-deep</code>).
-<code>scripts/tests/ci-interruptible.test.sh</code> enforces the list. A non-interruptible job whose
-<code>needs:</code> were canceled is skipped. For the <code>main</code> image pushes, that means a superseded
-commit gets no <code>:&lt;short-sha&gt;</code> image, and the newer pipeline moves <code>:main</code> forward. Tag
-pipelines are unique refs and are never superseded. A newer commit never cancels a
-scheduled pipeline (<code>workflow:rules</code> sets <code>on_new_commit: none</code> on it).</p>
-<p><strong>What to do:</strong> nothing for an MR. For <code>main</code>, read the <strong>newest</strong> <code>main</code> push pipeline's
-required jobs, not "every <code>main</code> pipeline is green". <code>/mass_merge</code>'s post-merge gate does that.
-For a release, the guard judges the tagged commit's own pipeline, so retry the canceled jobs
-there (see the <code>release-main-pipeline-guard</code> table above).</p>
+commit on the same ref cancels the older pipeline's read-only jobs.</p>
+<ul>
+<li>On an MR, the newer commit is a new push to the branch.</li>
+<li>On <code>main</code>, it is the next merge. Main is linear, so the newest <code>main</code> pipeline tests a superset
+  of the canceled one.</li>
+</ul>
+<p><strong>Yes, but:</strong> During a merge burst a failure is reported against the newest commit, not the merge
+that introduced it.</p>
+<p><strong>What is never canceled:</strong> jobs with an external side effect are <code>interruptible: false</code> and are
+never canceled once they start. <code>scripts/tests/ci-interruptible.test.sh</code> enforces the list:</p>
+<ul>
+<li>image, manifest and attestation pushes, <code>helm-publish</code>, <code>github-release</code>, <code>docs-deploy</code>,
+  <code>pages</code>, <code>cleanup-merged-branches</code>, <code>seed-demo-data</code>, <code>kaizen-yield-watch</code>, <code>sonar:scan</code></li>
+<li><code>release-main-pipeline-guard</code> (seconds on <code>main</code>; it is <code>docs-deploy</code>'s only need)</li>
+<li>the kind/Compose drills</li>
+<li>the scheduled-only long jobs (<code>backend-mutation</code>, <code>backend-mutation-report</code>,
+  <code>nightly-load-test</code>, <code>backend-schema-fuzz-deep</code>)</li>
+</ul>
+<p><strong>Watch out:</strong> A non-interruptible job whose <code>needs:</code> were canceled is skipped. For the <code>main</code>
+image pushes, that means a superseded commit gets no <code>:&lt;short-sha&gt;</code> image, and the newer pipeline
+moves <code>:main</code> forward.</p>
+<p>Tag pipelines are unique refs and are never superseded. A newer commit never cancels a scheduled
+pipeline (<code>workflow:rules</code> sets <code>on_new_commit: none</code> on it).</p>
+<p><strong>What to do:</strong></p>
+<ul>
+<li><strong>On an MR:</strong> nothing.</li>
+<li><strong>On <code>main</code>:</strong> read the <strong>newest</strong> <code>main</code> push pipeline's required jobs, not "every <code>main</code>
+  pipeline is green". <code>/mass_merge</code>'s post-merge gate does that.</li>
+<li><strong>For a release:</strong> the guard judges the tagged commit's own pipeline, so retry the canceled
+  jobs there (see the <code>release-main-pipeline-guard</code> table above).</li>
+</ul>
 <h2 id="tool-download-504-gateway-time-out-kind-kubectl-helm-yq-kubeconform-gitleaks-cosign">Tool download <code>504 Gateway Time-out</code> (kind, kubectl, helm, yq, kubeconform, gitleaks, cosign, ...)<a class="headerlink" href="#tool-download-504-gateway-time-out-kind-kubectl-helm-yq-kubeconform-gitleaks-cosign" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> a job that installs a third-party binary (<code>helm-template</code>, <code>helm-install</code>,
 <code>helm-netpol</code>, <code>dep-scan-osv</code>, <code>gitleaks-*</code>, the manifest/attest/publish jobs) fails with a
 confusing downstream error such as <code>/usr/local/bin/yq: line 1: syntax error near unexpected
 token '&lt;'</code> or <code>kind: not found</code>. Upstream hosts (GitHub releases, <code>kind.sigs.k8s.io</code>,
 <code>dl.k8s.io</code>, <code>get.helm.sh</code>) occasionally return a transient 504, and a plain retry goes green.</p>
-<p><strong>Root cause:</strong> the downloads used <code>curl -sSL</code> without <code>-f</code> (so the HTML error page was saved as
-the binary), or sat in a <code>cmd &amp;&amp; chmod</code> list or a <code>curl | tar</code> pipe that hid curl's exit status.
-Separately, the <code>wget</code> jobs and the jobs that already used <code>-f</code> had no retry, so one transient 5xx
-failed a required job (#2160).</p>
+<p><strong>Root cause:</strong> two gaps (#2160).</p>
+<ul>
+<li>The downloads used <code>curl -sSL</code> without <code>-f</code> (so the HTML error page was saved as the binary),
+  or sat in a <code>cmd &amp;&amp; chmod</code> list or a <code>curl | tar</code> pipe that hid curl's exit status.</li>
+<li>The <code>wget</code> jobs and the jobs that already used <code>-f</code> had no retry, so one transient 5xx failed a
+  required job.</li>
+</ul>
 <p><strong>Fix (in place):</strong> every tool download now runs <code>curl -fsSL --retry 3 --retry-all-errors
 --retry-delay 5</code>, one step per script line, so a persistent failure stops the job at the
-download line with curl's own error (<code>curl: (22) ... error: 504</code>). If you see that error after the
-retries, the upstream is genuinely down or the pinned version URL is wrong; re-run later or fix
-the version pin. New tool downloads in <code>.gitlab-ci.yml</code> must follow the same pattern.</p>
+download line with curl's own error (<code>curl: (22) ... error: 504</code>).</p>
+<ul>
+<li>If you see that error after the retries, the upstream is genuinely down or the pinned version
+  URL is wrong. Re-run later or fix the version pin.</li>
+<li>New tool downloads in <code>.gitlab-ci.yml</code> must follow the same pattern.</li>
+</ul>
 <h2 id="main-red-guard-fails-an-mr-main-is-red"><code>main-red-guard</code> fails an MR: "main is red"<a class="headerlink" href="#main-red-guard-fails-an-mr-main-is-red" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> the <code>main-red-guard</code> job (#2460) fails with <code>ERROR: main is red: &lt;job&gt; failed in
 main pipeline ...</code> and names the open <strong><code>main is red</code></strong> issue (label <code>ci</code>).</p>
-<p><strong>Why it exists:</strong> in the 2026-11-21 audit, <code>script-tests</code> stayed red on 7 consecutive <code>main</code>
-pipelines while seven merges landed on top, because every MR pipeline was green. GitLab Free
-has no merge trains or merged-results pipelines, so the brake is built from jobs:</p>
+<p><strong>Why it matters:</strong> in the 2026-11-21 audit, <code>script-tests</code> stayed red on 7 consecutive <code>main</code>
+pipelines while seven merges landed on top, because every MR pipeline was green.</p>
+<p><strong>How it works:</strong> GitLab Free has no merge trains or merged-results pipelines, so the brake is
+built from jobs.</p>
 <ul>
-<li><strong>Tripwire.</strong> <code>main-red-tripwire</code> runs in GitLab's built-in <code>.post</code> stage (after every other stage) of every
-  <code>main</code> <em>push</em> pipeline (never <code>schedule</code>, <code>web</code>, <code>api</code> or <code>trigger</code>), and treats a pipeline with any other job still
-  <code>running</code>/<code>pending</code>/<code>created</code> as not judgeable: it never closes the issue then, it only logs.
-  Tripwires are serialized (<code>resource_group: main-red-tripwire</code>), and one skips every write when
-  a <em>newer</em> <code>main</code> push pipeline has already finished, so a slow older pipeline can neither close
-  the issue over a newer red one nor open a second issue.
-  If a non-<code>allow_failure</code> job failed it opens the single <code>main is red</code> issue, or comments on
-  it if one is open, naming the failing jobs, commit and pipeline. A later pipeline with no such
-  failure comments and closes it. Writing needs an <code>api</code>-scope token: it uses <code>KAIZEN_API_TOKEN</code>
-  (falling back to <code>GITLAB_API_TOKEN</code>, which is <code>read_api</code> only, so the write is refused and the
-  job prints a <code>WARNING</code> and passes). Until the token exists the tripwire is inert (it cannot open
-  or close the issue); creating it is tracked in #2470. See <a href="../tokens-and-rotation/">Tokens and Rotation</a>.</li>
+<li><strong>Tripwire.</strong> <code>main-red-tripwire</code> runs in GitLab's built-in <code>.post</code> stage (after every other
+  stage) of every <code>main</code> <em>push</em> pipeline (never <code>schedule</code>, <code>web</code>, <code>api</code> or <code>trigger</code>).<ul>
+<li>A pipeline with any other job still <code>running</code>/<code>pending</code>/<code>created</code> is not judgeable: it never
+  closes the issue then, it only logs.</li>
+<li>Tripwires are serialized (<code>resource_group: main-red-tripwire</code>), and one skips every write
+  when a <em>newer</em> <code>main</code> push pipeline has already finished, so a slow older pipeline can
+  neither close the issue over a newer red one nor open a second issue.</li>
+<li>If a non-<code>allow_failure</code> job failed, it opens the single <code>main is red</code> issue, or comments on
+  it if one is open, naming the failing jobs, commit and pipeline. A later pipeline with no
+  such failure comments and closes it.</li>
+</ul>
+</li>
 <li><strong>Guard.</strong> <code>main-red-guard</code> runs in MR pipelines, reads the latest <em>finished</em>
   (<code>success</code>/<code>failed</code>) <code>main</code> push pipeline anonymously, and fails if it failed.</li>
 </ul>
-<p><strong>Fix:</strong> fix <code>main</code> first. The fix MR carries the <strong><code>main-fix</code></strong> label; the guard reads labels
-live, so add the label and retry <code>main-red-guard</code> (no new pipeline needed). Do not label an
-unrelated MR <code>main-fix</code> to get around the brake.</p>
-<p><strong>After main is green again:</strong> the guard only runs when an MR pipeline runs, so every other
-open MR whose <code>main-red-guard</code> failed while main was red keeps a failed pipeline. Retry that
-MR's <code>main-red-guard</code> job (or re-run its pipeline) once the tripwire has closed the issue;
-nothing re-runs it automatically.</p>
-<p><strong>Fails open:</strong> a network error, a 5xx, or no finished <code>main</code> pipeline makes the guard print
-<code>WARNING: ... FAILING OPEN</code> and pass, the same convention as
-<code>scripts/check-suppression-issues.sh</code>. A green latest <code>main</code> pipeline is authoritative even if
-a change-conditional job that failed earlier did not re-run in it.</p>
+<p><strong>Watch out:</strong> Writing needs an <code>api</code>-scope token. The tripwire uses <code>KAIZEN_API_TOKEN</code>, falling
+back to <code>GITLAB_API_TOKEN</code>, which is <code>read_api</code> only, so the write is refused and the job prints a
+<code>WARNING</code> and passes. Until the token exists the tripwire is inert (it cannot open or close the
+issue); creating it is tracked in #2470. See <a href="../tokens-and-rotation/">Tokens and Rotation</a>.</p>
+<p><strong>Fix:</strong></p>
+<ol>
+<li>Fix <code>main</code> first.</li>
+<li>Put the <strong><code>main-fix</code></strong> label on the fix MR.</li>
+<li>Retry <code>main-red-guard</code>. The guard reads labels live, so no new pipeline is needed.</li>
+</ol>
+<p>Do not label an unrelated MR <code>main-fix</code> to get around the brake.</p>
+<p><strong>After main is green again:</strong> retry <code>main-red-guard</code> (or re-run the pipeline) on every other
+open MR where it failed while main was red, once the tripwire has closed the issue. The guard
+only runs when an MR pipeline runs, so those pipelines stay failed; nothing re-runs it
+automatically.</p>
+<p><strong>Yes, but:</strong> The guard <strong>fails open</strong>. A network error, a 5xx, or no finished <code>main</code> pipeline
+makes it print <code>WARNING: ... FAILING OPEN</code> and pass, the same convention as
+<code>scripts/check-suppression-issues.sh</code>. A green latest <code>main</code> pipeline is authoritative even if a
+change-conditional job that failed earlier did not re-run in it.</p>
 <h2 id="backend-test-pg-matrix-leg-red-for-a-failure-the-mr-did-not-cause-2481"><code>backend-test-pg-matrix</code> leg red for a failure the MR did not cause (#2481)<a class="headerlink" href="#backend-test-pg-matrix-leg-red-for-a-failure-the-mr-did-not-cause-2481" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> a <code>backend-test-pg-matrix</code> leg (PG 15, 16 or 18) fails on an MR whose diff cannot explain
 it. Each pipeline runs one rotating group, <code>(CI_PIPELINE_IID mod 8) + 1</code>, and the job log names it.</p>
@@ -5164,93 +5286,165 @@ past <code>main-red-guard</code>; it does not skip the red leg itself. Fix the f
 branch that carries the label. There is no documented revert procedure; do not label an unrelated
 MR <code>main-fix</code>.</p>
 <h2 id="hermetic-ci-script-tests-protected-variables-are-poisoned-2461">Hermetic CI-script tests: protected variables are poisoned (#2461)<a class="headerlink" href="#hermetic-ci-script-tests-protected-variables-are-poisoned-2461" title="Permanent link">&para;</a></h2>
-<p>Protected variables (<code>GITLAB_API_TOKEN</code>, ...) exist on <code>main</code> pipelines but not in MR pipelines
-from unprotected branches, so a test that quietly reads one passed on the MR and failed only
-after merge (#2412, <code>resolve-docs-version.test.sh</code>). Every <code>scripts/tests/*.test.sh</code> invocation in
-<code>.gitlab-ci.yml</code> (in <code>script-tests</code>, <code>script-tests-glibc</code>, <code>cost-ledger-selftest</code> (member of <code>lint-selftests-alpine</code>),
-<code>security-deferred-verdict-selftest</code> (member of <code>lint-selftests-alpine</code>), <code>api-compat-check</code>, <code>rbac-coverage</code>, <code>suppressions-check</code> and
-<code>registry-keep-regex-test</code> (member of <code>lint-selftests-alpine</code>)) now runs as <code>sh scripts/ci-hermetic-run.sh bash scripts/tests/&lt;name&gt;</code>,
-which sources <code>scripts/ci-poison-env.sh</code> in a child shell, on <strong>both</strong> pipelines. Only that command
-is poisoned: a job's real step after its tests (<code>suppressions-check</code> querying the live API) keeps
-its real variables. In the wrapped command every listed token is the
-sentinel <code>poisoned-by-ci-poison-env-2461</code> and <code>CI_API_V4_URL</code> is <code>http://127.0.0.1:9/api/v4</code>
-(a dead endpoint, so an accidental API call fails fast). A test that needs a variable must set
-it itself, as the <code>runrt()</code> helper in <code>resolve-docs-version.test.sh</code> does.</p>
-<p><code>scripts/ci-poison-env.sh</code> is the one place the list lives. <code>scripts/check-ci-poison-list.sh</code>
-(run in <code>script-tests</code>) fails when <code>.gitlab-ci.yml</code> or a script under <code>scripts/</code> references a <code>*_TOKEN</code> variable that is in
-neither <code>CI_POISON_VARS</code> nor <code>CI_POISON_EXEMPT</code> (which needs a reason). Fix a failure by adding
-the variable to the right list.</p>
+<p><strong>Why it matters:</strong> protected variables (<code>GITLAB_API_TOKEN</code>, ...) exist on <code>main</code> pipelines but
+not in MR pipelines from unprotected branches, so a test that quietly reads one passed on the MR
+and failed only after merge (#2412, <code>resolve-docs-version.test.sh</code>).</p>
+<p><strong>How it works:</strong> every <code>scripts/tests/*.test.sh</code> invocation in <code>.gitlab-ci.yml</code> now runs as
+<code>sh scripts/ci-hermetic-run.sh bash scripts/tests/&lt;name&gt;</code>, on <strong>both</strong> pipelines.</p>
+<ul>
+<li>The jobs: <code>script-tests</code>, <code>script-tests-glibc</code>, <code>cost-ledger-selftest</code> (member of
+  <code>lint-selftests-alpine</code>), <code>security-deferred-verdict-selftest</code> (member of
+  <code>lint-selftests-alpine</code>), <code>api-compat-check</code>, <code>rbac-coverage</code>, <code>suppressions-check</code> and
+  <code>registry-keep-regex-test</code> (member of <code>lint-selftests-alpine</code>).</li>
+<li>The wrapper sources <code>scripts/ci-poison-env.sh</code> in a child shell.</li>
+<li>Only that command is poisoned: a job's real step after its tests (<code>suppressions-check</code> querying
+  the live API) keeps its real variables.</li>
+<li>In the wrapped command every listed token is the sentinel
+  <code>poisoned-by-ci-poison-env-2461</code> and <code>CI_API_V4_URL</code> is <code>http://127.0.0.1:9/api/v4</code> (a dead
+  endpoint, so an accidental API call fails fast).</li>
+<li>A test that needs a variable must set it itself, as the <code>runrt()</code> helper in
+  <code>resolve-docs-version.test.sh</code> does.</li>
+</ul>
+<p><strong>Fix a poison-list failure</strong> by adding the variable to the right list.
+<code>scripts/ci-poison-env.sh</code> is the one place the list lives. <code>scripts/check-ci-poison-list.sh</code>
+(run in <code>script-tests</code>) fails when <code>.gitlab-ci.yml</code> or a script under <code>scripts/</code> references a
+<code>*_TOKEN</code> variable that is in neither <code>CI_POISON_VARS</code> nor <code>CI_POISON_EXEMPT</code> (which needs a
+reason).</p>
 <p><strong>Loopback canary.</strong> A dead endpoint fails closed exactly like a missing token, so poison alone
-cannot catch a test that quietly depends on a protected variable. The wrapper therefore starts
-<code>scripts/ci-api-canary.py</code> (stdlib listener on 127.0.0.1, answers every request <code>200 []</code> and logs
-it) and points <code>CI_API_V4_URL</code> at it. After the command runs, <code>ci-api-canary.py verify</code> fails the line and
-prints every requested path when the log is non-empty: "a test reached the API with inherited CI
-variables". A test that talks to a fake API (<code>runapi</code> in <code>resolve-docs-version.test.sh</code>) sets its own
-URL and never touches the canary; fix a flagged test by setting its own URL and token, or unsetting
-the inherited ones. <code>scripts/tests/ci-api-canary.test.sh</code> replays #2412: with the <code>env -u</code> scrub
-reverted in <code>resolve-docs-version.test.sh</code>, the canary flags the call
-(<code>GET /api/v4/projects/1/pipelines?ref=v1.3.0...</code>).</p>
+cannot catch a test that quietly depends on a protected variable.</p>
+<ul>
+<li>The wrapper therefore starts <code>scripts/ci-api-canary.py</code> (stdlib listener on 127.0.0.1, answers
+  every request <code>200 []</code> and logs it) and points <code>CI_API_V4_URL</code> at it.</li>
+<li>After the command runs, <code>ci-api-canary.py verify</code> fails the line and prints every requested path
+  when the log is non-empty: "a test reached the API with inherited CI variables".</li>
+<li>Fix a flagged test by setting its own URL and token, or unsetting the inherited ones. A test
+  that talks to a fake API (<code>runapi</code> in <code>resolve-docs-version.test.sh</code>) sets its own URL and never
+  touches the canary.</li>
+<li><code>scripts/tests/ci-api-canary.test.sh</code> replays #2412: with the <code>env -u</code> scrub reverted in
+  <code>resolve-docs-version.test.sh</code>, the canary flags the call
+  (<code>GET /api/v4/projects/1/pipelines?ref=v1.3.0...</code>).</li>
+</ul>
 <h2 id="runner_system_failure-is-auto-retried-script-failures-never-are-2462"><code>runner_system_failure</code> is auto-retried; script failures never are (#2462)<a class="headerlink" href="#runner_system_failure-is-auto-retried-script-failures-never-are-2462" title="Permanent link">&para;</a></h2>
-<p><code>default: retry:</code> (max 2) covers infrastructure failure classes only: <code>runner_system_failure</code>,
-<code>runner_unsupported</code>, <code>stuck_or_timeout_failure</code>, <code>scheduler_failure</code>, <code>api_failure</code>,
-<code>data_integrity_failure</code>, <code>stale_schedule</code>. A week in November 2026 had 42 <code>runner_system_failure</code>
-failures, all on <code>gitlab-runner-nuc-2-visiban</code> (host root cause: #2406 / #2148), mostly
-<code>clients-contract</code>. <code>script_failure</code> and <code>unknown_failure</code> are <strong>never</strong> retried: red tests here
-have repeatedly been real bugs. <code>scripts/check-ci-retry.sh</code> (run in <code>script-tests</code>) fails if any
-<code>retry:</code> in <code>.gitlab-ci.yml</code> includes <code>script_failure</code>, <code>unknown_failure</code>, or <code>always</code>, and also
-if a retry has no <code>when:</code> at all (<code>retry: 2</code>, <code>retry: {max: 2}</code>): GitLab then retries every
-failure class, script failures included. Use <code>retry: 0</code> to opt out.</p>
-<p>A job-level <code>retry:</code> replaces the default. Non-idempotent jobs set <code>retry: 0</code> with a reason on the
-line: <code>helm-publish</code>, <code>github-release</code>, <code>docs-deploy</code>, <code>pages</code>, the image-attest jobs,
-<code>cleanup-merged-branches</code>, <code>seed-demo-data</code>, <code>kaizen-yield-watch</code>, <code>main-red-tripwire</code> (posts issue
-comments) and <code>backend-schema-fuzz-deep</code> (files issues in <code>after_script</code>). The kaniko
-build/push jobs and the manifest jobs keep the default retry because re-pushing the same digest is
-idempotent; <code>gitleaks-commits</code> keeps it too, as it only reads the diff and writes nothing (it has no
-upload step). Add the same to any new job
-whose side effect is not safe to repeat. A job that still shows a <code>runner_system_failure</code> after
-two retries points at the runner, not the job; see #2406.</p>
+<p><strong>How it works:</strong> <code>default: retry:</code> (max 2) covers infrastructure failure classes only:</p>
+<ul>
+<li><code>runner_system_failure</code>, <code>runner_unsupported</code>, <code>stuck_or_timeout_failure</code></li>
+<li><code>scheduler_failure</code>, <code>api_failure</code>, <code>data_integrity_failure</code>, <code>stale_schedule</code></li>
+</ul>
+<p><code>script_failure</code> and <code>unknown_failure</code> are <strong>never</strong> retried: red tests here have repeatedly been
+real bugs.</p>
+<p><strong>By the numbers:</strong> a week in November 2026 had 42 <code>runner_system_failure</code> failures, all on
+<code>gitlab-runner-nuc-2-visiban</code> (host root cause: #2406 / #2148), mostly <code>clients-contract</code>.</p>
+<p><strong>Watch out:</strong> <code>scripts/check-ci-retry.sh</code> (run in <code>script-tests</code>) fails if any <code>retry:</code> in
+<code>.gitlab-ci.yml</code> includes <code>script_failure</code>, <code>unknown_failure</code>, or <code>always</code>. It also fails a retry
+with no <code>when:</code> at all (<code>retry: 2</code>, <code>retry: {max: 2}</code>), because GitLab then retries every failure
+class, script failures included. Use <code>retry: 0</code> to opt out.</p>
+<p><strong>Which jobs opt out:</strong> a job-level <code>retry:</code> replaces the default. Non-idempotent jobs set
+<code>retry: 0</code> with a reason on the line, and any new job whose side effect is not safe to repeat
+must do the same:</p>
+<ul>
+<li><code>helm-publish</code>, <code>github-release</code>, <code>docs-deploy</code>, <code>pages</code>, the image-attest jobs</li>
+<li><code>cleanup-merged-branches</code>, <code>seed-demo-data</code>, <code>kaizen-yield-watch</code></li>
+<li><code>main-red-tripwire</code> (posts issue comments)</li>
+<li><code>backend-schema-fuzz-deep</code> (files issues in <code>after_script</code>)</li>
+</ul>
+<p>These keep the default retry:</p>
+<ul>
+<li>the kaniko build/push jobs and the manifest jobs, because re-pushing the same digest is
+  idempotent</li>
+<li><code>gitleaks-commits</code>, as it only reads the diff and writes nothing (it has no upload step)</li>
+</ul>
+<p>A job that still shows a <code>runner_system_failure</code> after two retries points at the runner, not the
+job; see #2406.</p>
 <h2 id="backend-test-shard-stalls-faulthandler-dump-pg-activity-watch-lock-timeout-2534-2536"><code>backend-test</code> shard stalls: faulthandler dump, <code>[pg-activity-watch]</code>, <code>lock timeout</code> (#2534, #2536)<a class="headerlink" href="#backend-test-shard-stalls-faulthandler-dump-pg-activity-watch-lock-timeout-2534-2536" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> a <code>backend-test</code> shard (or a <code>backend-test-pg-matrix</code> leg) goes silent until the
-job timeout. These diagnostics exist so the next stall names its cause instead of timing out blind.</p>
+job timeout.</p>
+<p><strong>Why it matters:</strong> these diagnostics exist so the next stall names its cause instead of timing
+out blind.</p>
 <ul>
-<li><strong>faulthandler dump</strong> (#2534): pytest runs with <code>-v</code> and <code>-o faulthandler_timeout=300</code>. A single
-  test over 300 seconds dumps every thread's stack to stderr and names the test. A thread parked in
-  psycopg <code>connection.wait</code> means the client is waiting on the server.</li>
-<li><strong><code>[pg-activity-watch]</code> lines</strong> (#2536): <code>scripts/pg-activity-watch.py</code> runs in the background of
-  <code>backend-test</code> and <code>backend-test-pg-matrix</code> (and, through <code>scripts/pg-matrix-check.sh</code>, of
-  <code>backend-test-pg-matrix-nightly</code>) and checks <code>pg_stat_activity</code> every 30 seconds. It prints one
-  report per stuck query (deduped on pid + query_start)
-  to stderr when a non-idle query runs over 90 seconds or a lock wait lasts over 60 seconds: the
-  stuck backend, <code>pg_blocking_pids</code>, each blocker's state and query, and the ungranted and blocking
-  <code>pg_locks</code> rows. A blocker in <code>idle in transaction</code> is a connection a test leaked. It is
-  diagnostic only and never fails the job.</li>
-<li><strong><code>[pg-activity-watch] plan</code> lines</strong> (#2536): the first real report (main pipeline 3105471449,
-  <code>backend-test 4/8</code>, 2026-11-23) ruled a lock <strong>out</strong>. The stuck backend was
-  <code>state=active wait=None/None</code>, <code>blocked by pids: none</code>, and the same zero-row <code>card_parent_links</code>
-  statement in <code>parents_for_viewer</code> started again three more times (<code>query_start</code> 21:02, 21:10,
-  21:16, 21:22), so each run took minutes on CPU. For a stall like that (active, no wait event, no
-  blocker) the watcher now also prints an <code>EXPLAIN</code> (plan only, never <code>ANALYZE</code>) of the stuck
-  statement, run on the same database from a read-only connection with a 5 s connect timeout and a 20 s statement timeout (the connection is to the
-  test database and always closed, and the timeouts bound its life to about 25 s. That is a
-  reduced risk, not an eliminated one: a teardown inside that window can still meet the open
-  session, and an open session makes the shard's <code>DROP DATABASE</code> fail with "being accessed by
-  other users").
-  Alongside it come how long planning took, the JIT thresholds to compare with the plan's top-line
-  cost, and <code>reltuples</code>/<code>relpages</code>/current pages/live/dead tuples and last (auto)analyze for each
-  table in the statement. Read it like this: <code>EXPLAIN failed after 20.0s: QueryCanceled</code> means the
-  <strong>planner</strong> is the stall. A fast EXPLAIN whose cost is over <code>jit_above_cost</code> points at JIT. A fast,
-  cheap plan that still hangs points at the executor or the stats rows. <code>SyntaxError</code> means the
-  statement text was cut short. CI sets <code>track_activity_query_size=16384</code> on the <code>backend-test</code>
-  and <code>backend-test-pg-matrix</code> services for this.</li>
-<li><strong><code>lock timeout</code> failure</strong> (#2536): five jobs set <code>PGOPTIONS=-c lock_timeout=180s</code>:
-  <code>backend-test</code> and <code>backend-test-pg-matrix</code> (which have the watcher), <code>backend-test-migrations</code> and <code>backend-test-slow</code>
-  (via the shared <code>*backend-test-variables</code> anchor) and <code>backend-test-pg-matrix-nightly</code> (via
-  <code>extends</code>). <code>backend-test-migrations</code> and <code>backend-test-slow</code> have the timeout but NOT the watcher, so a lock timeout there
-  comes with no <code>[pg-activity-watch]</code> report. A lock wait over 3 minutes fails the test with <code>canceling statement due to lock timeout</code> instead of
-  hanging. That failure is a real defect (a leaked or contended lock), not a flake. Read the
-  <code>[pg-activity-watch]</code> report just above it for the blocker. There is deliberately no
-  <code>statement_timeout</code> (it could fail legitimately slow statements) and no
-  <code>idle_in_transaction_session_timeout</code> (it would kill the leaked holder and hide it).</li>
+<li><strong>faulthandler dump</strong> (#2534): pytest runs with <code>-v</code> and <code>-o faulthandler_timeout=300</code>.<ul>
+<li>A single test over 300 seconds dumps every thread's stack to stderr and names the test.</li>
+<li>A thread parked in psycopg <code>connection.wait</code> means the client is waiting on the server.</li>
+</ul>
+</li>
+<li><strong><code>[pg-activity-watch]</code> lines</strong> (#2536): <code>scripts/pg-activity-watch.py</code> checks
+  <code>pg_stat_activity</code> every 30 seconds.<ul>
+<li>It runs in the background of <code>backend-test</code> and <code>backend-test-pg-matrix</code> (and, through
+  <code>scripts/pg-matrix-check.sh</code>, of <code>backend-test-pg-matrix-nightly</code>).</li>
+<li>It prints one report per stuck query (deduped on pid + query_start) to stderr when a
+  non-idle query runs over 90 seconds or a lock wait lasts over 60 seconds.</li>
+<li>The report shows the stuck backend, <code>pg_blocking_pids</code>, each blocker's state and query, and
+  the ungranted and blocking <code>pg_locks</code> rows.</li>
+<li>A blocker in <code>idle in transaction</code> is a connection a test leaked.</li>
+<li>It is diagnostic only and never fails the job.</li>
+</ul>
+</li>
+<li>
+<p><strong><code>[pg-activity-watch] plan</code> lines</strong> (#2536): for a stall that is active, with no wait event and
+  no blocker, the watcher also prints an <code>EXPLAIN</code> (plan only, never <code>ANALYZE</code>) of the stuck
+  statement.</p>
+<ul>
+<li><strong>Origin:</strong> the first real report (main pipeline 3105471449, <code>backend-test 4/8</code>,
+  2026-11-23) ruled a lock <strong>out</strong>. The stuck backend was <code>state=active wait=None/None</code>,
+  <code>blocked by pids: none</code>, and the same zero-row <code>card_parent_links</code> statement in
+  <code>parents_for_viewer</code> started again three more times (<code>query_start</code> 21:02, 21:10, 21:16,
+  21:22), so each run took minutes on CPU.</li>
+<li><strong>Connection:</strong> the <code>EXPLAIN</code> runs on the same database from a read-only connection with a
+  5 s connect timeout and a 20 s statement timeout. The connection is to the test database
+  and always closed, and the timeouts bound its life to about 25 s.</li>
+<li><strong>Residual risk:</strong> that is a reduced risk, not an eliminated one. A teardown inside that
+  window can still meet the open session, and an open session makes the shard's
+  <code>DROP DATABASE</code> fail with "being accessed by other users".</li>
+<li><strong>Also printed:</strong> how long planning took, the JIT thresholds to compare with the plan's
+  top-line cost, and <code>reltuples</code>/<code>relpages</code>/current pages/live/dead tuples and last
+  (auto)analyze for each table in the statement.</li>
+<li><strong>Setting:</strong> CI sets <code>track_activity_query_size=16384</code> on the <code>backend-test</code> and
+  <code>backend-test-pg-matrix</code> services for this.</li>
+<li>
+<p><strong>How to read it:</strong></p>
+<table>
+<thead>
+<tr>
+<th>What you see</th>
+<th>What it points at</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EXPLAIN failed after 20.0s: QueryCanceled</code></td>
+<td>the <strong>planner</strong> is the stall</td>
+</tr>
+<tr>
+<td>A fast EXPLAIN whose cost is over <code>jit_above_cost</code></td>
+<td>JIT</td>
+</tr>
+<tr>
+<td>A fast, cheap plan that still hangs</td>
+<td>the executor or the stats rows</td>
+</tr>
+<tr>
+<td><code>SyntaxError</code></td>
+<td>the statement text was cut short</td>
+</tr>
+</tbody>
+</table>
+</li>
+</ul>
+</li>
+<li>
+<p><strong><code>lock timeout</code> failure</strong> (#2536): a lock wait over 3 minutes fails the test with
+  <code>canceling statement due to lock timeout</code> instead of hanging.</p>
+<ul>
+<li>That failure is a real defect (a leaked or contended lock), not a flake. Read the
+  <code>[pg-activity-watch]</code> report just above it for the blocker.</li>
+<li>Five jobs set <code>PGOPTIONS=-c lock_timeout=180s</code>: <code>backend-test</code> and <code>backend-test-pg-matrix</code>
+  (which have the watcher), <code>backend-test-migrations</code> and <code>backend-test-slow</code> (via the shared
+  <code>*backend-test-variables</code> anchor) and <code>backend-test-pg-matrix-nightly</code> (via <code>extends</code>).</li>
+<li><code>backend-test-migrations</code> and <code>backend-test-slow</code> have the timeout but NOT the watcher, so a
+  lock timeout there comes with no <code>[pg-activity-watch]</code> report.</li>
+<li>There is deliberately no <code>statement_timeout</code> (it could fail legitimately slow statements)
+  and no <code>idle_in_transaction_session_timeout</code> (it would kill the leaked holder and hide it).</li>
+</ul>
+</li>
 </ul>
 
 
