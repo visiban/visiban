@@ -7,7 +7,6 @@
  * The delete confirm copy is built by `deleteSetPrompt` so entry requirements
  * (#1923, MR B) can append the requirements a delete widens.
  */
-import HelpLink from "../Common/HelpLink";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -24,6 +23,7 @@ import {
   FIELD_SET_CONFIRM_ESCAPE_PRIORITY, FIELD_SET_MENU_ESCAPE_PRIORITY, SET_CAP, apiErrorMessage, deleteSetPrompt, fieldOrderWith, sortByPosition,
 } from "../../utils/fieldSetSettings";
 import CheckboxDropdown from "../Common/CheckboxDropdown";
+import HelpLink from "../Common/HelpLink";
 import CopyFieldSetDialog from "./CopyFieldSetDialog";
 import FieldSetFieldList from "./FieldSetFieldList";
 import SortableRow from "./SortableRow";

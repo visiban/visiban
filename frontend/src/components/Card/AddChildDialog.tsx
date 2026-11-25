@@ -1,5 +1,4 @@
 import { useEffect, useId, useState } from "react";
-import HelpLink from "../Common/HelpLink";
 import axios from "axios";
 import { addChild, getChildBoardOptions } from "../../api/cards";
 import { patchBoard } from "../../api/boards";
@@ -10,6 +9,7 @@ import { linkErrorCopy } from "./cardParent";
 import { boardsCapLine } from "./childBoardOptionsCap";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
+import HelpLink from "../Common/HelpLink";
 
 interface Props {
   /** The parent card and the board it is on. */
@@ -250,6 +250,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
           ) : (!hasDefault && !fixedVisible && !offerDefault && options.boards.length > 0 && (
             <p className="text-xs text-fg-muted">A board admin can set one so this step is skipped.</p>
           )))}
+
+          {/* #2592: one child-cards link for the whole dialog, so it also shows when the board is fixed or children are off. */}
+          {!parentArchived && <HelpLink topic="child-cards" variant="text" className="self-start" />}
 
           {!fixedHidden && !fixedBlocked && !parentArchived && (
             <div className="flex flex-col gap-1">

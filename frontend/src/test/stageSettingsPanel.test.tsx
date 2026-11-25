@@ -57,6 +57,15 @@ describe('StageSettingsPanel help links (#2592)', () => {
     expect(screen.getByRole('region', { name: 'Sub-columns, in order' })).toContainElement(sub)
     expect(screen.getByRole('region', { name: 'Tracks, any order' })).toContainElement(tr)
   })
+
+  it('offers a Which tool? link at the Sub-columns and Tracks hints', () => {
+    renderPanel()
+    const links = screen.getAllByRole('link', { name: /Which tool\? about choosing between a checklist, a track and a child card/ })
+    expect(links).toHaveLength(2)
+    links.forEach((l) => expect(l).toHaveAttribute('href', expect.stringContaining('/features/breaking-work-down/#which-tool')))
+    expect(screen.getByRole('region', { name: 'Sub-columns, in order' })).toContainElement(links[0])
+    expect(screen.getByRole('region', { name: 'Tracks, any order' })).toContainElement(links[1])
+  })
 })
 
 describe('StageSettingsPanel (#2278)', () => {
