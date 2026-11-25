@@ -4544,8 +4544,8 @@ backend-license-check:
     # The lock, not requirements.txt: it is what the shipped images install.
     # Same flags as backend/Dockerfile: wheels only, except the one sdist-only
     # package, built with the hash-pinned backend from requirements-build.lock.
-    - pip install --quiet --only-binary :all: --require-hashes -r backend/requirements-build.lock
-    - pip install --quiet --only-binary :all: --no-binary dj-rest-auth --no-build-isolation --require-hashes -r backend/requirements.lock
+    - 'pip install --quiet --only-binary :all: --require-hashes -r backend/requirements-build.lock'
+    - 'pip install --quiet --only-binary :all: --no-binary dj-rest-auth --no-build-isolation --require-hashes -r backend/requirements.lock'
     - pip install --quiet pip-licenses==5.5.5
   script:
     - python scripts/license-gate.py --self-test
