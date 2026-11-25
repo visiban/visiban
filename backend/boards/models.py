@@ -1376,6 +1376,15 @@ class CardMovement(models.Model):
                 fields=["board", "moved_at", "card"],  # pragma: no mutate -- schema constant (migration-check)
                 name="movement_board_moved_card_idx",  # pragma: no mutate -- schema constant (migration-check)
             ),
+            # The JSON export's deleted_card_history (#2581): a board's
+            # card-less rows, oldest first. Without it the read walks every
+            # board's rows. Partial, so a live card's movement costs nothing.
+            # Built concurrently in migration 0146.
+            models.Index(
+                fields=["board", "moved_at", "id"],  # pragma: no mutate -- schema constant (migration-check)
+                condition=models.Q(card__isnull=True),  # pragma: no mutate -- schema constant (migration-check)
+                name="movement_deleted_board_idx",  # pragma: no mutate -- schema constant (migration-check)
+            ),
         ]
 
     def save(self, *args, **kwargs):
@@ -1703,6 +1712,13 @@ class CardActivity(models.Model):
                 fields=["assigned_by"],  # pragma: no mutate -- schema constant (migration-check)
                 name="activity_assigned_by_idx",  # pragma: no mutate -- schema constant (migration-check)
                 condition=models.Q(assigned_by__isnull=False),
+            ),
+            # The export's card-less read (#2581), as movement_deleted_board_idx.
+            # Built concurrently in migration 0147.
+            models.Index(
+                fields=["board", "created_at", "id"],  # pragma: no mutate -- schema constant (migration-check)
+                condition=models.Q(card__isnull=True),  # pragma: no mutate -- schema constant (migration-check)
+                name="activity_deleted_board_idx",  # pragma: no mutate -- schema constant (migration-check)
             ),
         ]
 

@@ -372,8 +372,12 @@ def _deleted_card_history_export(board, exported_uids=frozenset()):
     oldest first. A gate transition's ``movement_index`` points into the same
     entry's ``movements``. ``card_title`` is the newest snapshot among the
     card's rows. Read by the rows' own ``board``, as Board History reads them:
-    four queries whatever the size (each served by a ``(board, ...)`` index),
-    no per-card query.
+    four queries for fewer than ``_EXPORT_CHUNK_SIZE`` rows of each type, no
+    per-card query. Each type is read in chunks like the live cards
+    (:func:`_iter_export_rows`, #2581), so the model instances held are
+    bounded however many deleted cards a long-lived board has; the entries
+    themselves are still built whole. Movements and activities, the two large
+    types, each have a partial ``card IS NULL`` index (migrations 0146, 0147).
 
     Not in the CSV export: a CSV row is a card, and the CSV importer creates a
     card from every row, so a deleted card there would come back to life
@@ -385,25 +389,23 @@ def _deleted_card_history_export(board, exported_uids=frozenset()):
     each card once (an import would otherwise restore it twice, live and
     deleted).
     """
-    movements = (
+    movements = _iter_export_rows(
         CardMovement.objects.filter(board=board, card__isnull=True)
-        .select_related("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by")
-        .order_by("moved_at", "id")
+        .select_related("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"),
+        ("moved_at", "id"),
     )
-    activities = (
-        CardActivity.objects.filter(board=board, card__isnull=True)
-        .select_related("actor", "assigned_by")
-        .order_by("created_at", "id")
+    activities = _iter_export_rows(
+        CardActivity.objects.filter(board=board, card__isnull=True).select_related("actor", "assigned_by"),
+        ("created_at", "id"),
     )
-    blocks = (
+    blocks = _iter_export_rows(
         CardBlock.objects.filter(board=board, card__isnull=True)
-        .select_related("blocked_by", "unblocked_by")
-        .order_by("blocked_at", "id")
+        .select_related("blocked_by", "unblocked_by"),
+        ("blocked_at", "id"),
     )
-    gate_transitions = (
-        CardGateTransition.objects.filter(board=board, card__isnull=True)
-        .select_related("actor")
-        .order_by("created_at", "id")
+    gate_transitions = _iter_export_rows(
+        CardGateTransition.objects.filter(board=board, card__isnull=True).select_related("actor"),
+        ("created_at", "id"),
     )
     entries = {}
     newest = {}
@@ -451,15 +453,23 @@ def _deleted_card_history_export(board, exported_uids=frozenset()):
     )
 
 
-# Cards per chunk of the board export (#1962). Each chunk is one card query
+# Rows per chunk of the board export (#1962), cards and deleted-card history. Each chunk is one card query
 # plus one query per prefetch; a board of fewer than this many cards exports in
-# the same queries as before chunking (see _iter_export_cards). A full first
+# the same queries as before chunking (see _iter_export_rows). A full first
 # page, exactly this many cards, takes the id-list path and adds one query.
 _EXPORT_CHUNK_SIZE = 500
 
 
 def _iter_export_cards(queryset):
-    """Yield the export's cards in ``(position, id)`` order, one chunk at a time (#1962).
+    """Yield the export's cards in ``(position, id)`` order, one chunk at a time (#1962)."""
+    return _iter_export_rows(queryset, ("position", "id"))
+
+
+def _iter_export_rows(queryset, order):
+    """Yield ``queryset`` in ``order`` (ending in ``id``), one chunk at a time (#1962).
+
+    Cards, and since #2581 each record type of ``deleted_card_history``;
+    "card" below means any row of ``queryset``.
 
     The first chunk is a plain ``LIMIT`` page. A board of fewer than
     ``_EXPORT_CHUNK_SIZE`` cards is wholly in a not-full page, so it exports in one card
@@ -495,7 +505,7 @@ def _iter_export_cards(queryset):
     ``relations`` indexes, reproducible.
     """
     size = _EXPORT_CHUNK_SIZE
-    ordered = queryset.order_by("position", "id")
+    ordered = queryset.order_by(*order)
     first_page = list(ordered[:size])
     if len(first_page) < size:
         yield from first_page
