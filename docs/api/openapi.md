@@ -18,7 +18,9 @@ Open `http://localhost:8000/api/schema/swagger-ui/` while logged in, or download
 | `GET /api/schema/swagger-ui/` | Interactive Swagger UI — explore and test endpoints in the browser |
 | `GET /api/schema/redoc/` | ReDoc alternative — clean two-panel reference docs |
 
-All three endpoints require authentication (`IsAuthenticated`). A browser session (for example a logged-in Swagger UI) passes. A personal access token must carry the `read` scope (checked when the token authenticates, for any `GET`). A token limited to `mcp:*` scopes, or with an empty scope list, is refused with `403`. Legacy unscoped tokens keep full REST access and can fetch the spec.
+All three endpoints require authentication (`IsAuthenticated`). A browser session (for example a logged-in Swagger UI) passes.
+
+**Watch out:** A personal access token must carry the `read` scope (checked when the token authenticates, for any `GET`). A token limited to `mcp:*` scopes, or with an empty scope list, is refused with `403`. Legacy unscoped tokens keep full REST access and can fetch the spec.
 
 ## Accessing the spec by deployment type
 
@@ -65,7 +67,11 @@ kubectl port-forward svc/<release-name>-backend 8000:8000
 
 The CI pipeline runs `manage.py spectacular --validate` on every change to the backend. This catches schema regressions (missing serializers, ambiguous response shapes) before merge.
 
-**Not yet enforced: `--fail-on-warn`.** [#1108](https://gitlab.com/visiban/visiban/-/issues/1108) proposed also running `--fail-on-warn` in CI so the schema cannot acquire a new warning (`--validate` alone catches only OpenAPI-document-level errors). The codebase currently carries ~90 unique pre-existing warnings, mostly `@action`/APIView endpoints with no declared serializer and nested viewsets where drf-spectacular cannot resolve `board_pk`-scoped path parameter types without a request. Enabling `--fail-on-warn` today would fail CI on every branch. Enforcement is a tracked follow-up once that backlog shrinks; until then a clean `--validate --fail-on-warn` run is informative, not a merge gate.
+**Not yet enforced: `--fail-on-warn`.** [#1108](https://gitlab.com/visiban/visiban/-/issues/1108) proposed also running `--fail-on-warn` in CI so the schema cannot acquire a new warning (`--validate` alone catches only OpenAPI-document-level errors).
+
+**Yes, but:** The codebase currently carries ~90 unique pre-existing warnings, mostly `@action`/APIView endpoints with no declared serializer and nested viewsets where drf-spectacular cannot resolve `board_pk`-scoped path parameter types without a request. Enabling `--fail-on-warn` today would fail CI on every branch.
+
+Enforcement is a tracked follow-up once that backlog shrinks; until then a clean `--validate --fail-on-warn` run is informative, not a merge gate.
 
 ### Fuzz testing the contract against real responses (`backend-schema-fuzz`)
 
@@ -73,7 +79,9 @@ The CI pipeline runs `manage.py spectacular --validate` on every change to the b
 to know whether a view actually returns what its declared schema says. A view that bypasses
 its serializer (a bare `Response({...})` from an error path, an `@action` method, an admin
 endpoint) can be syntactically valid in the document while describing a response the server
-never sends. [#1080](https://gitlab.com/visiban/visiban/-/issues/1080) closes that gap with a
+never sends.
+
+**How it works:** [#1080](https://gitlab.com/visiban/visiban/-/issues/1080) closes that gap with a
 second job, `backend-schema-fuzz`, that boots a real backend against seeded demo data
 (`manage.py seed_demo_data`), authenticates as a normal, non-admin board member (see
 `accounts/management/commands/provision_fuzz_token.py` — it refuses to mint a token for a
@@ -90,7 +98,9 @@ this job (#1266). It never runs on a scheduled pipeline.
 The job sets `VISIBAN_DISABLE_THROTTLING=True` (#1569). Without it, a ~20k-request run from one
 token exhausted the DEBUG-time `9999/hour` budgets (and the public share-link scopes, which have
 no DEBUG bypass), so about 23% of responses were `429` from the DRF throttle rather than the view
-under test. The variable defaults to off, lifts every DRF throttle rate plus allauth's
+under test.
+
+**Watch out:** The variable defaults to off, lifts every DRF throttle rate plus allauth's
 `login_failed` gate, and `settings.py` refuses to start with it set unless `DEBUG=True`; it is not
 a production setting.
 
@@ -112,10 +122,16 @@ The partitions live in `scripts/fuzz_partitions.py`. Before fuzzing, every shard
 partition or more than one, if a partition selects no operation, or if the job's matrix does
 not list exactly the partitions. The matrix half of that check also runs, with the partition self-test, in the
 `fuzz-baseline-unobserved-selftest` job, which fires on a CI-file-only change that the shard
-jobs skip. So an operation can never go unfuzzed, or be fuzzed twice,
-without a job turning red. Each shard has `FUZZ_MAX_TIME=300`, so the total budget is
+jobs skip.
+
+**Why it matters:** So an operation can never go unfuzzed, or be fuzzed twice,
+without a job turning red.
+
+**By the numbers:** Each shard has `FUZZ_MAX_TIME=300`, so the total budget is
 900 seconds against 600 before, and the wall clock drops to about 300 seconds plus boot.
-`FUZZ_MAX_TIME` is the one knob for retuning the budget. To change the partitions, edit
+`FUZZ_MAX_TIME` is the one knob for retuning the budget.
+
+**How it works:** To change the partitions, edit
 `PARTITIONS` in the script and the matrix's `FUZZ_SHARD` list together; the check fails until
 they agree. Each shard fuzzes against `backend/schemathesis-baseline.json` filtered to its own
 partition. That keeps `st run`'s unobserved count and the after-script listing below from
@@ -126,7 +142,9 @@ reporting an entry as unobserved only because another shard owns its path.
 `--max-examples 100` and `--max-time 2400` seconds, against each MR shard's 10 and 300. Boot,
 seed, token, checks, and `backend/schemathesis-baseline.json` are shared, because the deep job
 and the MR job both `extends:` the same hidden template (`.backend-schema-fuzz-base`).
-It gets a fresh seed each night, printed the same way. It is `allow_failure: true` so a
+It gets a fresh seed each night, printed the same way.
+
+**Watch out:** It is `allow_failure: true` so a
 finding does not turn the shared Nightly pipeline red. A finding is still a real defect: when
 the fuzz itself ran and failed, the job files one tracking issue titled
 `backend-schema-fuzz-deep: nightly schema-fuzz finding`, or comments on it if it is already
@@ -136,25 +154,35 @@ scope. Without one, the job log shows what would have been filed.
 **Unobserved baseline entries (#1582).** `st run` reports only a count ("Unobserved entries: N").
 Every fuzz job also writes the JSON run report (`schemathesis-report.json`, a job artifact), and
 `after_script` runs `scripts/fuzz_baseline_unobserved.py`, which logs the id, operation and
-check of each unobserved baseline entry. It is log-only and never changes the job result. Prune an
+check of each unobserved baseline entry.
+
+**How it works:** It is log-only and never changes the job result. Prune an
 entry from `backend/schemathesis-baseline.json` only when both an MR-style run and the deep
 nightly list it as unobserved.
 
 **Lone surrogates (#2121).** schemathesis generates strings with `codec="utf-8"`, which cannot
 hold a lone surrogate (U+D800..U+DFFF), so the 500 fixed in #2085 was invisible to the fuzz. Clearing
 the codec does not help (hypothesis still excludes surrogates), so `backend/schemathesis_surrogates.py`
-wraps the `requests` transport's JSON serializer, loaded through `schemathesis_hooks.py`. It runs on the
+wraps the `requests` transport's JSON serializer, loaded through `schemathesis_hooks.py`.
+
+**How it works:** It runs on the
 way out, so the recorded `Case` keeps its valid body (schemathesis re-validates it after the scenario and
 a surrogate there crashes `st run`), and it acts only on cases sent as JSON: drf-spectacular declares JSON,
 form-urlencoded and multipart on nearly every serializer-bodied operation (only 2 of 80 are
 JSON-only), and a surrogate in a form body would crash the client rather than the server. For
 about one JSON case in ten it replaces the last character of one string value with a lone surrogate,
-which `requests` sends as the ASCII escape `\ud800`. Reach on the current schema: 198 operations, 80
+which `requests` sends as the ASCII escape `\ud800`.
+
+**By the numbers:** Reach on the current schema: 198 operations, 80
 with a request body, 77 declaring JSON, 62 with a string in the JSON body, so roughly 20 injections
-in a 10-example MR run and about ten times that in the deep nightly. The choice is a pure function of
+in a 10-example MR run and about ten times that in the deep nightly.
+
+The choice is a pure function of
 the body, so `--seed` replay stays deterministic, and no requests are added, so the budget is
 unchanged. A 5xx fails `status_code_conformance` like any undocumented status; a documented 400
-rejection passes. `boards/tests/test_schemathesis_surrogates.py` is the negative control: it runs the
+rejection passes.
+
+**How it works:** `boards/tests/test_schemathesis_surrogates.py` is the negative control: it runs the
 real `st run` CLI against a stub declaring all three media types and asserts that a handler which 500s
 on a surrogate fails the run and one that rejects it passes, that form and multipart cases are never
 mutated, and that `schemathesis_hooks.py` really imports and registers the hook.
@@ -201,14 +229,20 @@ schema and fails if any of them is missing from the hook's table.
 no usable password (social-only). Both password-change routes
 (`/auth/password/change/`, `/auth/change-password/`) skip the current-password check for such
 an account, but only from an interactive session; a request authenticated with the fuzz token
-is refused with `403` and nothing changes (#1609). Before that, the deep budget generated a
+is refused with `403` and nothing changes (#1609).
+
+**Watch out:** Before that, the deep budget generated a
 matching, valid new-password pair on 2026-10-11, the change revoked every Personal Access
-Token, and every request after it returned `401` (#1607). All three fuzz jobs still run
+Token, and every request after it returned `401` (#1607).
+
+All three fuzz jobs still run
 `provision_fuzz_token --set-random-password` as defense in depth: it gives a password-less
 target a random password that is never recorded, so those routes also require a current
 password the fuzzer cannot supply and answer `400`. The flag is off by default and is for
 throwaway CI databases only. On a real social-only account, a usable password would lift the
-verified-email gate on password reset. A run
+verified-email gate on password reset.
+
+**Watch out:** A run
 of `401`s in a fuzz job means the token stopped authenticating. It is not an API finding.
 
 **Server output is a job artifact, not job log.** All three fuzz jobs redirect `runserver` output
@@ -224,7 +258,9 @@ permission, lookup, and throttling failures all render as DRF's default `{"detai
 `visiban/schema_hooks.py` (a drf-spectacular `POSTPROCESSING_HOOKS` entry) documents that
 envelope for 401/403/404/429 on every operation that doesn't already declare a response for
 that status code, so `backend-schema-fuzz` has something to validate a real error response
-against instead of silently skipping an undocumented one. It never overwrites a response an
+against instead of silently skipping an undocumented one.
+
+It never overwrites a response an
 operation already declares — the card-mutation 409s (`WipLimitExceeded`, `VersionConflict`,
 etc. — see `boards/services/errors.py`) and the move/comments/checklist/share/members
 `@extend_schema` blocks from #1108 still win. The one exception is a declared `400`, which is
@@ -236,7 +272,9 @@ shape: an object keyed by field name (or `detail`), or an array of messages
 ([#1165](https://gitlab.com/visiban/visiban/-/issues/1165), closing the gap tracked in
 [#1124](https://gitlab.com/visiban/visiban/-/issues/1124)). A path-parameter-only lookup has
 no input of its own to refuse, but it can still answer the server-limit `400` described
-below ([#2140](https://gitlab.com/visiban/visiban/-/issues/2140)). Because it is a whole-class rule, a new
+below ([#2140](https://gitlab.com/visiban/visiban/-/issues/2140)).
+
+**Why it matters:** Because it is a whole-class rule, a new
 write endpoint gets its `400` for free and never needs a per-operation baseline entry.
 
 A form body over one of Django's upload limits is in that class too:
@@ -244,7 +282,9 @@ A form body over one of Django's upload limits is in that class too:
 urlencoded body, and `DATA_UPLOAD_MAX_MEMORY_SIZE` for the non-file parts of a multipart body.
 Django raises those as a `SuspiciousOperation`, which DRF does not catch and Django answers with
 an HTML page, so `visiban/parsers.py` re-raises them as DRF's `ParseError` from the form parsers
-in `DEFAULT_PARSER_CLASSES` ([#2072](https://gitlab.com/visiban/visiban/-/issues/2072)). A
+in `DEFAULT_PARSER_CLASSES` ([#2072](https://gitlab.com/visiban/visiban/-/issues/2072)).
+
+**Watch out:** A
 view that pins `parser_classes` must use those classes, not DRF's, or its oversize bodies go
 back to HTML.
 
@@ -254,9 +294,13 @@ store) is a `400` as well ([#2085](https://gitlab.com/visiban/visiban/-/issues/2
 offending top-level field, `{"<field>": ["Surrogate characters are not allowed: U+D800."]}`, the
 message a text field already gave. It answers `{"detail": "JSON parse error - ..."}` instead when
 the surrogate is in a key or in a non-object body, or when that field name is not a short plain
-identifier (a client-chosen name is never echoed unbounded). Two differences from before: only the
+identifier (a client-chosen name is never echoed unbounded).
+
+**Yes, but:** Two differences from before: only the
 first offending field is named, and a surrogate in a field the endpoint would have ignored (an
-unknown key, say) is now a `400` where it was a `200`. A valid pair such as an emoji
+unknown key, say) is now a `400` where it was a `200`.
+
+A valid pair such as an emoji
 (`"\ud83d\ude00"`) is accepted unchanged. A JSON-encoded value inside a string, such as a
 multi-select custom field value, is checked after it is decoded. The same refusal applies to a `JSONField` value sent form-encoded or multipart.
 
@@ -264,13 +308,17 @@ A request whose `Content-Type` declares a `charset` that Django must not decode 
 `400` with `{"detail": "Unsupported request charset. Use UTF-8."}`
 ([#2120](https://gitlab.com/visiban/visiban/-/issues/2120)). That is `utf-7`, `unicode-escape`,
 `raw-unicode-escape`, `punycode`, `idna` and `undefined`, and any non-text codec such as `hex`,
-`base64` or `rot13`. Django decodes form fields and multipart field and file names with the declared
+`base64` or `rot13`.
+
+**Why it matters:** Django decodes form fields and multipart field and file names with the declared
 charset, and a codec such as `utf-7` turns plain ASCII (`+2AA-`) into a lone surrogate that PostgreSQL
 cannot store; a multipart import with such a charset used to answer `500`. Every other charset
 (ISO-8859-2, Windows-1251, Shift_JIS, GBK, KOI8-R and so on) is accepted as before, and an unknown
 charset name is ignored, as before. The check runs in Django middleware, so it applies to every
 operation Django serves (the `/mcp` mount is outside Django and never sees it); the schema hook
-documents the `400` error envelope on every operation. The same codec test does not apply to a
+documents the `400` error envelope on every operation.
+
+**Yes, but:** The same codec test does not apply to a
 multipart part's own header: a part whose RFC 2231 `filename*` names a non-text codec (`hex`,
 `base64`) answers `400` with `{"detail": "Multipart form parse error - unsupported charset in a part header."}`
 ([#2151](https://gitlab.com/visiban/visiban/-/issues/2151)), where it used to be a `500` (Django 5.2.19 and later decode or ignore such a codec themselves).
@@ -296,10 +344,14 @@ before the view runs still conform. The declared body (move's `CardMoveVersionTy
 
 The branches are deliberately narrower than the validation-error shape above, which accepts any
 object: a union with that would stop a declared `400` constraining anything, such as the coded
-query-parameter `400`'s required `detail` and `code`. The union is `anyOf`, not `oneOf`: a body
+query-parameter `400`'s required `detail` and `code`.
+
+**Yes, but:** The union is `anyOf`, not `oneOf`: a body
 such as `{"detail": "x"}` can match both the declared schema and a pre-view branch, which `oneOf`
 would reject. A declared `400` with no body (a description only) gains the validation-error body
-instead, since it never described one. This changes the document, not the server: those `400`s
+instead, since it never described one.
+
+This changes the document, not the server: those `400`s
 were already sent, and `backend-schema-fuzz` failed on them depending on the seed.
 `test_schema_hooks.py` checks every operation's `400` against the pre-view bodies that operation
 can answer, so a new
@@ -326,7 +378,9 @@ still reported.
 
 The job uses a fresh random seed each run so it keeps exploring new inputs, but a failing
 case is deterministic for its input: a green re-run only means a different seed did not reach
-it. Do **not** retry the job or add a baseline entry to turn it green. (Only runner-infrastructure
+it. Do **not** retry the job or add a baseline entry to turn it green. (
+
+**Watch out:** Only runner-infrastructure
 failures are auto-retried, by the pipeline-wide `default:` block.)
 
 1. Read the `FAILURES` section of the job log for the operation, status, and `Test Case ID`.
@@ -387,7 +441,9 @@ surfaced the schema-accuracy bug #1108 fixed on `CardSerializer` and #1119 is tr
 `Group`/`GroupDetail` on several more serializers — filed as
 [#1123](https://gitlab.com/visiban/visiban/-/issues/1123) — plus a structural gap where most
 write endpoints' `400` validation-error response isn't documented at all — filed as
-[#1124](https://gitlab.com/visiban/visiban/-/issues/1124). Neither blocked this flip: both were
+[#1124](https://gitlab.com/visiban/visiban/-/issues/1124).
+
+**Why it matters:** Neither blocked this flip: both were
 recorded as scoped, justified entries in `backend/schemathesis-baseline.json`
 ([schemathesis's baseline mechanism](https://schemathesis.readthedocs.io/) — matched by
 operation + check + failure class, not by the random value generated, so it doesn't need
@@ -412,9 +468,9 @@ this paragraph is not re-synced on every future prune.
 
 The schema is generated live from the deployed code, so `GET /api/schema/` always reflects the exact version running behind it, consistent with the `/api/v1/` URL versioning scheme (see [`docs/api/authentication.md`](authentication.md) for the versioning contract).
 
-The schema's `info.version` is derived from the running instance's `APP_VERSION` (the same value `GET /api/v1/version/` returns, bare semver for a release tag), so it never drifts from the deployed release. An instance with no `APP_VERSION` set (or an empty one) reports `dev`.
+**How it works:** The schema's `info.version` is derived from the running instance's `APP_VERSION` (the same value `GET /api/v1/version/` returns, bare semver for a release tag), so it never drifts from the deployed release. An instance with no `APP_VERSION` set (or an empty one) reports `dev`.
 
-There is currently **no separately downloadable, per-release schema artifact** (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client (the MCP server's REST-client package, #511, is one) must fetch `/api/schema/` from a running instance of the version they target, not pin a static file. A versioned artifact on tags was proposal item 3 of #1108 and is deferred to a follow-up; it is release-tooling work (`scripts/release.sh`), not a schema-accuracy fix.
+**Yes, but:** There is currently **no separately downloadable, per-release schema artifact** (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client (the MCP server's REST-client package, #511, is one) must fetch `/api/schema/` from a running instance of the version they target, not pin a static file. A versioned artifact on tags was proposal item 3 of #1108 and is deferred to a follow-up; it is release-tooling work (`scripts/release.sh`), not a schema-accuracy fix.
 
 ## Adding annotations
 
@@ -449,7 +505,15 @@ def comments(self, request, ...):
 
 A `SerializerMethodField` that can return `None`, or a manually-declared nested serializer field on a nullable FK (e.g. `BoardUserSerializer(read_only=True)` on a `null=True` relation), must say so explicitly — add a `-> SomeType | None` return type hint to the `get_*` method, or pass `allow_null=True` to the nested field — otherwise drf-spectacular documents it as always-present and a generated client will reject the very responses the API actually sends (#1108; see `CardSerializer.get_last_moved_at`, `.assignee`, and `CardMovementSerializer.moved_by` in `backend/boards/serializers.py`).
 
-A `@action` that returns a bare list (`responses=SomeSerializer(many=True)`) on a viewset that paginates by default must pass `pagination_class=None` to `@action`. Without it, drf-spectacular treats any `many=True` response as a list view and wraps it in the viewset's paginated envelope. This happens on every HTTP method, POST included. The result is a `Paginated<Name>List` component (`{count, offset, page_size, results}`) plus `offset`/`page_size` query params that the action never honors. In `backend-schema-fuzz` this shows up as a `response_schema_conformance` failure with signature `x-bundled/schema1/type` and the message `[] is not of type "object"` at `/components/schemas/Paginated…List`. The cause is the envelope, not a serializer field. Do **not** set it on an action that really paginates through `self.paginate_queryset()` / `self.get_paginated_response()` (e.g. `export_history` in `backend/boards/views/import_export.py`). This has recurred three times: #1142 (reorder actions), the `GroupViewSet` list actions, and #1359 (`BoardViewSet.saved_filters`, `GroupViewSet.invite_links`). To sweep for it, generate the schema (`python manage.py spectacular --format openapi-json --file /tmp/schema.json`). List every operation whose response is `$ref: …/Paginated*List`. Any of those backed by a custom `@action` that never calls `paginate_queryset()` is the bug:
+A `@action` that returns a bare list (`responses=SomeSerializer(many=True)`) on a viewset that paginates by default must pass `pagination_class=None` to `@action`. Without it, drf-spectacular treats any `many=True` response as a list view and wraps it in the viewset's paginated envelope.
+
+**Watch out:** This happens on every HTTP method, POST included. The result is a `Paginated<Name>List` component (`{count, offset, page_size, results}`) plus `offset`/`page_size` query params that the action never honors.
+
+In `backend-schema-fuzz` this shows up as a `response_schema_conformance` failure with signature `x-bundled/schema1/type` and the message `[] is not of type "object"` at `/components/schemas/Paginated…List`. The cause is the envelope, not a serializer field.
+
+**Watch out:** Do **not** set it on an action that really paginates through `self.paginate_queryset()` / `self.get_paginated_response()` (e.g. `export_history` in `backend/boards/views/import_export.py`). This has recurred three times: #1142 (reorder actions), the `GroupViewSet` list actions, and #1359 (`BoardViewSet.saved_filters`, `GroupViewSet.invite_links`).
+
+**How it works:** To sweep for it, generate the schema (`python manage.py spectacular --format openapi-json --file /tmp/schema.json`). List every operation whose response is `$ref: …/Paginated*List`. Any of those backed by a custom `@action` that never calls `paginate_queryset()` is the bug:
 
 ```python
 @extend_schema(methods=["GET"], responses=SavedFilterSerializer(many=True))
@@ -458,10 +522,18 @@ def saved_filters(self, request, pk=None):
     ...
 ```
 
-A viewset that reads `self.kwargs`, `self.request.user`, or a URL parameter such as `board_pk` in `get_serializer_class()`, `get_serializer_context()`, `get_queryset()`, or a serializer's `__init__` must guard that code with `if getattr(self, "swagger_fake_view", False):` and return a safe default. drf-spectacular builds these views with no request and no URL kwargs, and an unguarded lookup makes it drop the serializer and silently emit an operation with no request body (`SwimlaneViewSet`, #1788; `VisibanPasswordChangeSerializer`, #1781). The failure prints `exception raised while getting serializer` to stderr and does not fail the build.
+A viewset that reads `self.kwargs`, `self.request.user`, or a URL parameter such as `board_pk` in `get_serializer_class()`, `get_serializer_context()`, `get_queryset()`, or a serializer's `__init__` must guard that code with `if getattr(self, "swagger_fake_view", False):` and return a safe default. drf-spectacular builds these views with no request and no URL kwargs, and an unguarded lookup makes it drop the serializer and silently emit an operation with no request body (`SwimlaneViewSet`, #1788; `VisibanPasswordChangeSerializer`, #1781).
 
-The same guard in `get_queryset()` is what lets drf-spectacular publish a view's django-filter parameters. Its django-filter extension needs the view's model, takes it from `queryset` or else from `get_queryset()`, and publishes no filter at all when that raises. The only trace is a `Failed to obtain model through view's queryset` warning on stderr. `CardViewSet` and `CardQueryViewSet` lost every filter on `GET /boards/{id}/cards/` and `GET /cards/` this way (#1887). Give each filter a `help_text`, which becomes the parameter's description. The project's `CodedDjangoFilterExtension` (`backend/visiban/filters.py`) publishes FilterSet parameters only on a viewset's `list` action, because that is the only action that runs `filter_queryset()`, and publishes every `BoundedIdFilter` as a 64-bit integer.
+**Watch out:** The failure prints `exception raised while getting serializer` to stderr and does not fail the build.
 
-A query parameter the view reads itself (`request.query_params.get(...)`) never reaches the schema on its own: no filter backend or paginator knows about it. Declare it with `OpenApiParameter` in the view's `@extend_schema`. For an `offset` read by `parse_offset()`, use `OFFSET_QUERY_PARAMETER` from `visiban/request_shape.py`. Read a free-text value that reaches an ORM lookup through `query_text()` from the same module. PostgreSQL refuses a NUL (0x00) in a text comparison, and `backend-schema-fuzz` sends one to every declared string parameter, so a raw `request.query_params.get()` feeding `icontains` or `__in` becomes a 500 as soon as the parameter is declared (#1887). This matters most for an `APIView` or `@action` that pages by hand, because an undeclared `offset` leaves a generated client stuck on page one (#1975). `boards/tests/test_query_param_schema_1887.py` fails on any `GET` that returns a page envelope (`results`) but declares no `offset`, `cursor` or `after`.
+The same guard in `get_queryset()` is what lets drf-spectacular publish a view's django-filter parameters. Its django-filter extension needs the view's model, takes it from `queryset` or else from `get_queryset()`, and publishes no filter at all when that raises. The only trace is a `Failed to obtain model through view's queryset` warning on stderr. `CardViewSet` and `CardQueryViewSet` lost every filter on `GET /boards/{id}/cards/` and `GET /cards/` this way (#1887).
+
+**How it works:** Give each filter a `help_text`, which becomes the parameter's description. The project's `CodedDjangoFilterExtension` (`backend/visiban/filters.py`) publishes FilterSet parameters only on a viewset's `list` action, because that is the only action that runs `filter_queryset()`, and publishes every `BoundedIdFilter` as a 64-bit integer.
+
+A query parameter the view reads itself (`request.query_params.get(...)`) never reaches the schema on its own: no filter backend or paginator knows about it.
+
+**How it works:** Declare it with `OpenApiParameter` in the view's `@extend_schema`. For an `offset` read by `parse_offset()`, use `OFFSET_QUERY_PARAMETER` from `visiban/request_shape.py`. Read a free-text value that reaches an ORM lookup through `query_text()` from the same module.
+
+**Watch out:** PostgreSQL refuses a NUL (0x00) in a text comparison, and `backend-schema-fuzz` sends one to every declared string parameter, so a raw `request.query_params.get()` feeding `icontains` or `__in` becomes a 500 as soon as the parameter is declared (#1887). This matters most for an `APIView` or `@action` that pages by hand, because an undeclared `offset` leaves a generated client stuck on page one (#1975). `boards/tests/test_query_param_schema_1887.py` fails on any `GET` that returns a page envelope (`results`) but declares no `offset`, `cursor` or `after`.
 
 See the [drf-spectacular docs](https://drf-spectacular.readthedocs.io/en/latest/customization.html) for full customization options.
