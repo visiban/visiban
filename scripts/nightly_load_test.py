@@ -961,6 +961,9 @@ def _self_test():
         def analytics_365(self):
             return self._go("a365", ([2000.0] * 3, 77.0))
 
+        def summary_probe(self):
+            return self._go("sum", [40.0] * 10)
+
         def concurrent(self):
             return self._go("conc", (wired_burst, [10.0] * 30, [], 9000, 333.0))
 
@@ -1242,7 +1245,7 @@ def _self_test():
         def json(self):
             if self.url.endswith("/cards/archived/"):
                 return {"count": 120, "results": []}
-            return {"cards": [{}] * 10}
+            return {"cards": [{}] * 10, "swimlanes": [{}] * 3}
 
     timeouts_used = []
 
@@ -1297,6 +1300,7 @@ def _self_test():
     _365_calls = [(i, w) for u, i, w in sample_calls if u == f"{root9}/analytics/?days=365"]
     if _365_calls != [(1, 0)]:
         failures.append(f"exit run ops: analytics_365 sampled (iterations, warmup) {_365_calls}, not one request, no warm-up [(1, 0)]")
+    _one_call("summary_probe", rec_ops.summary_probe, lambda u: u == f"{root9}/summary/")
     conc = rec_ops.concurrent()
     if conc[4] != hwm_mb or conc[3] != 55:
         failures.append(f"exit run ops: concurrent returned peak {conc[4]}, payload {conc[3]}")
@@ -1315,8 +1319,54 @@ def _self_test():
     del requested[:]
     fx = rec_ops.fixture()
     if sorted(requested) != sorted([f"{root9}/cards/archived/", f"{root9}/full/"]) \
-            or (fx["active_cards"], fx["archived_cards"], fx.get("declared_scale")) != (10, 120, 100):
+            or (fx["active_cards"], fx["archived_cards"], fx.get("declared_scale"), fx.get("swimlane_count")) != (10, 120, 100, 3):
         failures.append(f"exit run ops: fixture() read {requested} -> {fx}")
+
+    # The scale-100 summary probe (#2430): measured / refused / timeout / error / not-applicable,
+    # and only measured passes; it never moves the run's own pass/fail and never runs on a small fixture.
+    big = {**stress, "swimlane_count": EXIT_MIN_SWIMLANES}
+    _sp_ops = _StubOps()
+    _sp_ops.fixture = lambda: _sp_ops._go("fx", dict(big))
+    _sp_m = _collect_exit_measurements(_sp_ops, n_opens, cap1, n_opens)
+    if _sp_ops.calls[-2:] != ["idle", "sum"]:
+        failures.append(f"summary probe: on the scale-100 fixture it did not run last, after an idle wait: {_sp_ops.calls}")
+    _sp = _evaluate_summary_probe(_sp_m)
+    if (_sp["status"], _sp["value"], _sp["passed"]) != (STATUS_MEASURED, 40.0, True):
+        failures.append(f"summary probe: a measured run gave {_sp}")
+    _small_ops = _StubOps()
+    _small_m = _collect_exit_measurements(_small_ops, n_opens, cap1, n_opens)
+    _small = _evaluate_summary_probe(_small_m)
+    if "sum" in _small_ops.calls or (_small["status"], _small["value"], _small["passed"]) != (STATUS_NOT_APPLICABLE, None, False):
+        failures.append(f"summary probe: the small fixture ran it or did not report not-applicable: {_small}, {_small_ops.calls}")
+    for _label, _fx in (("one card short", {**big, "active_cards": EXIT_MIN_ACTIVE_CARDS - 1}),
+                        ("one swimlane short", {**big, "swimlane_count": EXIT_MIN_SWIMLANES - 1}),
+                        ("no swimlane count", dict(stress)), ("unreadable", {"active_cards": None}), ("absent", None)):
+        if _summary_probe_applies(_fx)[0] or _evaluate_summary_probe({"fixture": _fx})["passed"]:
+            failures.append(f"summary probe ({_label}): applied or passed on a fixture below the scale-100 shape")
+    if _summary_probe_applies(big)[0] is not True:
+        failures.append("summary probe: the scale-100 shape does not apply")
+    for _raises_kw, _want_status in (("sum", STATUS_REFUSED), ):
+        _r_ops = _StubOps()
+        _r_ops.fixture = lambda: _r_ops._go("fx", dict(big))
+        _r_ops.raises = (_raises_kw,)
+        _r = _evaluate_summary_probe(_collect_exit_measurements(_r_ops, n_opens, cap1, n_opens))
+        if (_r["status"], _r["value"], _r["passed"]) != (_want_status, None, False):
+            failures.append(f"summary probe: a refused request gave {_r}")
+    _t_ops = _StubOps()
+    _t_ops.fixture = lambda: _t_ops._go("fx", dict(big))
+    _t_ops.timeouts = ("sum",)
+    _t = _evaluate_summary_probe(_collect_exit_measurements(_t_ops, n_opens, cap1, n_opens))
+    if (_t["status"], _t["value"], _t["passed"]) != (STATUS_TIMEOUT, None, False):
+        failures.append(f"summary probe: a timed-out request gave {_t}")
+    if _evaluate_summary_probe({"fixture": big})["status"] != STATUS_ERROR:
+        failures.append("summary probe: an applicable fixture with no figure and no reason is not an error")
+    _sp_out = _exit_output(_sp_m, _evaluate_exit_run(_sp_m), n_opens, 2, cap1, n_opens)
+    if [p["status"] for p in _sp_out["probes"]] != [STATUS_MEASURED] or _sp_out["passed"] != all(
+            r["passed"] for r in _sp_out["checks"]):
+        failures.append("summary probe: it is missing from the artifact's probes or it moved the run's pass/fail")
+    if _exit_output(_small_m, _evaluate_exit_run(_small_m), n_opens, 2, cap1, n_opens)["probes"][0]["status"] \
+            != STATUS_NOT_APPLICABLE:
+        failures.append("summary probe: the artifact does not say not-applicable on a small fixture")
 
     if failures:
         print("SELF-TEST FAILED:", file=sys.stderr)
@@ -1608,6 +1658,16 @@ _EXIT_IDLE_PROBE_PATH = "metrics/wip-age/"
 # In the over-cap burst, 503 analytics_busy and 422 analytics_too_large are the MEASUREMENT (see
 # _evaluate_over_cap), not failures.
 STATUS_MEASURED, STATUS_REFUSED, STATUS_TIMEOUT, STATUS_ERROR = "measured", "refused", "timeout", "error"
+# The scale-100 summary probe (#2430, deferred from #2432) adds one more status, used by that probe
+# alone: the fixture is too small for the probe to say anything (the scheduled nightly's, say), so
+# it was not run. Never a pass, never silent: the record says so.
+STATUS_NOT_APPLICABLE = "not-applicable"
+# The probe's fixture floor: --scale 100 seeds 10 swimlanes per scale step, so 1,000 swimlanes and
+# 11,000-13,000 active cards (EXIT_MIN_ACTIVE_CARDS). It is a probe, not a bar: no limit is set
+# until a run shows what the shape costs, so it is reported beside the checks and never changes
+# the run's pass/fail.
+EXIT_MIN_SWIMLANES = 1000
+EXIT_SUMMARY_PROBE = "summary_scale100_p95_ms"
 
 
 def _bar(name, value, limit, unit, lower_is_better=True):
@@ -1877,6 +1937,43 @@ def _evaluate_exit_run(m):
     return records
 
 
+def _summary_probe_applies(fixture):
+    """(applies, why not): the summary probe needs the scale-100 shape (pure; self-tested).
+
+    Absent or unreadable counts do not apply: a probe that cannot see its fixture is never run
+    and never reported as measured (#1075).
+    """
+    active, swimlanes = (fixture or {}).get("active_cards"), (fixture or {}).get("swimlane_count")
+    if not isinstance(active, int) or not isinstance(swimlanes, int):
+        return False, "the fixture's card and swimlane counts were not read"
+    if active < EXIT_MIN_ACTIVE_CARDS or swimlanes < EXIT_MIN_SWIMLANES:
+        return False, (f"{active} active cards and {swimlanes} swimlanes, below the scale-100 shape "
+                       f"({EXIT_MIN_ACTIVE_CARDS} cards, {EXIT_MIN_SWIMLANES} swimlanes): seed with LOAD_TEST_SCALE=100")
+    return True, ""
+
+
+def _evaluate_summary_probe(m):
+    """The scale-100 board_summary probe's record (pure; self-tested). Informational, not a bar.
+
+    ``status`` is measured, refused, timeout, error or not-applicable. Only ``measured`` carries a
+    value, and ``passed`` means exactly that: it was measured. The run's own ``passed`` ignores it
+    (a probe has no limit yet), so it is reported in ``probes``, beside ``checks``.
+    """
+    applies, why = _summary_probe_applies(m.get("fixture"))
+    rec = {"check": EXIT_SUMMARY_PROBE, "value": None, "bar": None, "unit": "ms", "informational": True}
+    failure = m.get("failures", {}).get(EXIT_SUMMARY_PROBE)
+    if failure:
+        rec["status"], rec["detail"] = failure
+    elif not applies:
+        rec["status"], rec["detail"] = STATUS_NOT_APPLICABLE, "not run: " + why
+    elif m.get(EXIT_SUMMARY_PROBE) is None:
+        rec["status"], rec["detail"] = STATUS_ERROR, "not measured"
+    else:
+        rec["status"], rec["value"] = STATUS_MEASURED, round(m[EXIT_SUMMARY_PROBE], 1)
+    rec["passed"] = rec["status"] == STATUS_MEASURED
+    return rec
+
+
 def _collect_exit_measurements(ops, concurrency, cap, users, checkpoint=None):
     """Run every exit-run measurement through *ops*, never letting one abort the rest.
 
@@ -1958,6 +2055,15 @@ def _collect_exit_measurements(ops, concurrency, cap, users, checkpoint=None):
     if a365:
         m["analytics_365_ms"], m["analytics_365_rss_growth_mb"] = _percentile(a365[0], 95), a365[1]
     saved()
+    # The scale-100 summary probe (#2430): after everything else, so it can never delay or hide a
+    # bar, and only when the fixture is the scale-100 shape; otherwise _evaluate_summary_probe
+    # reports it not-applicable. It is a plain request, but it still waits for an idle server so
+    # an earlier timed-out request's CPU does not land in its latency.
+    if _summary_probe_applies(m.get("fixture"))[0]:
+        sp = attempt((EXIT_SUMMARY_PROBE,), ops.summary_probe)
+        if sp:
+            m[EXIT_SUMMARY_PROBE] = _percentile(sp, 95)
+        saved()
     return m
 
 
@@ -2087,6 +2193,8 @@ def _exit_output(m, records, concurrency, rounds, cap, users, complete=True):
         "idle_wait_budget_seconds": EXIT_IDLE_WAIT_SECONDS,
         "idle_waits_s": m.get("idle_waits_s", {}),
         "checks": records,
+        # Informational measurements with no bar yet (#2430); never part of "passed".
+        "probes": [_evaluate_summary_probe(m)],
         "passed": all(r["passed"] for r in records),
     }
 
@@ -2116,7 +2224,9 @@ class _ExitOps:
         archived.raise_for_status()
         full = self.session.get(f"{self.root}/full/", timeout=EXIT_FIXTURE_TIMEOUT_SECONDS)
         full.raise_for_status()
-        return {**self.declared, "active_cards": len(full.json().get("cards", [])),
+        body = full.json()
+        return {**self.declared, "active_cards": len(body.get("cards", [])),
+                "swimlane_count": len(body.get("swimlanes", [])),
                 "archived_cards": _count_of(archived.json())}
 
     def wait_idle(self):
@@ -2159,6 +2269,11 @@ class _ExitOps:
         # RSS GROWTH, not the peak: #2451's bar is how much one request adds.
         t365, _, growth = self.peak_of(self._time_365)
         return t365, growth
+
+    def summary_probe(self):
+        # board_summary on the scale-100 shape (#2430, from #2432): per-swimlane counts over about
+        # 1,000 swimlanes and 12k cards. Latency samples only; see _evaluate_summary_probe.
+        return self._time("aged_board_summary", self.warmup)
 
     def concurrent(self):
         (outcomes, unread, errors, big), peak, _ = self.peak_of(self._concurrent)
@@ -2272,6 +2387,9 @@ def run_exit(args):
               + (f" - {r['detail']}" if r.get("detail") else ""))
     output = _exit_output(m, records, concurrency, args.exit_rounds, args.exit_max_concurrent, users)
     _write_json_atomic(out_path, output)
+    for p in output["probes"]:
+        print(f"  PROBE [{p['status']}] {p['check']}: {p['value']} {p['unit']} (no bar)"
+              + (f" - {p['detail']}" if p.get("detail") else ""))
     print(f"Wrote exit-run results to {out_path}")
     if not output["passed"]:
         print("\nFAIL - exit-run bar(s) not met: " + ", ".join(r["check"] for r in records if not r["passed"]), file=sys.stderr)

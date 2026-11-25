@@ -1,0 +1,1 @@
+Re-derive every nightly load test budget (latency and peak memory) from scheduled run 18346366386, so the aged-board, linked-board, overview, children-view and movements scenarios are now gated and nothing is pending, and add an opt-in `board_summary` probe of the 1,000-swimlane, 12k-card shape to the exit run (#2430).
