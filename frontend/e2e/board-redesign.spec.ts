@@ -34,8 +34,9 @@ async function openBoard(page: Page, theme: 'light' | 'dark', search = '') {
   }, theme)
   await routeAuth(page)
   await routeBoard(page, REDESIGN_BOARD as unknown as Parameters<typeof routeBoard>[1])
-  // The activity drawer lists live `card.moved` events (it keeps no history of its own), so
-  // replay the sample's moves over the socket after it connects: the reference shows seven.
+  // The activity drawer's saved-history request (#2596) is not routed here and comes back
+  // empty, so replay the sample's moves as live `card.moved` events after the socket
+  // connects: the reference shows seven.
   // Each event carries the card as it already is on the board, so the board does not change.
   await page.routeWebSocket(`**/ws/boards/${REDESIGN_BOARD.id}/`, (ws) => {
     ws.send(JSON.stringify({ event: 'connected', data: {} }))
@@ -44,7 +45,7 @@ async function openBoard(page: Page, theme: 'light' | 'dark', search = '') {
         const card = REDESIGN_BOARD.cards.find((c) => c.uid === m.card_uid)
         ws.send(JSON.stringify({
           event: 'card.moved',
-          data: { card, movement: { from_column_name: m.from_column_name, to_column_name: m.to_column_name, user: m.moved_by } },
+          data: { card, movement: { from_column_name: m.from_column_name, to_column_name: m.to_column_name, moved_by: m.moved_by } },
         }))
       }
     }, 1_000)
