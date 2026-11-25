@@ -421,6 +421,24 @@ describe('Webhooks tab — detail', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'hooks.zapier.com/…/k3f9' })).toHaveFocus())
   })
 
+  it('re-enable focuses the heading in the same update that closes the confirm (#2608)', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'failures', disabled_at: minsAgo(3) })])
+    let answer!: (s: WebhookSubscription) => void
+    m.reenable.mockReturnValue(new Promise((resolve) => { answer = resolve }))
+    await renderTab()
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Turn on again' }))
+    await user.click(screen.getByRole('button', { name: 'Turn on' }))
+    answer(sub())
+    let focused: Element | null = null
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Turn on' })).toBeNull()
+      focused = document.activeElement
+    })
+    expect(focused).toBe(screen.getByRole('heading', { name: 'hooks.zapier.com/…/k3f9' }))
+  })
+
   it('announcements name the position and never the address', async () => {
     const user = setup()
     m.list.mockResolvedValue([

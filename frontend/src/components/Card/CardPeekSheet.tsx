@@ -328,6 +328,14 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     if (!moveOpen) setReasonOpen(false);
   }, [moveOpen]);
 
+  // Counts hard refusals of a forced move. That commit drops the focused control (the override link or the
+  // reason form's submit) and re-enables "Move card", which takes focus in it (#2608).
+  const moveSubmitRef = useRef<HTMLButtonElement>(null);
+  const [hardRefusals, setHardRefusals] = useState(0);
+  useLayoutEffect(() => {
+    if (hardRefusals > 0) moveSubmitRef.current?.focus();
+  }, [hardRefusals]);
+
   const forceMove = async (reason?: string) => {
     if (!onForceMoveCard || forcingRef.current || movesPaused) return;
     forcingRef.current = true;
@@ -341,7 +349,10 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         setMoveError(moveFailureMessage(result.error));
         setMoveRefusal(refusal);
         // The typed reason survives any failure but a hard block (#1923).
-        if (refusal !== null && isHardLimit(refusal.code)) setReasonOpen(false);
+        if (refusal !== null && isHardLimit(refusal.code)) {
+          setReasonOpen(false);
+          setHardRefusals((n) => n + 1);
+        }
         return;
       }
       setMoveError(null);
@@ -690,7 +701,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
               />
             )}
             {!reasonOpen && <div className="flex gap-2">
-              <button type="button" disabled={moving} onClick={submitMove} aria-describedby={forceHint ? `${refusalId}-hint` : undefined} className="disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">{moving ? "Moving..." : "Move card"}</button>
+              <button ref={moveSubmitRef} type="button" disabled={moving} onClick={submitMove} aria-describedby={forceHint ? `${refusalId}-hint` : undefined} className="disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">{moving ? "Moving..." : "Move card"}</button>
               <button type="button" disabled={moving} onClick={() => setMoveOpen(false)} className="disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary-emphasis text-fg-secondary hover:text-fg rounded-md px-3 py-2 text-sm min-h-[44px] sm:min-h-0 hover:bg-surface-hover">Cancel</button>
             </div>}
           </div>

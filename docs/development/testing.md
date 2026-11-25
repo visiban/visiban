@@ -299,11 +299,12 @@ wait on nothing, and page-wide queries too slow for the timeout):
 - [ ] **Wait for what the next line asserts (#2608).** A `findBy*` for text the first render already
   shows (a column name in a status strip) waits on nothing; the lines after it race the fetch.
   Wait for the fetched state itself (`No history yet.`), as `cardPeekSheet.test.tsx` does.
-- [ ] **Scope queries in a large fixture (#2608).** A page-wide `getByLabelText` or `getByRole`
-  walks every element: on a 50-row Users page three label lookups were about 70% of the test and
-  passed the 5 s timeout on a loaded runner. Query `within()` the form or row instead (the
-  `addUser` and `rowOf` helpers in `adminUsersFilters2501.test.tsx`), and measure a slow test
-  per step before raising its timeout.
+- [ ] **Keep a large fixture cheap (#2608).** A page-wide `getByRole` or `getByLabelText` walks the
+  whole document, and every extra row is also rendered on each update; a test on a 50-row Users
+  page can pass locally and exceed the 5 s timeout on a loaded runner. Query `within()` the form
+  or row (the `addUser` and `rowOf` helpers in `adminUsersFilters2501.test.tsx`), and where the
+  server sets the page size and the size is not what is under test, serve a small page. Measure a
+  slow test per step before raising its timeout.
 
 ## Writing tests that catch mutations
 

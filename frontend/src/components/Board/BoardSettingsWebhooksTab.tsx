@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Spinner from "../Common/Spinner";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { relativeTime } from "../../utils/relativeTime";
@@ -520,6 +520,13 @@ export default function BoardSettingsWebhooksTab({
     else if (target.startsWith("manage:")) manageRefs.current.get(Number(target.slice(7)))?.focus();
   }, [pendingFocus]);
 
+  // Counts successful re-enables. The commit that closes the confirm drops its focused button, so the status
+  // heading takes focus in that same commit (#2608); the pendingFocus hop above is a passive effect.
+  const [reenabled, setReenabled] = useState(0);
+  useLayoutEffect(() => {
+    if (reenabled > 0) rootRef.current?.querySelector<HTMLElement>("[data-webhook-status-heading]")?.focus();
+  }, [reenabled]);
+
   // Deep link: the first webhook that was turned off automatically, once.
   useEffect(() => {
     if (!focusFirstStopped || deepLinkDoneRef.current || subs === null) return;
@@ -862,7 +869,7 @@ export default function BoardSettingsWebhooksTab({
             replaceSub(await guarded(() => reenableWebhook(boardId, sub.id, resumeFrom, password)));
             setConfirm(null);
             setLive(`${webhookPosition(subs, sub.id)} is on.`);
-            setPendingFocus("detail-heading");
+            setReenabled((n) => n + 1);
           })}
           onRotate={(overlapSeconds) => whileConfirmRuns(async () => {
             let rotated;

@@ -1042,9 +1042,9 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
     if (!showMovePopover) setOverrideReasonOpen(false);
   }, [showMovePopover]);
 
-  // The popover's Move button is disabled while the override is in flight, so
-  // it can only take focus after the render that re-enables it.
-  useEffect(() => {
+  // The popover's Move button is disabled while the override is in flight, so it can only take focus after the
+  // render that re-enables it. A layout effect: that commit also drops the focused reason-form submit (#2608).
+  useLayoutEffect(() => {
     if (moveForcing || !focusMoveSubmitRef.current) return;
     focusMoveSubmitRef.current = false;
     moveSubmitRef.current?.focus();
