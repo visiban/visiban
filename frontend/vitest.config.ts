@@ -16,6 +16,11 @@ export default defineConfig({
     // would hide the next one. Local runs stay strict (no retry) so a flake
     // surfaces for the dev who introduced it. (#1304, #1319)
     retry: process.env.CI ? 1 : 0,
+    // Shared CI runners can run the suite almost 3x slower than at their best,
+    // and tests that take 2-3s in a green job then cross Vitest's 5s default
+    // (#2610). Only the CI budget is larger: a hang still fails, and local runs
+    // keep the default so a slow test is still noticed.
+    testTimeout: process.env.CI ? 15_000 : 5_000,
     // Restrict test discovery to this project's src/ so agent worktrees in
     // .claude/worktrees/ are not picked up when Vitest is run from the repo root.
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
