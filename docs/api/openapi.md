@@ -124,7 +124,7 @@ not list exactly the partitions. The matrix half of that check also runs, with t
 `fuzz-baseline-unobserved-selftest` job, which fires on a CI-file-only change that the shard
 jobs skip.
 
-**Why it matters:** So an operation can never go unfuzzed, or be fuzzed twice,
+**Why it matters:** an operation can never go unfuzzed, or be fuzzed twice,
 without a job turning red.
 
 **By the numbers:** Each shard has `FUZZ_MAX_TIME=300`, so the total budget is
@@ -231,7 +231,7 @@ no usable password (social-only). Both password-change routes
 an account, but only from an interactive session; a request authenticated with the fuzz token
 is refused with `403` and nothing changes (#1609).
 
-**Watch out:** Before that, the deep budget generated a
+Before that, the deep budget generated a
 matching, valid new-password pair on 2026-10-11, the change revoked every Personal Access
 Token, and every request after it returned `401` (#1607).
 
@@ -378,9 +378,7 @@ still reported.
 
 The job uses a fresh random seed each run so it keeps exploring new inputs, but a failing
 case is deterministic for its input: a green re-run only means a different seed did not reach
-it. Do **not** retry the job or add a baseline entry to turn it green. (
-
-**Watch out:** Only runner-infrastructure
+it. Do **not** retry the job or add a baseline entry to turn it green. (Only runner-infrastructure
 failures are auto-retried, by the pipeline-wide `default:` block.)
 
 1. Read the `FAILURES` section of the job log for the operation, status, and `Test Case ID`.
@@ -443,7 +441,7 @@ surfaced the schema-accuracy bug #1108 fixed on `CardSerializer` and #1119 is tr
 write endpoints' `400` validation-error response isn't documented at all — filed as
 [#1124](https://gitlab.com/visiban/visiban/-/issues/1124).
 
-**Why it matters:** Neither blocked this flip: both were
+Neither blocked this flip: both were
 recorded as scoped, justified entries in `backend/schemathesis-baseline.json`
 ([schemathesis's baseline mechanism](https://schemathesis.readthedocs.io/) — matched by
 operation + check + failure class, not by the random value generated, so it doesn't need

@@ -127,7 +127,7 @@ Body: `url` (required), `name` (optional, at most 200 characters), `event_types`
 
 The `201` response is the subscription object plus `url` and `secret`, with `Cache-Control: no-store`.
 
-**Watch out:** **This is the only response that contains them.** The secret is `whsec_` followed by 43 URL-safe characters.
+**This is the only response that contains them.** The secret is `whsec_` followed by 43 URL-safe characters.
 
 **How it works:** A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at the id of the newest event a webhook can receive: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id of such an event instead, and at `0` on a board that never had one.
 
