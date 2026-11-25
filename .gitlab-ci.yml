@@ -3639,6 +3639,26 @@ docs-version-accuracy:
     - bash scripts/check-docs-version-accuracy.sh --self-test
     - bash scripts/check-docs-version-accuracy.sh
 
+# In-app help links must resolve (#2591): every topic in the help registry
+# (frontend/src/help/topics.ts) has to point at a docs page and heading/<a id>
+# anchor that exists. A renamed heading otherwise opens the right page at the
+# top and nobody notices. Offline: reads docs/*.md, no build, no network.
+help-link-anchors:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: &help-link-anchors-paths
+        - docs/**/*
+        - frontend/src/help/**/*
+        - scripts/check-help-link-anchors.py
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *help-link-anchors-paths
+  script:
+    - python3 scripts/check-help-link-anchors.py --self-test
+    - python3 scripts/check-help-link-anchors.py
+
 # ─── Frontend — test ──────────────────────────────────────────────────────────
 
 frontend-test:
