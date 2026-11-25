@@ -279,6 +279,17 @@ def _require_group_member(user, group):
 # (#2624). See _evict_lost_board_access for the trade-off.
 _EVICTION_CHUNK_SIZE = 50
 
+# Most boards one group removal sends a board-channel ``member.removed`` to
+# (#2624), like ``broadcast.INHERITED_ROW_FANOUT_MAX`` for the subgroup
+# fan-out. The eviction runs in the request's post-commit callback, one feed
+# row and one channel-layer publish per board, so a subtree with thousands of
+# boards would hold the request for thousands of writes. Past the cap the
+# remaining boards (by id) are not told: the removed user's sockets on them
+# close at the consumer's periodic access re-check (docs/api/websockets.md,
+# "Access re-check and eviction"), and other viewers' rosters converge on
+# their next refetch. The skip is logged so an operator can see it.
+BOARD_EVICTION_FANOUT_MAX = 500
+
 
 def _subtree_group_ids(group_pk):
     """Return the ids of ``group_pk`` and every group below it, to the depth cap.
@@ -358,17 +369,19 @@ def _evict_lost_board_access(user_id, group_pk, pre_read_board_ids):
     **One role resolution.** The roles come from ``get_board_roles`` in a
     fixed number of queries, never ``get_board_role`` per board.
 
-    **Fan-out cap: chunked, not truncated.** Every board that lost access still
-    gets its own ``member.removed`` frame: the event shape and the per-board
-    channel are the WebSocket contract, and the frame is the fast eviction
-    path. Truncating at N boards would leave the rest to the consumer's
-    periodic access re-check, a delay of seconds on a socket that is still
-    streaming a board the user can no longer read. What is capped is the
-    transaction: at most ``_EVICTION_CHUNK_SIZE`` feed rows per transaction.
-    Each feed INSERT takes its board's feed lock in shared mode until the
-    transaction ends, so one transaction for the whole subtree would hold every
-    board's feed lock for the whole fan-out, and one transaction per board
-    costs a commit round trip per board. Fifty bounds both.
+    **Fan-out cap, then chunks.** At most ``BOARD_EVICTION_FANOUT_MAX`` boards
+    that lost access get a ``member.removed`` frame, the lowest ids first, as
+    the subgroup fan-out caps itself at ``INHERITED_ROW_FANOUT_MAX``. The frame
+    is the fast eviction path, not the only one: on a board past the cap the
+    removed user's sockets close at the consumer's periodic access re-check
+    (within about 7 seconds on a board with traffic, 30 to 40 on a quiet one),
+    which runs whether or not any frame is sent. The skip is logged with the
+    group id and the counts only. Within the cap, at most
+    ``_EVICTION_CHUNK_SIZE`` feed rows are written per transaction. Each feed
+    INSERT takes its board's feed lock in shared mode until the transaction
+    ends, so one transaction for the whole fan-out would hold every board's
+    feed lock until the last write, and one transaction per board costs a
+    commit round trip per board. Fifty bounds both.
     """
     from accounts.models import User
     from boards.models import Board
@@ -389,6 +402,14 @@ def _evict_lost_board_access(user_id, group_pk, pre_read_board_ids):
         Board.objects.filter(pk__in=board_ids).select_related(GROUP_ANCESTOR_SELECT_RELATED),
     )
     lost = sorted(bid for bid, role in roles.items() if role is None)
+    if len(lost) > BOARD_EVICTION_FANOUT_MAX:
+        logger.warning(
+            "group member board eviction fan-out capped: group_id=%s boards=%s sent=%s",
+            group_pk,
+            len(lost),
+            BOARD_EVICTION_FANOUT_MAX,
+        )
+        lost = lost[:BOARD_EVICTION_FANOUT_MAX]
     for start in range(0, len(lost), _EVICTION_CHUNK_SIZE):
         _record_eviction_chunk(lost[start:start + _EVICTION_CHUNK_SIZE], user_id)
 
@@ -1226,7 +1247,12 @@ class GroupViewSet(viewsets.ModelViewSet):
                     """
                     _evict_lost_board_access(uid, gid, board_ids)
 
-                transaction.on_commit(_evict_stale_ws)
+                # robust: the membership row is already gone when this runs,
+                # so a failure here must not answer 500 for a removal that
+                # committed, nor skip the group-channel callback registered
+                # below. Django logs the exception; the consumer's periodic
+                # access re-check still closes the removed user's sockets.
+                transaction.on_commit(_evict_stale_ws, robust=True)
 
                 # Additive: notify the group channel so other admins viewing the
                 # group page see the members list converge in real time. This is
@@ -1234,8 +1260,11 @@ class GroupViewSet(viewsets.ModelViewSet):
                 # stale board connections) — the group channel drives the members
                 # panel. New event type; no existing payload shape changed (#1051).
                 # Also sent to each subgroup whose members panel listed the user
-                # as inherited and where they lost access (#2168); the subtree
-                # was snapshotted above, before the delete.
+                # as inherited and where they lost access (#2168). The subtree
+                # read above ran before the transaction, so a subgroup created
+                # under the group concurrently is missing from it; the callback
+                # unions it with a fresh read after commit, as the board-channel
+                # eviction does (#2624).
                 group_id = group.pk
 
                 def _broadcast_group_member_removed(
@@ -1247,9 +1276,12 @@ class GroupViewSet(viewsets.ModelViewSet):
                     # removed naming so one frontend socket layer handles both.
                     # A subgroup that keeps the user through a farther ancestor
                     # gets member.updated with its new inherited row (#2175).
-                    broadcast_member_removed(gid, uid, sub_ids, removed_role=role)
+                    descendants = sub_ids | _subtree_group_ids(gid)
+                    broadcast_member_removed(gid, uid, descendants, removed_role=role)
 
-                transaction.on_commit(_broadcast_group_member_removed)
+                # robust for the same reason as the eviction above: the fresh
+                # subtree read runs after the removal committed.
+                transaction.on_commit(_broadcast_group_member_removed, robust=True)
 
             return Response(status=status.HTTP_204_NO_CONTENT)
         # PATCH — update role

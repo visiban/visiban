@@ -8,8 +8,13 @@ Three properties of ``groups.views._evict_lost_board_access``:
    helper, which the view calls after its read and before it deletes the row.
 2. The post-commit role resolution is batched (``get_board_roles``), so the
    callback's query count does not grow with the number of boards.
-3. The fan-out is chunked: at most ``_EVICTION_CHUNK_SIZE`` boards per
-   transaction, and no board that lost access is dropped.
+3. The fan-out is capped at ``BOARD_EVICTION_FANOUT_MAX`` boards (the rest
+   are logged and left to the consumer's periodic access re-check) and, within
+   the cap, chunked: at most ``_EVICTION_CHUNK_SIZE`` boards per transaction.
+4. The group-channel ``member.removed`` also reaches a subgroup created
+   between the pre-transaction read and the commit.
+5. Both post-commit callbacks are robust: an eviction failure still answers
+   204 and still sends the group-channel frame.
 """
 from unittest.mock import patch
 
@@ -42,6 +47,15 @@ class _Base(TestCase):
         return board
 
     def _remove(self):
+        with patch("groups.broadcast.broadcast_group_event") as group_send:
+            evicted = self._remove_board_frames()
+        self.group_frames = [
+            c.args[0] for c in group_send.call_args_list
+            if c.args[1] == "member.removed" and c.args[2] == {"user_id": self.target.pk}
+        ]
+        return evicted
+
+    def _remove_board_frames(self):
         with patch("boards.broadcast.broadcast_board_event") as send:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.delete(
@@ -84,6 +98,20 @@ class ConcurrentPlacementIsEvictedTests(_Base):
 
         late, evicted = self._remove_with_placement(place)
         self.assertEqual(evicted, [late.pk])
+
+    def test_subgroup_created_after_read_gets_group_channel_frame(self):
+        """The group channel's fan-out unions the pre-read subtree with a fresh
+        read after commit, so a subgroup created in the window is told too."""
+        created = {}
+
+        def place():
+            created["child"] = Group.objects.create(
+                name="late child", owner=self.admin, parent=self.group
+            )
+            return self._board(created["child"], "late in child")
+
+        self._remove_with_placement(place)
+        self.assertCountEqual(self.group_frames, [self.group.pk, created["child"].pk])
 
     def test_board_moved_in_with_direct_membership_is_not_evicted(self):
         def place():
@@ -154,11 +182,47 @@ class EvictionFanOutIsChunkedTests(_Base):
             evicted = self._remove()
         sizes = [len(c.args[0]) for c in chunk.call_args_list]
         self.assertEqual(sizes, [2, 2, 1])
-        # Chunked, never truncated: every board that lost access is evicted once.
+        # Under the cap, every board that lost access is evicted once.
         self.assertEqual(sorted(evicted), sorted(boards))
 
     def test_default_chunk_size(self):
         self.assertEqual(group_views._EVICTION_CHUNK_SIZE, 50)
+
+    def test_default_fan_out_cap_matches_subgroup_cap(self):
+        from groups.broadcast import INHERITED_ROW_FANOUT_MAX
+
+        self.assertEqual(group_views.BOARD_EVICTION_FANOUT_MAX, 500)
+        self.assertEqual(group_views.BOARD_EVICTION_FANOUT_MAX, INHERITED_ROW_FANOUT_MAX)
+
+    def test_fan_out_past_cap_is_truncated_chunked_and_logged(self):
+        boards = sorted(self._board(self.group, f"b{i}").pk for i in range(5))
+        real_chunk = group_views._record_eviction_chunk
+        with patch.object(group_views, "BOARD_EVICTION_FANOUT_MAX", 3), patch.object(
+            group_views, "_EVICTION_CHUNK_SIZE", 2
+        ), patch.object(
+            group_views, "_record_eviction_chunk", side_effect=real_chunk
+        ) as chunk, self.assertLogs("groups.views", level="WARNING") as logs:
+            evicted = self._remove()
+        # The lowest ids first, chunked within the cap; the rest are skipped.
+        self.assertEqual([len(c.args[0]) for c in chunk.call_args_list], [2, 1])
+        self.assertEqual(sorted(evicted), boards[:3])
+        self.assertEqual(len(logs.records), 1)
+        message = logs.records[0].getMessage()
+        self.assertEqual(
+            message,
+            f"group member board eviction fan-out capped: group_id={self.group.pk} boards=5 sent=3",
+        )
+        # No PII: neither the removed user's id nor their username is logged.
+        self.assertNotIn(self.target.username, message)
+        self.assertNotIn(f"user_id={self.target.pk}", message)
+
+    def test_fan_out_at_cap_is_not_truncated_or_logged(self):
+        boards = [self._board(self.group, f"b{i}").pk for i in range(3)]
+        with patch.object(group_views, "BOARD_EVICTION_FANOUT_MAX", 3), self.assertNoLogs(
+            "groups.views", level="WARNING"
+        ):
+            evicted = self._remove()
+        self.assertEqual(sorted(evicted), sorted(boards))
 
     def test_no_eviction_when_user_is_gone(self):
         board = self._board(self.group)
@@ -170,3 +234,25 @@ class EvictionFanOutIsChunkedTests(_Base):
         with patch.object(group_views, "_record_eviction_chunk") as chunk:
             group_views._evict_lost_board_access(self.target.pk, self.group.pk, frozenset())
         chunk.assert_not_called()
+
+
+class EvictionFailureIsContainedTests(_Base):
+    """The eviction runs after the removal committed: a failure there must not
+    answer 500, nor stop the group-channel callback registered after it."""
+
+    def test_eviction_failure_still_answers_204_and_sends_group_frame(self):
+        self._board(self.group)
+        with patch.object(
+            group_views, "_record_eviction_chunk", side_effect=RuntimeError("boom")
+        ) as chunk, self.assertLogs("django", level="ERROR") as logs:
+            # Django logs a robust callback's exception: from "django.test"
+            # under captureOnCommitCallbacks, "django.db.backends.base" in
+            # production.
+            evicted = self._remove()  # asserts 204
+        chunk.assert_called_once()
+        self.assertIn("_evict_stale_ws", logs.output[0])
+        self.assertEqual(evicted, [])
+        self.assertEqual(self.group_frames, [self.group.pk])
+        self.assertFalse(
+            GroupMembership.objects.filter(group=self.group, user=self.target).exists()
+        )
