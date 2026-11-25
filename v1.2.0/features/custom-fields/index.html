@@ -1465,6 +1465,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#field-sets-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field sets (1.3)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Field sets (1.3)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#managing-field-sets-board-settings-field-sets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managing field sets (Board Settings → Field sets)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#field-sets-on-the-card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field sets on the card
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#api-and-real-time-events" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5104,12 +5143,54 @@
 <li><strong>Saving:</strong> edits are held in the modal and saved together with the rest of the swimlane when you click <strong>Save</strong>. They do not autosave field by field the way card fields do in the card detail panel.</li>
 </ul>
 <hr />
+<h2 id="field-sets-13">Field sets (1.3)<a class="headerlink" href="#field-sets-13" title="Permanent link">&para;</a></h2>
+<p>A <strong>field set</strong> groups some of a board's card fields into a named block on the card detail,
+so a board with many fields (a qualification framework such as MEDDIC, say) shows which group
+is complete at a glance. Sets only change how fields are displayed: they hold no values, do not
+count toward the 30-field limit, and do not block a card from moving.</p>
+<h3 id="managing-field-sets-board-settings-field-sets">Managing field sets (Board Settings → Field sets)<a class="headerlink" href="#managing-field-sets-board-settings-field-sets" title="Permanent link">&para;</a></h3>
+<p>Board admins create, rename, reorder and delete sets; other roles see the list read-only. Each
+set has a <strong>name</strong>, an optional <strong>description</strong> (up to 120 characters, shown under the name on
+the card), a <strong>default size</strong> (Collapsed, Summary or All fields), <strong>Shows on</strong> (every card, or
+only cards in chosen swimlanes), and its <strong>fields</strong>. A field is in at most one set; adding a
+field that is in another set moves it. Pick fields in the <strong>+ Add field</strong> menu (listed as <strong>Not in
+a set</strong> or <strong>In another set</strong>) and click <strong>Done</strong>; choose swimlanes in the <strong>Swimlanes</strong> menu. Drag
+the handle to reorder sets, or the fields inside a set (on a phone, use the arrow buttons). Set order
+saves at once; field order saves with <strong>Save field set</strong>, and is the board's field order, so the
+<strong>Card fields</strong> tab shows the same fields in their new order. A board
+can have up to <strong>10</strong> sets. Leaving the section or closing Board settings with unsaved changes asks
+before discarding them. The <strong>Card fields</strong> tab shows each field's set. Admins can also open this
+section from a card with <strong>Manage field sets</strong>.</p>
+<p><strong>Deleting a set</strong> moves its fields to <strong>Other fields</strong>. No field and no value is deleted.</p>
+<p><strong>Copy from another board</strong> opens <strong>Copy a field set</strong>, which copies a set from any board you can read. Each of its fields
+either reuses this board's field of the same name and type (when that field is in no set) or is
+created, named "{name} (copied)" if the name is taken. The copy has no link to the source:
+later changes on either board do not carry over. Values are never copied.</p>
+<h3 id="field-sets-on-the-card">Field sets on the card<a class="headerlink" href="#field-sets-on-the-card" title="Permanent link">&para;</a></h3>
+<p>When a board has at least one set, the card detail's Custom fields section becomes <strong>Field
+sets</strong>: one block per set in order, with fields in no set under <strong>Other fields</strong> last. A board
+with no sets looks exactly as before. Each block shows its progress (filled of total; checkbox
+and dimension fields are not counted, so "missing" never means "No") and a size control:</p>
+<ul>
+<li><strong>Collapsed</strong> shows the header only.</li>
+<li><strong>Summary</strong> shows one line of chips, missing fields first, then "+N" for the rest.</li>
+<li><strong>All fields</strong> shows every field.</li>
+<li><strong>Maximize</strong> fills the card sheet with one set. Previous / Next step through the sets;
+  <strong>Restore</strong> or Escape returns you to where you were.</li>
+</ul>
+<p>Your sizes are saved per card in this browser and are yours alone. <strong>Collapse all</strong> and
+<strong>Reset</strong> (back to each set's default) act on the current card. A set limited to other
+swimlanes is hidden, unless one of its fields holds a value on this card: then it shows
+collapsed with "Not used in {swimlane}", so a stored value is never hidden.</p>
+<p>Field sets travel with JSON export and import. See <a href="../../api/boards/#field-sets-since-13">Field sets</a>
+for the API.</p>
 <h2 id="api-and-real-time-events">API and real-time events<a class="headerlink" href="#api-and-real-time-events" title="Permanent link">&para;</a></h2>
 <p>This page covers the UI. For the wire format:</p>
 <ul>
 <li>Field definition CRUD and reordering — <a href="../../api/boards/#custom-fields-since-12"><code>/api/v1/boards/{id}/custom-fields/</code></a></li>
 <li>Card values — the <code>custom_field_values</code> field on the card payload — <a href="../../api/cards/">Cards API</a></li>
 <li>Real-time updates — <code>custom_field.created</code>, <code>custom_field.updated</code>, <code>custom_field.deleted</code>, and <code>custom_field.reordered</code> WebSocket events — <a href="../../api/websockets/">WebSockets</a></li>
+<li>Field sets — <a href="../../api/boards/#field-sets-since-13"><code>/api/v1/boards/{id}/field-sets/</code></a> and the <code>field_set.*</code> events — <a href="../../api/websockets/#field-set-events-since-13">WebSockets</a></li>
 <li>Swimlane field definition CRUD and reordering — <a href="../../api/boards/#swimlane-custom-fields-since-12"><code>/api/v1/boards/{id}/swimlane-custom-fields/</code></a></li>
 <li>Swimlane values — the <code>custom_field_values</code> field on the swimlane payload — <a href="../../api/boards/#swimlanes">Boards API</a></li>
 <li>Swimlane real-time updates — schema changes arrive as <code>swimlane_custom_field.created</code>, <code>swimlane_custom_field.updated</code>, <code>swimlane_custom_field.deleted</code>, and <code>swimlane_custom_field.reordered</code>; value changes arrive on the existing <code>swimlane.updated</code> event — <a href="../../api/websockets/#swimlane-field-events-since-12">WebSockets</a></li>

@@ -4794,6 +4794,8 @@ which match what the WebSocket sends that reader.</p>
 <h2 id="event-coverage">Event coverage<a class="headerlink" href="#event-coverage" title="Permanent link">&para;</a></h2>
 <p>Every event type the WebSocket emits on the board channel is persisted:
 <code>board.*</code>, <code>column.*</code>, <code>swimlane.*</code>, <code>label.*</code>, <code>custom_field.*</code>,
+<em>(1.3+)</em> <code>field_set.*</code> (<code>field_set.created</code>, <code>field_set.updated</code>,
+<code>field_set.deleted</code>, <code>field_set.reordered</code>),
 <code>swimlane_custom_field.*</code>, <code>card.*</code>, <code>member.*</code>, <code>saved_filter.*</code>,
 <code>lens_connection.*</code>, and <em>(1.2+)</em> <code>invite_link.*</code> (payload <code>{ "id" }</code> only,
 readable by every board member like the socket frame). The <a href="../websockets/#event-reference">WebSocket event
