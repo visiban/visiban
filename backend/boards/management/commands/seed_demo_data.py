@@ -120,6 +120,7 @@ from boards.services import sample_boards
 from boards.services.notifications import quoted_card_verb
 from boards.models import (
     Board,
+    BoardHealthChange,
     BoardMembership,
     Card,
     CardActivity,
@@ -127,14 +128,18 @@ from boards.models import (
     CardChecklist,
     CardComment,
     CardExternalRef,
+    CardGateTransition,
     CardMovement,
     CardRelation,
     Column,
     CustomFieldDefinition,
+    CustomFieldSet,
     CustomFieldValue,
     Label,
     Notification,
     SavedFilter,
+    StageTrack,
+    SubColumn,
     Swimlane,
     SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
@@ -1140,6 +1145,7 @@ class Command(BaseCommand):
                 )
             cards[title] = card
         self._add_demo_site_extras(board, spec, cards, lanes, users)
+        self._add_demo_site_structure(board, spec, columns, cards, users, anchor)
         # Last, once each card is in its final state (#1889): every label,
         # weight, checklist item and comment it holds gets the activity the
         # API would have written for it.
@@ -1158,6 +1164,78 @@ class Command(BaseCommand):
             else:
                 write_activity_trail(card, actors=people)
         return board, cards
+
+    def _add_demo_site_structure(self, board, spec, columns, cards, users, anchor):
+        """1.3 board structure (#2597): limits, stages, tracks, field sets, health.
+
+        Read from ``spec["structure"]`` (absent on a board that stays plain, so
+        it is a no-op for the simple board). Some columns are over their limit on
+        purpose (cards are written directly, so no limit blocks the seed). Everything is derived from the
+        spec by name, so a typo raises KeyError at seed time.
+        """
+        structure = spec.get("structure")
+        if not structure:
+            return
+        admin = users["admin"]
+        by_name = {c.name: c for c in columns}
+        last_moved = {card[0]: card[8] for card in spec["cards"]}
+
+        for col_name, (wip, weight) in structure["wip"].items():
+            Column.objects.filter(pk=by_name[col_name].pk).update(wip_limit=wip, weight_limit=weight)
+
+        # Stages split into sub-columns (#1102). A card sits in the sub-column
+        # its ``gates_passed`` indexes, and each gate it passed leaves one
+        # transition row, as a real move through the stage would.
+        for col_name, names in structure["sub_columns"].items():
+            column = by_name[col_name]
+            subs = [SubColumn.objects.create(column=column, position=i, name=n) for i, n in enumerate(names)]
+            stage_cards = sorted((c for c in cards.values() if c.column_id == column.pk), key=lambda c: c.pk)
+            for n, card in enumerate(stage_cards):
+                passed = n % len(subs)
+                Card.objects.filter(pk=card.pk).update(gates_passed=passed)
+                for gate in range(1, passed + 1):
+                    CardGateTransition.objects.create(
+                        card=card, board=board, card_uid=card.uid, card_title=card.title, column=column,
+                        column_name=column.name, column_uid=column.uid, sub_column_name=subs[gate].name,
+                        sub_column_uid=subs[gate].uid, kind=CardGateTransition.Kind.PASS,
+                        from_index=gate - 1, to_index=gate, actor=card.assignee or admin,
+                        created_at=anchor - datetime.timedelta(days=last_moved[card.title]),
+                    )
+
+        # Tracks (#1920): a dimension field bound to the stage it gates, with
+        # a value on every card currently in that stage. Values cycle through
+        # the choices so open, satisfied and not-applicable all show.
+        definitions = {d.name: d for d in CustomFieldDefinition.objects.filter(board=board)}
+        for col_name, dim_names in structure["tracks"].items():
+            column = by_name[col_name]
+            stage_cards = sorted((c for c in cards.values() if c.column_id == column.pk), key=lambda c: c.pk)
+            for pos, dim_name in enumerate(dim_names):
+                StageTrack.objects.create(column=column, field_definition=definitions[dim_name], position=pos)
+                choices = structure["dimension_choices"][dim_name]
+                for n, card in enumerate(stage_cards):
+                    CustomFieldValue.objects.update_or_create(
+                        card=card, field_definition=definitions[dim_name],
+                        defaults={"value": self._demo_site_field_value(definitions[dim_name], choices[n % len(choices)])},
+                    )
+
+        # Field sets (#2570): display grouping only.
+        for pos, (set_name, description, field_names) in enumerate(structure["field_sets"]):
+            field_set = CustomFieldSet.objects.create(
+                board=board, name=set_name, description=description, position=pos,
+            )
+            CustomFieldDefinition.objects.filter(
+                pk__in=[definitions[n].pk for n in field_names]
+            ).update(field_set=field_set)
+
+        status, note = structure["health"]
+        changed_at = anchor - datetime.timedelta(days=2)
+        BoardHealthChange.objects.create(
+            board=board, from_status=None, to_status=status, changed_by=admin, changed_at=changed_at, note=note,
+        )
+        Board.objects.filter(pk=board.pk).update(
+            health_status=status, health_status_changed_at=changed_at,
+            health_status_changed_by=admin, health_status_note=note,
+        )
 
     def _import_demo_site_sample(self, spec, users):
         """Create a demo board by importing a shipped sample board (#1889).

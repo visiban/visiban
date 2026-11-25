@@ -19,19 +19,24 @@ from boards.management.commands.seed_demo_data import (
 from accounts.models import AdminActionLog, User
 from boards.models import (
     Board,
+    BoardHealthChange,
     BoardMembership,
     Card,
     CardAttachment,
     CardChecklist,
     CardComment,
     CardExternalRef,
+    CardGateTransition,
     CardMovement,
     CardRelation,
     Column,
     CustomFieldDefinition,
+    CustomFieldSet,
     CustomFieldValue,
     Notification,
     SavedFilter,
+    StageTrack,
+    SubColumn,
     SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
 )
@@ -1146,7 +1151,8 @@ class SeedDemoSiteShowcaseTests(TestCase):
         # (test_sample_boards holds it to that).
         for name in SeedDemoSiteTests.HAND_BUILT:
             defs = CustomFieldDefinition.objects.filter(board__name=name)
-            self.assertTrue(1 <= defs.count() <= 3, name)
+            # Up to 3 plain fields, plus the dimension fields #2597 adds as tracks.
+            self.assertTrue(1 <= defs.filter(is_dimension=False).count() <= 3, name)
             self.assertTrue(defs.filter(show_on_card=True).exists(), name)
             self.assertLessEqual(
                 defs.filter(show_on_card=True).count(), CustomFieldDefinition.MAX_PINNED_PER_BOARD, name
@@ -1294,7 +1300,8 @@ class SeedDemoSiteShowcaseTests(TestCase):
             self.assertGreaterEqual(buckets["fresh"], 8, (name, buckets))
             self.assertGreaterEqual(buckets["aging"], 2, (name, buckets))
             self.assertGreaterEqual(buckets["stale"], 2, (name, buckets))
-            self.assertLessEqual(buckets["stale"], 5, (name, buckets))
+            # Stale stays the minority; the bound scales with the board's volume (#2597).
+            self.assertLessEqual(buckets["stale"], max(5, sum(buckets.values()) // 10), (name, buckets))
 
     @pytest.mark.slow
     def test_staleness_matches_the_api_annotation(self):
@@ -1305,7 +1312,7 @@ class SeedDemoSiteShowcaseTests(TestCase):
             cutoff = timezone.now() - timezone.timedelta(days=board.staleness_threshold_days)
             live = self._cards(name).filter(archived_at__isnull=True)
             stale = _annotate_is_stale(live, cutoff).filter(_is_stale_annotated=True)
-            self.assertTrue(2 <= stale.count() <= 5, (name, stale.count()))
+            self.assertTrue(2 <= stale.count() <= max(5, live.count() // 10), (name, stale.count()))
             self.assertFalse(stale.filter(column__is_done=True).exists(), name)
 
     def test_due_date_mix_per_board_and_never_overdue_when_done(self):
@@ -1313,7 +1320,7 @@ class SeedDemoSiteShowcaseTests(TestCase):
         for name in self.BOARD_NAMES:
             cards = self._cards(name)
             overdue = cards.filter(due_date__lt=today)
-            self.assertTrue(1 <= overdue.count() <= 5, name)
+            self.assertTrue(1 <= overdue.count() <= max(5, cards.count() // 6), name)
             self.assertTrue(cards.filter(due_date=today).exists(), name)
             self.assertTrue(cards.filter(due_date__gt=today).exists(), name)
             self.assertTrue(cards.filter(due_date__isnull=True).exists(), name)
@@ -2226,3 +2233,132 @@ class DemoSiteFiltersAndDensityTests(TestCase):
 
     def test_one_board_uses_the_dense_layout(self):
         self.assertEqual(Board.objects.get(name="Software Team").card_density, "dense")
+
+
+@override_settings(**_DEMO_SITE_SETTINGS)
+class DemoSiteBoardStructureTests(TestCase):
+    """#2597: the showcase boards show 1.3 structure in their own vocabulary."""
+
+    STRUCTURED = (
+        "Software Team", "Property Management", "Construction",
+        "Sales Territory", "Content Moderation", "Logistics Exceptions",
+    )
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed(demo_site=True)
+
+    def test_larger_boards_have_volume_and_the_simple_board_stays_tiny(self):
+        for name in self.STRUCTURED:
+            count = Board.objects.get(name=name).cards.count()
+            self.assertGreaterEqual(count, 60, name)
+            self.assertLessEqual(count, 150, name)
+        self.assertEqual(Board.objects.get(name="Simple Kanban").cards.count(), 10)
+        simple = Board.objects.get(name="Simple Kanban")
+        self.assertFalse(simple.columns.exclude(wip_limit=None).exists())
+        self.assertFalse(StageTrack.objects.filter(column__board=simple).exists())
+        self.assertFalse(CustomFieldSet.objects.filter(board=simple).exists())
+        self.assertIsNone(simple.health_status)
+
+    def test_each_board_has_limits_stages_tracks_field_sets_and_health(self):
+        for name in self.STRUCTURED:
+            board = Board.objects.get(name=name)
+            self.assertTrue(board.columns.exclude(wip_limit=None).exists(), name)
+            self.assertTrue(SubColumn.objects.filter(column__board=board).exists(), name)
+            self.assertTrue(StageTrack.objects.filter(column__board=board).exists(), name)
+            self.assertGreaterEqual(CustomFieldSet.objects.filter(board=board).count(), 2, name)
+            self.assertIn(board.health_status, ("on_track", "at_risk", "off_track"), name)
+            self.assertTrue(BoardHealthChange.objects.filter(board=board, to_status=board.health_status).exists())
+
+    def test_stages_hold_two_or_more_sub_columns_and_cards_sit_in_them(self):
+        board = Board.objects.get(name="Content Moderation")
+        review = board.columns.get(name="In Review")
+        self.assertEqual(
+            list(review.sub_columns.values_list("name", flat=True)), ["Triage", "Policy check", "Decision"],
+        )
+        gates = set(review.cards.values_list("gates_passed", flat=True))
+        self.assertEqual(gates, {0, 1, 2})
+        # Every card past gate N has one transition row per gate it passed.
+        for card in review.cards.all():
+            self.assertEqual(
+                CardGateTransition.objects.filter(card=card, kind="pass").count(), card.gates_passed,
+            )
+        # A column outside the split keeps gates_passed at 0.
+        self.assertFalse(board.cards.exclude(column=review).exclude(gates_passed=0).exists())
+
+    def test_some_column_is_over_its_wip_limit_and_one_is_not(self):
+        # The docs promise this per board, not just across the set.
+        for name in self.STRUCTURED:
+            counts = [
+                column.cards.count() > column.wip_limit
+                for column in Column.objects.filter(board__name=name).exclude(wip_limit=None)
+            ]
+            self.assertTrue(any(counts), f"{name}: no column over its WIP limit")
+            self.assertTrue(not all(counts), f"{name}: no column at or under its WIP limit")
+
+    def test_tracks_are_dimensions_with_values_on_the_stage_cards(self):
+        for track in StageTrack.objects.filter(column__board__name__in=self.STRUCTURED):
+            self.assertTrue(track.field_definition.is_dimension)
+            self.assertEqual(track.field_definition.field_type, "dropdown")
+            cards = track.column.cards.all()
+            self.assertTrue(cards.exists())
+            values = set(
+                CustomFieldValue.objects.filter(
+                    field_definition=track.field_definition, card__in=cards,
+                ).values_list("value", flat=True)
+            )
+            self.assertGreaterEqual(len(values), 2, track.field_definition.name)
+            self.assertTrue(values <= set(track.field_definition.choices_json))
+            # Every choice resolves to a legal state.
+            self.assertTrue(
+                set(track.field_definition.choice_resolutions.values())
+                <= {"open", "satisfied", "not_applicable"}
+            )
+
+    def test_field_sets_group_existing_fields_without_overlap(self):
+        from boards.management.commands._demo_site_data import _STRUCTURE
+
+        for name in self.STRUCTURED:
+            board = Board.objects.get(name=name)
+            seen = {}
+            for set_name, _description, field_names in _STRUCTURE[name]["field_sets"]:
+                for field in field_names:
+                    # The seed's .update(field_set=...) would silently move a duplicate.
+                    self.assertNotIn(field, seen, f"{name}: {field} is in {seen.get(field)} and {set_name}")
+                    seen[field] = set_name
+                    definition = CustomFieldDefinition.objects.get(board=board, name=field)
+                    self.assertEqual(definition.field_set.name, set_name, f"{name}: {field}")
+            for field_set in CustomFieldSet.objects.filter(board=board):
+                self.assertEqual(
+                    set(field_set.fields.values_list("name", flat=True)),
+                    {f for f, s in seen.items() if s == field_set.name},
+                    f"{name}: {field_set.name}",
+                )
+
+        board = Board.objects.get(name="Construction")
+        permitting = CustomFieldSet.objects.get(board=board, name="Permitting")
+        self.assertEqual(
+            set(permitting.fields.values_list("name", flat=True)),
+            {"Permit #", "Permit portal", "Inspection status"},
+        )
+        self.assertEqual(permitting.scope, CustomFieldSet.Scope.ALL)
+
+    # Entry requirements and held cards are not seeded yet (#1923, #2571). When
+    # they are, add their expectations here; nothing asserts their absence.
+
+    def test_filler_card_titles_are_unique_and_volume_is_in_bounds(self):
+        from boards.management.commands._demo_site_data import BOARDS
+
+        for spec in (b for b in BOARDS if "structure" in b):
+            titles = [c[0] for c in spec["cards"]]
+            self.assertEqual(len(titles), len(set(titles)), spec["name"])
+            self.assertGreaterEqual(len(titles), 60, spec["name"])
+            self.assertLessEqual(len(titles), 150, spec["name"])
+
+    @pytest.mark.slow
+    def test_reseeding_with_wipe_recreates_the_structure_once(self):
+        _seed(demo_site=True, wipe=True)
+        board = Board.objects.get(name="Software Team")
+        self.assertEqual(SubColumn.objects.filter(column__board=board).count(), 3)
+        self.assertEqual(CustomFieldSet.objects.filter(board=board).count(), 2)
+        self.assertEqual(Board.objects.filter(name="Software Team").count(), 1)
