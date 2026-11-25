@@ -185,6 +185,29 @@ class DimensionPlanWriteTests(_Base):
         cards = resp.data["cards"]
         self.assertEqual(cards[0]["dimension_plans"][0]["next_action"], "Ping")
 
+    def test_cross_board_card_query_carries_dimension_plans(self):
+        # GET /api/v1/cards/ is at field parity with CardSerializer and reuses
+        # _card_queryset(), so it returns the same parked plans (#1922).
+        owner = self.member("qowner1922", BoardMembership.Role.MEMBER)
+        self.client.put(
+            self.url(), {"owner_id": owner.pk, "next_action": "Review", "target_date": "2026-12-01"},
+            format="json",
+        )
+        other = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.lane, title="No plan",
+            created_by=self.admin, position=1,
+        )
+        resp = self.client.get("/api/v1/cards/", {"board": self.board.pk})
+        self.assertEqual(resp.status_code, 200, resp.data)
+        by_id = {row["id"]: row for row in resp.data["results"]}
+        plans = by_id[self.card.pk]["dimension_plans"]
+        self.assertEqual(len(plans), 1)
+        self.assertEqual(plans[0]["field_id"], self.dim.pk)
+        self.assertEqual(plans[0]["owner"]["id"], owner.pk)
+        self.assertEqual(plans[0]["next_action"], "Review")
+        self.assertEqual(plans[0]["target_date"], "2026-12-01")
+        self.assertEqual(by_id[other.pk]["dimension_plans"], [])
+
     def test_deleting_the_field_deletes_its_plans(self):
         CardDimensionPlan.objects.create(card=self.card, field_definition=self.dim, next_action="Ping")
         self.dim.delete()

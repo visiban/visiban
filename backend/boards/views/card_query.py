@@ -40,8 +40,8 @@ from visiban.request_shape import query_text
 
 from ..models import Card
 from ..serializers import (
-    CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer,
-    ParkedCustomFieldValueListSerializer, ParkedLabelListSerializer, _blocker_count,
+    CardDimensionPlanSerializer, CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer,
+    ParkedCustomFieldValueListSerializer, ParkedDimensionPlanListSerializer, ParkedLabelListSerializer, _blocker_count,
     _card_attachments, _is_blocked, _card_checklist_items, _card_queryset, _row_is_stale,
     _checklist_open_assignee_ids, _checklist_open_due_dates, _column_entered_at,
     _last_moved_at, _last_move_is_creation,
@@ -108,6 +108,13 @@ class CardQuerySerializer(serializers.ModelSerializer):
     custom_field_values = ParkedCustomFieldValueListSerializer(
         child=CustomFieldValueSerializer(), read_only=True,
     )
+    # Per-dimension plans (#1922), same shape as CardSerializer's. Read-only
+    # there too (written through the dimension-plans action). A plan carries
+    # nothing a reader of the card cannot already see on /full/, and
+    # _card_queryset() already parks the prefetch, so no extra query.
+    dimension_plans = ParkedDimensionPlanListSerializer(
+        child=CardDimensionPlanSerializer(read_only=True), read_only=True,
+    )
     last_moved_at = serializers.SerializerMethodField()
     last_move_is_creation = serializers.SerializerMethodField()
     column_entered_at = serializers.SerializerMethodField()
@@ -133,7 +140,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
             "last_move_is_creation", "column_entered_at", "attachment_count", "checklist_total", "checklist_done",
             "checklist_open_due_dates", "checklist_open_assignee_ids",
             "is_stale", "archived_at", "version", "custom_field_values",
-            "blocker_count", "external_ref",
+            "dimension_plans", "blocker_count", "external_ref",
             # Manual blocked state (#1149), as on CardSerializer.
             "is_blocked", "blocked_at", "blocked_reason",
             # Sub-column index in a gated stage (#1102), as on CardSerializer.

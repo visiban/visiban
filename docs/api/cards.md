@@ -81,7 +81,7 @@ A filter value that fails its type check (`?updated_since=x`, `?assignee=x`) ret
 `GET /api/v1/boards/{board_id}/cards/{id}/` below, plus `board` (the board's integer ID) —
 single-board endpoints omit `board` because the URL already scopes to one board; a cross-board
 list has to say which board each row belongs to. `assignee_id` and `label_ids` (the write-only
-fields used to set an assignee or labels) are not present — this endpoint is read-only. This includes `external_ref` (read-only here; `null` when unset).
+fields used to set an assignee or labels) are not present — this endpoint is read-only. This includes `external_ref` (read-only here; `null` when unset). Since 1.3 (#1922) this includes `dimension_plans`, in the same shape (`[]` when nothing is planned).
 
 ---
 
