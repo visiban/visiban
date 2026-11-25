@@ -970,16 +970,16 @@ def _self_test():
     _order_ops = _StubOps()
     wired = _collect_exit_measurements(_order_ops, n_opens, cap1, n_opens)
     # #2595: every analytics measurement waits for the slot first; the fixture reads do not need to.
-    _want_order = ["fx", "idle", "cf", "idle", "dd", "idle", "ov", "idle", "a365", "idle", "conc"]
+    _want_order = ["fx", "idle", "cf", "idle", "dd", "idle", "ov", "idle", "conc", "idle", "a365"]
     if _order_ops.calls != _want_order:
-        failures.append(f"exit run: measurements ran as {_order_ops.calls}, not each after an idle wait {_want_order}")
+        failures.append(f"exit run: measurements ran as {_order_ops.calls}, not each after an idle wait, analytics_365 last {_want_order}")
     # #2595: the artifact is checkpointed after the fixture reads and after each measurement, each
     # time with that measurement's figure already in it, so a run stopped partway keeps it.
     _snaps = []
     _collect_exit_measurements(_StubOps(), n_opens, cap1, n_opens,
                                checkpoint=lambda part: _snaps.append(json.loads(json.dumps(part))))
     _snap_keys = [("fixture" in sn, "cumulative_flow_p95_ms" in sn, "drill_down_peak_rss_mb" in sn,
-                   "overview_peak_rss_mb" in sn, "analytics_365_ms" in sn, "over_cap" in sn) for sn in _snaps]
+                   "overview_peak_rss_mb" in sn, "over_cap" in sn, "analytics_365_ms" in sn) for sn in _snaps]
     _want_snaps = [tuple(j <= i for j in range(6)) for i in range(6)]
     if _snap_keys != _want_snaps:
         failures.append(f"exit run: checkpoints after each measurement held {_snap_keys}, expected {_want_snaps}")
@@ -1038,9 +1038,20 @@ def _self_test():
     for _c in ("analytics_365_ms", "analytics_365_rss_growth_mb"):
         if _slow_records[_c]["passed"] or _slow_records[_c].get("status") != STATUS_TIMEOUT or _slow_records[_c]["value"] is not None:
             failures.append(f"exit run: a timed-out {_c} is not a failed 'timeout' record with no value")
-    if _slow.calls[_slow.calls.index("a365") + 1:] != ["idle", "conc"] \
-            or _slow_records["over_cap_refused_cleanly"].get("status") != STATUS_MEASURED \
-            or not _slow_records["over_cap_refused_cleanly"]["passed"]:
+    # #2606: analytics_365 is last, so its timeout cannot stop the burst and over-cap checks; they ran.
+    if _slow.calls[-1] != "a365" or _slow_records["over_cap_refused_cleanly"].get("status") != STATUS_MEASURED \
+            or not _slow_records["over_cap_refused_cleanly"]["passed"] \
+            or _slow_records["unread_count_p95_ms_under_load"].get("status") != STATUS_MEASURED:
+        failures.append("exit run: a timed-out analytics_365 blocked the measurements before it, or did not run last")
+    _slow_detail = _slow_records["analytics_365_ms"].get("detail", "")
+    if f"{EXIT_ANALYTICS_365_READ_TIMEOUT_SECONDS}s read timeout" not in _slow_detail or EXIT_ANALYTICS_365_READ_TIMEOUT_SECONDS <= EXIT_READ_TIMEOUT_SECONDS:
+        failures.append(f"exit run: analytics_365's timeout record does not name its own longer limit: {_slow_detail}")
+    # A timeout elsewhere is still followed by an idle wait and a measurement.
+    _slow_cf = _StubOps()
+    _slow_cf.timeouts = ("cf",)
+    _slow_cf_records = {r["check"]: r for r in _evaluate_exit_run(_collect_exit_measurements(_slow_cf, n_opens, cap1, n_opens))}
+    if _slow_cf.calls[_slow_cf.calls.index("cf") + 1:][:2] != ["idle", "dd"] \
+            or _slow_cf_records["drill_down_peak_rss_mb"].get("status") != STATUS_MEASURED:
         failures.append("exit run: the measurement after a timeout did not wait for the slot and get measured")
     # The server never goes idle: no analytics measurement runs, and each says it was not run.
     _stuck = _StubOps()
@@ -1277,12 +1288,16 @@ def _self_test():
         failures.append(f"exit run ops: overview_open returned {ov}, not (peak RSS, payload bytes)")
     a365 = _one_call("analytics_365", rec_ops.analytics_365,
                      lambda u: u == f"{root9}/analytics/?days=365")
-    if a365 != ([3.0], growth_mb):
+    if a365 != ([float(EXIT_ANALYTICS_365_SAMPLES)], growth_mb):
         failures.append(f"exit run ops: analytics_365 returned {a365}, not (samples, RSS growth)")
     conc = rec_ops.concurrent()
     if conc[4] != hwm_mb or conc[3] != 55:
         failures.append(f"exit run ops: concurrent returned peak {conc[4]}, payload {conc[3]}")
-    _measured_timeouts = {t for u, t in timeouts_used if "/cards/archived/" not in u and not u.endswith("/full/")}
+    _fixture_timeouts = {t for u, t in timeouts_used if "/cards/archived/" in u or u.endswith("/full/")}
+    _365_timeouts = {t for u, t in timeouts_used if u.endswith("/analytics/?days=365")}
+    if _365_timeouts != {EXIT_ANALYTICS_365_TIMEOUT}:
+        failures.append(f"exit run ops: analytics_365 used timeouts {_365_timeouts}, not {EXIT_ANALYTICS_365_TIMEOUT}")
+    _measured_timeouts = {t for u, t in timeouts_used if not u.endswith("/analytics/?days=365")} - _fixture_timeouts
     if _measured_timeouts != {EXIT_REQUEST_TIMEOUT}:
         failures.append(f"exit run ops: measured requests used timeouts {_measured_timeouts}, not {EXIT_REQUEST_TIMEOUT}")
     if not isinstance(_raises(rec_ops.wait_idle), str):
@@ -1527,6 +1542,19 @@ EXIT_READ_TIMEOUT_SECONDS = 90
 EXIT_CONNECT_TIMEOUT_SECONDS = 10
 EXIT_REQUEST_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, EXIT_READ_TIMEOUT_SECONDS)
 EXIT_UNREAD_TIMEOUT_SECONDS = 30
+# analytics/?days=365 on the 3-year board (#2606). In the second exit run it did not answer within 90 s
+# and kept the single analytics slot for 5+ minutes, so every measurement after it was recorded "not
+# run" and its own real duration was never recorded. So it runs LAST (after the burst, unread-count and
+# over-cap checks, which it can then no longer block) with its own, longer limit and ONE request, no
+# warm-up and no repeats: its p95 is that one sample. Worst case inside the job's 3 h (10800 s)
+# timeout, less the 600 s the `timeout` wrapper in .gitlab-ci.yml leaves: seed and server start about
+# 2460 s (41 min, first run) + cumulative flow (2 warm-up + 10) x 90 s = 1080 + drill-down 10 x 90 =
+# 900 + overview 90 + burst (rounds x 60 s, 3 rounds = 180) + five idle waits x 300 = 1500 + this
+# request 900 = about 7110 s, under the 10200 s the wrapper allows. One 900 s request replaces the ten
+# 90 s requests it used to be, so its worst case is the same 900 s.
+EXIT_ANALYTICS_365_READ_TIMEOUT_SECONDS = 900
+EXIT_ANALYTICS_365_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, EXIT_ANALYTICS_365_READ_TIMEOUT_SECONDS)
+EXIT_ANALYTICS_365_SAMPLES = 1
 EXIT_FIXTURE_TIMEOUT_SECONDS = 120   # both fixture reads: /cards/archived/ and /full/ on the 12k-card board
 # The idle wait before each analytics measurement (#2595), independent of the read timeout above. A
 # client timeout does not stop the server: it keeps running the request and holds the analytics slot
@@ -1897,10 +1925,6 @@ def _collect_exit_measurements(ops, concurrency, cap, users, checkpoint=None):
         m["overview_peak_rss_mb"], payload = ov
         m["overview_payload_bytes"] = payload
     saved()
-    a365 = attempt(("analytics_365_ms", "analytics_365_rss_growth_mb"), ops.analytics_365)
-    if a365:
-        m["analytics_365_ms"], m["analytics_365_rss_growth_mb"] = _percentile(a365[0], 95), a365[1]
-    saved()
     conc = attempt(("unread_count_p95_ms_under_load", "concurrent_peak_rss_mb", "over_cap_refused_cleanly"),
                    ops.concurrent, timeout=EXIT_STALL_SECONDS)
     if conc:
@@ -1915,6 +1939,14 @@ def _collect_exit_measurements(ops, concurrency, cap, users, checkpoint=None):
             m["unread_count_p95_ms"] = _percentile(unread, 95)
         m["over_cap"] = _evaluate_over_cap(outcomes, concurrency, cap, ops.alive(), users)
         m["responses"] = {k: [o[0] for o in outcomes].count(k) for k in ("ok", "busy", "too_large", "unexpected", "stall")}
+    saved()
+    # Last (#2606): the slowest, least predictable request, with its own long timeout, so a slow or
+    # stuck answer cannot make the burst, unread-count and over-cap checks "not run". Nothing follows
+    # it, so no idle wait after it; the one before it is kept.
+    a365 = attempt(("analytics_365_ms", "analytics_365_rss_growth_mb"), ops.analytics_365,
+                   timeout=EXIT_ANALYTICS_365_TIMEOUT)
+    if a365:
+        m["analytics_365_ms"], m["analytics_365_rss_growth_mb"] = _percentile(a365[0], 95), a365[1]
     saved()
     return m
 
@@ -2088,6 +2120,13 @@ class _ExitOps:
         self._log(f"  measuring {key}: {url}")
         return self.time_requests(self.session, url, self.iterations, warmup, timeout=EXIT_REQUEST_TIMEOUT)
 
+    def _time_365(self):
+        # One request, no warm-up, its own long timeout (#2606); see EXIT_ANALYTICS_365_TIMEOUT.
+        url = self.endpoints["aged_board_analytics_365"]
+        self._log(f"  measuring aged_board_analytics_365: {url}")
+        return self.time_requests(self.session, url, EXIT_ANALYTICS_365_SAMPLES, 0,
+                                  timeout=EXIT_ANALYTICS_365_TIMEOUT)
+
     def cumulative_flow(self):
         # The whole-history chart, no ``date``: what the Analytics page draws. It is NOT the request
         # the ?date= drill-down below sends (#2595: the first run's ten streamed=... ok lines in the
@@ -2108,7 +2147,7 @@ class _ExitOps:
 
     def analytics_365(self):
         # RSS GROWTH, not the peak: #2451's bar is how much one request adds.
-        t365, _, growth = self.peak_of(lambda: self._time("aged_board_analytics_365", 0))
+        t365, _, growth = self.peak_of(self._time_365)
         return t365, growth
 
     def concurrent(self):
