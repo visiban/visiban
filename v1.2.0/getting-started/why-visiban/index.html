@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Open-source Kanban board where every row is an entity and every move is on the record — documentation">
+        <meta name="description" content="Open-source Kanban board with a swimlane for every customer, project or workstream, and every move on record — documentation">
       
       
       
@@ -4521,11 +4521,11 @@
 
 <h1 id="why-visiban-and-when-to-pick-something-else">Why Visiban, and when to pick something else<a class="headerlink" href="#why-visiban-and-when-to-pick-something-else" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p><strong>Reflects 1.2</strong></p>
+<p><strong>Reflects 1.3.</strong> Blocked state, the flow charts (cycle time, throughput, cumulative flow, WIP age), the bottleneck panel and the Swimlanes view are new in 1.3; 1.2 does not have them.</p>
 </blockquote>
 <p><a id="the-one-sentence-answer"></a></p>
 <p><strong>See how work flows. Know what needs attention.</strong></p>
-<p>Visiban is an entity-centric Kanban board with built-in flow intelligence. Every row is an entity, such as a customer, project, or team. Every card movement is permanently recorded, and that history becomes cycle time, throughput, aging work in progress, bottlenecks, and blocked work. It is open source, self-hosted, and Apache 2.0. Any AI agent you already run can query and update the board through your own API token.</p>
+<p>Visiban is a Kanban board with a swimlane for every customer, project or workstream. We call this entity-centric Kanban: every row is an entity, the thing the work is about. Every card movement is permanently recorded, and that history becomes cycle time, throughput, aging work in progress, bottlenecks, and blocked work (Analytics is in beta). It is open source, self-hosted, and Apache 2.0. Any AI agent you already run can query and update the board through your own API token.</p>
 <p><strong>Why it matters:</strong> Picking the wrong tool is expensive for a team. So this page names the four things that set it apart, and says plainly where other tools are better.</p>
 <p><strong>In short:</strong> See how work actually moves, on a board whose rows are your customers or projects, where every move is on the record. Analytics is in beta.</p>
 <p><strong>For your manager:</strong> <em>"It's the board, but each row is one client, it shows where work is slow or stuck from a full audit trail of what moved when, and it runs on our own infrastructure with our own SSO."</em></p>
@@ -4543,7 +4543,7 @@
 <p><strong>Go deeper:</strong> <a href="../../features/custom-fields/">Custom Fields</a></p>
 <p><a id="2-movement-history-is-not-an-activity-log"></a></p>
 <h3 id="2-flow-intelligence-is-built-on-the-movement-history">2. Flow intelligence is built on the movement history<a class="headerlink" href="#2-flow-intelligence-is-built-on-the-movement-history" title="Permanent link">&para;</a></h3>
-<p><strong>How it works:</strong> Visiban records every card movement as structured data: from column, to column, from swimlane, to swimlane, actor, and timestamp. It keeps the records permanently. <a href="../../features/analytics/">Analytics</a> <em>(beta)</em> turns them into cycle time, throughput, WIP age, bottlenecks, and blocked time, grouped around four questions: what is happening, how fast work moves, where it is stuck, and why.</p>
+<p><strong>How it works:</strong> Visiban records every card movement as structured data: from column, to column, from swimlane, to swimlane, actor, and timestamp. It keeps the records permanently. <a href="../../features/analytics/">Analytics</a> <em>(beta)</em> turns them into cycle time, throughput, WIP age, bottlenecks, and blocked time, grouped around four questions: what is happening, how fast work moves, where it is stuck, and why. Its <a href="../../features/analytics/#swimlanes-view">Swimlanes view</a> compares lanes by cycle time and blocked time.</p>
 <p><strong>Why it matters:</strong> In an incident retrospective you can ask <em>"how long did this actually sit in Review, and how does that compare to the last thirty cards?"</em> You get an answer, not a scroll-back.</p>
 <p><strong>Yes, but:</strong> Analytics is a beta feature, and its numbers are best read as directional guidance. Visiban describes how work has flowed. It does not forecast delivery dates or recommend actions.</p>
 <p><strong>Go deeper:</strong> <a href="../../features/card-history/">Card History</a> and <a href="../../features/analytics/">Analytics</a></p>

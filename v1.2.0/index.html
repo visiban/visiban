@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Open-source Kanban board where every row is an entity and every move is on the record — documentation">
+        <meta name="description" content="Open-source Kanban board with a swimlane for every customer, project or workstream, and every move on record — documentation">
       
       
       
@@ -4440,11 +4440,12 @@
 <p><strong>1.2.0</strong> is the current stable release. See the <a href="https://gitlab.com/visiban/visiban/-/releases/v1.2.0">release notes</a> for what's new, and the <a href="getting-started/installation/">installation guide</a> to get started.</p>
 </div>
 <p><strong>See how work flows. Know what needs attention.</strong></p>
-<p>Visiban is an entity-centric Kanban board with built-in flow intelligence. Every card move is recorded, and Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work. It is open source, self-hosted, and Apache 2.0.</p>
+<p>Visiban is a Kanban board with a swimlane for every customer, project or workstream. Every card move is recorded with who made it and when, and Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work (Analytics is in beta). It is open source, self-hosted, and Apache 2.0.</p>
+<p>Blocked state, the flow charts (cycle time, throughput, cumulative flow, WIP age), the bottleneck panel and the Swimlanes view are new in 1.3; 1.2 does not have them.</p>
 <p><strong>Why it matters:</strong> The data that used to live in a spreadsheet beside the board lives on the board. The movement history lets you measure how work moves instead of guessing.</p>
 <p><strong>The big picture:</strong></p>
 <ul>
-<li><strong>Flow intelligence.</strong> <a href="features/analytics/">Analytics</a> <em>(beta)</em> answers four questions from your movement history: what is happening, how fast work moves, where it is stuck, and why.</li>
+<li><strong>Flow intelligence.</strong> <a href="features/analytics/">Analytics</a> <em>(beta)</em> answers four questions from your movement history: what is happening, how fast work moves, where it is stuck, and why. It also compares swimlanes by how long work takes and how long it sits blocked.</li>
 <li><strong>Rows are entities.</strong> Each swimlane is a customer, account, or project, with typed fields of its own, WIP limits, and card aging.</li>
 <li><strong>Every move is on the record.</strong> Visiban keeps a permanent audit trail of every card movement.</li>
 <li><strong>Open source, self-hosted, bring your own AI.</strong> An API and a first-class <a href="features/mcp-server/">MCP server</a> let you connect your own tools. Any AI agent you already run can query and update the board through a token you issue. Visiban ships the interface, not a model, so nothing leaves your install.</li>
