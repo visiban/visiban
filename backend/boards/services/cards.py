@@ -66,14 +66,14 @@ from .. import broadcast as _broadcast
 from .. import hooks
 from ..models import (
     Board, BoardMembership, Card, CardActivity, CardBlock, CardDimensionPlan, CardGateTransition,
-    CardMovement, CardOverride, CardRelation, Column, Notification, SubColumn, Swimlane,
+    CardMovement, CardOverride, CustomFieldDefinition, CardRelation, Column, Notification, SubColumn, Swimlane,
 )
 from ..permissions import SITE_ADMIN, can_modify_others_content, get_board_role
 from ..serializers import _card_labels
 from ..utils import notify_new_mentions
 from .notifications import create_notifications, quoted_card_verb
 from .errors import (
-    CardAlreadyBlocked, CardCreationNotAllowed, CardNotBlocked, CardNotFound, ColumnNotFound, ContainerChanged, ForceNotPermitted, OverrideReasonRequired,
+    CardAlreadyBlocked, CardCreationNotAllowed, CardNotBlocked, CardNotFound, ColumnNotFound, ContainerChanged, ForceNotPermitted, ObjectNotFound, OverrideReasonRequired,
     InvalidGatesPassed, InvalidPosition, InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
     SwimlaneWeightLimitExceeded, SwimlaneWipHardBlocked, SwimlaneWipLimitExceeded,
     UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
@@ -2959,6 +2959,13 @@ def set_dimension_plan(*, actor, board, card_id, field, owner, next_action, targ
         _adopt_locked_state(card, locked)
         if card.archived_at is not None:
             raise CardNotFound()
+        # Re-check the field under a lock: the caller resolved it before the
+        # transaction, and a concurrent delete (a 500 on the FK) or a flip of
+        # is_dimension (an orphan plan nobody renders) must not slip in.
+        if not CustomFieldDefinition.objects.select_for_update().filter(
+            pk=field.pk, board_id=board_id, is_dimension=True,
+        ).exists():
+            raise ObjectNotFound()
         if owner is None and not next_action and target_date is None:
             CardDimensionPlan.objects.filter(card=card, field_definition=field).delete()
         else:

@@ -115,12 +115,48 @@ class DimensionPlanWriteTests(_Base):
         resp = self.client.put(self.url(card=own), {"next_action": "x"}, format="json")
         self.assertEqual(resp.status_code, 200)
 
-    def test_non_member_is_denied(self):
+    def test_non_member_is_404(self):
         outsider = User.objects.create_user(username="out1922", password="pass")
         self.client.force_authenticate(outsider)
         resp = self.client.put(self.url(), {"next_action": "x"}, format="json")
-        self.assertIn(resp.status_code, (403, 404))
+        self.assertEqual(resp.status_code, 404)
         self.assertFalse(CardDimensionPlan.objects.exists())
+
+    def test_viewer_and_collaborator_are_403_before_body_field_or_card_lookup(self):
+        """The role check runs first: a bad body, a missing field or card is still 403."""
+        for username, role in (("viewer1922c", BoardMembership.Role.VIEWER), ("collab1922", BoardMembership.Role.COLLABORATOR)):
+            self.client.force_authenticate(self.member(username, role))
+            resp = self.client.put(self.url(), {"next_action": "x" * 201}, format="json")
+            self.assertEqual(resp.status_code, 403, username)
+            missing = f"/api/v1/boards/{self.board.pk}/cards/999999/dimension-plans/999999/"
+            self.assertEqual(self.client.put(missing, {}, format="json").status_code, 403, username)
+        self.assertFalse(CardDimensionPlan.objects.exists())
+
+    def test_moderator_member_may_plan_another_users_card(self):
+        mod = User.objects.create_user(username="mod1922", password="pass")
+        BoardMembership.objects.create(board=self.board, user=mod, role=BoardMembership.Role.MEMBER, is_moderator=True)
+        self.client.force_authenticate(mod)
+        resp = self.client.put(self.url(), {"next_action": "x"}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+    def test_field_turned_off_as_dimension_after_lookup_is_404(self):
+        """The service re-checks the field under its lock (no orphan plan)."""
+        from boards.services import cards as card_services
+        CustomFieldDefinition.objects.filter(pk=self.dim.pk).update(is_dimension=False)
+        with self.assertRaises(card_services.ObjectNotFound):
+            card_services.set_dimension_plan(
+                actor=self.admin, board=self.board, card_id=self.card.pk, field=self.dim,
+                owner=None, next_action="x", target_date=None, render=lambda c: {},
+            )
+        self.assertFalse(CardDimensionPlan.objects.exists())
+
+    def test_owner_who_later_loses_assignability_is_kept_like_assignee(self):
+        """Accepted (#1922): like ``assignee``, a stored owner is not cleared on demotion."""
+        owner = self.member("owner1922d", BoardMembership.Role.MEMBER)
+        self.client.put(self.url(), {"owner_id": owner.pk}, format="json")
+        BoardMembership.objects.filter(board=self.board, user=owner).update(role=BoardMembership.Role.VIEWER)
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/")
+        self.assertEqual(resp.data["dimension_plans"][0]["owner"]["id"], owner.pk)
 
     def test_owner_must_be_an_assignable_member(self):
         outsider = User.objects.create_user(username="out1922b", password="pass")

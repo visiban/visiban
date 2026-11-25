@@ -1820,7 +1820,7 @@ class CardMutationQueryCountTests(TestCase):
     # +2 on create and update (#1632): the board row FOR SHARE that every card
     # create/update now takes first, and the re-read of the labels the write
     # names, so a concurrent label delete answers 400, not 500.
-    BUDGET_CREATE = 43              # +2 #1922: dimension_plans prefetch on the response render, plus one cold-path read; measured 40 (41 pre-#1883, 38 stale; 36 pre-#1632, 33 pre-#449, 31 pre-#371)
+    BUDGET_CREATE = 42              # +1 #1922: dimension_plans prefetch on the broadcast re-fetch (the 201 body reads a parked []); measured 40 (41 pre-#1883, 38 stale; 36 pre-#1632, 33 pre-#449, 31 pre-#371)
     # +1 on update (#1587): update_card locks the card row before the write so
     # a concurrent hard delete cannot be undone by save()'s INSERT fallback.
     BUDGET_UPDATE = 35              # measured 32 (34 pre-#1883, 32 pre-#1632, 31 pre-#1587, 28 pre-#449, 26 pre-#371)
@@ -1838,7 +1838,7 @@ class CardMutationQueryCountTests(TestCase):
     # that separately.
     BUDGET_ARCHIVE = 23             # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
     BUDGET_UNARCHIVE = 25           # +1 #1922: dimension_plans prefetch (constant); +1 #2563: column row lock + free-slot probe, constant (measured 24 with the pair); was 23, measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
-    BUDGET_DESTROY = 39             # measured 39 (+1 #1923: card_overrides SET_NULL, the collector's one UPDATE for the new append-only audit FK, as for card_gate_transitions; constant); was 38 (+1 #2447: one cascade DELETE of card_parent_unlinks, both FKs in one query; constant); was 37 (+1 #1799: set_null_keeping_board fills card_activities' board + card snapshot with one UPDATE before the SET_NULL, as for card_movements; constant); was 36 (+4 #2409, PostgreSQL only, constant: lock_card_and_link_peers' savepoint open + release, its pk-ordered card-and-peers lock, and the peer re-read under that lock that detects a link committed in between); was 32 (+1 #2383: the card's link peers read before the pk-ordered lock, PostgreSQL only; constant); was 31 (+2 #1104: one SELECT of the card's parent links to announce removal, one cascade DELETE of card_parent_links; neither scales with row count); was 29 (measured 28, +1 #1102: card_gate_transitions SET_NULL); was 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
+    BUDGET_DESTROY = 40             # +1 #1922: one cascade DELETE of card_dimension_plans (constant); was 39, measured 39 (+1 #1923: card_overrides SET_NULL, the collector's one UPDATE for the new append-only audit FK, as for card_gate_transitions; constant); was 38 (+1 #2447: one cascade DELETE of card_parent_unlinks, both FKs in one query; constant); was 37 (+1 #1799: set_null_keeping_board fills card_activities' board + card snapshot with one UPDATE before the SET_NULL, as for card_movements; constant); was 36 (+4 #2409, PostgreSQL only, constant: lock_card_and_link_peers' savepoint open + release, its pk-ordered card-and-peers lock, and the peer re-read under that lock that detects a link committed in between); was 32 (+1 #2383: the card's link peers read before the pk-ordered lock, PostgreSQL only; constant); was 31 (+2 #1104: one SELECT of the card's parent links to announce removal, one cascade DELETE of card_parent_links; neither scales with row count); was 29 (measured 28, +1 #1102: card_gate_transitions SET_NULL); was 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
     # two `card.updated` broadcasts, but in one batched `_card_queryset` pass —
     # these budgets are what stops that quietly becoming two passes again.
     BUDGET_RELATION_CREATE = 27     # measured 24 (25 pre-#1883)
@@ -1959,7 +1959,7 @@ class CardMutationQueryCountTests(TestCase):
             # + the board row FOR SHARE and the label_ids re-read (#1632)
             # - the two movements prefetches (card fetch + response re-fetch)
             # that last-move subquery annotations replaced (#1883).
-            len(ctx), 35,  # +2 #1922: dimension_plans prefetch on the re-render plus the pre-write serializer's cold read; +1 #2446: announce_parent_changed reads the card's child links on every board
+            len(ctx), 35,  # +2 #1922: the dimension_plans prefetch runs on both _card_queryset reads (the card fetch and the response re-fetch); +1 #2446: announce_parent_changed reads the card's child links on every board
             f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 35. "
             "If this grew by exactly one, check for a reader that fell back "
             "from a to_attr-parked list to the manager's .all() (#1223); if "

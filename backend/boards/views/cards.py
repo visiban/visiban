@@ -47,6 +47,7 @@ from ..models import (
 )
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
 from ..serializers import (
+    _PARKED_DIMENSION_PLANS,
     BlockCardSerializer, CardBlockSerializer, DimensionPlanWriteSerializer, UnblockCardSerializer,
     CardSerializer, CardMovementSerializer, CardGateTransitionSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
@@ -1076,6 +1077,9 @@ class CardViewSet(viewsets.ModelViewSet):
         # broadcast payload already computed the open visit (#459), so hand it
         # over rather than spending a query on the same answer.
         serializer.instance._column_entered_at = result.payload["column_entered_at"]
+        # A card created in this request has no dimension plans (#1922), so
+        # park the empty list rather than let the 201 body query the manager.
+        setattr(serializer.instance, _PARKED_DIMENSION_PLANS, [])
         self._create_override = result.payload.get("override")
 
     def perform_destroy(self, instance):
