@@ -15,13 +15,17 @@ Reverse check (warning only, exit code unaffected): every `page.md#anchor` liste
 the Anchors table of docs/features/concepts.md must still exist.
 
 Usage:
-  scripts/check-help-link-anchors.py [--root <repo>]
+  scripts/check-help-link-anchors.py
   scripts/check-help-link-anchors.py --self-test
 
-Exit codes: 0 = clean, 1 = unresolved registry anchor (or self-test failure).
+The repo root is derived from this script's location; there is no path flag.
+Exit codes: 0 = clean, 1 = unresolved registry anchor (or self-test failure),
+2 = bad usage.
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import re
 import sys
 import tempfile
@@ -128,20 +132,30 @@ def check(root: Path) -> tuple[list[str], list[str]]:
             f = base / page
             found = page_anchors(f.read_text(encoding="utf-8")) if f.is_file() else set()
             if anchor not in found:
-                warnings.append(f"WARN: {CONCEPTS} lists '{page}#{anchor}' but it no longer exists")
+                warnings.append(f"{CONCEPTS} lists '{page}#{anchor}' but it no longer exists")
     return errors, warnings
+
+
+def print_warnings(warnings: list[str]) -> None:
+    """Block of GitLab-friendly WARNING: lines at the very end of the log."""
+    if not warnings:
+        return
+    print("")
+    for w in warnings:
+        print(f"WARNING: {w}")
+    print(f"WARNING: {len(warnings)} stale Concepts anchor(s) (warning only, exit code unaffected).")
 
 
 def main_check(root: Path) -> int:
     errors, warnings = check(root)
-    for w in warnings:
-        print(w)
     for e in errors:
         print(f"FAIL: {e}", file=sys.stderr)
     if errors:
         print(f"{len(errors)} unresolved help link(s). Fix the docs anchor or the registry entry.", file=sys.stderr)
+        print_warnings(warnings)
         return 1
     print("OK: every registered help topic resolves to a docs page and anchor.")
+    print_warnings(warnings)
     return 0
 
 
@@ -195,11 +209,21 @@ def self_test() -> int:
         errs, warns = check(root)
         if errs or not any("gone-anchor" in w for w in warns):
             fails.append(f"reverse check wrong: errs={errs} warns={warns}")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            print_warnings(warns)
+        out = buf.getvalue()
+        if "WARNING: " not in out or "1 stale" not in out:
+            fails.append(f"warning block wrong: {out!r}")
         # Registry that parses to nothing fails loudly.
         (root / REGISTRY).write_text("export const X = 1;\n")
         errs, _ = check(root)
         if not errs:
             fails.append("empty registry did not fail")
+    # The real registry must parse to at least one topic with a non-empty path.
+    real = parse_registry((Path(__file__).resolve().parent.parent / REGISTRY).read_text(encoding="utf-8"))
+    if not real or any(t["path"] == "\0unparsed" for t in real.values()) or not any(t["path"] for t in real.values()):
+        fails.append(f"real registry did not parse to topics with a path: {list(real)[:5]}")
     if slugify("Verifying signatures") != "verifying-signatures":
         fails.append("slugify wrong")
     for f in fails:
@@ -214,9 +238,7 @@ if __name__ == "__main__":
     if args == ["--self-test"]:
         sys.exit(self_test())
     root = Path(__file__).resolve().parent.parent
-    if args[:1] == ["--root"] and len(args) == 2:
-        root = Path(args[1])
-    elif args:
+    if args:
         print(__doc__)
         sys.exit(2)
     sys.exit(main_check(root))

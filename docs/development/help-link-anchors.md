@@ -18,7 +18,7 @@ A failure names the topic key, the path and the missing anchor:
 FAIL: help topic 'webhooks.verify': anchor '#verifying-signatures' not found in docs/api/webhooks.md (path 'api/webhooks/')
 ```
 
-**Reverse check (warning only):** every `page.md#anchor` in the Anchors table of [Concepts](../features/concepts.md#concept-anchors) must still exist. A stale entry prints a `WARN` line and does not fail the job.
+**Reverse check (warning only):** every `page.md#anchor` in the Anchors table of [Concepts](../features/concepts.md#concept-anchors) must still exist. A stale entry prints `WARNING:` lines in a block at the end of the job log, with a count, and does not fail the job (exit code unchanged).
 
 ## How anchors are resolved
 
@@ -28,7 +28,7 @@ Prefer an explicit `<a id>` for any anchor the app links to. A heading rename th
 
 ## When it runs
 
-On merge requests and on `main` that touch `docs/`, `frontend/src/help/`, or the script. The job runs `--self-test` first, which builds a throwaway docs tree and proves a missing anchor, a missing page, and an unparseable registry each fail, and that the reverse check only warns. See [CI gate self-tests](ci-gates.md).
+On merge requests and on `main` that touch `docs/`, `frontend/src/help/`, or the script. The job runs `--self-test` first, which builds a throwaway docs tree and proves a missing anchor, a missing page, and an unparseable registry each fail, that the real registry parses to at least one topic with a path, and that the reverse check only warns. See [CI gate self-tests](ci-gates.md).
 
 ## Fixing a failure
 
