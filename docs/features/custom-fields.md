@@ -286,6 +286,8 @@ The editor matches the card field editor (name, type, help text, choices for dro
 
 ### Choosing where each field shows (Band, Details, Hidden)
 
+<a id="field-visibility"></a>
+
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
 Each row of the Swimlane fields tab has a **Show** control with three options:
@@ -335,6 +337,8 @@ Swimlane field values are set in the **Edit Swimlane modal**, which gains a **Fi
 ---
 
 ## Field sets (1.3)
+
+<a id="field-sets"></a>
 
 A **field set** groups some of a board's card fields into a named block on the card detail,
 so a board with many fields (a qualification framework such as MEDDIC, say) shows which group
