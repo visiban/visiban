@@ -119,6 +119,7 @@ describe('InviteLinkPanel — board scope (#1444)', () => {
     mockList.mockResolvedValueOnce([invite()])
     await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('Emailed invite')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Pending invites' })).toHaveFocus()
   })
 
   it('lists pending invites newest first with role, expiry and the meta line', async () => {

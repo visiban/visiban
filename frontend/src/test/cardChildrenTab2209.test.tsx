@@ -1020,3 +1020,14 @@ describe('Move and Undo child focus (#2611)', () => {
     expect(screen.getByTestId('card-children-tab')).toHaveFocus()
   })
 })
+
+describe('Children tab Try again focus (#2575)', () => {
+  it.each([
+    ['the first read failed', state({ error: true })],
+    ['a refresh failed', state({ error: true, data: read(kids) })],
+  ])('hands focus to the tab before the re-read when %s', async (_name, st) => {
+    renderTab(st)
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(screen.getByTestId('card-children-tab')).toHaveFocus()
+  })
+})

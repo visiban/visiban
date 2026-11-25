@@ -19,6 +19,7 @@ import {
   Button, InlineConfirm, PageHeading, SettingsCard, SettingsLayout, SaveBar, Field, SettingTwoSwitchHeader, SettingTwoSwitchRow, SettingSwitchRow, Switch,
 } from "../components/Page";
 import type { SettingsSection } from "../components/Page";
+import { focusSurvivor } from "../utils/focusSurvivor";
 
 declare const __APP_VERSION__: string;
 
@@ -605,7 +606,12 @@ function ConnectedAccountsSection({
           <p className="text-sm text-danger">Failed to load connected accounts.</p>
           <button
             type="button"
-            onClick={() => { setAccounts(null); setReloadKey((k) => k + 1); }}
+            onClick={(e) => {
+              // The error row becomes a spinner: the card takes focus first (#2575).
+              focusSurvivor(e.currentTarget.closest("section"));
+              setAccounts(null);
+              setReloadKey((k) => k + 1);
+            }}
             className="text-xs text-fg-tertiary hover:text-fg underline transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Retry

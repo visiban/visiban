@@ -88,6 +88,20 @@ describe('LensView', () => {
     expect(screen.getByRole('link', { name: 'Manage connected accounts' })).toHaveAttribute('href', '/settings?tab=security')
   })
 
+  it('Try again hands focus to the view before the spinner replaces the error (#2575)', () => {
+    mockUseLensData.mockReturnValue({
+      data: null, error: { code: 'provider_error', detail: 'down' }, loading: false, refetching: false, refresh,
+    })
+    const { container } = render(
+      <MemoryRouter initialEntries={['/']}>
+        <LensView boardId={5} connection={conn} cardLayout="expanded" showFilters={false} />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(refresh).toHaveBeenCalled()
+    expect(container.firstElementChild).toHaveFocus()
+  })
+
   it('reports the lane count only once lanes exist, so the toolbar never says "0 lanes" (#2323)', () => {
     const onLaneCountChange = vi.fn()
     mockUseLensData.mockReturnValue({ data: null, error: null, loading: true, refetching: false, refresh })

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
@@ -1981,6 +1982,8 @@ describe('AdminPage — Email (SMTP) settings', () => {
     mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
     fireEvent.click(screen.getByText('Retry'))
     await waitFor(() => expect(screen.getByLabelText('Host')).toBeInTheDocument())
+    // The heading outlives the reload, so keyboard focus never drops to <body> (#2575).
+    expect(screen.getByRole('heading', { name: 'Email' })).toHaveFocus()
   })
 
   it('surfaces a server field error next to the field', async () => {
@@ -2092,3 +2095,33 @@ describe('AdminPage — Board Invites tab (#439)', () => {
   })
 })
 
+
+describe('AdminPage — Retry keeps focus on the section heading (#2575)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSiteConfig.mockResolvedValue(fakeSiteConfig)
+    mockGetAdminSettings.mockResolvedValue(fakeSettings)
+    mockGetAdminUsers.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
+    mockGetAdminInviteLinks.mockResolvedValue([])
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+  })
+
+  it.each([
+    ['users', 'Users', mockGetAdminUsers],
+    ['invite_links', 'Invite links', mockGetAdminInviteLinks],
+    ['general', 'General', mockGetAdminSettings],
+  ])('on the %s tab', async (tab, heading, read) => {
+    const healthy = await read()
+    read.mockReset()
+    read.mockResolvedValue(healthy)
+    // The invite-link count in the nav may read first, so fail until Retry is offered.
+    read.mockRejectedValue(new Error('boom'))
+    renderAdminPage(adminUser, `/admin?tab=${tab}`)
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    read.mockResolvedValue(healthy)
+    await userEvent.click(retry)
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    expect(screen.getByRole('heading', { level: 3, name: heading })).toHaveFocus()
+  })
+})

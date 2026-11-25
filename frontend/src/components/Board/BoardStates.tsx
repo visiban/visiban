@@ -5,6 +5,7 @@
 import { Link } from "react-router-dom";
 import { emptyBoardSentence } from "./boardStateCopy";
 import { BAND_MAX_WIDTH } from "./boardGrid";
+import { focusSurvivor } from "../../utils/focusSurvivor";
 
 const BLOCK = "bg-surface-hover rounded-lg animate-pulse motion-reduce:animate-none";
 
@@ -123,7 +124,11 @@ export function BoardLoadError({ onRetry }: { onRetry: () => void }) {
       </p>
       <button
         type="button"
-        onClick={onRetry}
+        onClick={(e) => {
+          // The reload clears the error, taking this button with it (#2575).
+          focusSurvivor(e.currentTarget.closest("main"));
+          onRetry();
+        }}
         className="shrink-0 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       >
         Try again

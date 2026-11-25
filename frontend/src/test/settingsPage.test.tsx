@@ -1232,6 +1232,7 @@ describe('SecurityTab — connected accounts', () => {
     expect(screen.queryByText('Not connected')).not.toBeInTheDocument()
     await ue.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByTestId('connected-accounts-list')).toBeInTheDocument()
+    expect(screen.getByTestId('connected-accounts-list').closest('section')).toHaveFocus()
   })
 
   it('?connected=<provider> opens Security and marks the row Connected.', async () => {

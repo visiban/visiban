@@ -28,6 +28,7 @@ import { axiosResponse, outcomeUnknown } from "./webhooks/webhookFormUtils";
 import WebhookDetail, { type WebhookConfirm } from "./webhooks/WebhookDetail";
 import WebhookSecretReveal, { type WebhookSecretRevealHandle } from "./webhooks/WebhookSecretReveal";
 import { DispatcherStaleNotice, WebhooksOffNotice } from "./webhooks/WebhookServiceNotice";
+import { focusSurvivor } from "../../utils/focusSurvivor";
 
 /**
  * Escape priorities inside Board Settings (ModalWrapper 40; frontend/CLAUDE.md
@@ -721,7 +722,11 @@ export default function BoardSettingsWebhooksTab({
         <p role="alert" className="text-xs text-danger">Failed to load webhooks.</p>
         <button
           type="button"
-          onClick={() => setReloadKey((k) => k + 1)}
+          onClick={(e) => {
+            // The whole tab body is replaced: the settings dialog takes focus first (#2575).
+            focusSurvivor(e.currentTarget.closest<HTMLElement>('[role="dialog"]'));
+            setReloadKey((k) => k + 1);
+          }}
           className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Retry

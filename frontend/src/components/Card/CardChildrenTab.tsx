@@ -126,6 +126,8 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   const localWrite = useRef(false);
   const beginWrite = () => { localWrite.current = true; };
   const reloadAfterWrite = () => { localWrite.current = true; reload(); };
+  // "Try again" goes with the error (at once, or when the re-read answers): the tab takes focus first (#2575).
+  const retryRead = () => { rootRef.current?.focus(); reload(); };
   const tgt = wide ? "" : "min-h-11";
 
   useLayoutEffect(() => {
@@ -421,7 +423,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
         <div role="alert" className="flex flex-col gap-2 items-start">
           <p className="text-sm font-medium text-fg">The children didn&apos;t load</p>
           <p className="text-xs text-fg-muted">Check your connection and try again. The rollup on the card face stays as last known.</p>
-          <button type="button" onClick={reload} className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Try again</button>
+          <button type="button" onClick={retryRead} className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Try again</button>
         </div>
       );
     }
@@ -602,7 +604,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
       {error && data && (
         <div role="alert" className="flex items-center gap-2 text-xs text-danger">
           <span>Couldn&apos;t refresh the children.</span>
-          <button type="button" onClick={reload} className={`${tgt} px-2 text-xs text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Try again</button>
+          <button type="button" onClick={retryRead} className={`${tgt} px-2 text-xs text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Try again</button>
         </div>
       )}
       {linkError && <p role="alert" className="text-xs text-danger">{linkError}</p>}

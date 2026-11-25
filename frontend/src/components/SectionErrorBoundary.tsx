@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { focusSurvivor } from "../utils/focusSurvivor";
 
 interface Props {
   children: ReactNode;
@@ -46,7 +47,12 @@ export default class SectionErrorBoundary extends Component<Props, State> {
               {this.state.error.message}
             </pre>
             <button
-              onClick={() => this.setState({ error: null })}
+              onClick={(e) => {
+                // Retry unmounts with the fallback: hand focus to the surrounding landmark first (#2575).
+                const card = e.currentTarget.closest<HTMLElement>('main, [role="dialog"]');
+                focusSurvivor(card ?? document.querySelector<HTMLElement>("main"));
+                this.setState({ error: null });
+              }}
               className="bg-button-primary hover:bg-button-primary-hover text-on-primary text-xs font-medium px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Retry

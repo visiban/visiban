@@ -266,6 +266,7 @@ describe('BoardInvitesTab — gate fixes (#439)', () => {
     mockList.mockResolvedValueOnce(page([row()]))
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('Launch Plan')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Board invites' })).toHaveFocus()
     expect(mockList).toHaveBeenLastCalledWith({ status: 'pending', offset: 0 })
   })
 

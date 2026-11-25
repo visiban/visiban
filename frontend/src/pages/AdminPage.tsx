@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
@@ -73,11 +73,16 @@ function formatDate(iso: string): string {
 }
 
 /** A section's load failure: the message and a Retry (the shared error-banner pattern). */
-function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+function LoadError({ message, onRetry, headingRef }: {
+  message: string;
+  onRetry: () => void;
+  /** The section's heading: it stays through the reload, so it takes focus before Retry unmounts (#2575). */
+  headingRef: RefObject<HTMLHeadingElement | null>;
+}) {
   return (
     <div role="alert" className="flex flex-wrap items-center gap-3 rounded-[10px] border border-danger/40 bg-danger/10 px-4 py-3">
       <p className="text-sm text-danger-on-tint">{message}</p>
-      <Button variant="secondary" onClick={onRetry}>Retry</Button>
+      <Button variant="secondary" onClick={() => { headingRef.current?.focus(); onRetry(); }}>Retry</Button>
     </div>
   );
 }
@@ -198,6 +203,7 @@ function formatExpiry(link: AdminInviteLink): string {
 }
 
 function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => void }) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [links, setLinks] = useState<AdminInviteLink[]>([]);
   // Server cap notice (#2254): older used/expired links are left out of the list.
   const [truncation, setTruncation] = useState<{ total: number } | null>(null);
@@ -311,13 +317,14 @@ function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => v
     <PageHeading
       level="h3"
       title="Invite links"
+      headingRef={headingRef}
       description="Shareable links that let people join this site."
       actions={<Button variant="primary" onClick={() => setShowForm((v) => !v)} aria-expanded={showForm}>New link</Button>}
     />
   );
 
   if (loading) return <>{heading}<div className="text-fg-tertiary text-sm">Loading…</div></>;
-  if (loadError) return <>{heading}<LoadError message="Failed to load invite links." onRetry={load} /></>;
+  if (loadError) return <>{heading}<LoadError message="Failed to load invite links." onRetry={load} headingRef={headingRef} /></>;
 
   const linkUrl = newLink ? `${window.location.origin}/join/${newLink.raw_token}` : "";
 
@@ -675,6 +682,7 @@ const MAINTENANCE_MESSAGE_WARN = 900;
 const MAINTENANCE_SWITCH_ID = "maintenance-mode-switch";
 
 function GeneralSection() {
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -813,10 +821,10 @@ function GeneralSection() {
         ? "text-warning-on-tint"
         : "text-fg-secondary";
 
-  const heading = <PageHeading level="h3" title="General" description="Switches save as soon as you change them." />;
+  const heading = <PageHeading level="h3" title="General" description="Switches save as soon as you change them." headingRef={headingRef} />;
 
   if (loading) return <>{heading}<div className="text-fg-tertiary text-sm">Loading…</div></>;
-  if (loadError) return <>{heading}<LoadError message="Failed to load settings." onRetry={load} /></>;
+  if (loadError) return <>{heading}<LoadError message="Failed to load settings." onRetry={load} headingRef={headingRef} /></>;
 
   return (
     <>
@@ -1204,6 +1212,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
   onTotal: (n: number | ((prev: number) => number)) => void;
   onOpenEmailSettings: () => void;
 }) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const isPhone = useIsPhoneViewport();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
@@ -1660,6 +1669,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
       <PageHeading
         level="h3"
         title="Users"
+        headingRef={headingRef}
         description="Add people, change roles, and deactivate accounts."
         actions={
           <>
@@ -1722,7 +1732,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
       {loading ? (
         <div className="text-fg-tertiary text-sm">Loading…</div>
       ) : error ? (
-        <LoadError message={error} onRetry={() => void fetchUsers(search, offset, statusFilter)} />
+        <LoadError message={error} onRetry={() => void fetchUsers(search, offset, statusFilter)} headingRef={headingRef} />
       ) : (
         <>
           {users.length === 0 ? (

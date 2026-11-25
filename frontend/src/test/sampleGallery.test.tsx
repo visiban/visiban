@@ -441,7 +441,12 @@ describe('SampleGallery — errors', () => {
     expect(screen.getByRole('button', { name: /Click to select a \.json or \.csv file/ })).toBeEnabled()
     await waitFor(() => expect(screen.getByRole('button', { name: 'Retry' })).toHaveFocus())
 
+    let answer: (list: SampleBoardSummary[]) => void = () => {}
+    mockList.mockReturnValueOnce(new Promise<SampleBoardSummary[]>((resolve) => { answer = resolve }))
     await user.click(screen.getByRole('button', { name: 'Retry' }))
+    // While the list reloads the banner is gone: focus waits on the dialog, never <body> (#2575).
+    expect(screen.getByRole('dialog')).toHaveFocus()
+    await act(async () => { answer(SAMPLES) })
     await screen.findByText('6 samples')
     expect(mockList).toHaveBeenCalledTimes(2)
     await waitFor(() => expect(card('Sales Overlay')).toHaveFocus())

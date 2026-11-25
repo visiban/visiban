@@ -16,6 +16,7 @@ import HealthStatusShape from "./HealthStatusShape";
 import HealthComputedBlock from "./HealthComputedBlock";
 import { AutoGlyph } from "./HealthStatusPill";
 import { isImeComposing } from "../../utils/imeComposition";
+import { focusSurvivor } from "../../utils/focusSurvivor";
 
 /** The draft: a stored value, or "inherit" for null (inherit at a nested level, clear at the root). */
 type Draft = HealthStatus | "inherit";
@@ -587,7 +588,7 @@ export default function HealthStatusPopover({
                 {history.status === "error" && (
                   <p className="text-xs py-2">
                     <span className="text-danger">Could not load history.</span>{" "}
-                    <button type="button" onClick={loadHistory} className="text-primary-emphasis hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">
+                    <button type="button" onClick={(e) => { focusSurvivor(e.currentTarget.closest<HTMLElement>('[role="region"]')); loadHistory(); }} className="text-primary-emphasis hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">
                       Try again
                     </button>
                   </p>

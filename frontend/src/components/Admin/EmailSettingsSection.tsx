@@ -200,6 +200,8 @@ export default function EmailSettingsSection({ currentUser }: Props) {
   const [server, setServer] = useState<SiteEmailSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // Survives every load state, so Retry can hand it focus (#2575).
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [draft, setDraft] = useState<EmailDraft | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [clearPassword, setClearPassword] = useState(false);
@@ -399,7 +401,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
       .finally(() => setTesting(false));
   }
 
-  const heading = <PageHeading level="h3" title="Email" description="Where password resets and invites are sent from." />;
+  const heading = <PageHeading level="h3" title="Email" description="Where password resets and invites are sent from." headingRef={headingRef} />;
 
   if (loading) {
     return (
@@ -418,7 +420,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
         {heading}
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-[10px] border border-danger/40 bg-danger/10 px-4 py-3">
           <p className="text-sm text-danger-on-tint">Failed to load email settings.</p>
-          <Button variant="secondary" onClick={load}>Retry</Button>
+          <Button variant="secondary" onClick={() => { headingRef.current?.focus(); load(); }}>Retry</Button>
         </div>
       </>
     );

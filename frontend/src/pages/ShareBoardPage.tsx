@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPublicBoard } from "../api/boards";
 import type { BoardPublic, PublicCard, PublicColumn, PublicSwimlane, Label } from "../types";
@@ -7,6 +7,7 @@ import ShareBoardHeader from "../components/Board/ShareBoardHeader";
 import { useIsPhoneViewport } from "../hooks/useIsPhoneViewport";
 import { EmptyState, buttonClasses } from "../components/Page";
 import { colorChipStyle } from "../utils/colorContrast";
+import { focusSurvivor } from "../utils/focusSurvivor";
 import { cardSubColumnIndex, splitCellBySubColumn, stageSubColumns } from "../utils/stages";
 
 // ---------------------------------------------------------------------------
@@ -272,19 +273,30 @@ export default function ShareBoardPage() {
   // Only a 404/410 means the link is gone; any other failure is retryable (#2480 ux-review).
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // A retry keeps the error view (and its focused button) up until the answer, because the loading skeleton
+  // would take the button with it and shares nothing that could hold focus (#2575).
+  const [retrying, setRetrying] = useState(false);
+  const retried = useRef(false);
   const isPhone = useIsPhoneViewport();
 
   useEffect(() => {
     if (!token) return;
     getPublicBoard(token)
-      .then(setBoard)
+      .then((b) => { setBoard(b); setLoadFailed(false); })
       .catch((err) => {
         const status = (err as { response?: { status?: number } }).response?.status;
-        if (status === 404 || status === 410) setExpired(true);
+        if (status === 404 || status === 410) { setExpired(true); setLoadFailed(false); }
         else setLoadFailed(true);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { setLoading(false); setRetrying(false); });
   }, [token, attempt]);
+
+  // After a retry replaces the error view, the new view's landmark takes the focus the button had.
+  useLayoutEffect(() => {
+    if (loading || loadFailed || !retried.current) return;
+    retried.current = false;
+    focusSurvivor(document.querySelector("main"));
+  }, [loading, loadFailed]);
 
   if (loading) {
     return <ShareBoardSkeleton />;
@@ -298,7 +310,21 @@ export default function ShareBoardPage() {
             headingLevel="h1"
             title="The board didn't load"
             description="Check your connection and try again."
-            action={<button type="button" onClick={() => { setLoadFailed(false); setLoading(true); setAttempt((a) => a + 1); }} className={buttonClasses("primary")}>Try again</button>}
+            action={(
+              <button
+                type="button"
+                aria-disabled={retrying || undefined}
+                onClick={() => {
+                  if (retrying) return;
+                  retried.current = true;
+                  setRetrying(true);
+                  setAttempt((a) => a + 1);
+                }}
+                className={`${buttonClasses("primary")} aria-disabled:opacity-40 aria-disabled:cursor-not-allowed`}
+              >
+                {retrying ? "Retrying…" : "Try again"}
+              </button>
+            )}
           />
         </main>
       </div>
