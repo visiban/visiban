@@ -1,4 +1,6 @@
 import { render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import HelpLink from '../components/Common/HelpLink'
 import { DEFAULT_DOCS_BASE_URL, docsUrl, docsVersionSegment } from '../help/docsUrl'
@@ -6,8 +8,8 @@ import { HELP_TOPICS, type HelpTopicKey } from '../help/topics'
 
 describe('docsVersionSegment', () => {
   it('maps a release to its minor path', () => {
-    expect(docsVersionSegment('1.3.2')).toBe('1.3')
-    expect(docsVersionSegment('v1.3.0')).toBe('1.3')
+    expect(docsVersionSegment('1.3.2')).toBe('v1.3')
+    expect(docsVersionSegment('v1.3.0')).toBe('v1.3')
   })
   it('maps a prerelease to next', () => {
     expect(docsVersionSegment('1.3.0-beta.1')).toBe('next')
@@ -17,21 +19,31 @@ describe('docsVersionSegment', () => {
   })
 })
 
+// #2612: the segment must name a directory docs-deploy actually publishes. The
+// deploy side v-prefixes every version; if that stops, this fails with it.
+describe('docs version segment matches docs-deploy', () => {
+  it('both carry the v prefix', () => {
+    const script = readFileSync(resolve(__dirname, '../../../scripts/resolve-docs-version.sh'), 'utf-8')
+    expect(script).toMatch(/^\s*\*\) v="v\$\{v\}" ;;$/m)
+    expect(docsVersionSegment('1.3.0')).toBe('v1.3')
+  })
+})
+
 describe('docsUrl', () => {
   it('builds a versioned URL with the anchor', () => {
-    expect(docsUrl('analytics.bottleneck', { version: '1.3.0' })).toBe(`${DEFAULT_DOCS_BASE_URL}/1.3/features/analytics/#bottleneck`)
+    expect(docsUrl('analytics.bottleneck', { version: '1.3.0' })).toBe(`${DEFAULT_DOCS_BASE_URL}/v1.3/features/analytics/#bottleneck`)
   })
   it('falls back to latest', () => {
     expect(docsUrl('webhooks', { version: 'dev' })).toBe(`${DEFAULT_DOCS_BASE_URL}/latest/features/webhooks/`)
   })
   it('home has no path', () => {
-    expect(docsUrl('home', { version: '1.3.0' })).toBe(`${DEFAULT_DOCS_BASE_URL}/1.3/`)
+    expect(docsUrl('home', { version: '1.3.0' })).toBe(`${DEFAULT_DOCS_BASE_URL}/v1.3/`)
   })
   it('uses an override verbatim, trimming trailing slashes', () => {
     expect(docsUrl('webhooks', { base: 'https://docs.corp.example/visiban//', version: '1.3.0' })).toBe('https://docs.corp.example/visiban/features/webhooks/')
   })
   it('ignores a non-http override', () => {
-    expect(docsUrl('webhooks', { base: 'javascript:alert(1)', version: '1.3.0' })).toBe(`${DEFAULT_DOCS_BASE_URL}/1.3/features/webhooks/`)
+    expect(docsUrl('webhooks', { base: 'javascript:alert(1)', version: '1.3.0' })).toBe(`${DEFAULT_DOCS_BASE_URL}/v1.3/features/webhooks/`)
   })
   it('every registry path ends in a slash and every anchor has no hash', () => {
     for (const t of Object.values(HELP_TOPICS) as { path: string; anchor?: string }[]) {
