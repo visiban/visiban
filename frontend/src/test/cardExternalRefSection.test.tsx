@@ -110,6 +110,21 @@ describe('CardExternalRefSection (#352)', () => {
     expect(screen.getByLabelText('URL')).toBeInTheDocument()
   })
 
+  // #2608: the commit that closes the editor removes the focused Save, so focus is on <body> until
+  // the focus move runs. Read focus from inside the waitFor callback, which a MutationObserver runs
+  // right after that commit and before any passive effect: it must already be on Edit.
+  it('a save lands focus on Edit in the same commit that closes the editor (#2608)', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    render(<CardExternalRefSection externalRef={GH} canEdit onSave={onSave} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Edit pull or merge request link' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save link' }))
+    const seen = await waitFor(() => {
+      const edit = screen.getByRole('button', { name: 'Edit pull or merge request link' })
+      return { edit, focused: document.activeElement }
+    })
+    expect(seen.focused).toBe(seen.edit)
+  })
+
   it('removes the link and returns to the empty state', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
     const { rerender } = render(<CardExternalRefSection externalRef={GH} canEdit onSave={onSave} />)

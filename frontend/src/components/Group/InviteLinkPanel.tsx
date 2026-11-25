@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import type { Ref } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
@@ -288,7 +288,8 @@ export default function InviteLinkPanel({
   const newLinkButtonRef = useRef<HTMLButtonElement>(null);
   const copyButtonRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
+  // Layout effects, not passive ones: the commit that removes the focused control must also move focus (#2608).
+  useLayoutEffect(() => {
     if (pendingFocus === null) return;
     const target = {
       name: nameInputRef,
@@ -299,6 +300,12 @@ export default function InviteLinkPanel({
     (target ?? headingRef.current)?.focus();
     setPendingFocus(null);
   }, [pendingFocus]);
+  // The invite_link.revoked echo of this revoke can re-read the list before the request answers, and the
+  // board list then hides the row with the focused Confirm in it.
+  useLayoutEffect(() => {
+    if (revokingId !== null && document.activeElement === document.body) headingRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires on a list change only
+  }, [links]);
   useEffect(() => {
     return () => {
       if (copiedTimerRef.current !== null) {
@@ -407,11 +414,12 @@ export default function InviteLinkPanel({
     } catch (err: unknown) {
       const httpStatus = (err as { response?: { status?: number } }).response?.status;
       if (httpStatus === 400) {
-        // Redeemed while the prompt was open: say so, and show its real state.
-        setConfirmRevokeId(null);
+        // Redeemed while the prompt was open: say so, and show its real state. The prompt closes only
+        // after the refetch, in the same update that moves focus.
         if (isBoard) setShowPast(true);
         // Refetch first (it clears revokeError), then report the outcome.
         await fetchLinks();
+        setConfirmRevokeId(null);
         setRevokeError({ id: linkId, message: ALREADY_USED_REVOKE_ERROR });
         setPendingFocus("heading");
       } else {

@@ -871,3 +871,46 @@ describe('Children tab assignee override (#1923)', () => {
     expect(moveTargetState(doing, b, { userId: me, child: mine }).needsReason).toBe(true)
   })
 })
+
+describe('Unlink child focus (#2608)', () => {
+  const tab = (st: ChildrenState) => (
+    <CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={st} onExitToTabs={vi.fn()} />
+  )
+  const unlinkButton = () => screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' })
+
+  it('moves focus to the next child in the same update that removes the unlinked row', async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload })))
+    await userEvent.click(unlinkButton())
+    await waitFor(() => expect(reload).toHaveBeenCalled())
+    rerender(tab(state({ data: read(kids.slice(1)), reload })))
+    // No waitFor: a deferred focus move leaves focus on <body> here.
+    expect(screen.getByRole('link', { name: /^Kickoff/ })).toHaveFocus()
+  })
+
+  it('moves focus when the row goes before the unlink request answers', async () => {
+    vi.mocked(unlinkCardChild).mockReturnValue(new Promise(() => {}) as never)
+    const { rerender } = render(tab(state({ data: read(kids) })))
+    await userEvent.click(unlinkButton())
+    rerender(tab(state({ data: read(kids.slice(1)) })))
+    expect(screen.getByRole('link', { name: /^Kickoff/ })).toHaveFocus()
+  })
+
+  it('moves focus to Add child in the same update when the last child goes', async () => {
+    vi.mocked(unlinkCardChild).mockReturnValue(new Promise(() => {}) as never)
+    const { rerender } = render(tab(state({ data: read(kids.slice(0, 1)) })))
+    await userEvent.click(unlinkButton())
+    rerender(tab(state({ data: read([]) })))
+    expect(screen.getByRole('button', { name: 'Add child' })).toHaveFocus()
+  })
+
+  it('leaves focus alone on a later re-read when the unlink failed', async () => {
+    vi.mocked(unlinkCardChild).mockRejectedValue(new Error('no'))
+    const { rerender } = render(tab(state({ data: read(kids) })))
+    await userEvent.click(unlinkButton())
+    await screen.findByText("Couldn't unlink Pen-test scoping call. Try again.")
+    rerender(tab(state({ data: read(kids.slice(1)) })))
+    expect(screen.getByRole('link', { name: /^Kickoff/ })).not.toHaveFocus()
+  })
+})

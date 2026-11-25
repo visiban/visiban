@@ -3130,6 +3130,21 @@ describe('CardDetail', () => {
         expect(onForceMoveCard).toHaveBeenCalledWith(card.id, expect.any(Number), expect.any(Number), 9999, undefined, 'Customer deadline')
       })
 
+      it('a hard refusal after the reason focuses Move in the same update (#2608)', async () => {
+        let answer!: (r: MoveOutcome) => void
+        const { user } = await assigneeSetup(9, vi.fn().mockReturnValue(new Promise((resolve) => { answer = resolve })))
+        await user.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
+        await user.type(screen.getByLabelText('Reason (required)'), 'Customer deadline')
+        await user.click(screen.getByRole('button', { name: 'Move anyway' }))
+        answer({ ok: false, error: axiosFailure(409, hardBody) })
+        let focused: Element | null = null
+        await waitFor(() => {
+          expect(screen.queryByLabelText('Reason (required)')).not.toBeInTheDocument()
+          focused = document.activeElement
+        })
+        expect(focused).toBe(screen.getByRole('button', { name: 'Move' }))
+      })
+
       it('self-assigned: a hint instead of an override (#1923)', async () => {
         await assigneeSetup(7)
         expect(screen.getByText(/You assigned this card to yourself/)).toBeInTheDocument()

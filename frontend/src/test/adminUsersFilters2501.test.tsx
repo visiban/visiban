@@ -102,22 +102,31 @@ function serveCreate(username: string) {
   })
 }
 
+// A page-wide role query computes roles and names across the whole document, which is slow beside a
+// 50-row list (#2608). So the shared helpers find containers by label or text and run role queries
+// only within one (a form, a row, the pill group).
 async function addUser(username: string) {
   fireEvent.click(screen.getByText('Add user'))
-  fireEvent.change(screen.getByLabelText(/username/i), { target: { value: username } })
-  fireEvent.change(screen.getByLabelText(/email/i), { target: { value: `${username}@example.com` } })
-  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
-  fireEvent.click(screen.getByText('Create user'))
+  const formEl = screen.getByText('Create user').closest('form')!
+  const form = within(formEl)
+  fireEvent.change(form.getByLabelText(/username/i), { target: { value: username } })
+  fireEvent.change(form.getByLabelText(/email/i), { target: { value: `${username}@example.com` } })
+  fireEvent.change(form.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
+  fireEvent.click(form.getByText('Create user'))
   await waitFor(() => expect(api.createAdminUser).toHaveBeenCalled())
-  await waitFor(() => expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument())
+  await waitFor(() => expect(formEl).not.toBeInTheDocument())
 }
 
-/** 51 active accounts: page 1 holds 50 of them, page 2 holds "User 50" alone. */
-const manyActive = () => Array.from({ length: 51 }, (_, i) => row({ id: 100 + i, username: `user${i}`, email: `user${i}@example.com`, display_name: `User ${i}` }))
+/** `length` active accounts. Of 51, page 1 holds 50 and page 2 holds "User 50" alone. */
+const manyActive = (length = 51) => Array.from({ length }, (_, i) => row({ id: 100 + i, username: `user${i}`, email: `user${i}@example.com`, display_name: `User ${i}` }))
+
+/** The list row showing `name`: its actions and its inline confirm live inside it. */
+const rowOf = (name: string) => within(screen.getByText(name).closest('li')!)
 
 async function deactivate(name: string) {
-  fireEvent.click(screen.getByRole('button', { name: `Deactivate ${name}` }))
-  fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }))
+  const r = rowOf(name)
+  fireEvent.click(r.getByRole('button', { name: `Deactivate ${name}` }))
+  fireEvent.click(await r.findByRole('button', { name: 'Deactivate' }))
 }
 
 async function renderUsers() {
@@ -126,10 +135,13 @@ async function renderUsers() {
       <AdminPage user={actor} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
     </MemoryRouter>,
   )
-  await screen.findByRole('list', { name: 'Users' })
+  await screen.findByLabelText('Users', { selector: 'ul' })
 }
 
-const pill = (label: string) => within(screen.getByRole('group', { name: 'Filter users' })).getByRole('button', { name: (n) => n.split(' ')[0] === label })
+const usersList = () => screen.getByLabelText('Users', { selector: 'ul' })
+const nextButton = () => screen.getByText('Next', { selector: 'button' })
+
+const pill = (label: string) => within(screen.getByLabelText('Filter users')).getByRole('button', { name: (n) => n.split(' ')[0] === label })
 const lastCall = () => api.getAdminUsers.mock.calls.at(-1)?.[0] as Params
 
 beforeEach(() => {
@@ -143,6 +155,8 @@ beforeEach(() => {
 describe('Users filter pills (#2501)', () => {
   it('shows each pill with its server count, All selected', async () => {
     await renderUsers()
+    expect(screen.getByRole('group', { name: 'Filter users' })).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Users' })).toBeInTheDocument()
     expect(pill('All')).toHaveAttribute('aria-pressed', 'true')
     expect(pill('All')).toHaveTextContent('3')
     expect(pill('Active')).toHaveTextContent('2')
@@ -161,7 +175,7 @@ describe('Users filter pills (#2501)', () => {
     await renderUsers()
     fireEvent.click(pill(label))
     await waitFor(() => expect(lastCall()).toMatchObject({ status, offset: 0 }))
-    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Users' })).getAllByRole('listitem')).toHaveLength(names.length))
+    await waitFor(() => expect(within(usersList()).getAllByRole('listitem')).toHaveLength(names.length))
     for (const n of names) expect(screen.getByText(n)).toBeInTheDocument()
     expect(pill(label)).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText(`Showing 1–${names.length} of ${names.length}`)).toBeInTheDocument()
@@ -191,7 +205,7 @@ describe('Users filter pills (#2501)', () => {
   it('starts again at page 1 when the filter changes', async () => {
     serve({ total: 120 })
     await renderUsers()
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(nextButton())
     await waitFor(() => expect(lastCall()).toMatchObject({ offset: 50 }))
     fireEvent.click(pill('Active'))
     await waitFor(() => expect(lastCall()).toMatchObject({ status: 'active', offset: 0 }))
@@ -282,7 +296,7 @@ describe('Users filter pills (#2501)', () => {
     await renderUsers()
     await addUser('bob')
     await waitFor(() => expect(screen.getByText(/Showing 1.4 of 4/)).toBeInTheDocument())
-    const names = within(screen.getByRole('list', { name: 'Users' })).getAllByRole('listitem').map((li) => li.textContent ?? '')
+    const names = within(usersList()).getAllByRole('listitem').map((li) => li.textContent ?? '')
     expect(names.map((t) => ['Ada Root', 'Alice', 'Bob', 'Carol'].find((n) => t.includes(n)))).toEqual(['Ada Root', 'Alice', 'Bob', 'Carol'])
     expect(lastCall()).toMatchObject({ status: 'all', offset: 0 })
     expect(pill('All')).toHaveTextContent('4')
@@ -298,41 +312,42 @@ describe('Users filter pills (#2501)', () => {
     await waitFor(() => expect(screen.getByText(/Showing 1.50 of 51/)).toBeInTheDocument())
     await addUser('zed')
     await waitFor(() => expect(screen.getByText(/Showing 1.50 of 52/)).toBeInTheDocument())
-    expect(within(screen.getByRole('list', { name: 'Users' })).getAllByRole('listitem')).toHaveLength(50)
+    expect(within(usersList()).getAllByRole('listitem')).toHaveLength(50)
     expect(screen.queryByText('Zed')).not.toBeInTheDocument()
   })
   // A row leaving the selected filter shifts the server's pages, so the page is fetched again.
   it('the last row of page 2 leaving the filter steps back to page 1 with a true "Showing" line', async () => {
-    db = manyActive()
-    serve({ pageSize: 50 })
+    // The page size is the server's to say; 2 gives the same two pages without rendering 50 rows (#2608).
+    db = manyActive(3)
+    serve({ pageSize: 2 })
     await renderUsers()
     fireEvent.click(pill('Active'))
-    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 51/)).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-    await waitFor(() => expect(screen.getByText(/Showing 51.51 of 51/)).toBeInTheDocument())
-    await deactivate('User 50')
-    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 50/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Showing 1.2 of 3/)).toBeInTheDocument())
+    fireEvent.click(nextButton())
+    await waitFor(() => expect(screen.getByText(/Showing 3.3 of 3/)).toBeInTheDocument())
+    await deactivate('User 2')
+    await waitFor(() => expect(screen.getByText(/Showing 1.2 of 2/)).toBeInTheDocument())
     expect(screen.queryByText('No active users.')).not.toBeInTheDocument()
     expect(screen.getByText('User 0')).toBeInTheDocument()
     expect(lastCall()).toMatchObject({ status: 'active', offset: 0 })
-    expect(pill('Active')).toHaveTextContent('50')
+    expect(pill('Active')).toHaveTextContent('2')
     expect(pill('Deactivated')).toHaveTextContent('1')
     await waitFor(() => expect(pill('Active')).toHaveFocus())
   })
 
   it('a row leaving the filter on page 1 of 2 refills the page from the server', async () => {
-    db = manyActive()
-    serve({ pageSize: 50 })
+    db = manyActive(3)
+    serve({ pageSize: 2 })
     await renderUsers()
     fireEvent.click(pill('Active'))
-    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 51/)).toBeInTheDocument())
-    expect(screen.queryByText('User 50')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/Showing 1.2 of 3/)).toBeInTheDocument())
+    expect(screen.queryByText('User 2')).not.toBeInTheDocument()
     await deactivate('User 0')
     // The user who shifted up from page 2 is shown, and the page is full again.
-    expect(await screen.findByText('User 50')).toBeInTheDocument()
+    expect(await screen.findByText('User 2')).toBeInTheDocument()
     expect(screen.queryByText('User 0')).not.toBeInTheDocument()
-    expect(screen.getByText(/Showing 1.50 of 50/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Showing 1.2 of 2/)).toBeInTheDocument()
+    expect(screen.queryByText('Next', { selector: 'button' })).not.toBeInTheDocument()
   })
 
   it('a slower response for an earlier filter never replaces the latest one', async () => {
@@ -365,7 +380,7 @@ describe('Users filter pills (#2501)', () => {
     await renderUsers()
     fireEvent.click(pill('Active'))
     await waitFor(() => expect(screen.getByText(/Showing 1.50 of 51/)).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(nextButton())
     await waitFor(() => expect(screen.getByText(/Showing 51.51 of 51/)).toBeInTheDocument())
     const gate = deferDeactivate()
     await deactivate('User 50')
@@ -393,7 +408,7 @@ describe('Users filter pills (#2501)', () => {
     await waitFor(() => expect(lastCall()).toMatchObject({ status: 'admins' }))
     await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
     expect(pill('Admins')).toHaveAttribute('aria-pressed', 'true')
-    expect(within(screen.getByRole('list', { name: 'Users' })).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(usersList()).getAllByRole('listitem')).toHaveLength(1)
     expect(screen.getByText('Ada Root')).toBeInTheDocument()
     expect(screen.queryByText('Dave')).not.toBeInTheDocument()
   })
@@ -423,12 +438,7 @@ describe('Users filter pills (#2501)', () => {
     fireEvent.change(screen.getByLabelText('Search users'), { target: { value: 'al' } })
     await waitFor(() => expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument())
     expect(pill('All')).toHaveTextContent('1')
-    fireEvent.click(screen.getByText('Add user'))
-    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'bob' } })
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'bob@example.com' } })
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
-    fireEvent.click(screen.getByText('Create user'))
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument())
+    await addUser('bob')
     await waitFor(() => expect(lastCall()).toMatchObject({ search: 'al' }))
     await waitFor(() => expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument())
     expect(pill('All')).toHaveTextContent('1')

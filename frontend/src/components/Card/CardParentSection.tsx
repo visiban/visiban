@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useInRouterContext } from "react-router-dom";
 import { getCardParent, getParentBoards, unlinkCardParent } from "../../api/cards";
 import type { BoardFull, Card, CardParent, ParentBoardOption } from "../../types";
@@ -49,6 +49,7 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
   const linkButtonRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusAfterUnlink = useRef(false);
+  const focusAfterLink = useRef(false);
   // The card panel, captured before an unlink that may unmount this whole
   // section (no parent board to offer): focus lands there, never on <body>.
   const focusFallback = useRef<HTMLElement | null>(null);
@@ -81,11 +82,22 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
   const parent: CardParent | null | undefined =
     override && override.base === storeParent ? override.value : (storeParent === undefined ? readParent : storeParent);
 
-  useEffect(() => {
-    if (!focusAfterUnlink.current || parent !== null) return;
-    focusAfterUnlink.current = false;
-    (linkButtonRef.current ?? headingRef.current ?? focusFallback.current)?.focus();
-  }, [parent]);
+  // A layout effect, not a passive one or a frame later (#2608): the commit that swaps the row
+  // removes the focused control (Unlink, or the picker's Link), so focus is on <body> until this
+  // runs. A passive effect or a requestAnimationFrame left that window open past paint, long
+  // enough on a slow machine for a screen reader (or a test) to land on <body>.
+  useLayoutEffect(() => {
+    if (focusAfterUnlink.current && parent === null) {
+      focusAfterUnlink.current = false;
+      (linkButtonRef.current ?? headingRef.current ?? focusFallback.current)?.focus();
+    } else if (focusAfterLink.current && !pickerOpen && parent) {
+      // The Link button unmounts with the empty row; land on the heading. Keyed on the picker
+      // closing too: a store re-read can show the new parent before the link's response, and
+      // then `parent` does not change in the commit that removes the picker.
+      focusAfterLink.current = false;
+      headingRef.current?.focus();
+    }
+  }, [parent, pickerOpen]);
 
   if (!childBoard || parent === undefined) return null;
   const offerLink = parent === null && canWrite && parentBoards.length > 0;
@@ -192,10 +204,9 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
           }}
           onLinked={(linked) => {
             setPickerOpen(false);
+            focusAfterLink.current = true;
             setOverride({ value: linked, base: storeParent });
             requestCardParentRefetch([card.id]);
-            // The Link button unmounts with the empty row; land on the heading.
-            requestAnimationFrame(() => headingRef.current?.focus());
           }}
         />
       )}

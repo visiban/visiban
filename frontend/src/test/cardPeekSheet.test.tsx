@@ -138,11 +138,19 @@ describe('CardPeekSheet', () => {
 
   it('handles empty and failed history', async () => {
     getCardMovements.mockResolvedValueOnce([])
-    const { unmount } = (() => { setup(); return { unmount: () => {} } })()
-    expect(await screen.findByText('Qualified')).toBeInTheDocument()
+    setup()
+    // Wait for the empty history itself, not for "Qualified": the status strip shows that from the
+    // first render, so waiting for it waited on nothing and the next lines raced the fetch (#2608).
+    expect(await screen.findByText('No history yet.')).toBeInTheDocument()
     expect(screen.getAllByTestId('card-peek-segment')).toHaveLength(1)
-    expect(screen.getByText('No history yet.')).toBeInTheDocument()
-    unmount()
+  })
+
+  // #2608: the history fetches can land a task later than the first render on a loaded runner.
+  it('waits for a history that resolves after the first render', async () => {
+    getCardMovements.mockImplementationOnce(() => new Promise((r) => setTimeout(() => r([]), 5)))
+    setup()
+    expect(await screen.findByText('No history yet.')).toBeInTheDocument()
+    expect(screen.getAllByTestId('card-peek-segment')).toHaveLength(1)
   })
 
   it('reports a history load failure', async () => {
@@ -597,5 +605,60 @@ describe('CardPeekSheet track hint (#2542)', () => {
   it('omits the line when the card has no tracks', () => {
     setup()
     expect(screen.queryByTestId('peek-track-hint')).not.toBeInTheDocument()
+  })
+})
+
+describe('CardPeekSheet — forced move focus (#2608)', () => {
+  it('focuses Move in the same update that closes the form', async () => {
+    getCardMovements.mockResolvedValue(movements)
+    getCardTimeline.mockResolvedValue(emptyTimeline)
+    let answer!: (r: { ok: true }) => void
+    const refusal = new AxiosError('conflict', 'ERR_BAD_REQUEST', undefined, undefined, { status: 409, data: { code: 'wip_limit_exceeded', column_name: 'Prospect', wip_limit: 2, current_count: 2 } } as never)
+    setup({
+      board: { ...board, current_user_role: 'admin' } as unknown as BoardFull,
+      onMoveCard: vi.fn().mockResolvedValue({ ok: false, error: refusal }),
+      onForceMoveCard: vi.fn().mockReturnValue(new Promise((resolve) => { answer = resolve })),
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+    await userEvent.selectOptions(screen.getByLabelText('Column'), '1')
+    await userEvent.click(screen.getByRole('button', { name: 'Move card' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Move anyway/ }))
+    answer({ ok: true })
+    let focused: Element | null = null
+    await waitFor(() => {
+      expect(screen.queryByTestId('card-peek-move-form')).toBeNull()
+      focused = document.activeElement
+    })
+    expect(focused).toBe(screen.getByRole('button', { name: 'Move' }))
+  })
+})
+
+describe('CardPeekSheet — hard refusal focus (#2608)', () => {
+  it('focuses Move card in the same update that drops the reason form', async () => {
+    getCardMovements.mockResolvedValue(movements)
+    getCardTimeline.mockResolvedValue(emptyTimeline)
+    const conflict = (code: string) => new AxiosError('conflict', 'ERR_BAD_REQUEST', undefined, undefined, { status: 409, data: { code, column_name: 'Prospect', wip_limit: 2, current_count: 2 } } as never)
+    let answer!: (r: { ok: false; error: unknown }) => void
+    const me = { id: 7, username: 'ada', display_name: 'Ada', avatar_url: '' }
+    setup({
+      board: { ...board, current_user_role: 'member', allow_assignee_override: true } as unknown as BoardFull,
+      card: { ...card, assignee: me, assigned_by: 9 } as Card,
+      currentUserId: 7,
+      onMoveCard: vi.fn().mockResolvedValue({ ok: false, error: conflict('wip_limit_exceeded') }),
+      onForceMoveCard: vi.fn().mockReturnValue(new Promise((resolve) => { answer = resolve })),
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+    await userEvent.selectOptions(screen.getByLabelText('Column'), '1')
+    await userEvent.click(screen.getByRole('button', { name: 'Move card' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Move anyway (assignee override)' }))
+    await userEvent.type(screen.getByLabelText('Reason (required)'), 'Ship it')
+    await userEvent.click(screen.getByRole('button', { name: 'Move anyway' }))
+    answer({ ok: false, error: conflict('wip_hard_blocked') })
+    let focused: Element | null = null
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Reason (required)')).toBeNull()
+      focused = document.activeElement
+    })
+    expect(focused).toBe(screen.getByRole('button', { name: 'Move card' }))
   })
 })

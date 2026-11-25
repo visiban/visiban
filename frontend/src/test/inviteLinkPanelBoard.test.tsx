@@ -442,3 +442,61 @@ describe('InviteLinkPanel — board truncation caption (#2339)', () => {
     await waitFor(() => expect(screen.queryByTestId('invite-links-truncated')).not.toBeInTheDocument())
   })
 })
+
+describe('InviteLinkPanel — revoke focus (#2608)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetSiteConfig.mockResolvedValue(siteConfig)
+  })
+  const heading = () => screen.getByRole('heading', { name: 'Pending invites' })
+
+  async function openConfirm(extra: Partial<React.ComponentProps<typeof InviteLinkPanel>> = {}) {
+    mockList.mockResolvedValueOnce([invite()])
+    const view = renderBoard(extra)
+    await userEvent.click(await screen.findByRole('button', { name: /^Revoke invite / }))
+    return view
+  }
+
+  it('moves focus to the heading in the same update that removes the confirm', async () => {
+    let answer!: () => void
+    mockRevoke.mockReturnValue(new Promise<void>((resolve) => { answer = resolve }))
+    await openConfirm()
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    answer()
+    let focused: Element | null = null
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+      focused = document.activeElement
+    })
+    expect(focused).toBe(heading())
+  })
+
+  it('does the same when the invite was already used', async () => {
+    let refuse!: () => void
+    mockRevoke.mockReturnValue(new Promise((_, reject) => { refuse = () => reject({ response: { status: 400 } }) }))
+    await openConfirm()
+    mockList.mockResolvedValue([invite({ status: 'used' })])
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    refuse()
+    let focused: Element | null = null
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+      focused = document.activeElement
+    })
+    expect(focused).toBe(heading())
+  })
+
+  it('moves focus when a refetch hides the row before the revoke answers', async () => {
+    mockRevoke.mockReturnValue(new Promise(() => {}))
+    const { rerender } = await openConfirm({ reloadSignal: 0 })
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    mockList.mockResolvedValue([invite({ status: 'revoked' })])
+    rerender(<InviteLinkPanel scope={{ kind: 'board', id: 9 }} variant="embedded" allowShareableLinks={false} reloadSignal={1} />)
+    let focused: Element | null = null
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+      focused = document.activeElement
+    })
+    expect(focused).toBe(heading())
+  })
+})

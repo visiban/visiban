@@ -266,7 +266,9 @@ Before committing a new spec:
 ### Flake-resistance checklist (Vitest unit tests)
 
 The Playwright list above has a unit-test counterpart. Every root-caused `frontend-test` flake so
-far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed, not test noise:
+far was a real defect that a loaded CI runner exposed, not test noise: a component defect in
+#1304, #1305, #1319 and #2608 (focus left on `<body>`), and in #2608 also two test defects (a
+wait on nothing, and page-wide queries too slow for the timeout):
 
 - [ ] **Act only on a settled page.** Finding the first element a fetch renders doesn't mean the
   page is idle: the commit that shows it can still have mount effects and further fetches queued,
@@ -294,6 +296,15 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
   ends it once cleanup unmounts the panel (see the focus-trap Move-popover test in
   `cardDetail.test.tsx`). The victim is usually a later test whose portaled menu closes on
   Tab, not the loop's own test.
+- [ ] **Wait for what the next line asserts (#2608).** A `findBy*` for text the first render already
+  shows (a column name in a status strip) waits on nothing; the lines after it race the fetch.
+  Wait for the fetched state itself (`No history yet.`), as `cardPeekSheet.test.tsx` does.
+- [ ] **Keep a large fixture cheap (#2608).** A page-wide `getByRole` or `getByLabelText` walks the
+  whole document, and every extra row is also rendered on each update; a test on a 50-row Users
+  page can pass locally and exceed the 5 s timeout on a loaded runner. Query `within()` the form
+  or row (the `addUser` and `rowOf` helpers in `adminUsersFilters2501.test.tsx`), and where the
+  server sets the page size and the size is not what is under test, serve a small page. Measure a
+  slow test per step before raising its timeout.
 
 ## Writing tests that catch mutations
 

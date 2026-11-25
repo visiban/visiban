@@ -1513,14 +1513,23 @@ describe('GroupDetail', () => {
     }
 
     it('shows a count and Load more, appends the next page and focuses its first row', async () => {
+      let answer!: (v: unknown) => void
       mockGetGroupDescendantBoards
         .mockResolvedValueOnce(env(0, 3, [sgBoard(10, 'Alpha'), sgBoard(11, 'Beta')]))
-        .mockResolvedValueOnce(env(2, 3, [sgBoard(12, 'Gamma'), sgBoard(11, 'Beta')]))
+        .mockReturnValueOnce(new Promise((resolve) => { answer = resolve }))
       await openToggle()
       expect(await screen.findByText('Alpha')).toBeInTheDocument()
       expect(screen.getByText('Showing 2 of 3 subgroup boards')).toBeInTheDocument()
+      screen.getByRole('button', { name: 'Load more' }).focus()
       fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
-      expect(await screen.findByText('Gamma')).toBeInTheDocument()
+      answer(env(2, 3, [sgBoard(12, 'Gamma'), sgBoard(11, 'Beta')]))
+      // Read inside the callback: focus moves in the same update that removes the button (#2608).
+      let focused: Element | null = null
+      await waitFor(() => {
+        expect(screen.getByText('Gamma')).toBeInTheDocument()
+        focused = document.activeElement
+      })
+      expect(focused).toBe(screen.getByText('Gamma').closest('button'))
       expect(mockGetGroupDescendantBoards).toHaveBeenLastCalledWith(1, 2, 50)
       // One new row: singular.
       expect(screen.getByText('Loaded 1 more subgroup board.')).toBeInTheDocument()
@@ -1528,7 +1537,6 @@ describe('GroupDetail', () => {
       expect(screen.getAllByText('Beta')).toHaveLength(1)
       expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull()
       expect(screen.getByText('Showing 3 subgroup boards')).toBeInTheDocument()
-      await waitFor(() => expect(screen.getByText('Gamma').closest('button')).toHaveFocus())
     })
 
     it('keeps loaded rows when a later page fails and retries the same offset', async () => {
@@ -1551,14 +1559,21 @@ describe('GroupDetail', () => {
     })
 
     it('announces the added count and moves focus to the count line when the last page adds no new rows (#1779)', async () => {
+      let answer!: (v: unknown) => void
       mockGetGroupDescendantBoards
         .mockResolvedValueOnce(env(0, 2, [sgBoard(10, 'Alpha')]))
-        .mockResolvedValueOnce(env(1, 2, [sgBoard(10, 'Alpha')]))
+        .mockReturnValueOnce(new Promise((resolve) => { answer = resolve }))
       await openToggle()
       await screen.findByText('Alpha')
       fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
-      expect(await screen.findByText('Loaded 0 more subgroup boards.')).toBeInTheDocument()
-      await waitFor(() => expect(screen.getByText('Showing 1 subgroup board')).toHaveFocus())
+      answer(env(1, 2, [sgBoard(10, 'Alpha')]))
+      let focused: Element | null = null
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: /Load more|Loading/ })).toBeNull()
+        focused = document.activeElement
+      })
+      expect(focused).toBe(screen.getByText('Showing 1 subgroup board'))
+      expect(screen.getByText('Loaded 0 more subgroup boards.')).toBeInTheDocument()
     })
 
     it('announces "Loaded N more" after Load more (#1779)', async () => {

@@ -108,6 +108,8 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   const [actionError, setActionError] = useState<string | null>(null);
   // After a write unmounts the focused control, focus goes back to the card (or Add child) once the re-read lands.
   const pendingFocus = useRef<number | "add" | null>(focusChildId);
+  // An Unlink in flight: the child whose row (and focused button) will go, and where focus goes then.
+  const unlinkFocus = useRef<{ gone: number; to: number | "add" } | null>(null);
   // A re-read after this tab's own write is announced by that write; any other re-read (a
   // `card.children_changed` ping, #2209 row 13) announces what changed, once.
   const prevData = useRef(data);
@@ -180,14 +182,16 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   const unlink = async (child: CardChildRow) => {
     setActionError(null);
     beginWrite();
+    // Set before the await: a re-read from this tab's own socket ping can drop the row before the request answers.
+    const list = byColumn(child.column_id).filter((c) => c.id !== child.id);
+    unlinkFocus.current = { gone: child.id, to: list[0]?.id ?? children.find((c) => c.id !== child.id)?.id ?? "add" };
     try {
       await unlinkCardChild(board.id, cardId, child.id);
       setAnnouncement(`Unlinked ${child.title}.`);
       offerUndoUnlink(child);
-      const list = byColumn(child.column_id).filter((c) => c.id !== child.id);
-      pendingFocus.current = list[0]?.id ?? children.find((c) => c.id !== child.id)?.id ?? "add";
       reloadAfterWrite();
     } catch {
+      unlinkFocus.current = null;
       localWrite.current = false;
       setActionError(`Couldn't unlink ${child.title}. Try again.`);
     }
@@ -310,6 +314,20 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     pendingFocus.current = null;
     if (target === "add") addRef.current?.focus();
     else focusCard(target);
+  }, [data]);
+
+  // A layout effect, not a passive one: the commit that removes the unlinked row (and its focused button)
+  // must also move focus, or it sits on <body> in between (#2608).
+  useLayoutEffect(() => {
+    const unlinked = unlinkFocus.current;
+    if (!unlinked || !data || data.results.some((c) => c.id === unlinked.gone)) return;
+    unlinkFocus.current = null;
+    if (unlinked.to === "add") {
+      addRef.current?.focus();
+      return;
+    }
+    setActiveId(unlinked.to);
+    gridRef.current?.querySelector<HTMLElement>(`[data-child-id="${unlinked.to}"]`)?.focus();
   }, [data]);
 
   const onColumnButtonsKeyDown = (e: React.KeyboardEvent) => {
