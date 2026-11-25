@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useResyncedState } from "../hooks/useResyncedState";
 import { canDeleteGroup } from "../utils/canDeleteGroup";
 import { neutralizePerUserBoardFields, stripPerUserBoardFields } from "../utils/boardEventPayload";
@@ -246,6 +246,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const subgroupBoardsRef = useRef<Board[]>([]);
   const sgFocusIdRef = useRef<number | null>(null);
   const sgCountLineRef = useRef<HTMLParagraphElement>(null);
+  // Counts Load mores that ran out without adding a row.
+  const [sgRanOut, setSgRanOut] = useState(0);
 
   // Set of board ids flagged for fade-in animation after a live insertion.
   // Cleared 200ms after mount so re-renders don't replay the animation.
@@ -939,7 +941,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       });
       setSgAnnouncement(`Loaded ${fresh.length} more ${sgNoun(fresh.length)}.`);
       if (fresh.length === 0 && sgOffsetRef.current >= page.count) {
-        requestAnimationFrame(() => sgCountLineRef.current?.focus());
+        setSgRanOut((n) => n + 1);
       }
     } catch {
       // A failure for a superseded load is dropped like its answer: the new load is not failing.
@@ -950,13 +952,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     }
   };
 
+  // Layout effects, not passive ones: the commit that removes the Load more button must also move focus (#2608).
   // After Load more adds rows, focus the first new one so focus survives the button unmounting on the last page.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const id = sgFocusIdRef.current;
     if (id === null) return;
     sgFocusIdRef.current = null;
     document.querySelector<HTMLElement>(`[data-subgroup-board-id="${id}"]`)?.focus();
   }, [subgroupBoards]);
+  useLayoutEffect(() => {
+    if (sgRanOut > 0) sgCountLineRef.current?.focus();
+  }, [sgRanOut]);
 
   const handleStarToggle = async () => {
     if (starLoading) return;

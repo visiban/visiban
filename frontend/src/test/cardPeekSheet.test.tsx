@@ -607,3 +607,28 @@ describe('CardPeekSheet track hint (#2542)', () => {
     expect(screen.queryByTestId('peek-track-hint')).not.toBeInTheDocument()
   })
 })
+
+describe('CardPeekSheet — forced move focus (#2608)', () => {
+  it('focuses Move in the same update that closes the form', async () => {
+    getCardMovements.mockResolvedValue(movements)
+    getCardTimeline.mockResolvedValue(emptyTimeline)
+    let answer!: (r: { ok: true }) => void
+    const refusal = new AxiosError('conflict', 'ERR_BAD_REQUEST', undefined, undefined, { status: 409, data: { code: 'wip_limit_exceeded', column_name: 'Prospect', wip_limit: 2, current_count: 2 } } as never)
+    setup({
+      board: { ...board, current_user_role: 'admin' } as unknown as BoardFull,
+      onMoveCard: vi.fn().mockResolvedValue({ ok: false, error: refusal }),
+      onForceMoveCard: vi.fn().mockReturnValue(new Promise((resolve) => { answer = resolve })),
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+    await userEvent.selectOptions(screen.getByLabelText('Column'), '1')
+    await userEvent.click(screen.getByRole('button', { name: 'Move card' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Move anyway/ }))
+    answer({ ok: true })
+    let focused: Element | null = null
+    await waitFor(() => {
+      expect(screen.queryByTestId('card-peek-move-form')).toBeNull()
+      focused = document.activeElement
+    })
+    expect(focused).toBe(screen.getByRole('button', { name: 'Move' }))
+  })
+})

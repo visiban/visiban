@@ -317,6 +317,12 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const [reasonOpen, setReasonOpen] = useState(false);
   const overrideLinkRef = useRef<HTMLButtonElement>(null);
   const refusalId = useId();
+  // Counts successful forced moves. A layout effect, so the commit that closes the form (and drops its focused
+  // control) also focuses the remounted Move button (#2608).
+  const [forcedMoves, setForcedMoves] = useState(0);
+  useLayoutEffect(() => {
+    if (forcedMoves > 0) moveBtnRef.current?.focus();
+  }, [forcedMoves]);
 
   useEffect(() => {
     if (!moveOpen) setReasonOpen(false);
@@ -341,7 +347,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       setMoveError(null);
       setMoveRefusal(null);
       setMoveOpen(false);
-      requestAnimationFrame(() => moveBtnRef.current?.focus());
+      setForcedMoves((n) => n + 1);
     } catch (err) {
       setMoveError(moveFailureMessage(err));
       setMoveRefusal(limitRefusal(err));
