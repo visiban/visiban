@@ -428,6 +428,39 @@ describe('CardPeekSheet', () => {
     })
   })
 
+  describe('focus after the Move form closes (#2611)', () => {
+    const open = async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+    }
+    // Read focus inside the callback that finds the form gone: a deferred move fails here.
+    const expectMoveFocused = () => waitFor(() => {
+      expect(screen.queryByTestId('card-peek-move-form')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Move' })).toHaveFocus()
+    })
+
+    it('hands focus to Move after a successful move', async () => {
+      setup()
+      await open()
+      await userEvent.selectOptions(screen.getByLabelText('Column'), '3')
+      await userEvent.click(screen.getByRole('button', { name: 'Move card' }))
+      await expectMoveFocused()
+    })
+
+    it('hands focus to Move after a same-place no-op, Cancel and Escape', async () => {
+      setup()
+      await open()
+      await userEvent.click(screen.getByRole('button', { name: 'Move card' }))
+      await expectMoveFocused()
+      await open()
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      await expectMoveFocused()
+      await open()
+      screen.getByLabelText('Column').focus()
+      await userEvent.keyboard('{Escape}')
+      await expectMoveFocused()
+    })
+  })
+
   describe('soft WIP limit override', () => {
     const axiosRefusal = (data: object) =>
       new AxiosError('conflict', 'ERR_BAD_REQUEST', undefined, undefined, { status: 409, data } as never)
@@ -514,6 +547,18 @@ describe('CardPeekSheet', () => {
       await userEvent.click(screen.getByRole('button', { name: /Move anyway/ }))
       expect(await screen.findByTestId('card-peek-move-form')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /Move anyway/ })).not.toBeInTheDocument()
+    })
+
+    it.each([
+      ['fails with a non-limit error', () => vi.fn().mockResolvedValue({ ok: false, error: new Error('nope') })],
+      ['throws', () => vi.fn().mockRejectedValue(new Error('boom'))],
+    ])('hands focus to Move card when the forced move from the link %s (#2611)', async (_name, forced) => {
+      await refuse({ onForceMoveCard: forced() })
+      await userEvent.click(screen.getByRole('button', { name: /Move anyway/ }))
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: /Move anyway/ })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Move card' })).toHaveFocus()
+      })
     })
 
     it('offers nothing to a non-admin, for a hard limit, or without the prop', async () => {
