@@ -10,7 +10,7 @@ Find every secret, credential, and environment variable Visiban needs in local d
 
 ## In-app help links
 
-*(new in 1.3)* The "?" and "Learn more" links in the app open the Visiban docs in a new tab, matched to the version you run: a 1.3.x install links to `docs.visiban.com/1.3/...`, a prerelease build to `/next/`, and a build whose version is missing or not a release number to `/latest/`. A build from `main` reports the last released version, so its links point at that version's docs until a 1.3 prerelease is cut.
+*(new in 1.3)* The "?" and "Learn more" links in the app open the Visiban docs in a new tab, matched to the version you run: a 1.3.x install links to `docs.visiban.com/v1.3/...`, a prerelease build to `/next/`, and a build whose version is missing or not a release number to `/latest/`. A build from `main` reports the last released version, so its links point at that version's docs until a 1.3 prerelease is cut.
 
 To point them at your own documentation mirror (for example on an air-gapped network), set the `VITE_DOCS_BASE_URL` build argument when you build the frontend image:
 

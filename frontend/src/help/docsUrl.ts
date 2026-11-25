@@ -8,16 +8,18 @@ declare const __APP_VERSION__: string;
 /**
  * Docs version segment for a running build.
  *
- * mike publishes a release X.Y.Z at `/X.Y/` (and `/X.Y.Z/`, `latest`), but a
- * prerelease (`1.3.0-beta.1`) only at `/next/` (.gitlab-ci.yml docs-deploy), so
- * linking it to `/1.3/` could 404. Anything that is not semver (`dev`, `test`,
- * empty) falls back to `latest`.
+ * docs-deploy publishes a release X.Y.Z at `/vX.Y.Z/` with the aliases `/vX.Y/`
+ * and `/latest/`. The `v` is always there: scripts/resolve-docs-version.sh adds
+ * it, so an unprefixed `/X.Y/` does not exist (#2612). A prerelease
+ * (`1.3.0-beta.1`) gets no minor alias, only `/vX.Y.Z-pre/` and `/next/`
+ * (.gitlab-ci.yml docs-deploy), so linking it to `/v1.3/` could 404. Anything
+ * that is not semver (`dev`, `test`, empty) falls back to `latest`.
  */
 export function docsVersionSegment(version: string | undefined): string {
   const match = /^v?(\d+)\.(\d+)\.\d+(-.+)?$/.exec((version ?? "").trim());
   if (!match) return "latest";
   if (match[3]) return "next";
-  return `${match[1]}.${match[2]}`;
+  return `v${match[1]}.${match[2]}`;
 }
 
 function sanitizeBase(base: string | undefined): string | null {
