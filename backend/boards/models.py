@@ -213,15 +213,20 @@ class Board(models.Model):
         max_length=20,
         default="comfortable",
         help_text=(
-            "Per-board card layout density (#961). Drives how much metadata "
-            "renders on the card face: ``comfortable`` shows one urgency badge "
-            "and one primary label, ``standard`` adds due date and weight, "
-            "``dense`` shows everything (today's pre-1.1 layout). New boards "
-            "default to ``comfortable`` so first-time users get the cleaner "
-            "scan; existing boards are migrated to ``dense`` to preserve their "
-            "current visual. The middle tier is named ``standard`` rather than "
-            "``compact`` to avoid colliding with the per-user *Card layout: "
-            "Compact / Expanded* toolbar pref. Validated at the serializer layer."
+            "Per-board card layout density (#961): how much the card face "
+            "draws. ``comfortable``: the title on up to two lines with its "
+            "subtitle, one label plus an overflow count, and the status line "
+            "(overdue, due soon or stale) on its own row. ``standard``: a "
+            "one-line title and a second label, with the status line sharing "
+            "the metadata row, plus a due date not already in the status line, "
+            "a weight above 1, the attachment count and the reference link "
+            "text. ``dense``: a single row with the title, a short status and "
+            "the first pinned field with a value, and the assignee avatar. New "
+            "boards default to ``comfortable``; boards that existed at 1.1 "
+            "were set to ``dense``. The middle tier is named ``standard`` "
+            "rather than ``compact`` to avoid colliding with the per-user "
+            "*Card layout: Compact / Expanded* toolbar pref. Validated at the "
+            "serializer layer."
         ),
     )
     # ``db_default`` keeps the DB-level default so an old pod's INSERT that omits
