@@ -1070,7 +1070,8 @@ def no_orchestrator_usage(rc, err):
 def measure(runner, cwd, sid, sdir, opts, since, until, agent_ids, state_agents, foreign=None):
     """Run the three measuring scripts. Returns (stdout lines, stderr chunks, every agent id of THIS
     session the window measured: the chosen ones and their descendants, whether the orchestrator window
-    had no usage at all: no_orchestrator_usage).
+    produced no `orchestrator-tokens:` line: "" when it did, else NO_ORCH_USAGE (exit 1, no usage) or
+    NO_ORCH_UNMEASURED (any other failure)).
 
     `foreign` is select_foreign's result: those agents are measured too, each over the watermark in its
     own session's state (`--also-session` lets the scripts find it there). A window with no agent runs
@@ -1102,17 +1103,20 @@ def measure(runner, cwd, sid, sdir, opts, since, until, agent_ids, state_agents,
     est_extra = (["--prices", opts.prices] if opts.prices else []) + (["--today", opts.today] if opts.today else [])
     env = dict(os.environ, CLAUDE_CODE_SESSION_ID=sid)
     pd = ["--projects-dir", opts.projects_dir]
-    lines, split, orch_empty = [], [], False
+    lines, split, orch_gap = [], [], ""
     for script, extra in (("subagent-tokens.py", sub_args + ["--until", until, "--session", sid] + pd),
                           ("orchestrator-tokens.py", [sid, "--since", since, "--until", until] + pd),
                           ("est-cost.py", sub_args + ["--since", since, "--until", until, "--session", sid] + pd + est_extra)):
         rc, out, err = runner([sys.executable, os.path.join(HERE, script)] + extra, cwd, env=env)
         split.append(err)
         if script == "orchestrator-tokens.py":
-            orch_empty = no_orchestrator_usage(rc, err)
+            if no_orchestrator_usage(rc, err):
+                orch_gap = NO_ORCH_USAGE
+            elif rc != 0 or not out.strip():
+                orch_gap = NO_ORCH_UNMEASURED
         if rc == 0 and out.strip():
             lines.append(out.strip().splitlines()[0])
-    return lines, split, members, orch_empty
+    return lines, split, members, orch_gap
 
 
 OUTCOME = {"why": ""}
@@ -1145,6 +1149,9 @@ def worktree_leaf(runner, cwd):
 NO_FOREIGN = {"claims": {}, "orchestrator": 0, "notes": []}
 # post_record's reason when record K's window has no orchestrator usage (#2601); fixed text, no transcript content.
 NO_ORCH_USAGE = "no orchestrator usage in the window to measure; usage stays unclaimed for the next record"
+# The same rule for any other orchestrator-tokens.py failure (unreadable transcript, a same-second window where
+# the exclusive bound passes `until`, ledger turned off mid-run): record K never posts without its orchestrator row.
+NO_ORCH_UNMEASURED = "the orchestrator window could not be measured; usage stays unclaimed for the next record"
 
 
 def plan(runner, cwd, sid, gitdir, branch, explicit, opts, until, project=None, cands=None, locks=None):
@@ -1217,15 +1224,17 @@ def post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, exclusive, unt
     resolve_pending rolls them back (rollback_foreign)."""
     foreign = foreign or NO_FOREIGN
     claims = foreign["claims"]
-    lines, split, members, orch_empty = measure(runner, cwd, sid, sdir, opts, bound(since) if exclusive else since, until,
+    lines, split, members, orch_gap = measure(runner, cwd, sid, sdir, opts, bound(since) if exclusive else since, until,
                                                 ids, state["agents"], foreign)
     # Record K with no orchestrator usage in its window (#2601): cost-table can price no orchestrator row, and
     # the record's own total reads as n/a, which breaks the running total of every later record. Post nothing
     # and claim nothing: this returns before the pending claim is written and before any other session's
     # watermark moves, so the window's subagent usage (this session's and other sessions') stays unclaimed for
     # the next record. Record 1 (round_k False) is the anchor every later record needs and is unchanged (#2286).
-    if round_k and orch_empty:
-        return NO_ORCH_USAGE, False
+    # The rule is "record K never posts without an `orchestrator-tokens:` line", so any measuring failure of
+    # that script (not only the no-usage exit) takes the same no-post path.
+    if round_k and orch_gap:
+        return orch_gap, False
     # `subagent-tokens: 0` is what --no-agents prints (a measured zero, not usage), so on its own it
     # must not turn an empty window into a record of zeros.
     if not any(l.startswith("orchestrator-tokens:") or (l.startswith("subagent-tokens:") and l.split(":")[1].strip() != "0")
@@ -1528,7 +1537,7 @@ def process_round(iid, sid, cwd, opts=None, runner=run, explicit=(), project=Non
             return "Record skipped for !%d: nothing measurable between %s and now. %s" % (iid, since, manual)
         why, ok = post_record(runner, cwd, iid, gitdir, sid, sdir, opts, since, excl, until, ids, state, branch, True, project,
                               foreign)
-    if why == NO_ORCH_USAGE:
+    if why in (NO_ORCH_USAGE, NO_ORCH_UNMEASURED):
         # Not a failure, so no retry hint: a retry would find the same empty window. Nothing moved.
         quiet(why)
         return "cost record: none (%s)" % why
@@ -1979,9 +1988,21 @@ def golden_cases(check):
         # n/a, whose n/a total broke the running total of every later record. Now: no POST, the state file is
         # byte-identical (no watermark moves, no pending claim), one reason line, and the usage is left for the
         # round below, which posts as before.
-        def empty_window(fn, label):
+        EMPTY_LINE = "cost record: none (%s)" % NO_ORCH_USAGE
+        UNMEAS_LINE = "cost record: none (%s)" % NO_ORCH_UNMEASURED
+
+        def failing_orch(cmd, cwd_, env=None, timeout=300):
+            """crun, except orchestrator-tokens.py fails as an unreadable transcript does (exit 2)."""
+            if any(os.path.basename(c) == "orchestrator-tokens.py" for c in cmd[:2]):
+                return 2, "", "ERROR: could not read the transcript\n"
+            return crun(cmd, cwd_, env, timeout)
+
+        def empty_window(fn, label, want_line=EMPTY_LINE, want_why=NO_ORCH_USAGE):
+            # Each case starts from the same saved state and glab notes, so "no POST" and "byte-identical" are
+            # meaningful on their own and not a leftover of an earlier case (with the guard removed an earlier
+            # case would post first and a later one would pass vacuously).
             globals()["now_utc"] = lambda: "2026-11-07T11:59:00Z"
-            raw0 = open(spath, "rb").read()
+            raw0, graw0 = open(spath, "rb").read(), open(gstate, "rb").read()
             log0 = open(gstate + ".log", encoding="utf-8").read()
             n0_ = notes_n()
             OUTCOME["why"] = ""
@@ -1992,10 +2013,37 @@ def golden_cases(check):
             check("golden #2601 %s: the state file is byte-identical (no watermark, agent watermark or pending claim moved)" % label,
                   open(spath, "rb").read() == raw0, open(spath, encoding="utf-8").read())
             check("golden #2601 %s: it prints the one reason line and logs the reason as a quiet outcome" % label,
-                  out == "cost record: none (no orchestrator usage in the window to measure; usage stays unclaimed for the next record)"
-                  and OUTCOME["why"] == NO_ORCH_USAGE, repr((out, OUTCOME["why"])))
+                  out == want_line and OUTCOME["why"] == want_why, repr((out, OUTCOME["why"])))
+            with open(spath, "wb") as f:
+                f.write(raw0)
+            with open(gstate, "wb") as f:
+                f.write(graw0)
         empty_window(lambda: process_round(11, sid, repo, opts, crun), "--round")
         empty_window(lambda: process_retry(11, sid, repo, opts, crun), "--retry record K")
+        # Any other orchestrator-tokens.py failure with subagent usage in the window takes the same no-post path
+        # (record K never posts without an orchestrator row), with its own fixed reason.
+        empty_window(lambda: process_round(11, sid, repo, opts, failing_orch), "--round, orchestrator-tokens exit 2",
+                     UNMEAS_LINE, NO_ORCH_UNMEASURED)
+        # Record 1 (round_k False) is unchanged: the same failure does not stop it.
+        real_pm = globals()["post_record"]
+        rec1_seen = []
+
+        def as_record_1(*a, **k):
+            r = real_pm(*(a[:13] + (False,) + a[14:]), **k)
+            rec1_seen.append(r)
+            return r
+        globals()["post_record"] = as_record_1
+        raw_r1, graw_r1 = open(spath, "rb").read(), open(gstate, "rb").read()
+        try:
+            process_round(11, sid, repo, opts, failing_orch)
+        finally:
+            globals()["post_record"] = real_pm
+            with open(spath, "wb") as f:
+                f.write(raw_r1)
+            with open(gstate, "wb") as f:
+                f.write(graw_r1)
+        check("golden #2601 record 1: an orchestrator-tokens failure does not take the record-K no-post path",
+              len(rec1_seen) == 1 and rec1_seen[0][0] not in (NO_ORCH_USAGE, NO_ORCH_UNMEASURED), repr(rec1_seen))
         # The same through the CLI: exit 0 and the line on stdout.
         globals()["now_utc"] = lambda: "2026-11-07T11:59:00Z"
         raw_cli, cli_out = open(spath, "rb").read(), io.StringIO()
