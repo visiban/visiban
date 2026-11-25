@@ -2287,14 +2287,14 @@ class DemoSiteBoardStructureTests(TestCase):
         self.assertFalse(board.cards.exclude(column=review).exclude(gates_passed=0).exists())
 
     def test_some_column_is_over_its_wip_limit_and_one_is_not(self):
-        over = under = 0
-        for column in Column.objects.filter(board__name__in=self.STRUCTURED).exclude(wip_limit=None):
-            if column.cards.count() > column.wip_limit:
-                over += 1
-            else:
-                under += 1
-        self.assertGreater(over, 0)
-        self.assertGreater(under, 0)
+        # The docs promise this per board, not just across the set.
+        for name in self.STRUCTURED:
+            counts = [
+                column.cards.count() > column.wip_limit
+                for column in Column.objects.filter(board__name=name).exclude(wip_limit=None)
+            ]
+            self.assertTrue(any(counts), f"{name}: no column over its WIP limit")
+            self.assertTrue(not all(counts), f"{name}: no column at or under its WIP limit")
 
     def test_tracks_are_dimensions_with_values_on_the_stage_cards(self):
         for track in StageTrack.objects.filter(column__board__name__in=self.STRUCTURED):
@@ -2316,6 +2316,25 @@ class DemoSiteBoardStructureTests(TestCase):
             )
 
     def test_field_sets_group_existing_fields_without_overlap(self):
+        from boards.management.commands._demo_site_data import _STRUCTURE
+
+        for name in self.STRUCTURED:
+            board = Board.objects.get(name=name)
+            seen = {}
+            for set_name, _description, field_names in _STRUCTURE[name]["field_sets"]:
+                for field in field_names:
+                    # The seed's .update(field_set=...) would silently move a duplicate.
+                    self.assertNotIn(field, seen, f"{name}: {field} is in {seen.get(field)} and {set_name}")
+                    seen[field] = set_name
+                    definition = CustomFieldDefinition.objects.get(board=board, name=field)
+                    self.assertEqual(definition.field_set.name, set_name, f"{name}: {field}")
+            for field_set in CustomFieldSet.objects.filter(board=board):
+                self.assertEqual(
+                    set(field_set.fields.values_list("name", flat=True)),
+                    {f for f, s in seen.items() if s == field_set.name},
+                    f"{name}: {field_set.name}",
+                )
+
         board = Board.objects.get(name="Construction")
         permitting = CustomFieldSet.objects.get(board=board, name="Permitting")
         self.assertEqual(
