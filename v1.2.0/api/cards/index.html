@@ -7063,6 +7063,12 @@ not just this parent's children. A parent with no children has no <code>board</c
 <code>board</code> carries that board's WIP mode, <code>enforce_wip_limits</code> and
 <code>enforce_wip_hard</code>, so a client can disable exactly the moves the move
 endpoint would refuse you. Neither is sent when <code>visible</code> is <code>false</code>.</p>
+<p><em>Since 1.3 (#2553):</em> each row also carries <code>planned</code> (boolean): <code>true</code> while
+the child is planned for a later parent column and not yet released, so its
+<code>due_date</code> is inactive and it is neither Overdue nor Due soon. It is the
+child's own state, the same value as the card read's <code>planned</code>; the Needed
+column is not sent here. Like the other row fields, it is not sent when
+<code>visible</code> is <code>false</code>.</p>
 <h3 id="post-apiv1boardsboard_idcardsidchildren"><code>POST /api/v1/boards/{board_id}/cards/{id}/children/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidchildren" title="Permanent link">&para;</a></h3>
 <p><strong>Add child</strong> (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:

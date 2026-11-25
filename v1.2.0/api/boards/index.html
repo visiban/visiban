@@ -7589,6 +7589,11 @@
 <td>string | integer</td>
 <td><em>Added in 1.3</em> (#2209). The Parent filter on a child board: <code>"any"</code> (cards with a parent), <code>"none"</code> (cards without one) or a parent card's id (a positive integer). The server checks the shape only; the client matches it on each card's <code>parent</code>, so an id that names a card the viewer cannot open matches nothing. Absent means any card</td>
 </tr>
+<tr>
+<td><code>plannedFilter</code></td>
+<td>string</td>
+<td><em>Added in 1.3</em> (#2550). The Planned filter on a child board: <code>"hide"</code> (leave planned children out) or <code>"only"</code> (only planned children). Optional; absent means Any. Matched in the browser on each card's own <code>planned</code> field, so it names no column. Any other value is a <code>400</code></td>
+</tr>
 </tbody>
 </table>
 <p>All keys are optional. The total serialized size of <code>state_json</code> must not exceed 64 KB. String values (<code>search</code>, custom-field <code>query</code>, <code>equals</code>, <code>min</code>, <code>max</code> and <code>values</code> entries, and lane-rule <code>value</code>, <code>min</code>, and <code>max</code>) must not contain NUL (0x00) characters; they return <code>400</code>.</p>

@@ -6567,6 +6567,11 @@ deleted) carry no actor.</p>
 <td><code>needed_at_column(_name)</code> only with a role on the parent's board; absent viewer fails closed. <code>needed_now_reason</code> (<code>parent</code> / <code>cancelled</code>, from the same link row) goes to every reader of the child: it is the cause only, the same fact the hidden-parent wording "the parent moved on" already discloses, and names no parent, column or mover</td>
 </tr>
 <tr>
+<td>Reads: the parent's Children tab (#2553)</td>
+<td><code>card_links.children_for_viewer</code></td>
+<td>each row carries only <code>planned</code> (the child's own state, from the link row the read already joins), never <code>needed_at_column(_name)</code>; rows exist only with a role on the child board, and an absent or anonymous viewer gets the hidden branch (no rows), failing closed. Tests: <code>test_planned_children_2371.py</code> <code>ChildrenReadPlannedTests</code></td>
+</tr>
+<tr>
 <td>History / activity feed</td>
 <td><code>CardActivitySerializer</code> (<code>GET .../cards/{id}/activity/</code>)</td>
 <td><code>planned_released</code> and <code>needed_changed</code> rows carry only a cause code (<code>parent_reached</code>, <code>pulled</code>, <code>created</code>, <code>manual</code>, <code>column_deleted</code>) and <code>planned</code>/<code>now</code> or the due date; no parent, board, column or person, except the actor of a manual or create write made on the child board itself</td>
