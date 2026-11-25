@@ -51,7 +51,7 @@ class ExportCsvTests(TestCase):
         )
 
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        content = r.content.decode("utf-8")
+        content = r.getvalue().decode("utf-8")
         reader = csv.reader(io.StringIO(content))
         rows = list(reader)
 
@@ -74,7 +74,7 @@ class ExportCsvTests(TestCase):
 
     def test_csv_empty_board(self):
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        content = r.content.decode("utf-8")
+        content = r.getvalue().decode("utf-8")
         reader = csv.reader(io.StringIO(content))
         rows = list(reader)
         # Header only
@@ -277,7 +277,7 @@ class ExportFormatNegotiation1790Tests(TestCase):
         self.assertEqual(explicit.status_code, 200)
         self.assertEqual(explicit["Content-Type"], "text/csv")
         self.assertIn("attachment", explicit["Content-Disposition"])
-        self.assertEqual(explicit.content, default.content)
+        self.assertEqual(explicit.getvalue(), default.getvalue())
 
     def test_omitted_and_json_unchanged(self):
         self.assertEqual(self.client.get(self.url)["Content-Type"], "text/csv")

@@ -830,7 +830,7 @@ class CustomFieldExportTests(CustomFieldTestBase):
     def test_csv_export_appends_one_column_per_definition(self):
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        lines = r.content.decode().splitlines()
+        lines = r.getvalue().decode().splitlines()
         header = lines[0]
         # Appended after the fixed columns, so existing positions are unchanged.
         self.assertTrue(header.endswith("Custom: Array Type,Custom: Hypervisors"))
@@ -844,7 +844,7 @@ class CustomFieldExportTests(CustomFieldTestBase):
             defaults={"value": "=cmd|'/c calc'!A1"},
         )
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        body = r.content.decode()
+        body = r.getvalue().decode()
         # _sanitize_csv_field strips the leading formula characters.
         self.assertNotIn("=cmd", body)
         self.assertIn("cmd|", body)
@@ -1618,7 +1618,7 @@ class CustomFieldMultiSelectTypeTests(CustomFieldTestBase):
         )
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        rows = list(csv.reader(io.StringIO(r.content.decode())))
+        rows = list(csv.reader(io.StringIO(r.getvalue().decode())))
         col = rows[0].index("Custom: Platforms")
         self.assertEqual(rows[1][col], "cmd|'/c calc'!A1; web; 1")
 
@@ -1628,7 +1628,7 @@ class CustomFieldMultiSelectTypeTests(CustomFieldTestBase):
         )
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        rows = list(csv.reader(io.StringIO(r.content.decode())))
+        rows = list(csv.reader(io.StringIO(r.getvalue().decode())))
         self.assertEqual(rows[1][rows[0].index("Custom: Platforms")], "")
 
     def test_json_export_keeps_the_stored_string_and_the_schema(self):
@@ -1975,7 +1975,7 @@ class CustomFieldNumberFormatTests(CustomFieldTestBase):
             card=self.card, field_definition=definition, value="1234.5"
         )
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        rows = list(csv.reader(io.StringIO(r.content.decode())))
+        rows = list(csv.reader(io.StringIO(r.getvalue().decode())))
         self.assertEqual(rows[1][rows[0].index("Custom: Budget")], "1234.5")
 
 
@@ -2373,7 +2373,7 @@ class CustomFieldChoiceColorTests(CustomFieldTestBase):
         definition = self._dropdown(choice_colors={"High": "red"})
         CustomFieldValue.objects.create(card=self.card, field_definition=definition, value="High")
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        rows = list(csv.reader(io.StringIO(r.content.decode())))
+        rows = list(csv.reader(io.StringIO(r.getvalue().decode())))
         self.assertEqual(rows[1][rows[0].index("Custom: Severity")], "High")
 
 

@@ -320,7 +320,7 @@ class ImportedHistorySurfacingTests(TestCase):
         cache.clear()
         body = self.client.get(
             f"/api/v1/boards/{self.board.id}/export/"
-        ).content.decode()
+        ).getvalue().decode()
         [row] = list(csv.DictReader(io.StringIO(body)))
         records = row["Movement History"].split("; ")
         self.assertEqual(len(records), 3, records)
@@ -385,7 +385,7 @@ class ImportedHistoryCsvSeparatorTests(TestCase):
         client = APIClient()
         client.force_authenticate(user)
         cache.clear()
-        body = client.get(f"/api/v1/boards/{board.id}/export/").content.decode()
+        body = client.get(f"/api/v1/boards/{board.id}/export/").getvalue().decode()
         [row] = list(csv.DictReader(io.StringIO(body)))
         records = row["Movement History"].split("; ")
         self.assertEqual(len(records), 2, records)
@@ -416,7 +416,7 @@ class ImportedHistoryCsvFormulaPrefixTests(TestCase):
         client = APIClient()
         client.force_authenticate(user)
         cache.clear()
-        body = client.get(f"/api/v1/boards/{board.id}/export/").content.decode()
+        body = client.get(f"/api/v1/boards/{board.id}/export/").getvalue().decode()
         [row] = list(csv.DictReader(io.StringIO(body)))
         [record] = row["Movement History"].split("; ")
         self.assertEqual(record.split("|")[3], "importer (imported)")

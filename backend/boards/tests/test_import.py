@@ -790,7 +790,7 @@ class BoardImportCSVRoundtripTests(TestCase):
         self.assertEqual(export_resp["Cache-Control"], "no-store")
 
         # Re-import the CSV.
-        csv_bytes = export_resp.content
+        csv_bytes = export_resp.getvalue()
         f = io.BytesIO(csv_bytes)
         f.name = "roundtrip.csv"
         import_resp = self.client.post(
@@ -887,7 +887,7 @@ class BoardImportCSVAssigneeTests(TestCase):
         )
         export = self.client.get(f"/api/v1/boards/{board.id}/export/")
         self.assertEqual(export.status_code, 200)
-        f = io.BytesIO(export.content)
+        f = io.BytesIO(export.getvalue())
         f.name = "rt.csv"
         resp = self.client.post(
             "/api/v1/boards/import/", {"file": f, "name": "RT"}, format="multipart"

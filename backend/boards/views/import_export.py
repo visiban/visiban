@@ -1,5 +1,6 @@
 """BoardViewSet mixin for CSV/JSON import and export actions."""
 
+import asyncio
 import collections
 import contextlib
 import csv
@@ -17,12 +18,14 @@ import reprlib
 import traceback
 import zoneinfo
 
+from asgiref.sync import sync_to_async
 from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import DataError, IntegrityError, transaction
+from django.core.handlers.asgi import ASGIRequest
 from django.db.models import Prefetch
-from django.http import HttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 from rest_framework import serializers as drf_serializers
@@ -521,6 +524,55 @@ def _iter_export_rows(queryset, order):
             card = held.pop(pk, None) or by_pk.get(pk)
             if card is not None:
                 yield card
+
+
+def _csv_export_chunks(header, rows, emitted):
+    """Yield the CSV export's text, ``_EXPORT_CHUNK_SIZE`` rows at a time (#2585).
+
+    One ``csv.writer`` buffer, emptied after each chunk, so the pieces join to
+    the same text a single buffer would hold. The header leads the first chunk,
+    so there is always one, even for an empty board. ``emitted`` is a
+    one-item list counting the rows written, for the audit row.
+    """
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(header)
+    for row in rows:
+        writer.writerow(row)
+        emitted[0] += 1
+        if emitted[0] % _EXPORT_CHUNK_SIZE == 0:
+            yield buf.getvalue()
+            buf.seek(0)
+            buf.truncate()
+    if buf.tell():
+        yield buf.getvalue()
+
+
+async def _stream_under_asgi(chunks, board_id):
+    """Hand a sync chunk generator to an ASGI server one chunk at a time (#2585).
+
+    Django consumes a synchronous iterator whole before sending it under ASGI,
+    which would put the body back in memory. Each ``next`` runs on the
+    request's sync thread, where its database connection lives.
+
+    A failure after the response started must not escape: under daphne it
+    stops the loop that reaps every application instance in the process, and
+    ending the iteration normally would send a truncated file as a complete
+    one. ``CancelledError`` is what Django's handler treats as "stop sending":
+    the body is never terminated, so the client or proxy sees a failed
+    download once it times out.
+    """
+    done = object()
+    pull = sync_to_async(next)
+    while True:
+        try:
+            chunk = await pull(chunks, done)
+        except Exception:
+            logger.exception("CSV export of board %s failed after the response started", board_id)
+            raise asyncio.CancelledError
+        if chunk is done:
+            return
+        yield chunk
 
 
 def _relations_export(board, card_index):
@@ -4125,7 +4177,8 @@ class BoardImportExportMixin:
         # Not materialized (#1962): both branches read it through
         # _iter_export_cards, in chunks, so the model instances and
         # their prefetched history are bounded per chunk however large the
-        # board. The output text is still assembled in memory.
+        # board. The CSV body is streamed a chunk at a time (#2585); the JSON
+        # document is still assembled in memory.
         cards = (
             Card.objects.filter(board=board)
             .select_related("column", "swimlane", "assignee", "created_by", "external_ref")
@@ -4151,10 +4204,6 @@ class BoardImportExportMixin:
                 "swimlane__custom_field_values__field_definition",
             )
         )
-        # Row count for the audit log (#842), counted by each branch as it
-        # walks the cards (no extra COUNT query).
-        row_count = 0
-
         # Custom field definitions for this board, in display order (#371).
         # Materialized once: the CSV branch needs one column per definition and
         # the JSON branch exports the schema alongside the values, and both
@@ -4531,9 +4580,7 @@ class BoardImportExportMixin:
             )
             return response
 
-        # Default: CSV export
-        buf = io.StringIO()
-        writer = csv.writer(buf)
+        # Default: CSV export, streamed a chunk of cards at a time (#2585).
         # Custom field columns are appended after the fixed set (#371), so every
         # existing column keeps its position and a consumer reading by index
         # still works. The `Custom: ` prefix keeps a field named "Title" or
@@ -4558,18 +4605,18 @@ class BoardImportExportMixin:
             _sanitize_csv_field(f"Swimlane Custom: {sf.name}")
             for sf in swimlane_field_definitions
         ]
-        writer.writerow([
+        header = [
             "Card ID", "Title", "Description", "Column", "Swimlane",
             "Priority", "Assignee", "Labels", "Due Date", "Weight",
             "Created At", "Created By", "Last Moved At", "Movement Count",
             "Movement History",
             *custom_field_headers,
             *swimlane_field_headers,
-        ])
+        ]
 
-        s = _sanitize_csv_field  # local alias for brevity in the writerow calls below
-        for card in _iter_export_cards(cards):
-            row_count += 1
+        s = _sanitize_csv_field  # local alias for brevity in the row below
+
+        def _csv_row(card):
             movements = sorted(card.movements.all(), key=lambda m: (m.moved_at, m.id))
             # Sorted in Python, not .order_by(): labels are prefetched, and Label has no
             # Meta.ordering, so the DB returns them in arbitrary order. A stable
@@ -4613,7 +4660,7 @@ class BoardImportExportMixin:
                 for sf in swimlane_field_definitions
             ]
 
-            writer.writerow([
+            return [
                 card.id,
                 s(card.title),
                 s(card.description),
@@ -4631,19 +4678,38 @@ class BoardImportExportMixin:
                 history,
                 *custom_cells,
                 *swimlane_cells,
-            ])
+            ]
 
-        response = HttpResponse(buf.getvalue(), content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="{safe_name}-{stamp}.csv"'
-        response["Cache-Control"] = "no-store"
-        # #842: audit-log the successful export (see note in JSON branch).
-        BoardExportLog.objects.create(
+        emitted = [0]
+        chunks = _csv_export_chunks(header, map(_csv_row, _iter_export_cards(cards)), emitted)
+        # The first chunk is built here, so a failure in it is still a 500 and
+        # not a cut-off 200.
+        first = next(chunks)
+        # #842: the audit row is written before the first byte leaves, because
+        # an interrupted download has still sent data. It carries the board's
+        # card count until the stream completes, then the rows actually sent.
+        audit = BoardExportLog.objects.create(
             board=board,
             actor=request.user,
             role_at_export=_role_at_export(board, request.user, role),
             export_format="csv",
-            row_count=row_count,
+            row_count=Card.objects.filter(board=board).count(),
         )
+
+        def _body(head):
+            yield from head
+            yield from chunks
+            if emitted[0] != audit.row_count:
+                BoardExportLog.objects.filter(pk=audit.pk).update(row_count=emitted[0])
+
+        # iter() over a one-item list drops the first chunk once it is sent.
+        body = _body(iter([first]))
+        del first
+        if isinstance(request._request, ASGIRequest):
+            body = _stream_under_asgi(body, board.pk)
+        response = StreamingHttpResponse(body, content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{safe_name}-{stamp}.csv"'
+        response["Cache-Control"] = "no-store"
         return response
 
     @extend_schema(

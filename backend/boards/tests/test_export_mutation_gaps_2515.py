@@ -374,8 +374,8 @@ class DeletedCardHistoryExportTests(_BoardFixture):
         )
         self.col_todo.delete()
         resp = self.client.get(f"/api/v1/boards/{self.board.pk}/export/", {"format": "csv"})
-        self.assertEqual(resp.status_code, 200, resp.content)
-        self.assertIn("|To Do|Done|", resp.content.decode())
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("|To Do|Done|", resp.getvalue().decode())
 
     def test_live_card_movement_without_snapshot_stays_null(self):
         card = self._card("Live2")

@@ -2129,10 +2129,12 @@ class SavedFilter(models.Model):
 class BoardExportLog(models.Model):
     """Audit entry for a successful board export (#842).
 
-    Written by ``BoardImportExportMixin.export`` after the response body is
-    assembled. Deliberately records only successful exports — a denied
-    attempt never reached the data, so it is not an exfiltration event.
-    Failed-export logging is tracked as a 1.2 follow-up.
+    Written by ``BoardImportExportMixin.export``: after the response body is
+    assembled for JSON, and before the first byte is sent for the streamed
+    CSV (#2585), where ``row_count`` is the board's card count until the
+    stream completes. A CSV download that is cut off therefore still has its
+    row, since data left the server. A denied attempt never reached the data,
+    so it is not an exfiltration event and is not recorded.
 
     The ``actor`` FK is SET_NULL so the audit row survives user
     deactivation — admins investigating a past export must still be able to

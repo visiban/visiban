@@ -186,7 +186,7 @@ class CsvCustomFieldImportTests(TestCase):
         self.assertEqual(source.status_code, status.HTTP_201_CREATED, source.data)
         resp = self.client.get(f"/api/v1/boards/{source.data['id']}/export/")
         self.assertEqual(resp.status_code, 200)
-        return source, resp.content.decode("utf-8")
+        return source, resp.getvalue().decode("utf-8")
 
     @staticmethod
     def _json_file(data):
@@ -256,7 +256,7 @@ class CsvCustomFieldImportTests(TestCase):
         self.assertEqual(self._card_values(board), {"Note": "=1+1"})
         exported = self.client.get(
             f"/api/v1/boards/{board.pk}/export/"
-        ).content.decode()
+        ).getvalue().decode()
         rows = list(csv.reader(io.StringIO(exported)))
         self.assertEqual(rows[1][rows[0].index("Custom: Note")], "1+1")
 
