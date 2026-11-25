@@ -61,3 +61,12 @@ describe('HelpLink', () => {
     expect(container).toBeEmptyDOMElement()
   })
 })
+
+describe('WebhooksOffNotice', () => {
+  it('carries one help link in its heading row', async () => {
+    const { WebhooksOffNotice } = await import('../components/Board/webhooks/WebhookServiceNotice')
+    render(<WebhooksOffNotice />)
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Learn more about webhooks, opens docs' })).toHaveAttribute('href', docsUrl('webhooks'))
+  })
+})
