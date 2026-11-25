@@ -2579,7 +2579,7 @@ class CustomFieldDefinition(models.Model):
     # The field set this field displays under (#2570); null means "Other
     # fields". SET_NULL so deleting a set ungroups, never deletes. Written only
     # through the field-set endpoint, never a definition PATCH, so membership
-    # has one write path. Index built concurrently (0135).
+    # has one write path. Index built concurrently (0139).
     field_set = models.ForeignKey(
         CustomFieldSet, null=True, blank=True, on_delete=models.SET_NULL,
         related_name="fields", db_index=False,

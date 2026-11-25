@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ("boards", "0134_custom_field_set"),
+        ("boards", "0138_custom_field_set"),
     ]
 
     operations = [
