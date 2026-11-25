@@ -42,9 +42,13 @@ There are two ways to authenticate the handshake:
 
 - **Ticket** (since 1.2) — used by token-authenticated clients. See [Ticket authentication](#ticket-authentication-since-12) below.
 
-When a handshake carries an `Origin` header (browsers always send one), it must match a configured origin: an entry in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, or an origin whose host equals an exact (non-pattern) `ALLOWED_HOSTS` entry. A handshake whose `Origin` matches none of these is refused before authentication. Clients that send no `Origin` header (CLI, native, and agent clients using a ticket) are not affected. The exact-host match ignores both the scheme and the port (an `http` origin matches an `https` host). `ALLOWED_HOSTS` entries that are `*` or start with a dot (such as `.example.com`) are not applied to this match: an install that uses them must list its public origin (for example `https://boards.example.com`) in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, otherwise browser WebSocket connections are refused. An `Origin` that includes credentials, a path, a query, or a fragment, or more than one `Origin` header, is refused. `manage.py check` and `check --deploy` emit system-check warning `accounts.W002` when `DEBUG` is off, `ALLOWED_HOSTS` contains `*` or a leading-dot entry, no non-loopback origin is listed in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, and no exact public host is listed in `ALLOWED_HOSTS`. Listing a public origin clears it. To accept the configuration deliberately, add `"accounts.W002"` to `SILENCED_SYSTEM_CHECKS` (set the `SILENCED_SYSTEM_CHECKS=accounts.W002` environment variable; Helm: `backend.settings.silencedSystemChecks`).
+**Watch out:** When a handshake carries an `Origin` header (browsers always send one), it must match a configured origin: an entry in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, or an origin whose host equals an exact (non-pattern) `ALLOWED_HOSTS` entry. A handshake whose `Origin` matches none of these is refused before authentication. Clients that send no `Origin` header (CLI, native, and agent clients using a ticket) are not affected.
 
-The server checks board membership before completing the handshake, regardless of which method authenticated the connection. The connection is closed with one of two application-defined codes if either check fails. The table also lists two retryable codes for a check that cannot complete: since 1.3 an open connection whose access re-check cannot complete is closed with `4503` (before 1.3 the server tried `1011`, #2142), and since 1.3 a handshake whose authentication or access check cannot complete is refused with `1011`. Since 1.3 a handshake `4001` or `4003` reaches the client as that close code, while a handshake `1011` still reaches it as a refused upgrade; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
+The exact-host match ignores both the scheme and the port (an `http` origin matches an `https` host). `ALLOWED_HOSTS` entries that are `*` or start with a dot (such as `.example.com`) are not applied to this match: an install that uses them must list its public origin (for example `https://boards.example.com`) in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, otherwise browser WebSocket connections are refused. An `Origin` that includes credentials, a path, a query, or a fragment, or more than one `Origin` header, is refused.
+
+**Watch out:** `manage.py check` and `check --deploy` emit system-check warning `accounts.W002` when `DEBUG` is off, `ALLOWED_HOSTS` contains `*` or a leading-dot entry, no non-loopback origin is listed in `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, and no exact public host is listed in `ALLOWED_HOSTS`. Listing a public origin clears it. To accept the configuration deliberately, add `"accounts.W002"` to `SILENCED_SYSTEM_CHECKS` (set the `SILENCED_SYSTEM_CHECKS=accounts.W002` environment variable; Helm: `backend.settings.silencedSystemChecks`).
+
+**How it works:** The server checks board membership before completing the handshake, regardless of which method authenticated the connection. The connection is closed with one of two application-defined codes if either check fails. The table also lists two retryable codes for a check that cannot complete: since 1.3 an open connection whose access re-check cannot complete is closed with `4503` (before 1.3 the server tried `1011`, #2142), and since 1.3 a handshake whose authentication or access check cannot complete is refused with `1011`. Since 1.3 a handshake `4001` or `4003` reaches the client as that close code, while a handshake `1011` still reaches it as a refused upgrade; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client).
 
 | Close code | Meaning |
 |---|---|
@@ -57,7 +61,9 @@ Standard WebSocket close codes (`1000` normal, `1001` going away, `1006` abnorma
 
 #### How a refused handshake reaches the client
 
-Since 1.3 (#2145) the server refuses a handshake with `4001` or `4003` by completing the upgrade and then closing the connection at once with that code, so **the close code reaches the client**. Nothing is sent between the two: no event, no keepalive ping, and the connection never joins the board or group channel. A client's `open` handler can still run just before its `close` handler (a browser fires both), so don't treat `open` as proof of access. In the Visiban web app this means a refused board or group page can show **Live** for an instant before **Offline**, and the open can trigger the page's usual resync: one extra REST request, answered under the same access rule as the handshake.
+**How it works:** Since 1.3 (#2145) the server refuses a handshake with `4001` or `4003` by completing the upgrade and then closing the connection at once with that code, so **the close code reaches the client**. Nothing is sent between the two: no event, no keepalive ping, and the connection never joins the board or group channel.
+
+**Watch out:** A client's `open` handler can still run just before its `close` handler (a browser fires both), so don't treat `open` as proof of access. In the Visiban web app this means a refused board or group page can show **Live** for an instant before **Offline**, and the open can trigger the page's usual resync: one extra REST request, answered under the same access rule as the handshake.
 
 A `1011` refusal at the handshake ([Handshake during an outage](#handshake-during-an-outage-since-13)) and an [`Origin`](#connecting) refusal are still sent before the upgrade completes. The ASGI specification has the server answer a close before accept with HTTP `403`, and the bundled server (Daphne) does so whatever the code, so those reach a client as a refused upgrade: browsers report a failed connection with close code `1006`, and other WebSocket libraries report an HTTP `403` handshake failure. A `1011` can't be sent after the upgrade instead: Daphne refuses it in a server close, which is also why an open connection's failed access re-check closes with `4503` (#2142).
 
@@ -73,11 +79,13 @@ What a client actually sees:
 | Open connection closed with `4003`, `4503` (since 1.3) or `1000` | The close code, as sent. |
 | Open connection closed by an unexpected server error | `1011`, sent by Daphne's error handler, which also logs the error. In 1.2 a failed access re-check reached the client this way too; since 1.3 it closes with `4503` and logs only a `WARNING` (#2142). |
 
-The Visiban web app handles a `4001` or `4003` the same way at the handshake and on an open connection: it stops retrying and the indicator shows **Offline**. A `4001` signs you out; a `4003` checks your session first and signs you out only if it has ended. It treats a `4503` or `1011` close, and a failed upgrade (a `1011` refusal, an HTTP `500`), like any unexpected close: it keeps reconnecting every 3 seconds, the indicator shows **Reconnecting…** (**Offline** in amber on a board), and you stay signed in. The retries also stop when the server closes the connection with `1000` twice in a row with no message delivered in between (see [Connection status](../features/realtime.md#connection-status)).
+The Visiban web app handles a `4001` or `4003` the same way at the handshake and on an open connection: it stops retrying and the indicator shows **Offline**. A `4001` signs you out; a `4003` checks your session first and signs you out only if it has ended.
+
+**How it works:** It treats a `4503` or `1011` close, and a failed upgrade (a `1011` refusal, an HTTP `500`), like any unexpected close: it keeps reconnecting every 3 seconds, the indicator shows **Reconnecting…** (**Offline** in amber on a board), and you stay signed in. The retries also stop when the server closes the connection with `1000` twice in a row with no message delivered in between (see [Connection status](../features/realtime.md#connection-status)).
 
 #### Handshake during an outage (since 1.3)
 
-A handshake whose authentication or access check cannot complete because a server-side store (the database or the cache) failed is refused with `1011`, never with `4001` or `4003`, and the connection is never admitted (#2086, #2144). `4001` still means the credential itself was checked and is not valid, and `4003` that the access check completed and found no access. The cases are:
+**How it works:** A handshake whose authentication or access check cannot complete because a server-side store (the database or the cache) failed is refused with `1011`, never with `4001` or `4003`, and the connection is never admitted (#2086, #2144). `4001` still means the credential itself was checked and is not valid, and `4003` that the access check completed and found no access. The cases are:
 
 | Handshake | Failure | Result |
 |---|---|---|
@@ -100,9 +108,9 @@ REST requests made with the session cookie during the same cache-only session ou
 
 ## Ticket authentication (since 1.2)
 
-Session and CSRF cookies are `SameSite=Lax`, so the cookie is not sent on a WebSocket upgrade initiated from another origin. Native, CLI, and agent clients have no cookie jar at all. Those clients authenticate with a **ticket**: a short-lived, single-use credential obtained over REST and spent on the handshake.
+**Why it matters:** Session and CSRF cookies are `SameSite=Lax`, so the cookie is not sent on a WebSocket upgrade initiated from another origin. Native, CLI, and agent clients have no cookie jar at all. Those clients authenticate with a **ticket**: a short-lived, single-use credential obtained over REST and spent on the handshake.
 
-A ticket **authenticates only**. Board and group membership is still resolved on every connection, so a ticket for a non-member is closed with `4003` exactly as a session connection would be (see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client)).
+**Watch out:** A ticket **authenticates only**. Board and group membership is still resolved on every connection, so a ticket for a non-member is closed with `4003` exactly as a session connection would be (see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client)).
 
 ### 1. Obtain a ticket
 
@@ -128,7 +136,7 @@ Pass the ticket as the `ticket` query parameter:
 ws://<host>/ws/boards/<board_id>/?ticket=<ticket>
 ```
 
-The upgrade consumes the ticket. **Get a new ticket for every connection attempt**, including every reconnect.
+**Watch out:** The upgrade consumes the ticket. **Get a new ticket for every connection attempt**, including every reconnect.
 
 ### Rules
 
@@ -160,9 +168,15 @@ All server-to-client messages use the same envelope:
 
 `event` is a dotted string identifying the event type. `data` is event-specific — see the table below.
 
-`event_id` (since 1.2) is the id of this event's row in the board [change feed](events.md). It is **additive** — `event` and `data` are unchanged — and is **omitted entirely**, never sent as `null`, on the few frames that are broadcast without a feed row (the group channel's frames, and `ping`). Use it to order and de-duplicate frames, not as a resume point. Frames from two concurrent writes can arrive in either `event_id` order, so an event with a lower id than your last frame can still be committing when the socket drops, and `after=<last frame event_id>` could skip it. After a reconnect, resync with `GET /api/v1/boards/<id>/events/?after=<feed cursor>`, where the cursor is the last row `id` your last feed read returned, equal to `next_cursor` when a page has one (after an empty page, keep the `after` you sent; the feed never hands out a cursor past an event still committing), and skip ids you have already applied. A client's first cursor comes from paging the feed to the end and discarding the rows before it fetches `/full/`; see [How the two surfaces fit together](events.md#how-the-two-surfaces-fit-together). Frames carry no horizon-safe cursor by design (#2159). See [Event coverage](events.md#event-coverage).
+**How it works:** `event_id` (since 1.2) is the id of this event's row in the board [change feed](events.md). It is **additive** — `event` and `data` are unchanged — and is **omitted entirely**, never sent as `null`, on the few frames that are broadcast without a feed row (the group channel's frames, and `ping`).
 
-Clients should ignore unknown event types to remain forward-compatible with new events added in future releases.
+**Watch out:** Use it to order and de-duplicate frames, not as a resume point. Frames from two concurrent writes can arrive in either `event_id` order, so an event with a lower id than your last frame can still be committing when the socket drops, and `after=<last frame event_id>` could skip it.
+
+After a reconnect, resync with `GET /api/v1/boards/<id>/events/?after=<feed cursor>`, where the cursor is the last row `id` your last feed read returned, equal to `next_cursor` when a page has one (after an empty page, keep the `after` you sent; the feed never hands out a cursor past an event still committing), and skip ids you have already applied.
+
+A client's first cursor comes from paging the feed to the end and discarding the rows before it fetches `/full/`; see [How the two surfaces fit together](events.md#how-the-two-surfaces-fit-together). Frames carry no horizon-safe cursor by design (#2159). See [Event coverage](events.md#event-coverage).
+
+**Watch out:** Clients should ignore unknown event types to remain forward-compatible with new events added in future releases.
 
 ---
 
@@ -515,7 +529,7 @@ the group channel's invite events.
 | `invite_link.created` | A board admin emailed an invite to someone, or created a shareable invite link | `{ "id": <int> }` |
 | `invite_link.revoked` | An invite was revoked — by a board admin, by a site admin from the admin board invite list, automatically because its email could not be sent, or because its sender was deactivated | `{ "id": <int> }` |
 
-A redeemed invite publishes no event of its own: the `member.added` frame it
+**How it works:** A redeemed invite publishes no event of its own: the `member.added` frame it
 causes carries the invite id when a membership was created. When redeeming
 creates no membership — the person already had equal or higher access — the
 invite is still consumed but **no frame is sent at all**, so an admin's open
@@ -625,7 +639,7 @@ regains focus). A webhook never receives this event: it is not in
 |---|---|---|
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 
-Clients must silently ignore `ping` events. The keepalive prevents NATs and reverse proxies from dropping idle connections. Since 1.2, the server runs the [access re-check](#access-re-check-and-eviction) before each ping, so a socket can close with `4003` where a ping would otherwise have been sent. Do not treat unknown event types as errors.
+**Watch out:** Clients must silently ignore `ping` events. The keepalive prevents NATs and reverse proxies from dropping idle connections. Since 1.2, the server runs the [access re-check](#access-re-check-and-eviction) before each ping, so a socket can close with `4003` where a ping would otherwise have been sent. Do not treat unknown event types as errors.
 
 ---
 
@@ -641,7 +655,7 @@ ws://<host>/ws/groups/<group_id>/
 
 Authentication uses the same two mechanisms as the board channel — session cookie, or a [ticket](#ticket-authentication-since-12) for token-authenticated clients. The server checks that the user is a member of the group or one of its ancestors before completing the handshake and closes with the same `4001` / `4003` codes on failure (since 1.3 the client receives the code; see [How a refused handshake reaches the client](#how-a-refused-handshake-reaches-the-client)). *(1.2+)* Only a membership with one of the four roles (`admin`, `member`, `collaborator`, `viewer`) counts, as for the [group REST routes](groups.md#get-apiv1groups); owning the group is not enough on its own (#1829).
 
-*(1.2+)* `board.created` and `board.updated` are delivered only to subscribers who can open that board, judged as for [`GET /api/v1/boards/{id}/`](boards.md#get-apiv1boardsid) and the board channel. A group member whose own membership on one board grants no access (its stored role is not one of the four roles) does not receive that board's frames; the socket stays open and every other frame is delivered (#1829). A `board.created` or `board.updated` frame whose `data` has no integer `id` is not delivered to anyone. Whether a subscriber can open a board is re-evaluated with the [access re-check](#access-re-check-and-eviction), so a change to their role on that board takes effect within the same window (about 7 seconds). `board.deleted` is not filtered: it carries only the board's identifiers.
+**Watch out:** *(1.2+)* `board.created` and `board.updated` are delivered only to subscribers who can open that board, judged as for [`GET /api/v1/boards/{id}/`](boards.md#get-apiv1boardsid) and the board channel. A group member whose own membership on one board grants no access (its stored role is not one of the four roles) does not receive that board's frames; the socket stays open and every other frame is delivered (#1829). A `board.created` or `board.updated` frame whose `data` has no integer `id` is not delivered to anyone. Whether a subscriber can open a board is re-evaluated with the [access re-check](#access-re-check-and-eviction), so a change to their role on that board takes effect within the same window (about 7 seconds). `board.deleted` is not filtered: it carries only the board's identifiers.
 
 ### Event reference
 
@@ -665,7 +679,7 @@ Authentication uses the same two mechanisms as the board channel — session coo
 | `invite_link.revoked` | An invite link for this group was revoked (also delivered to non-admin members; a refetch signal, like `invite_link.created`) — including an emailed link revoked automatically because its email could not be sent, or because its sender was deactivated (including via `PATCH /admin/users/{id}/`) or, *(1.2+)*, lost group admin rights through a demotion, a removal or the clearing of their `can_access_all_content` flag via `PATCH /admin/users/{id}/` — fired for each of their unused links in that group and its subgroups they can no longer administer. Also fired when the creator's account is deleted, and *(1.2+)* when a `parent` change on `PATCH /groups/{id}/` leaves a link's creator without admin rights over the moved subtree (unused links only; a consumed single-use link is left alone) | `{ "id": <int> }` |
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 
-A board that moves between groups emits two events atomically (single `transaction.on_commit` callback): `board.deleted` on the old group's channel and `board.created` on the new group's channel. A board moved out of a group to personal sends only the `board.deleted`, and a personal board moved into a group sends only the `board.created`. Since 1.2 this is the same whether the move is made with [`POST /api/v1/boards/{id}/move-group/`](boards.md#post-apiv1boardsidmove-group) or by changing `group` with `PATCH`/`PUT /api/v1/boards/{id}/` or in the Django admin (#1684). Before 1.2, a `PATCH`/`PUT` or Django admin group change sent `board.updated` to the new group's channel only, so the old group's page kept listing the board until reloaded. The board channel receives `board.updated` for a group move either way.
+**How it works:** A board that moves between groups emits two events atomically (single `transaction.on_commit` callback): `board.deleted` on the old group's channel and `board.created` on the new group's channel. A board moved out of a group to personal sends only the `board.deleted`, and a personal board moved into a group sends only the `board.created`. Since 1.2 this is the same whether the move is made with [`POST /api/v1/boards/{id}/move-group/`](boards.md#post-apiv1boardsidmove-group) or by changing `group` with `PATCH`/`PUT /api/v1/boards/{id}/` or in the Django admin (#1684). Before 1.2, a `PATCH`/`PUT` or Django admin group change sent `board.updated` to the new group's channel only, so the old group's page kept listing the board until reloaded. The board channel receives `board.updated` for a group move either way.
 
 Personal boards (no group) do not emit events on any group channel.
 
@@ -679,9 +693,13 @@ WebSocket events are registered with `transaction.on_commit()` inside a database
 - Events fire **after** the transaction commits, so the data is visible to any later REST read by the time the event reaches clients.
 - The publish is **best-effort** (since 1.2). If the channel layer (Valkey) is unreachable when the event fires, the frame is dropped and the backend logs a `WARNING` (`board broadcast dropped` or `group broadcast dropped`, with the board or group id, event name, and exception class). The write still returns its normal success status, because the change is already committed. Before 1.2 such a write returned `500` even though it had been saved, and a retry created a duplicate.
 
-Nothing orders socket frames against REST responses: the response to your own `PATCH` can arrive after a frame for a later change to the same card. To keep the newest copy, compare the card's `version` and discard a copy whose `version` is lower than the one you hold. Keep a copy with an equal `version`: comment, attachment, checklist and relation changes, and an archive or restore through the REST API or MCP, update a card's counters without incrementing `version`. Every other change to a card made through the REST API or MCP, and every Django admin save of a card (since 1.3, #2040, including one that only archives or restores it), increments it, so `version` orders those changes against each other. Operator maintenance outside those surfaces, such as the `clear_viewer_assignees` management command or the assignee cleared when a user account is deleted, does not increment it (since 1.3 the command still sends `card.updated` for each card it changes, #1744). The Visiban web app applies this rule to single-card frames and responses (since 1.3); its full board refreshes do not check it yet.
+**Watch out:** Nothing orders socket frames against REST responses: the response to your own `PATCH` can arrive after a frame for a later change to the same card. To keep the newest copy, compare the card's `version` and discard a copy whose `version` is lower than the one you hold.
 
-The socket itself has no at-least-once delivery guarantee. A frame sent while a client is disconnected, or dropped during a channel-layer outage, is never re-sent over the socket.
+Keep a copy with an equal `version`: comment, attachment, checklist and relation changes, and an archive or restore through the REST API or MCP, update a card's counters without incrementing `version`. Every other change to a card made through the REST API or MCP, and every Django admin save of a card (since 1.3, #2040, including one that only archives or restores it), increments it, so `version` orders those changes against each other. Operator maintenance outside those surfaces, such as the `clear_viewer_assignees` management command or the assignee cleared when a user account is deleted, does not increment it (since 1.3 the command still sends `card.updated` for each card it changes, #1744).
+
+The Visiban web app applies this rule to single-card frames and responses (since 1.3); its full board refreshes do not check it yet.
+
+**Watch out:** The socket itself has no at-least-once delivery guarantee. A frame sent while a client is disconnected, or dropped during a channel-layer outage, is never re-sent over the socket.
 
 ### Access re-check and eviction
 
@@ -698,7 +716,7 @@ A user who loses access to a board or group stops receiving its frames even if t
 
 The same window applies to the other changes the re-check picks up. A role change that sends no `member.*` frame on the board channel (a group role change, a board moved to another group, a change to all-content access) and the deactivation of a user's account both take effect within it.
 
-The window bounds exposure; it does not eliminate it. If the eviction frame is lost, frames forwarded before the window lapses can still reach the removed user, for up to about 7 seconds (5 seconds plus at most 2 seconds) after the socket's last successful check. The socket closes before the first frame past that window is forwarded. An idle socket gets no frames, so nothing reaches the user, and its keepalive ping runs the re-check, closing it within about 30–40 seconds (one keepalive interval plus the re-check window) even if no frame arrives.
+**Yes, but:** The window bounds exposure; it does not eliminate it. If the eviction frame is lost, frames forwarded before the window lapses can still reach the removed user, for up to about 7 seconds (5 seconds plus at most 2 seconds) after the socket's last successful check. The socket closes before the first frame past that window is forwarded. An idle socket gets no frames, so nothing reaches the user, and its keepalive ping runs the re-check, closing it within about 30–40 seconds (one keepalive interval plus the re-check window) even if no frame arrives.
 
 #### Credential revocation (since 1.2)
 
@@ -727,7 +745,13 @@ Related behavior and limits:
 
 ### Missed frames
 
-A transient publish failure does **not** close the socket, so a connected client gets no signal that it missed a frame and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect. *(1.3+, #2088)* The group page also re-reads once when its socket first opens more than 1 second after the page loaded (a slow handshake, or a first connection attempt that failed and was retried), or opens before the page's initial load has been applied (since 1.3, #2136, it re-reads the group, its subgroups, its members and its boards, and the subgroup boards while shown; before that only the boards list); a socket that opens sooner than 1 second after the load does not, so a frame committed inside that shorter gap is missed until the next reconnect. Only the most recently started boards read is applied, so a slower earlier read cannot overwrite it; a read that fails does not count and does not restore an older, superseded answer either, so the initial load's list is kept, with the frames recorded since the first re-read started applied on top (since 1.3, #2150). *(1.3+, #2139)* A group-channel frame applied while a boards re-read is in flight is applied again on top of its answer, in the order it arrived, so the re-read cannot undo it: a board deleted meanwhile stays gone even when the answer still lists it, a board created meanwhile stays even when the answer lacks it, and an update or star change is kept. Before 1.3 the re-read replaced the whole list, so a `board.deleted` brought the row back with no later frame to remove it, a `board.created` was dropped, and a `board.updated` was reverted until the next frame for that board. This is the rule the first-connect item below gives API clients: apply the frames that arrived meanwhile on top of the response, in order, idempotently.
+**Watch out:** A transient publish failure does **not** close the socket, so a connected client gets no signal that it missed a frame and its view stays stale until its next resync. In the Visiban web app, the next resync is one of the following: the browser tab regaining focus, an event that triggers a refetch, or **Refresh board** in the connection popover. On the group page, it is the next socket reconnect.
+
+**How it works:** *(1.3+, #2088)* The group page also re-reads once when its socket first opens more than 1 second after the page loaded (a slow handshake, or a first connection attempt that failed and was retried), or opens before the page's initial load has been applied (since 1.3, #2136, it re-reads the group, its subgroups, its members and its boards, and the subgroup boards while shown; before that only the boards list); a socket that opens sooner than 1 second after the load does not, so a frame committed inside that shorter gap is missed until the next reconnect.
+
+Only the most recently started boards read is applied, so a slower earlier read cannot overwrite it; a read that fails does not count and does not restore an older, superseded answer either, so the initial load's list is kept, with the frames recorded since the first re-read started applied on top (since 1.3, #2150).
+
+*(1.3+, #2139)* A group-channel frame applied while a boards re-read is in flight is applied again on top of its answer, in the order it arrived, so the re-read cannot undo it: a board deleted meanwhile stays gone even when the answer still lists it, a board created meanwhile stays even when the answer lacks it, and an update or star change is kept. Before 1.3 the re-read replaced the whole list, so a `board.deleted` brought the row back with no later frame to remove it, a `board.created` was dropped, and a `board.updated` was reverted until the next frame for that board. This is the rule the first-connect item below gives API clients: apply the frames that arrived meanwhile on top of the response, in order, idempotently.
 
 How to resync:
 
