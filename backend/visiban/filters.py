@@ -21,6 +21,7 @@ the added keys.
 
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.contrib.django_filters import DjangoFilterExtension
+from drf_spectacular.extensions import OpenApiFilterExtension
 from rest_framework.exceptions import ValidationError
 
 from visiban.exceptions import INVALID_QUERY_PARAM
@@ -95,3 +96,37 @@ class CodedDjangoFilterExtension(DjangoFilterExtension):
             for param in params:
                 param["schema"] = {"type": "integer", "format": "int64"}
         return params
+
+
+class ListOnlyOrderingFilterExtension(OpenApiFilterExtension):
+    """Publish ``?ordering=`` only on the operations that honor it (#1757).
+
+    ``OrderingFilter`` is a ``DEFAULT_FILTER_BACKENDS`` entry, so DRF's stock
+    ``get_schema_operation_parameters()`` lists ``ordering`` on every operation
+    drf-spectacular treats as a list. That includes custom ``@action``s that
+    return many rows (``/cards/{id}/comments/``, ``/groups/{id}/members/``)
+    and even ``POST .../reorder/``. None of those calls ``filter_queryset()``,
+    so the filter never runs there and the parameter was ignored.
+
+    Same rule as ``CodedDjangoFilterExtension`` above: only the ``list`` action
+    runs ``filter_queryset()``, so only ``list`` keeps the parameter. A plain
+    ``APIView`` has no ``action`` and is left to the stock rule.
+
+    Schema only: nothing here runs at request time, and ``OrderingFilter``
+    stays in ``DEFAULT_FILTER_BACKENDS``. That is deliberate. A viewset
+    ``list`` with no ``ordering_fields`` still honors ``?ordering=`` through
+    DRF's fallback to the serializer's readable fields (``/boards/``,
+    ``/groups/``, ``/boards/{id}/columns/`` and the other stock lists), and a
+    1.x client may rely on that. Removing the backend would change behavior;
+    keeping the parameter on those lists keeps the schema truthful.
+    """
+
+    target_class = "rest_framework.filters.OrderingFilter"
+    # Subclasses too: a view that pins its own OrderingFilter subclass gets the
+    # same list-only rule rather than silently falling back to the stock one.
+    match_subclasses = True
+
+    def get_schema_operation_parameters(self, auto_schema, *args, **kwargs):
+        if getattr(auto_schema.view, "action", "list") not in (None, "list"):
+            return []
+        return self.target.get_schema_operation_parameters(auto_schema.view)

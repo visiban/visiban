@@ -175,3 +175,80 @@ class LensUsageSerializer(serializers.Serializer):
     last_24h = LensUsageByProviderSerializer()
     hourly = LensHourlyUsageSerializer(many=True, help_text="Oldest first.")
     bounds = LensBoundsSerializer()
+
+
+# --- Rendered lens board (GET /git-lens/board/{board_id}/, #1647) -------------
+#
+# Schema only: the view serves ``LensData.to_dict()`` (dataclasses in types.py,
+# via ``dataclasses.asdict``) and never runs these serializers. They exist so the
+# published 200 is a real, typed body rather than ``{}``, which is what lets the
+# lens schema-fuzz job's response conformance check and the serializer-ts-parity
+# gate catch drift in it. Every field mirrors one dataclass field; keep the two
+# in step. ``allow_null`` marks exactly the dataclass fields typed ``X | None``.
+# No field is optional: ``asdict`` always emits every key.
+
+
+class LensAxisSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    label = serializers.CharField()
+    is_current = serializers.BooleanField()
+
+
+class LensLabelSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    # Hex WITHOUT the leading '#'; the frontend prepends it.
+    color = serializers.CharField()
+
+
+class LensUserSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    avatar_url = serializers.CharField(allow_blank=True)
+
+
+class LensPipelineEvidenceSerializer(serializers.Serializer):
+    branch = serializers.CharField(allow_null=True)
+    mr_number = serializers.IntegerField(allow_null=True)
+    mr_url = serializers.CharField(allow_null=True)
+    mr_closes = serializers.BooleanField()
+
+
+class NormalizedIssueSerializer(serializers.Serializer):
+    number = serializers.IntegerField()
+    title = serializers.CharField(allow_blank=True)
+    url = serializers.CharField(allow_blank=True)
+    # Both providers normalize to "open" or "closed" (GitLab's "opened" ->
+    # "open"). A plain string, not a ChoiceField: a new choice set on a field
+    # named ``state`` collides with the existing ``StateEnum`` component and
+    # drf-spectacular would rename that one, a break for generated clients.
+    state = serializers.CharField(help_text='"open" or "closed".')
+    labels = LensLabelSerializer(many=True)
+    assignees = LensUserSerializer(many=True)
+    milestone = serializers.CharField(allow_null=True)
+    milestone_due = serializers.CharField(allow_null=True)
+    milestone_state = serializers.CharField(allow_null=True)
+    column_keys = serializers.ListField(child=serializers.CharField())
+    swimlane_keys = serializers.ListField(child=serializers.CharField())
+    has_branch = serializers.BooleanField()
+    has_open_pr = serializers.BooleanField()
+    pipeline_evidence = LensPipelineEvidenceSerializer(allow_null=True)
+
+
+class LensSourceSerializer(serializers.Serializer):
+    # A plain string for the same reason as ``NormalizedIssue.state``: a second
+    # ``provider`` field with these choices renamed ``LensConnectionProviderEnum``.
+    provider = serializers.CharField(help_text='The connection\'s provider: "github" or "gitlab".')
+    repo = serializers.CharField()
+    url = serializers.CharField()
+
+
+class LensDataSerializer(serializers.Serializer):
+    columns = LensAxisSerializer(many=True)
+    swimlanes = LensAxisSerializer(many=True)
+    issues = NormalizedIssueSerializer(many=True)
+    fetched_at = serializers.CharField(help_text="ISO 8601 time the data was fetched from the provider.")
+    source = LensSourceSerializer()
+    truncated = serializers.BooleanField()
+    total_count = serializers.IntegerField(allow_null=True)
+    closed_limit = serializers.IntegerField(allow_null=True)
+    closed_truncated = serializers.BooleanField()
+    available_milestones = serializers.ListField(child=serializers.CharField())

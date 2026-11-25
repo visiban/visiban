@@ -3,6 +3,8 @@
 import logging
 
 from django.conf import settings as django_settings
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -19,6 +21,29 @@ logger = logging.getLogger(__name__)
 # this endpoint is anonymous, so it must not echo driver/exception text.
 _UNAVAILABLE = "unavailable"
 
+# Response schemas (#1793). These views build their bodies by hand, so without
+# a declaration drf-spectacular published a bodiless 200 and neither generated
+# clients nor the schema-fuzz conformance check could see the shape.
+_VersionResponse = inline_serializer(
+    name="VersionResponse",
+    fields={"version": serializers.CharField()},
+)
+_LivenessResponse = inline_serializer(
+    name="LivenessResponse",
+    fields={"status": serializers.ChoiceField(choices=["ok"])},
+)
+# One component for 200 and 503: the 200 is ``ok`` or ``degraded`` with no
+# ``errors``; the 503 is ``error`` plus the deprecated ``errors`` map (#1728,
+# #1902), whose only key today is ``db`` and whose value is always
+# ``unavailable``. ``errors`` is not required because a 200 never carries it.
+_ReadinessResponse = inline_serializer(
+    name="ReadinessResponse",
+    fields={
+        "status": serializers.ChoiceField(choices=["ok", "degraded", "error"]),
+        "errors": serializers.DictField(child=serializers.CharField(), required=False),
+    },
+)
+
 
 class VersionView(APIView):
     """GET /api/version/ — returns the running application version."""
@@ -30,6 +55,7 @@ class VersionView(APIView):
         TokenHasScope,
     ]
 
+    @extend_schema(responses={200: _VersionResponse})
     def get(self, request):
         return Response({"version": django_settings.APP_VERSION})
 
@@ -40,6 +66,7 @@ class LivenessView(APIView):
     authentication_classes = []
     throttle_classes = []
 
+    @extend_schema(responses={200: _LivenessResponse})
     def get(self, request):
         return Response({"status": "ok"})
 
@@ -60,6 +87,7 @@ class ReadinessView(APIView):
     authentication_classes = []
     throttle_classes = []
 
+    @extend_schema(responses={200: _ReadinessResponse, 503: _ReadinessResponse})
     def get(self, request):
         errors = {}
         degraded = False

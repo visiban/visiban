@@ -2499,6 +2499,26 @@ class JoinGroupView(APIView):
             TokenHasScope(),
         ]
 
+    # Declared (#1793) to match JoinBoardView.get: the preview body is built by
+    # hand (a bodiless 200 before), and the 410 for a used or expired link was
+    # undocumented. The 404 covers an unknown token, a gone creator and a
+    # non-redeemable role alike (see the comments below).
+    @extend_schema(
+        summary="Preview a group invite",
+        responses={
+            200: inline_serializer(
+                name="GroupJoinPreview",
+                fields={
+                    "group_id": drf_serializers.IntegerField(),
+                    "group_name": drf_serializers.CharField(),
+                    "role": drf_serializers.CharField(),
+                    "can_register": drf_serializers.BooleanField(),
+                },
+            ),
+            404: inline_serializer(name="GroupJoinNotFound", fields={"detail": drf_serializers.CharField()}),
+            410: inline_serializer(name="GroupJoinGone", fields={"detail": drf_serializers.CharField()}),
+        },
+    )
     def get(self, request, token):
         # Intentionally public preview — the token itself is a capability: 160
         # bits of entropy from `secrets.token_hex(20)` in

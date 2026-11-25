@@ -39,6 +39,7 @@ from .serializers import (
     _VALID_COLUMN_DIMS,
     _VALID_SWIMLANE_DIMS,
     LensConnectionSerializer,
+    LensDataSerializer,
     LensUsageSerializer,
 )
 from .types import LensConfig, LensFilters
@@ -596,7 +597,9 @@ class LensBoardView(APIView):
 
     permission_classes = _BOARD_PERMISSIONS
 
-    @extend_schema(parameters=LENS_BOARD_QUERY_PARAMETERS)
+    # 200 declared (#1647): the body is hand-built from dataclasses, so without
+    # it the published 200 was ``{}`` and response conformance could not see it.
+    @extend_schema(parameters=LENS_BOARD_QUERY_PARAMETERS, responses={200: LensDataSerializer})
     def get(self, request, board_id):
         board, _role = get_board_for_user(board_id, request.user, slim=True)
         conn = LensConnection.objects.filter(board=board).first()
