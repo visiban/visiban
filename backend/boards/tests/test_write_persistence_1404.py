@@ -145,6 +145,14 @@ class CardWritePersistenceTests(_WritePersistenceBase):
 class CardAnnotationPersistenceTests(_WritePersistenceBase):
     def setUp(self):
         super().setUp()
+        # get_uploads_enabled() is cached outside the test transaction, so a
+        # sibling test that disabled uploads (then rolled back) leaves False in
+        # the cache and this shard's upload test sees a 403 depending on shard
+        # order. Evict it before and after so the row, not a leftover, decides.
+        from accounts.models import invalidate_uploads_enabled_cache
+
+        invalidate_uploads_enabled_cache()
+        self.addCleanup(invalidate_uploads_enabled_cache)
         self.card = _make_card(self.todo, self.lane_a, "Annotated", created_by=self.member)
 
     def test_add_comment_persists_author_body_and_activity(self):
