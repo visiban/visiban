@@ -142,7 +142,7 @@ It creates, alongside the normal demo board:
 
     An eighth board, **Product Roadmap (Trello import)**, is a Trello export, imported ([#1908](https://gitlab.com/visiban/visiban/-/issues/1908)). The command feeds the Trello export under `backend/boards/tests/fixtures/` through the real [Trello importer](../features/trello-import.md), so the board carries genuine **import provenance**: each comment keeps the Trello author's name as text and starts "(imported from Trello)", and the cards keep their exported creation dates.
 
-    - **Created last,** after every other board, so Sales Territory (Overlay) stays at `/boards/6`.
+    - **Created after every showcase board,** so Sales Territory (Overlay) stays at `/boards/6`. Simple Kanban is appended after it (see below).
     - **History:** the importer deliberately writes no movement or activity history, so the seed adds what the API would have written (a creation movement per card, an archive movement for the archived card, and an activity for each value a card holds), credited to the importing admin. The board passes the same history check as the others.
     - **Dates are not moved** to the reset day: the cards keep the export's historical dates, so they read as old.
     - **Shape:** the importer's test fixture (`backend/boards/tests/fixtures/trello_export.json`), so editing that fixture changes the demo.

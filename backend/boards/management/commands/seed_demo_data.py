@@ -66,7 +66,7 @@ Usage:
     python manage.py seed_demo_data --force --wipe --demo-site
         Hosted demo instance (#1034, try.visiban.com). In addition to the
         normal demo board, seeds seven showcase boards (plus a Trello import
-        board, #1908), each with a different
+        board, #1908, and a Simple Kanban board, #2600), each with a different
         swimlane entity (#1389, #1412): Software Team, Property Management,
         Construction, Sales Territory, Sales Territory (Overlay), Content
         Moderation and Logistics Exceptions (16-20 cards each, with comments, assignees, labels,
