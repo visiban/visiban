@@ -3094,6 +3094,48 @@ describe('CardDetail', () => {
         return { ...utils, user, props, board, onMoveCard, onForceMoveCard }
       }
 
+      // #1923: the assignee basis collects a required reason; others get a hint.
+      const assigneeSetup = async (assignedBy: number, onForceMoveCard = vi.fn().mockResolvedValue({ ok: true })) => {
+        const me = { id: 7, username: 'ada', display_name: 'Ada', avatar_url: '' }
+        const base = defaultProps()
+        const board = { ...makeBoardWithTwoCols(), current_user_role: 'member' as const, allow_assignee_override: true }
+        const user = userEvent.setup()
+        const utils = render(
+          <CardDetail {...base} card={{ ...base.card, assignee: me, assigned_by: assignedBy }} board={board}
+            currentUser={me as never} onForceMoveCard={onForceMoveCard}
+            onMoveCard={vi.fn().mockResolvedValue({ ok: false, error: axiosFailure(409, wipBody) })} />,
+        )
+        await user.click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+        const popover = utils.container.querySelector('[class*="w-64"]')!
+        await user.click(Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes('To Do'))!)
+        await user.click(screen.getByText('In Progress'))
+        await user.click(screen.getByRole('button', { name: 'Move' }))
+        await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/Card could not be moved/))
+        return { user, onForceMoveCard, card: base.card }
+      }
+
+      it('eligible assignee gives a reason before the forced move is sent (#1923)', async () => {
+        const { user, onForceMoveCard, card } = await assigneeSetup(9)
+        await user.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
+        const submit = screen.getByRole('button', { name: 'Move anyway' })
+        await user.click(submit)
+        expect(onForceMoveCard).not.toHaveBeenCalled()
+        // Escape closes only the reason box and returns to the link.
+        await user.keyboard('{Escape}')
+        expect(screen.queryByLabelText('Reason (required)')).not.toBeInTheDocument()
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Move anyway (assignee override)' })).toHaveFocus())
+        await user.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
+        await user.type(screen.getByLabelText('Reason (required)'), ' Customer deadline ')
+        await user.click(screen.getByRole('button', { name: 'Move anyway' }))
+        expect(onForceMoveCard).toHaveBeenCalledWith(card.id, expect.any(Number), expect.any(Number), 9999, undefined, 'Customer deadline')
+      })
+
+      it('self-assigned: a hint instead of an override (#1923)', async () => {
+        await assigneeSetup(7)
+        expect(screen.getByText(/You assigned this card to yourself/)).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /Move anyway/ })).not.toBeInTheDocument()
+      })
+
       it('admin + wip_limit_exceeded: shows the numbers and the override, described by the alert', async () => {
         await setup({ moveResult: { ok: false, error: axiosFailure(409, wipBody) } })
         const alert = screen.getByRole('alert')

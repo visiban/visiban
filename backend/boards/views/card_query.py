@@ -128,7 +128,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
         model = Card
         fields = [
             "id", "uid", "board", "column", "swimlane", "title", "description",
-            "priority", "assignee", "labels", "due_date", "weight", "position",
+            "priority", "assignee", "assigned_by", "labels", "due_date", "weight", "position",
             "created_by", "created_at", "updated_at", "last_moved_at",
             "last_move_is_creation", "column_entered_at", "attachment_count", "checklist_total", "checklist_done",
             "checklist_open_due_dates", "checklist_open_assignee_ids",

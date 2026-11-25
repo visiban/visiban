@@ -53,6 +53,8 @@ import CardParentSection from "./CardParentSection";
 import CardExternalRefSection from "./CardExternalRefSection";
 import CardBlockSection, { type BlockFormMode } from "./CardBlockSection";
 import { failureReason, isLimitFailure } from "../../utils/moveFailure";
+import { canOverride, overrideEligibility, overrideHint, overrideLabel } from "../../utils/forceOverride";
+import OverrideReasonForm from "../Board/OverrideReasonForm";
 import type { MoveOutcome } from "../../hooks/useBoard";
 import { withCustomFieldValue } from "../../utils/customFieldValue";
 import { importedNote } from "../../utils/importedHistory";
@@ -92,7 +94,7 @@ interface Props {
   // this panel's focus trap (#1732), so keyboard users cannot reach it while
   // the panel is open; the popover offers it itself (#1772). Omitted: no
   // override is shown.
-  onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<MoveOutcome>;
+  onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number, reason?: string) => Promise<MoveOutcome>;
   /**
    * The board is offline (#2325, spec § States): the Move button and the column
    * fact stay in place but are disabled, with the reason in text.
@@ -546,6 +548,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const newLabelTriggerRef = useRef<HTMLButtonElement>(null);
   const focusNewLabelTriggerRef = useRef(false);
   const moveErrorId = useId();
+  // The assignee override's inline reason box (#1923).
+  const [overrideReasonOpen, setOverrideReasonOpen] = useState(false);
+  const overrideLinkRef = useRef<HTMLButtonElement>(null);
   const checklistHintId = useId();
   // Shown in the panel header (always-mounted status line) when a refresh
   // replaced the card out from under a failed move, because the popover that
@@ -979,13 +984,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const clearMoveFailure = () => {
     setMovePopoverError(null);
     setMoveRefusal(null);
+    setOverrideReasonOpen(false);
   };
 
   // Admin override from the popover (#1772): force the popover's own target,
   // never the toast's shared pendingMove. Success closes the popover silently
   // (the outcome is visible in the breadcrumb) and hands focus to the Move
   // trigger; failure names its cause inline like a plain Move.
-  const handleForceMove = async () => {
+  const handleForceMove = async (reason?: string) => {
     if (!onForceMoveCard || moveForcingRef.current || moveTargetColumn === null || moveTargetSwimlane === null) return;
     const columnId = moveTargetColumn;
     const swimlaneId = moveTargetSwimlane;
@@ -993,17 +999,22 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     moveForcingRef.current = true;
     setMoveForcing(true);
     try {
-      const result = gates === undefined
-        ? await onForceMoveCard(localCard.id, columnId, swimlaneId, 9999)
-        : await onForceMoveCard(localCard.id, columnId, swimlaneId, 9999, gates);
+      const result = reason !== undefined
+        ? await onForceMoveCard(localCard.id, columnId, swimlaneId, 9999, gates, reason)
+        : gates === undefined
+          ? await onForceMoveCard(localCard.id, columnId, swimlaneId, 9999)
+          : await onForceMoveCard(localCard.id, columnId, swimlaneId, 9999, gates);
       if (result.ok === false) {
         const refusal = limitRefusal(result.error);
         setMovePopoverError(moveFailureMessage(result.error));
         setMoveRefusal(refusal);
         // The link the user activated is gone unless the new failure is again
         // an overridable limit: move focus to the popover's Move button rather
-        // than letting it drop to the panel.
-        if (refusal === null || isHardLimit(refusal.code)) focusMoveSubmitRef.current = true;
+        // than letting it drop to the panel. The reason box stays open, with
+        // what was typed, unless the new refusal cannot be overridden (#1923).
+        const hard = refusal !== null && isHardLimit(refusal.code);
+        if (hard) setOverrideReasonOpen(false);
+        if (hard || (refusal === null && reason === undefined)) focusMoveSubmitRef.current = true;
         return;
       }
       setLocalCard((c) => ({ ...c, column: columnId, swimlane: swimlaneId, ...(gates !== undefined ? { gates_passed: gates } : {}) }));
@@ -1017,12 +1028,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       // gets its cause shown instead of an unhandled rejection.
       setMovePopoverError(moveFailureMessage(err));
       setMoveRefusal(limitRefusal(err));
-      focusMoveSubmitRef.current = true;
+      if (reason === undefined) focusMoveSubmitRef.current = true;
     } finally {
       moveForcingRef.current = false;
       setMoveForcing(false);
     }
   };
+
+  useEffect(() => {
+    if (!showMovePopover) setOverrideReasonOpen(false);
+  }, [showMovePopover]);
 
   // The popover's Move button is disabled while the override is in flight, so
   // it can only take focus after the render that re-enables it.
@@ -1364,8 +1379,15 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const canEdit = role === "site_admin" || role === "admin" || role === "member";
   // The popover's admin override (#1772): only a soft limit can be forced, so
   // never for wip_hard_blocked, and never without a refusal body.
-  const isBoardAdmin = role === "admin" || role === "site_admin";
-  const canForceMove = isBoardAdmin && onForceMoveCard !== undefined && moveRefusal !== null && !isHardLimit(moveRefusal.code);
+  const eligibility = overrideEligibility({
+    role: board.current_user_role,
+    userId: currentUser?.id,
+    allowAssigneeOverride: board.allow_assignee_override,
+    card: localCard,
+  });
+  const softRefusal = onForceMoveCard !== undefined && moveRefusal !== null && !isHardLimit(moveRefusal.code);
+  const canForceMove = softRefusal && canOverride(eligibility);
+  const forceHint = softRefusal ? overrideHint(eligibility) : null;
   const canManageLabels = role === "site_admin" || role === "admin";
   const canComment = canEdit || role === "collaborator";
   // Hosted demo (#1179): the server fence refuses comments and uploads, so
@@ -2608,6 +2630,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           ) : tab === "children" ? (
             <CardChildrenTab
               board={board}
+              currentUserId={currentUser?.id}
               cardId={card.id}
               cardTitle={card.title}
               cardColumnName={board.columns.find((c) => c.id === card.column)?.name}
@@ -2852,17 +2875,32 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 )}
               </p>
               {/* Outside the live region: the link is an action, not part of the announcement (#1772). */}
-              {canForceMove && (
+              {forceHint && <p id={`${moveErrorId}-hint`} className="text-xs text-fg-tertiary">{forceHint}</p>}
+              {canForceMove && !overrideReasonOpen && (
                 <button
+                  ref={overrideLinkRef}
                   type="button"
-                  onClick={handleForceMove}
+                  // The assignee basis needs a reason first (#1923).
+                  onClick={() => (eligibility.kind === "assignee" ? setOverrideReasonOpen(true) : void handleForceMove())}
                   aria-disabled={moveForcing}
                   aria-describedby={moveErrorId}
                   className="max-sm:min-h-11 text-xs text-warning hover:text-warning underline transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
-                >{moveForcing ? "Moving anyway…" : "Move anyway (admin override)"}</button>
+                >{moveForcing ? "Moving anyway…" : overrideLabel(eligibility)}</button>
+              )}
+              {overrideReasonOpen && eligibility.kind === "assignee" && (
+                <OverrideReasonForm
+                  busy={moveForcing}
+                  escapePriority={36.5}
+                  onSubmit={(reason) => void handleForceMove(reason)}
+                  onCancel={() => {
+                    setOverrideReasonOpen(false);
+                    requestAnimationFrame(() => overrideLinkRef.current?.focus());
+                  }}
+                />
               )}
             </div>
-            <div className="flex gap-3 justify-end">
+            {/* One Cancel and one submit at a time: the reason box has its own (#1923). */}
+            {!overrideReasonOpen && <div className="flex gap-3 justify-end">
               <button
                 onClick={() => closeMovePopover()}
                 disabled={moveForcing}
@@ -2870,11 +2908,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               >Cancel</button>
               <button
                 ref={moveSubmitRef}
+                aria-describedby={forceHint ? `${moveErrorId}-hint` : undefined}
                 onClick={handleMoveSubmit}
                 disabled={moveForcing || moveSubmitting || moveTargetColumn === null || moveTargetSwimlane === null || moveIsNoop}
                 className="max-sm:min-h-11 text-sm font-medium bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >{moveSubmitting ? "Moving…" : "Move"}</button>
-            </div>
+            </div>}
           </div>
         )}
         </div>

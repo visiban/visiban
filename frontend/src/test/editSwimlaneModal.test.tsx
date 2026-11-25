@@ -482,7 +482,7 @@ describe('EditSwimlaneModal — limits (#1150)', () => {
   })
   const laneCards = [card(1, 10, 2), card(2, 11, 3), card(3, 12, 5)]
 
-  function renderModal(swimlane: Swimlane = makeSwimlane(), flags = { enforce_wip_limits: true, enforce_wip_hard: false, enforce_weight_limits: true }) {
+  function renderModal(swimlane: Swimlane = makeSwimlane(), flags: { enforce_wip_limits: boolean; enforce_wip_hard: boolean; enforce_weight_limits: boolean; allow_assignee_override?: boolean } = { enforce_wip_limits: true, enforce_wip_hard: false, enforce_weight_limits: true }) {
     return render(
       <EditSwimlaneModal
         boardId={1} swimlane={swimlane} cardCount={3} onUpdated={vi.fn()} onDeleted={vi.fn()} onClose={vi.fn()}
@@ -559,6 +559,15 @@ describe('EditSwimlaneModal — limits (#1150)', () => {
     await user.type(screen.getByLabelText('Weight limit'), '4')
     // Hard mode leaves weight a block an admin can override.
     expect(screen.getByText(/a card that would add weight past 4 is refused, unless a board admin overrides\./)).toBeInTheDocument()
+  })
+
+  it('does not claim admins-only when the assignee override is on (#1923)', async () => {
+    const user = userEvent.setup()
+    renderModal(makeSwimlane(), { enforce_wip_limits: true, enforce_wip_hard: false, enforce_weight_limits: true, allow_assignee_override: true })
+    await user.type(screen.getByLabelText('WIP limit'), '1')
+    expect(screen.getByText(/unless a board admin, or the card's assignee \(if not self-assigned\), overrides\./)).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /Block, can be overridden/ })).toBeInTheDocument()
+    expect(screen.queryByText(/admins can override|a board admin can move anyway/)).not.toBeInTheDocument()
   })
 
   it('0 or empty clears a limit; null enforcement is "Follow board settings"', async () => {

@@ -822,3 +822,52 @@ describe('CardChildrenTab per-card capability (#2446)', () => {
     expect(screen.queryByRole('button', { name: 'Link existing' })).not.toBeInTheDocument()
   })
 })
+
+describe('Children tab assignee override (#1923)', () => {
+  const me = 9
+  const mine = row({ id: 10, title: 'Mine', column_id: 100, assignee: { id: me, username: 'me', display_name: 'Me' } as never, assigned_by: 1 })
+  function overrideData(switchOn = true): CardChildrenRead {
+    const d = read([mine], 'member')
+    return { ...d, board: { ...d.board!, enforce_wip_limits: true, enforce_wip_hard: false, allow_assignee_override: switchOn } }
+  }
+  const open = async (data: CardChildrenRead, currentUserId: number | null = me) => {
+    render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data })} onExitToTabs={vi.fn()} currentUserId={currentUserId} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Move Mine' }))
+  }
+
+  it('collects a reason, keeps it after a failure, and sends the forced move', async () => {
+    vi.mocked(moveCard).mockReset()
+    vi.mocked(moveCard).mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ card: {} as never })
+    await open(overrideData())
+    await userEvent.click(screen.getByRole('radio', { name: /^Doing 5 of 5/ }))
+    expect(screen.getByText('At its limit of 5 · assignee override')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
+    expect(moveCard).not.toHaveBeenCalled()
+    await userEvent.type(screen.getByLabelText('Reason (required)'), 'urgent')
+    await userEvent.click(screen.getByRole('button', { name: 'Move anyway' }))
+    expect(await screen.findByText("Couldn't move Mine. Try again.")).toBeInTheDocument()
+    expect(screen.getByLabelText('Reason (required)')).toHaveValue('urgent')
+    await userEvent.click(screen.getByRole('button', { name: 'Move anyway' }))
+    expect(moveCard).toHaveBeenLastCalledWith(7, 10, { column_id: 101, swimlane_id: 50, position: 5, override_reason: 'urgent' }, true)
+  })
+
+  it('Escape closes the reason box only and returns focus to its trigger', async () => {
+    await open(overrideData())
+    await userEvent.click(screen.getByRole('radio', { name: /^Doing 5 of 5/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByLabelText('Reason (required)')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Move anyway (assignee override)' })).toHaveFocus())
+  })
+
+  it('offers nothing with the switch off or no known viewer', async () => {
+    await open(overrideData(false))
+    expect(screen.getByRole('radio', { name: /^Doing 5 of 5/ })).toBeDisabled()
+    const doing = columns[1]
+    const b = { role: 'member', enforce_wip_limits: true, allow_assignee_override: true }
+    expect(moveTargetState(doing, b).disabled).toBe(true)
+    expect(moveTargetState(doing, b, { userId: null, child: mine }).disabled).toBe(true)
+    expect(moveTargetState(doing, b, { userId: me, child: { ...mine, assigned_by: undefined } }).disabled).toBe(true)
+    expect(moveTargetState(doing, b, { userId: me, child: mine }).needsReason).toBe(true)
+  })
+})

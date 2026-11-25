@@ -873,6 +873,8 @@ export interface Card {
   blocked_at: string | null;
   /** The open manual block's reason; `""` when not manually blocked (#1149). */
   blocked_reason: string;
+  /** #1923: id of the user who set the current assignee; null when unassigned, imported, or the assigner was deleted. Read-only. */
+  assigned_by?: number | null;
   /** Gated stages (#1102): index of the card's sub-column in `column.sub_columns`; 0 on a plain column. */
   gates_passed?: number;
   /**
@@ -1033,6 +1035,8 @@ export interface CardChildRow {
   archived: boolean;
   position: number;
   assignee: BoardUser | null;
+  /** Since 1.3 (#1923): who assigned the card; decides the assignee override. */
+  assigned_by?: number | null;
   blocked: boolean;
   blocked_at: string | null;
   /** Since 1.3 (#2209): the child board's own card face (priority, due date, labels). */
@@ -1067,6 +1071,8 @@ export interface CardChildrenRead {
     /** Since 1.3 (#2209): the child board's WIP mode, which the Move picker honors. */
     enforce_wip_limits: boolean;
     enforce_wip_hard: boolean;
+    /** Since 1.3 (#1923): the child board's assignee-override switch. */
+    allow_assignee_override?: boolean;
     columns: CardChildrenColumn[];
   };
 }
@@ -1358,7 +1364,10 @@ export type CardActivityEventType =
   // #2371 planned children. from_value is a cause code, to_value a due date or
   // "planned"/"now"; neither names the parent, its column or who moved it.
   | "planned_released"
-  | "needed_changed";
+  | "needed_changed"
+  // #1923: a Block limit overridden with force. from_value is the actor basis,
+  // to_value the overridden kinds, item_text the reason ("" when none).
+  | "override_used";
 
 export interface CardActivity {
   id: number;
@@ -1444,6 +1453,8 @@ export interface Board {
   enforce_wip_limits: boolean;
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
+  /** #1923: a card's assignee (member) may force past a Block WIP/weight limit with a reason. Off by default; admin-only to change. */
+  allow_assignee_override?: boolean;
   show_wip_at_limit: boolean;
   /** #1418 — when false, swimlane row chips show field values without the `{name}:` label. */
   show_row_chip_field_names: boolean;
@@ -1653,6 +1664,8 @@ export interface BoardFull {
   enforce_wip_limits: boolean;
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
+  /** #1923: a card's assignee (member) may force past a Block WIP/weight limit with a reason. Off by default; admin-only to change. */
+  allow_assignee_override?: boolean;
   show_wip_at_limit: boolean;
   /** #1418 — when false, swimlane row chips show field values without the `{name}:` label. */
   show_row_chip_field_names: boolean;
@@ -2934,6 +2947,18 @@ export interface ShareLinkUpdatedPayload {
   issued_at: string | null;
 }
 
+/** A Block limit overridden with `force` (#1923). Additive on move, create and restore bodies and frames. */
+export interface CardOverrideInfo {
+  kinds: ("wip" | "weight")[];
+  actor_basis: "admin" | "site_admin" | "assignee";
+  actor: { id: number; username: string };
+  /** `""` when an admin gave none. Visible to everyone on the board. */
+  reason: string;
+}
+
+/** `card.created` and `card.unarchived` frames, and the REST create and restore bodies: the card, plus `override` when a limit was forced (#1923). */
+export type CardPlacementPayload = Card & { override?: CardOverrideInfo };
+
 /**
  * One card a move renumbered, in `card.moved`'s `sibling_positions` (#1890).
  * `version` is the sibling's own: a position shift does not bump it, so a
@@ -2953,6 +2978,8 @@ export interface CardSiblingPosition {
  * from an older server, or a change-feed row written by one, has no key.
  */
 export interface CardMovedEventPayload {
+  /** #1923: present only when the move overrode a limit. */
+  override?: CardOverrideInfo;
   card: Card;
   movement?: CardMovement;
   sibling_positions?: CardSiblingPosition[];

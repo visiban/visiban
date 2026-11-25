@@ -459,6 +459,18 @@ def _force_requested(request):
     return request.query_params.get("force", "").lower() == "true"
 
 
+def _override_reason(request):
+    """The optional body field ``override_reason`` sent with ``?force=true`` (#1923).
+
+    Returned raw: the card service validates it (``clean_override_reason``)
+    only after its role and object checks, so a caller who fails those sees
+    403/404, not a 400 about the reason. Whether a reason is *required* is the
+    service's decision too (assignee basis only).
+    """
+    data = request.data if hasattr(request.data, "get") else {}
+    return data.get("override_reason")
+
+
 _FORCE_PARAM = OpenApiParameter(
     name="force",
     type=OpenApiTypes.BOOL,
@@ -1027,7 +1039,13 @@ class CardViewSet(viewsets.ModelViewSet):
         """
         board, role = self._board_and_role()
         card_services.require_mutation_role(actor=request.user, board=board, role=role)
-        return super().create(request, *args, **kwargs)
+        self._create_override = None
+        response = super().create(request, *args, **kwargs)
+        if self._create_override:
+            # Additive (#1923), as the move and restore bodies carry it:
+            # present only when a limit was overridden.
+            response.data["override"] = self._create_override
+        return response
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
@@ -1048,6 +1066,7 @@ class CardViewSet(viewsets.ModelViewSet):
             ),
             render=self._refetch_card_data,
             force=_force_requested(self.request),
+            override_reason=_override_reason(self.request),
             notify_assignee=notify_assignee,
         )
         # No return value: DRF's CreateModelMixin renders the 201 body from
@@ -1057,6 +1076,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # broadcast payload already computed the open visit (#459), so hand it
         # over rather than spending a query on the same answer.
         serializer.instance._column_entered_at = result.payload["column_entered_at"]
+        self._create_override = result.payload.get("override")
 
     def perform_destroy(self, instance):
         board, role = self._board_and_role()
@@ -1187,6 +1207,7 @@ class CardViewSet(viewsets.ModelViewSet):
             render=self._plain_card_payload,
             render_many=self._batch_card_payloads,
             force=_force_requested(request),
+            override_reason=_override_reason(request),
         )
         return Response(result.payload)
 
@@ -1377,6 +1398,7 @@ class CardViewSet(viewsets.ModelViewSet):
             apply=apply,
             render=self._refetch_card_data,
             force=_force_requested(request),
+            override_reason=_override_reason(request),
         )
         return Response(result.payload)
 
@@ -1592,6 +1614,7 @@ class CardViewSet(viewsets.ModelViewSet):
             # exactly as it did before the extraction.
             expected_version=request.data.get("version"),
             force=_force_requested(request),
+            override_reason=_override_reason(request),
             render=render,
             # Passed raw for the same reason as ``version`` (#1102).
             gates_passed=request.data.get("gates_passed"),
@@ -1682,6 +1705,8 @@ class CardViewSet(viewsets.ModelViewSet):
             "children_removed_board_deleted", "parent_removed_board_deleted",
             # Since 1.3 (#2371): planned children.
             "planned_released", "needed_changed",
+            # Since 1.3 (#1923): a limit overridden with force.
+            "override_used",
         ],
     }
     # Every group timeline() accepts, as published in the schema (#1975).

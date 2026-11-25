@@ -376,6 +376,13 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! note "Turn on the assignee override only after the rollout completes"
+    Since 1.3 a board admin can [let a card's assignee move it past a Block limit](../features/board.md#letting-a-cards-assignee-move-it-anyway-since-13) (off by default). It is refused when the assignee assigned the card to themselves, which the server knows from who set the assignee. Only 1.3 records that.
+
+    - **Rolling upgrade.** Wait until every instance runs 1.3 before turning the switch on. An instance still on the older release changes an assignee without updating who assigned it, so a card first assigned through 1.3 and then reassigned through the older instance keeps the earlier assigner, and a member who assigned it to themselves there would qualify.
+    - **Rollback, then upgrade again.** The same happens to every card reassigned while the older release ran. Turn the switch off, and for each such card clear the assignee and set it again before turning it back on. Toggling the switch alone corrects nothing.
+    - A card whose assigner was never recorded (assigned before 1.3, or imported) never qualifies until it is reassigned.
+
 !!! note "A Valkey outage no longer fails the readiness probe: monitors on its `503` stop firing"
     Since 1.3, `/api/health/readiness/` depends on the database only. When Valkey is unreachable it answers `200` with `{"status": "degraded"}` instead of `503` with a `redis` key, so pods stay in the Service and ordinary REST requests keep working (#1465). See [If Valkey goes down](configuration.md#if-valkey-goes-down) for what still fails.
 

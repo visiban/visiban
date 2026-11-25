@@ -1,6 +1,7 @@
+import { overrideEligibility } from "../../utils/forceOverride";
 import { useCallback, useEffect, useState } from "react";
 import { getCardChildren } from "../../api/cards";
-import type { CardChildrenColumn, CardChildrenRead } from "../../types";
+import type { BoardOrSiteRole, CardChildRow, CardChildrenColumn, CardChildrenRead } from "../../types";
 import { PARENT_PICKER_ESCAPE_PRIORITY } from "./ParentCardPicker";
 
 /**
@@ -110,36 +111,44 @@ export function describeChildrenChange(prev: CardChildrenRead | null, next: Card
   return `Children updated. ${tally}`;
 }
 
-/** Roles that may pass `?force=true` past an enforced (not hard) WIP limit; mirrors the server's `_FORCE_ROLES`. */
-export const FORCE_ROLES = new Set(["admin", "site_admin"]);
-
 export interface MoveTargetState {
   /** The row cannot be chosen; `reason` says why. */
   disabled: boolean;
   /** Visible words next to the row, or "" when the column has room. */
   reason: string;
-  /** The move must send `?force=true` (an admin moving past an enforced limit). */
+  /** The move must send `?force=true` (moving past an enforced limit). */
   force: boolean;
+  /** The assignee override (#1923): the server also requires `override_reason`. */
+  needsReason?: boolean;
 }
 
 /**
  * What the in-sheet Move picker does with a column (#2209: the picker honors the child board's WIP mode).
  * It mirrors the move endpoint for this viewer, so a disabled row is exactly a move the server would refuse:
- * advisory limits (neither flag) never block; enforced limits block every role but a board admin, who
- * moves with `?force=true`; a hard limit blocks every role. A `wip_limit` of 0 is a real limit (the server treats any non-null limit as one), unlike the board's header display.
+ * advisory limits (neither flag) never block; enforced limits block every role but a board admin (and, with
+ * the board's switch on, the card's assignee, who gives a reason; #1923), who move with `?force=true`;
+ * a hard limit blocks every role. A `wip_limit` of 0 is a real limit (the server treats any non-null limit as one), unlike the board's header display.
  * The server still re-checks; its refusal is shown as the picker's error line.
  */
 export function moveTargetState(
   col: CardChildrenColumn,
-  board: { role: string; enforce_wip_limits?: boolean; enforce_wip_hard?: boolean },
+  board: { role: string; enforce_wip_limits?: boolean; enforce_wip_hard?: boolean; allow_assignee_override?: boolean },
+  mover?: { userId: number | null | undefined; child: Pick<CardChildRow, "assignee" | "assigned_by"> },
 ): MoveTargetState {
   const limit = col.wip_limit;
   if (limit == null || col.card_count < limit) return { disabled: false, reason: "", force: false };
   if (board.enforce_wip_hard) return { disabled: true, reason: `At its limit of ${limit}`, force: false };
   if (board.enforce_wip_limits) {
-    return FORCE_ROLES.has(board.role)
-      ? { disabled: false, reason: `At its limit of ${limit} · admin override`, force: true }
-      : { disabled: true, reason: `At its limit of ${limit}`, force: false };
+    // Fails closed: no mover is no assignee override.
+    const { kind } = overrideEligibility({
+      role: board.role as BoardOrSiteRole,
+      userId: mover?.userId,
+      allowAssigneeOverride: board.allow_assignee_override,
+      card: mover ? { assignee: mover.child.assignee, assigned_by: mover.child.assigned_by ?? null } : null,
+    });
+    if (kind === "admin") return { disabled: false, reason: `At its limit of ${limit} · admin override`, force: true };
+    if (kind === "assignee") return { disabled: false, reason: `At its limit of ${limit} · assignee override`, force: true, needsReason: true };
+    return { disabled: true, reason: `At its limit of ${limit}`, force: false };
   }
   return { disabled: false, reason: `At its limit of ${limit} · not enforced`, force: false };
 }

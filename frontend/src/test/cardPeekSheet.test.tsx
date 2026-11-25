@@ -448,6 +448,58 @@ describe('CardPeekSheet', () => {
       await waitFor(() => expect(screen.queryByTestId('card-peek-move-form')).not.toBeInTheDocument())
     })
 
+    it('collects a reason from an eligible assignee before forcing (#1923)', async () => {
+      const onForceMoveCard = vi.fn().mockResolvedValue({ ok: true })
+      const me = { id: 7, username: 'ada', display_name: 'Ada', avatar_url: '' }
+      await refuse({
+        board: { ...board, current_user_role: 'member', allow_assignee_override: true } as unknown as BoardFull,
+        card: { ...card, assignee: me, assigned_by: 9 },
+        currentUserId: 7,
+        onForceMoveCard,
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
+      // Cancel closes only the reason box.
+      await userEvent.click(screen.getAllByRole('button', { name: 'Cancel' })[0])
+      expect(screen.queryByLabelText('Reason (required)')).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Move anyway (assignee override)' })).toHaveFocus())
+      await userEvent.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
+      await userEvent.type(screen.getByLabelText('Reason (required)'), 'Ship it')
+      await userEvent.click(screen.getByRole('button', { name: 'Move anyway' }))
+      expect(onForceMoveCard).toHaveBeenCalledWith(9, 1, 5, 9999, undefined, 'Ship it')
+    })
+
+    it('keeps the typed reason when the forced move fails, and drops the box when the target changes (#1923)', async () => {
+      const onForceMoveCard = vi.fn().mockResolvedValue({ ok: false, error: new Error('nope') })
+      const me = { id: 7, username: 'ada', display_name: 'Ada', avatar_url: '' }
+      await refuse({
+        board: { ...board, current_user_role: 'member', allow_assignee_override: true } as unknown as BoardFull,
+        card: { ...card, assignee: me, assigned_by: 9 },
+        currentUserId: 7,
+        onForceMoveCard,
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
+      // One Cancel and one submit while the box is open.
+      expect(screen.queryByRole('button', { name: 'Move card' })).not.toBeInTheDocument()
+      await userEvent.type(screen.getByLabelText('Reason (required)'), 'Ship it')
+      await userEvent.click(screen.getByRole('button', { name: 'Move anyway' }))
+      await waitFor(() => expect(onForceMoveCard).toHaveBeenCalled())
+      expect(screen.getByLabelText('Reason (required)')).toHaveValue('Ship it')
+      await userEvent.selectOptions(screen.getByLabelText('Swimlane'), screen.getByLabelText<HTMLSelectElement>('Swimlane').value)
+      expect(screen.queryByLabelText('Reason (required)')).not.toBeInTheDocument()
+    })
+
+    it('tells another member who can override (#1923)', async () => {
+      const bo = { id: 3, username: 'bo', display_name: 'Bo', avatar_url: '' }
+      await refuse({
+        board: { ...board, current_user_role: 'member', allow_assignee_override: true } as unknown as BoardFull,
+        card: { ...card, assignee: bo, assigned_by: 9 },
+        currentUserId: 7,
+        onForceMoveCard: vi.fn(),
+      })
+      expect(screen.getByText("Ask Bo (the card's assignee) or a board admin to move it anyway.")).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Move anyway/ })).not.toBeInTheDocument()
+    })
+
     it('keeps the form and error when the override itself fails', async () => {
       const onForceMoveCard = vi.fn().mockResolvedValue({ ok: false, error: new Error('nope') })
       await refuse({ onForceMoveCard })

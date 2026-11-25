@@ -2938,7 +2938,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // blocked move is refused before anyone would check them.
     const criteria = verdict.length > 0 || Number.isNaN(cardId) ? [] : getEntryCriteria(cardId, col);
     const suffix = verdict.length > 0
-      ? `. ${verdict.map((element) => trippedLimitSentence(element)).join(" ")}`
+      ? `. ${verdict.map((element) => trippedLimitSentence(element, board.allow_assignee_override)).join(" ")}`
       : criteria.length > 0 ? `. ${entryCriteriaSentence(col.name, criteria)}` : "";
     // The throttle keeps a fast pointer drag from flooding the live region,
     // but it must never swallow a blocked cell's verdict, which is the only
@@ -4075,6 +4075,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onOpenCard={(card) => { setPeekCardId(null); setSelectedCard(card); }}
             onMoveCard={async (...args) => onMoveCard(...args)}
             onForceMoveCard={(...args) => forceMoveCardTo(...args)}
+            currentUserId={currentUser?.id}
             movesPaused={movesPaused}
             // Phone only (#2277): reorder within the cell, which on the grid is a drag.
             // Over the cards the filter shows, as PhoneBoard does.

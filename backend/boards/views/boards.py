@@ -51,7 +51,7 @@ from ..serializers import (
     BoardMembershipSerializer, ChildrenViewSerializer, ParentBoardOptionSerializer, SavedFilterSerializer, SwimlaneSerializer,
     _swimlane_custom_field_prefetch,
 )
-from ..services import card_links, children_view as _children_view
+from ..services import card_links, children_view as _children_view, setting_changes
 from ..services.swimlane_team import team_prefetch
 from ..services.card_links import announce_cards_removal, check_flag_flip
 from ..services.feed import (
@@ -397,6 +397,8 @@ class BoardViewSet(
             # not a wait: see security-invariants Rule 6.
             serializer.recheck_group_under_lock(None)
             board = serializer.save(owner=self.request.user)
+            # #2584: a create body can set the audited toggles too.
+            setting_changes.record_board_initial_settings(board=board, actor=self.request.user)
             # A status sent on create is a change from nothing (#2242).
             record_if_changed(board, change_model=BoardHealthChange, from_status=None, user=self.request.user)
             BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
@@ -559,8 +561,13 @@ class BoardViewSet(
             old_off_track_cards = board.health_off_track_cards
             old_staleness_days = board.staleness_threshold_days
             old_name = board.name
+            # #1923 / #2584: the enforcement toggles, read from the locked row.
+            old_settings = setting_changes.snapshot_board_settings(board)
             serializer.save()
             board = serializer.instance
+            setting_changes.record_board_setting_changes(
+                board=board, actor=self.request.user, before=old_settings,
+            )
             # A parent board's name shows on each child (#2416): one coalesced,
             # ids-only ping per child board, published on commit.
             if board.name != old_name:

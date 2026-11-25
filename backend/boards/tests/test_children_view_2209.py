@@ -12,7 +12,7 @@ from unittest import mock
 from django.core.cache import cache
 from django.utils import timezone
 
-from boards.models import BoardMembership, Card, CardParentLink, CardRelation
+from boards.models import Board, BoardMembership, Card, CardParentLink, CardRelation
 from boards.serializers import ChildCandidateSerializer
 from boards.tests.conftest import _make_card, _make_column, _make_user
 from boards.views.card_query import CardQueryRateThrottle
@@ -71,6 +71,18 @@ class ChildrenLensReadTests(_LinkFixture, TestCase):
         self.assertEqual(row["priority"], "high")
         self.assertEqual(row["due_date"], "2026-12-01")
         self.assertEqual(row["labels"], [{"id": lb.pk, "name": "Security", "color": "#EF4444"}])
+
+    def test_visible_read_carries_the_assignee_override_inputs(self):
+        # #1923: the Move picker needs the child board's switch and who assigned.
+        u = self._user("cv_ovr", parent_role=Role.VIEWER, child_role=Role.MEMBER)
+        body = self._client(u).get(self.url).json()
+        self.assertIs(body["board"]["allow_assignee_override"], False)
+        self.assertIsNone(body["results"][0]["assigned_by"])
+        Board.objects.filter(pk=self.cboard.pk).update(allow_assignee_override=True)
+        Card.objects.filter(pk=self.child.pk).update(assignee=u, assigned_by=self.owner)
+        body = self._client(u).get(self.url).json()
+        self.assertIs(body["board"]["allow_assignee_override"], True)
+        self.assertEqual(body["results"][0]["assigned_by"], self.owner.pk)
 
     def test_hidden_read_carries_no_wip_mode_or_anatomy(self):
         # Absent-input side (#1075): a viewer without the child board gets the

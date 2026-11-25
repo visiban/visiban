@@ -105,15 +105,89 @@ class ForceNotPermitted(CardServiceError):
         "wip": "Only board admins can override a WIP limit.",
         "weight": "Only board admins can override a weight limit.",
     }
+    # Used instead when the board's ``allow_assignee_override`` is on (#1923):
+    # "only board admins" would not be true there.
+    _ASSIGNEE_ON_DETAIL = (
+        "Only board admins, or the card's assignee when someone else assigned it to "
+        "them, can override a {} limit."
+    )
+    _LABEL = {"wip": "WIP", "weight": "weight"}
+    # #1923: the actor is the card's assignee and the board lets assignees
+    # override, but they assigned the card to themselves.
+    SELF_ASSIGNED_DETAIL = (
+        "You assigned this card to yourself, so a board admin needs to move it anyway."
+    )
 
-    def __init__(self, limit: str):
+    def __init__(self, limit: str, *, self_assigned: bool = False, assignee_override: bool = False):
         if limit not in self._DETAIL:
             raise ValueError(f"unknown limit kind: {limit!r}")
         self.limit = limit
+        self.self_assigned = self_assigned
+        self.assignee_override = assignee_override
         super().__init__(limit)
 
     def body(self) -> dict:
-        return {"detail": self._DETAIL[self.limit]}
+        # ``code`` is additive (#1923); ``detail`` is unchanged for the
+        # pre-1.3 cases.
+        if self.self_assigned:
+            return {
+                "detail": self.SELF_ASSIGNED_DETAIL,
+                "code": "force_not_permitted",
+                "reason": "self_assigned",
+            }
+        if self.assignee_override:
+            detail = self._ASSIGNEE_ON_DETAIL.format(self._LABEL[self.limit])
+        else:
+            detail = self._DETAIL[self.limit]
+        return {"detail": detail, "code": "force_not_permitted"}
+
+
+OVERRIDE_REASON_MAX_LENGTH = 500
+
+
+class OverrideReasonRequired(CardServiceError):
+    """An assignee-basis override was sent without ``override_reason`` (#1923)."""
+
+    status = 400
+
+    def body(self) -> dict:
+        return {
+            "code": "override_reason_required",
+            "detail": "A reason is required to move this card past the limit.",
+        }
+
+
+class InvalidOverrideReason(CardServiceError):
+    """``override_reason`` is not a string, too long, or holds a NUL byte (#1923)."""
+
+    status = 400
+
+    def __init__(self, detail: str):
+        self.detail = detail
+        super().__init__(detail)
+
+    def body(self) -> dict:
+        return {"override_reason": [self.detail]}
+
+
+def clean_override_reason(value):
+    """Validate the optional ``override_reason`` transport field (#1923).
+
+    The boundary check every transport shares: ``None``/absent is "no reason";
+    otherwise a string, stripped, at most 500 characters, no NUL byte.
+    """
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise InvalidOverrideReason("Not a valid string.")
+    if "\x00" in value:
+        raise InvalidOverrideReason("Null characters are not allowed.")
+    value = value.strip()
+    if len(value) > OVERRIDE_REASON_MAX_LENGTH:
+        raise InvalidOverrideReason(
+            f"Ensure this field has no more than {OVERRIDE_REASON_MAX_LENGTH} characters."
+        )
+    return value
 
 
 # ---------------------------------------------------------------------------

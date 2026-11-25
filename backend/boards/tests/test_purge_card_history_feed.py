@@ -903,7 +903,7 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
     # Nulled by _redact_card with their own rules, not by _CARD_CONTENT_KEYS.
     CARD_NESTED_CONTENT = {"custom_field_values", "external_ref"}
     CARD_STRUCTURE = {
-        "id", "uid", "column", "swimlane", "priority", "assignee", "assignee_id",
+        "id", "uid", "column", "swimlane", "priority", "assignee", "assignee_id", "assigned_by",
         "labels", "label_ids", "due_date", "weight", "position", "created_by",
         "created_at", "updated_at", "last_moved_at", "last_move_is_creation",
         "column_entered_at",

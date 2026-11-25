@@ -582,10 +582,13 @@ class ServiceDefaultArgumentTests(TestCase):
             )
 
     def test_check_weight_false_skips_the_weight_limit(self):
-        self.assertIsNone(svc.enforce_column_limits(
+        # Since #1923 it returns a PlacementOutcome; nothing checked = nothing forced.
+        outcome = svc.enforce_column_limits(
             board=self.board, column=self.heavy, card=self.mover, role="admin",
             check_wip=False, check_weight=False,
-        ))
+        )
+        self.assertEqual(outcome.forced, ())
+        self.assertIsNone(outcome.actor_basis)
         with self.assertRaises(WeightLimitExceeded):
             svc.enforce_column_limits(
                 board=self.board, column=self.heavy, card=self.mover, role="admin",

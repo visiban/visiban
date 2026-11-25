@@ -49,12 +49,15 @@ function parseLimit(raw: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/** Who can override when the board's assignee switch is on (#1923). */
+const OVERRIDER_WHEN_ON = "a board admin, or the card's assignee (if not self-assigned),";
+
 /**
  * The "Already over" note for a limit typed below the current total. Worded
  * for the enforcement the modal currently selects (completeness-check on
  * #1150): not enforced, a block an admin can override, or a hard stop.
  */
-function alreadyOverNote(kind: "wip" | "weight", current: number, limit: number, mode: LimitMode | null): string {
+function alreadyOverNote(kind: "wip" | "weight", current: number, limit: number, mode: LimitMode | null, assigneeOverride: boolean): string {
   const now = kind === "wip" ? `${current} card${current === 1 ? "" : "s"} count now` : `${current} weight counts now`;
   if (mode === null) {
     return `Already over: ${now}. This limit is not enforced here, so it only shows on the row.`;
@@ -62,19 +65,26 @@ function alreadyOverNote(kind: "wip" | "weight", current: number, limit: number,
   const what = kind === "wip"
     ? `a new card is refused until ${limit === 1 ? "no card counts" : `fewer than ${limit} cards count`}`
     : `a card that would add weight past ${limit} is refused`;
-  const who = mode === "hard" ? " for everyone" : ", unless a board admin overrides";
+  const who = mode === "hard"
+    ? " for everyone"
+    : assigneeOverride
+      ? `, unless ${OVERRIDER_WHEN_ON} overrides`
+      : ", unless a board admin overrides";
   return `Already over: ${now}. Nothing moves; ${what}${who}.`;
 }
 
 /** What "Follow board settings" means on this board right now. */
 function boardModeDescription(flags: LimitFlags): string {
   const modes = columnLimitModes(flags);
+  const block = flags.allow_assignee_override
+    ? "block, board admins or the card's assignee (if not self-assigned) can override"
+    : "block, board admins can override";
   const wip = modes.wip === "hard"
     ? "WIP limits block everyone"
     : modes.wip === "block"
-      ? "WIP limits block, board admins can override"
+      ? `WIP limits ${block}`
       : "WIP limits only show on the row";
-  const weight = modes.weight ? "weight limits block, board admins can override" : "weight limits only show on the row";
+  const weight = modes.weight ? `weight limits ${block}` : "weight limits only show on the row";
   return `Board now: ${wip}; ${weight}.`;
 }
 
@@ -369,7 +379,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                 <p id={`${limitsId}-wip-help`} className="text-xs min-h-4">
                   {wipAlreadyOver ? (
                     <span className="text-warning">
-                      {alreadyOverNote("wip", usage.count, newWip ?? 0, selectedModes.wip)}
+                      {alreadyOverNote("wip", usage.count, newWip ?? 0, selectedModes.wip, !!limitFlags.allow_assignee_override)}
                     </span>
                   ) : (
                     <span className="text-fg-muted">Now {usage.count} · 0 = no limit</span>
@@ -394,7 +404,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                 <p id={`${limitsId}-weight-help`} className="text-xs min-h-4">
                   {weightAlreadyOver ? (
                     <span className="text-warning">
-                      {alreadyOverNote("weight", usage.weight, newWeight ?? 0, selectedModes.weight)}
+                      {alreadyOverNote("weight", usage.weight, newWeight ?? 0, selectedModes.weight, !!limitFlags.allow_assignee_override)}
                     </span>
                   ) : (
                     <span className="text-fg-muted">Now {usage.weight} · 0 = no limit</span>
@@ -440,8 +450,8 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               <div className="flex flex-col gap-2">
                 {([
                   ["inherit", "Follow board settings", boardModeDescription(limitFlags)],
-                  ["block", "Block, admins can override", "Moves and new cards are refused; a board admin can move anyway."],
-                  ["hard", "Block for everyone", "No one can add a card past the WIP limit. A weight limit can still be overridden by a board admin."],
+                  ["block", limitFlags.allow_assignee_override ? "Block, can be overridden" : "Block, admins can override", `Moves and new cards are refused; ${limitFlags.allow_assignee_override ? OVERRIDER_WHEN_ON : "a board admin"} can move anyway.`],
+                  ["hard", "Block for everyone", `No one can add a card past the WIP limit. A weight limit can still be overridden by ${limitFlags.allow_assignee_override ? "a board admin, or the card's assignee (if not self-assigned)" : "a board admin"}.`],
                 ] as const).map(([value, label, description]) => (
                   <label key={value} className={`${RADIO_BASE} ${enforcement === value ? RADIO_ON : RADIO_OFF}`}>
                     <input

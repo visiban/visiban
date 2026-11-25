@@ -167,3 +167,14 @@ describe('pruneLaneLimitColumn', () => {
     expect(pruneLaneLimitColumn(lanes, 9)).toBe(lanes)
   })
 })
+
+describe('trippedLimitSentence override wording (#1923)', () => {
+  const t = { scope: 'column' as const, kind: 'wip' as const, mode: 'block' as const, name: 'Doing', current: 1, limit: 1, cardWeight: 1 }
+
+  it('names the assignee only when the board switch is on, and never for a hard limit', () => {
+    expect(trippedLimitSentence(t, true)).toBe('Column "Doing" is at its WIP limit (1/1), admins and the card\'s assignee can override.')
+    expect(trippedLimitSentence(t, false)).toBe('Column "Doing" is at its WIP limit (1/1), admins can override.')
+    expect(trippedLimitSentence(t)).toContain(', admins can override.')
+    expect(trippedLimitSentence({ ...t, mode: 'hard' }, true)).toContain(', no one can override it.')
+  })
+})

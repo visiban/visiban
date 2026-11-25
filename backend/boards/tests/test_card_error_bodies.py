@@ -387,7 +387,7 @@ class CardErrorBodyTests(TestCase):
         self.card.created_by = self.member
         self.card.save(update_fields=["created_by"])
         resp = self._move(self.member, _qs="?force=true")
-        self._assert_body(resp, 403, {"detail": "Only board admins can override a WIP limit."})
+        self._assert_body(resp, 403, {"detail": "Only board admins can override a WIP limit.", "code": "force_not_permitted"})
 
     # ── move: weight enforcement ──────────────────────────────────────────
 
@@ -423,7 +423,7 @@ class CardErrorBodyTests(TestCase):
         self.card.weight = 2
         self.card.save(update_fields=["created_by", "weight"])
         resp = self._move(self.member, _qs="?force=true")
-        self._assert_body(resp, 403, {"detail": "Only board admins can override a weight limit."})
+        self._assert_body(resp, 403, {"detail": "Only board admins can override a weight limit.", "code": "force_not_permitted"})
 
     # ── move: swimlane (row) limits (#1150) ───────────────────────────────
     #
@@ -495,7 +495,7 @@ class CardErrorBodyTests(TestCase):
         self.card.created_by = self.member
         self.card.save(update_fields=["created_by"])
         resp = self._move(self.member, column_id=self.col_a.pk, swimlane_id=row.pk, _qs="?force=true")
-        self._assert_body(resp, 403, {"detail": "Only board admins can override a WIP limit."})
+        self._assert_body(resp, 403, {"detail": "Only board admins can override a WIP limit.", "code": "force_not_permitted"})
 
     def test_column_and_swimlane_both_tripped_reports_the_column_body_unchanged(self):
         # Equally strict: the column's body, byte-for-byte as before #1150.

@@ -70,7 +70,7 @@ On Kubernetes, run the same command with `kubectl exec` in a backend pod.
 | `--include-live-cards` | Also delete matching history, and redact matching change-feed events, of cards that still exist. Needs `--card` or `--board`. |
 | `--yes` | Delete and redact. Without it the command only reports what would be deleted and redacted. |
 
-Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (`deleted_count` is movements, `deleted_block_count` blocks, `redacted_event_count` change-feed events and `deleted_gate_transition_count` gate transition rows, all since 1.3). Gate transitions, the pass and reopen rows of [gated stages](../api/cards.md#gated-stages-and-gate-transitions-13-1102), are matched by the same selectors and erased in the same run.
+Every selector matches block records the same way it matches movements, and one run erases both; the output and the action-log entry count them separately (`deleted_count` is movements, `deleted_block_count` blocks, `redacted_event_count` change-feed events, and `deleted_gate_transition_count` gate transition rows and `deleted_override_count` [force override](../api/cards.md#force-overrides-assignee-basis-reasons-and-audit-since-13-1923) rows, all since 1.3). Gate transitions, the pass and reopen rows of [gated stages](../api/cards.md#gated-stages-and-gate-transitions-13-1102), are matched by the same selectors and erased in the same run.
 
 Dates are `YYYY-MM-DD` (midnight UTC at the start of that day) or an ISO 8601 datetime (UTC when it has no offset). `--since 2026-03-01 --before 2026-04-01` covers exactly March.
 
@@ -104,7 +104,8 @@ The selector that picks movement and block records also picks the card's [change
 - the card's `title`, `description` and `blocked_reason` (the free-text reason of a manual block, since 1.3);
 - the `value` of each `custom_field_values` entry (the entry and its `field_definition` stay);
 - the `ref` and `url` of `external_ref` (`provider` stays);
-- in `card.moved`, the movement's `card_title` and `notes`, and the same card fields inside `card`.
+- in `card.moved`, the movement's `card_title` and `notes`, and the same card fields inside `card`;
+- the `reason` of the `override` object (since 1.3), on a `card.created`, `card.unarchived` or `card.moved` event that carries one.
 
 **What stays:** every key; the card's `uid` and `id`, column, swimlane, position, labels, priority, due date and weight; its `is_blocked` and `blocked_at`; its assignee and creator; in `card.moved`, the movement's columns, swimlanes, mover and time; and the event's ID, type, actor and time. The event's `redacted_at` field shows when it was redacted. `card.deleted` and `card.archived` events carry only the card UID and are not changed. A block's `resolution` is never in an event; it is only in the block record, which the purge deletes.
 

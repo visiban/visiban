@@ -73,7 +73,7 @@ function otherTrippedLimits(
   const reported = reportedLimit(code);
   return placementVerdict({ flags: board, columns: board.columns, cards: board.cards, card: before, column, lane })
     .filter((t) => !(t.scope === reported.scope && t.kind === reported.kind))
-    .map((element) => trippedLimitSentence(element));
+    .map((element) => trippedLimitSentence(element, board.allow_assignee_override));
 }
 
 /** Generic toast for a failed move that no specific code covered (#1761). The
@@ -1065,10 +1065,13 @@ export function useBoard() {
   // target): the panel's backdrop and focus trap make the toast unreachable
   // while the panel is open, so the popover offers the override itself (#1772).
   // Like moveCard it never rejects; failures are reported in the result.
-  const runForcedMove = useCallback(async (move: PendingMove): Promise<MoveOutcome> => {
+  // `keepRefusal` (#1923): the toast's reason dialog lives on the current
+  // refusal, so it stays until the move succeeds; a failure is the dialog's to
+  // report, and the typed reason survives it.
+  const runForcedMove = useCallback(async (move: PendingMove, reason?: string, keepRefusal = false): Promise<MoveOutcome> => {
     if (!boardRef.current) return { ok: false, error: new Error("board not loaded") };
     const { cardId, columnId, swimlaneId, position, gatesPassed } = move;
-    clearMoveError();
+    if (!keepRefusal) clearMoveError();
 
     const before = boardRef.current.cards.find((c) => c.id === cardId);
     const movedAt = new Date().toISOString();
@@ -1088,6 +1091,7 @@ export function useBoard() {
       const { card } = await apiMoveCard(boardId, cardId, {
         column_id: columnId, swimlane_id: swimlaneId, position,
         ...(gatesPassed !== undefined ? { gates_passed: gatesPassed } : {}),
+        ...(reason ? { override_reason: reason } : {}),
       }, true);
       // A socket frame for a later change (a remote edit, or another move) can
       // arrive before this response; keep that newer copy (#1969).
@@ -1101,6 +1105,8 @@ export function useBoard() {
         touches?.written.add(card.id);
         return { ...b, cards };
       });
+      // Only the refusal this move answered: a newer one stays.
+      if (keepRefusal && pendingMoveRef.current === move) clearMoveError();
       return { ok: true };
     } catch (err: unknown) {
       setBoard((b) => {
@@ -1108,6 +1114,7 @@ export function useBoard() {
         const cards = rollbackMovedCard(b.cards, before);
         return cards === b.cards ? b : { ...b, cards };
       });
+      if (keepRefusal) return { ok: false, error: err };
       // Surface any structured error so the user knows the override failed
       // (e.g. a server error or unexpected 409) rather than silently reverting.
       // This generic pass-through already covers the maintenance_mode 503
@@ -1131,14 +1138,14 @@ export function useBoard() {
 
   // Retry the last blocked move (the toast's "Move anyway"). Takes no
   // arguments: App passes it straight to the toast's onClick.
-  const forceMoveCard = useCallback(async () => {
-    if (pendingMoveRef.current) await runForcedMove(pendingMoveRef.current);
+  const forceMoveCard = useCallback(async (reason?: string): Promise<MoveOutcome | void> => {
+    if (pendingMoveRef.current) return runForcedMove(pendingMoveRef.current, reason, reason !== undefined);
   }, [runForcedMove]);
 
   // Force a move to an explicit target, independent of pendingMove (#1772).
   const forceMoveCardTo = useCallback(
-    (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number): Promise<MoveOutcome> =>
-      runForcedMove({ cardId, columnId, swimlaneId, position, gatesPassed }),
+    (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number, reason?: string): Promise<MoveOutcome> =>
+      runForcedMove({ cardId, columnId, swimlaneId, position, gatesPassed }, reason),
     [runForcedMove],
   );
 
@@ -1694,5 +1701,5 @@ export function useBoard() {
     }
   }, [boardId, load, writeBoard]);
 
-  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
+  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, ...({ pendingMoveCardId: pendingMove?.cardId } as { pendingMoveCardId?: number | null }), clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
 }

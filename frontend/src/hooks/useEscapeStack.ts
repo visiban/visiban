@@ -42,10 +42,12 @@ function dispatch(e: KeyboardEvent): void {
  *   57 — inline confirm removing an all-content member's board role (BoardSettingsModal, #1301)
  *   48 — canceling an in-flight load inside a modal (Import Board sample load)
  *   42 — card-detail block/unblock reason form (CardBlockSection, #1149)
+ *   40.9 — Board Settings "Let a card's assignee move it anyway" turn-on confirm (#1923): cancels it, else false
  *   40.7 — a choice-row keyboard drag in a Board Settings field editor (SortableChoiceList and, via useSortableFieldDrag, the card-field and swimlane-field lists, #2190): consumed only mid-drag, else false; both share the level because only one drag is active at a time
  *   40.6 — Board Settings column-policy discard prompt (BoardSettingsPoliciesSection, #2156): cancels the prompt, else false
  *   40.5 — Board Settings Danger Zone delete confirmation (BoardSettingsModal, #2034): swallowed while the request runs, clears a typed name, else false
  *   40 — modals and overlays
+ *   36.5 — the assignee override's reason box in the Move popover and peek sheet (OverrideReasonForm, #1923)
  *   35-39 — card-detail overlays: 35 archive/delete and comment-delete confirms, 36 move popover,
  *           37 relation picker (and bulk-add overlay), 38 MR/PR link editor, 39 multi-select value menu
  *   44 — default for text/URL custom-field inputs (CustomFieldValueInput, #2036)

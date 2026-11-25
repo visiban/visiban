@@ -397,7 +397,7 @@ class BoardFullMembersSchemaTests(TestCase):
             "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail",
             "columns", "swimlanes", "cards", "labels", "members", "custom_field_definitions",
             "swimlane_custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "allow_assignee_override",
             "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap",
             "created_at", "updated_at",
             "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",

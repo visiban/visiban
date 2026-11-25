@@ -65,19 +65,19 @@ from django.utils import timezone
 from .. import broadcast as _broadcast
 from .. import hooks
 from ..models import (
-    BoardMembership, Card, CardActivity, CardBlock, CardGateTransition, CardMovement,
-    CardRelation, Column, Notification, SubColumn, Swimlane,
+    Board, BoardMembership, Card, CardActivity, CardBlock, CardGateTransition, CardMovement,
+    CardOverride, CardRelation, Column, Notification, SubColumn, Swimlane,
 )
 from ..permissions import SITE_ADMIN, can_modify_others_content, get_board_role
 from ..serializers import _card_labels
 from ..utils import notify_new_mentions
 from .notifications import create_notifications, quoted_card_verb
 from .errors import (
-    CardAlreadyBlocked, CardCreationNotAllowed, CardNotBlocked, CardNotFound, ColumnNotFound, ContainerChanged, ForceNotPermitted,
+    CardAlreadyBlocked, CardCreationNotAllowed, CardNotBlocked, CardNotFound, ColumnNotFound, ContainerChanged, ForceNotPermitted, OverrideReasonRequired,
     InvalidGatesPassed, InvalidPosition, InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
     SwimlaneWeightLimitExceeded, SwimlaneWipHardBlocked, SwimlaneWipLimitExceeded,
     UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
-    WipLimitExceeded,
+    WipLimitExceeded, clean_override_reason,
 )
 
 logger = logging.getLogger(__name__)
@@ -188,9 +188,109 @@ def _require_own_content(board, role, actor, card, *, denial):
         raise NotPermitted(denial)
 
 
-def _require_force_role(role, limit):
-    if role not in _FORCE_ROLES:
-        raise ForceNotPermitted(limit)
+def _assignee_override_on(board):
+    """Re-read ``Board.allow_assignee_override`` inside the caller's transaction.
+
+    Never trusts the board instance the request loaded: a board admin may have
+    turned the switch off since, and the decision must see that (#1923).
+    """
+    return bool(
+        Board.objects.filter(pk=board.pk).values_list("allow_assignee_override", flat=True).first()
+    )
+
+
+def _require_force(*, role, card, actor, board, kinds):
+    """Who may override a soft limit, and on what basis (#1923).
+
+    The one eligibility predicate for every ``force`` override; returns the
+    ``CardOverride.ActorBasis`` value or raises ``ForceNotPermitted`` worded
+    for ``kinds[0]``. Board admins and site admins always qualify. Anyone else
+    qualifies on the ``assignee`` basis only when every input resolves and
+    holds: the board's ``allow_assignee_override`` switch is on (re-read here),
+    the role is ``member`` (viewers and collaborators never), the actor is the
+    card's assignee, and the assignment was made by somebody else
+    (``assigned_by`` set and not the actor) -- a member must not be able to
+    assign a card to themselves and then override with it. A NULL
+    ``assigned_by`` (legacy, imported, assigner deleted) is ineligible: this
+    fails closed, never open (#1075). ``card`` must be the row the caller
+    locked, so a concurrent reassignment is either seen or waited for.
+    """
+    kind = kinds[0] if kinds else "wip"
+    if role == BoardMembership.Role.ADMIN:
+        return CardOverride.ActorBasis.ADMIN
+    if role == SITE_ADMIN:
+        return CardOverride.ActorBasis.SITE_ADMIN
+    actor_id = getattr(actor, "pk", None)
+    # No board is no switch: the refusal then reads admins-only.
+    switch_on = board is not None and _assignee_override_on(board)
+    if (
+        role != BoardMembership.Role.MEMBER
+        or card is None
+        or actor_id is None
+        or card.assignee_id is None
+        or card.assignee_id != actor_id
+        or not switch_on
+        or card.assigned_by_id is None
+    ):
+        raise ForceNotPermitted(kind, assignee_override=switch_on)
+    if card.assigned_by_id == actor_id:
+        raise ForceNotPermitted(kind, self_assigned=True)
+    return CardOverride.ActorBasis.ASSIGNEE
+
+
+@dataclass(frozen=True)
+class PlacementOutcome:
+    """What ``enforce_column_limits`` let through with ``force`` (#1923).
+
+    ``forced`` is the soft-limit kinds overridden, in evaluation order and
+    without repeats; empty when nothing was overridden. ``unmet`` holds one
+    snapshot per tripped constraint (scope and limit ids, never values).
+    """
+
+    forced: tuple = ()
+    actor_basis: str | None = None
+    unmet: tuple = ()
+    reason: str = ""
+
+
+_NOTHING_FORCED = PlacementOutcome()
+
+
+def record_overrides(outcome, *, card, actor, trigger, movement=None, column=None):
+    """Write the ``CardOverride`` rows and the ``override_used`` activity.
+
+    Returns the additive ``override`` payload object for the broadcast/REST
+    body, or ``None`` when nothing was overridden. Tolerates a non-outcome
+    (a test that patches ``enforce_column_limits`` returns a mock).
+    """
+    if not isinstance(outcome, PlacementOutcome) or not outcome.forced:
+        return None
+    column = column or card.column
+    assigned_by_id = (
+        card.assigned_by_id if outcome.actor_basis == CardOverride.ActorBasis.ASSIGNEE else None
+    )
+    CardOverride.objects.bulk_create([
+        CardOverride(
+            card=card, board_id=card.board_id, card_uid=card.uid, card_title=card.title,
+            column=column, column_name=column.name, column_uid=column.uid,
+            kind=kind, trigger=trigger, actor_basis=outcome.actor_basis,
+            reason=outcome.reason,
+            unmet=[u for u in outcome.unmet if u["kind"] == kind],
+            movement=movement, actor=actor, assigned_by_id=assigned_by_id,
+        )
+        for kind in outcome.forced
+    ])
+    CardActivity.objects.create(
+        card=card, event_type=CardActivity.EventType.OVERRIDE_USED,
+        from_value=outcome.actor_basis, to_value=",".join(outcome.forced),
+        item_text=outcome.reason, actor=actor,
+    )
+    return {
+        "kinds": list(outcome.forced),
+        "actor_basis": outcome.actor_basis,
+        "actor": {"id": actor.pk, "username": actor.username},
+        "reason": outcome.reason,
+    }
 
 
 def _fire_hooks(event, card_id, board_id, actor_id):
@@ -466,6 +566,10 @@ class PlacementConstraint:
     limit: int
     cards: object
     error: object
+    # Where the limit is configured, for the CardOverride ``unmet`` snapshot
+    # (#1923): ``column`` or ``swimlane`` and that row's uid. Never a value.
+    scope: str = "column"
+    scope_uid: str = ""
 
     def measure(self):
         if self.kind == "wip":
@@ -534,6 +638,7 @@ def _column_constraints(board, column, card, *, check_wip, check_weight):
         hard = wip_mode == _HARD
         constraints.append(PlacementConstraint(
             kind="wip", mode=wip_mode, limit=column.wip_limit, cards=counted,
+            scope_uid=column.uid,
             error=lambda n, hard=hard: (WipHardBlocked if hard else WipLimitExceeded)(
                 column_name=column.name, current_count=n, wip_limit=column.wip_limit,
             ),
@@ -541,6 +646,7 @@ def _column_constraints(board, column, card, *, check_wip, check_weight):
     if check_weight and weight_mode and column.weight_limit is not None:
         constraints.append(PlacementConstraint(
             kind="weight", mode=weight_mode, limit=column.weight_limit, cards=counted,
+            scope_uid=column.uid,
             error=lambda w: WeightLimitExceeded(
                 column_name=column.name, current_weight=w,
                 weight_limit=column.weight_limit, card_weight=card.weight,
@@ -569,6 +675,7 @@ def _swimlane_constraints(board, swimlane, column, card, *, check_wip, check_wei
         hard = wip_mode == _HARD
         constraints.append(PlacementConstraint(
             kind="wip", mode=wip_mode, limit=swimlane.wip_limit, cards=counted,
+            scope="swimlane", scope_uid=swimlane.uid,
             error=lambda n, hard=hard: (SwimlaneWipHardBlocked if hard else SwimlaneWipLimitExceeded)(
                 swimlane_name=swimlane.name, column_name=column.name,
                 current_count=n, wip_limit=swimlane.wip_limit,
@@ -577,6 +684,7 @@ def _swimlane_constraints(board, swimlane, column, card, *, check_wip, check_wei
     if want_weight:
         constraints.append(PlacementConstraint(
             kind="weight", mode=weight_mode, limit=swimlane.weight_limit, cards=counted,
+            scope="swimlane", scope_uid=swimlane.uid,
             error=lambda w: SwimlaneWeightLimitExceeded(
                 swimlane_name=swimlane.name, column_name=column.name, current_weight=w,
                 weight_limit=swimlane.weight_limit, card_weight=card.weight,
@@ -629,7 +737,9 @@ def _swimlane_check_applies(board, swimlane, column, *, check_wip, check_weight,
     return not _source_counts_for_swimlane(swimlane, source)
 
 
-def _evaluate_constraints(constraints, *, card, role, force):
+def _evaluate_constraints(
+    constraints, *, card, role, force, actor=None, board=None, override_reason=None,
+):
     """Raise the strictest refusal among ``constraints``, or return.
 
     Hard constraints are evaluated first, before ``force`` is consulted, so no
@@ -641,18 +751,41 @@ def _evaluate_constraints(constraints, *, card, role, force):
     accepted only from a board admin or site admin (``ForceNotPermitted``
     worded for the first tripped kind otherwise).
     """
+    forced, unmet, basis = [], [], None
     for constraint in sorted(constraints, key=lambda c: c.mode != _HARD):
         measured = constraint.measure()
         if not constraint.is_exceeded(measured, card.weight):
             continue
         if constraint.mode == _HARD or not force:
             raise constraint.error(measured)
-        _require_force_role(role, constraint.kind)
+        if basis is None:
+            # Decided once, on the first tripped soft limit: the 403 wording
+            # follows that kind, as before #1923.
+            basis = _require_force(
+                role=role, card=card, actor=actor, board=board, kinds=(constraint.kind,),
+            )
+        if constraint.kind not in forced:
+            forced.append(constraint.kind)
+        unmet.append({
+            "kind": constraint.kind, "scope": constraint.scope,
+            "uid": constraint.scope_uid, "limit": constraint.limit,
+        })
+    if not forced:
+        return _NOTHING_FORCED
+    reason = override_reason or ""
+    # Q2 (#1923): an assignee override always carries a reason; an admin
+    # WIP/weight force may omit it so pre-1.3 clients keep working.
+    if basis == CardOverride.ActorBasis.ASSIGNEE and not reason:
+        raise OverrideReasonRequired()
+    return PlacementOutcome(
+        forced=tuple(forced), actor_basis=basis, unmet=tuple(unmet), reason=reason,
+    )
 
 
 def enforce_column_limits(
     *, board, column, card, role, force=False, check_wip=True, check_weight=True,
-    lock=True, swimlane=None, source=None, check_column=True,
+    lock=True, swimlane=None, source=None, check_column=True, actor=None,
+    override_reason=None,
 ):
     """Raise if placing ``card`` in the cell (``column``, ``swimlane``) breaks
     a placement limit: the column's WIP or weight limit, or, since #1150, the
@@ -723,7 +856,7 @@ def enforce_column_limits(
         board, swimlane, column, check_wip=check_wip, check_weight=check_weight, source=source,
     )
     if not (constraints or lane_applies):
-        return
+        return _NOTHING_FORCED
 
     # One lock per row covers WIP and weight; acquiring it twice on the same
     # row would be a redundant round-trip. Column first, then swimlane.
@@ -739,7 +872,10 @@ def enforce_column_limits(
             board, locked_swimlane, column, card, check_wip=check_wip, check_weight=check_weight,
         )
 
-    _evaluate_constraints(constraints, card=card, role=role, force=force)
+    return _evaluate_constraints(
+        constraints, card=card, role=role, force=force, actor=actor, board=board,
+        override_reason=override_reason,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -748,7 +884,7 @@ def enforce_column_limits(
 
 def create_card(
     *, actor, board, column_id, swimlane_id, save, render, role=None, force=False,
-    notify_assignee=False,
+    notify_assignee=False, override_reason=None,
 ):
     """Create a card at the end of its target cell.
 
@@ -773,6 +909,8 @@ def create_card(
     if not column.allow_card_creation:
         raise CardCreationNotAllowed()
     swimlane = _board_scoped(Swimlane, swimlane_id, board, SwimlaneNotFound)
+    # After the role and object checks, so those answer first (#1923).
+    override_reason = clean_override_reason(override_reason)
 
     board_id = board.id
     with transaction.atomic():
@@ -814,13 +952,18 @@ def create_card(
         ).aggregate(m=Max("position"))["m"]
         max_pos = 0 if highest is None else highest + 1
         card = save(position=max_pos)
+        # #1923: whoever creates a card with an assignee assigned it -- the
+        # REST create, the child-card default assignee and MCP all land here.
+        # Before the limit check so the predicate sees it (a creator is never
+        # an eligible assignee: they assigned the card to themselves).
+        _stamp_assigned_by(card, actor)
         # The column row is already locked above, so the helper does not lock
         # it again (it still locks the swimlane row, after the column, when the
         # row has a limit). The new card is excluded from the count, as in a
         # move.
-        enforce_column_limits(
+        outcome = enforce_column_limits(
             board=board, column=column, card=card, role=role, force=force, lock=False,
-            swimlane=swimlane,
+            swimlane=swimlane, actor=actor, override_reason=override_reason,
         )
         movement = CardMovement(
             card=card,
@@ -848,7 +991,14 @@ def create_card(
             notify_assignee and _assigned_notification_recipient(card, actor, board)
         )
         movement.save()
+        override = record_overrides(
+            outcome, card=card, actor=actor, trigger=CardOverride.Trigger.CREATE,
+            movement=movement, column=column,
+        )
         payload = render(card)
+        if override:
+            # Additive (#1923): present only when a limit was overridden.
+            payload = {**payload, "override": override}
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_CREATED, payload, actor.id)
         _fire_hooks("card.created", card.id, board_id, actor.id)
         if card.description:
@@ -858,6 +1008,18 @@ def create_card(
         if notify_assignee:
             _notify_assigned_on_create(card, actor, board)
     return CardMutationResult(card=card, payload=payload)
+
+
+def _stamp_assigned_by(card, actor):
+    """Set ``assigned_by`` on a just-saved card that has an assignee (#1923).
+
+    One UPDATE, only when there is an assignee and the save did not set it.
+    """
+    if card.assignee_id is None or card.assigned_by_id is not None:
+        return
+    card.assigned_by_id = getattr(actor, "pk", None)
+    if card.assigned_by_id is not None:
+        Card.objects.filter(pk=card.pk).update(assigned_by_id=card.assigned_by_id)
 
 
 def _assigned_notification_recipient(card, actor, board):
@@ -1082,6 +1244,7 @@ def _adopt_locked_state(card, locked):
 
 def update_card(
     *, actor, board, card, submitted, apply, render, role=None, force=False,
+    override_reason=None,
     expected_version=None,
 ):
     """Apply a field update, recording a ``CardActivity`` row per changed field.
@@ -1143,6 +1306,8 @@ def update_card(
             expected_version = int(expected_version)
         except (TypeError, ValueError):
             raise InvalidVersion() from None
+    # Same placement rule for the override reason (#1923).
+    override_reason = clean_override_reason(override_reason)
 
     _reject_cell_change(board, card, submitted)
 
@@ -1215,18 +1380,28 @@ def update_card(
         # card row is already locked at the top of this block, so locking the column
         # row now keeps the card → column order move_card uses. A refusal
         # raises inside this transaction and rolls the write back.
+        # #1923: an assignee change records who made it, in the same UPDATE
+        # as the version bump below (0 extra queries); clearing the assignee
+        # clears it. Set before the limit check, which reads it.
+        assigned_by_update = {}
+        if card.assignee_id != old_assignee_id:
+            card.assigned_by_id = getattr(actor, "pk", None) if card.assignee_id else None
+            assigned_by_update = {"assigned_by_id": card.assigned_by_id}
+        outcome = None
         if card.weight > old_weight:
             # The row's weight limit too (#1150), when the card's column counts
             # toward it: the card grows in place in its swimlane as in its
             # column. Locked column -> swimlane, after the card row.
-            enforce_column_limits(
+            outcome = enforce_column_limits(
                 board=board, column=card.column, card=card, role=role, force=force,
-                check_wip=False, swimlane=card.swimlane,
+                check_wip=False, swimlane=card.swimlane, actor=actor,
+                override_reason=override_reason,
             )
         # OCC: bump version on every field update (as move_card does on a move) so
         # stale clients detect conflicts. Archive/unarchive, comments, attachments,
         # checklists and relations do not bump it (see Card.version).
-        Card.objects.filter(pk=card.pk).update(version=F("version") + 1)
+        Card.objects.filter(pk=card.pk).update(version=F("version") + 1, **assigned_by_update)
+        record_overrides(outcome, card=card, actor=actor, trigger=CardOverride.Trigger.WEIGHT_UPDATE)
         # Only reload version — scoping fields= prevents clearing the labels
         # prefetch cache, which would make card.labels.all() below re-query.
         card.refresh_from_db(fields=["version"])
@@ -1335,6 +1510,7 @@ def update_card(
 def move_card(
     *, actor, board, card_id, target_column_id, target_swimlane_id, position,
     render, expected_version=None, force=False, role=None, gates_passed=None,
+    override_reason=None,
 ):
     """Move a card to a column/swimlane/position, writing a ``CardMovement``.
 
@@ -1417,6 +1593,7 @@ def move_card(
                 target_column_id=target_column_id, target_swimlane_id=target_swimlane_id,
                 position=position, render=render, expected_version=expected_version,
                 force=force, role=role, gates_passed=gates_passed,
+                override_reason=override_reason,
             )
         except _CardChangedBeforeLock as exc:
             current_version = exc.current_version
@@ -1579,9 +1756,11 @@ def _require_cells_locked(*, board, card_id, cells, locked_pks, current_version)
 
 def _move_relevant_state(card):
     """The fields ``move_card``'s gates and cell lock were decided on."""
+    # ``assigned_by_id`` (#1923): the assignee override is decided on it, and
+    # a SET_NULL from deleting the assigner changes it without a version bump.
     return (
         card.version, card.column_id, card.swimlane_id,
-        card.assignee_id, card.created_by_id,
+        card.assignee_id, card.created_by_id, card.assigned_by_id,
     )
 
 
@@ -2015,7 +2194,7 @@ def _read_card_for_move(card_id, board):
 
 def _move_card_attempt(
     *, actor, board, card_id, target_column_id, target_swimlane_id, position,
-    render, expected_version, force, role, gates_passed=None,
+    render, expected_version, force, role, gates_passed=None, override_reason=None,
 ):
     """One locked attempt at ``move_card``; see its docstring for the contract."""
     board_id = board.id
@@ -2067,6 +2246,8 @@ def _move_card_attempt(
 
         target_column = _board_scoped(Column, target_column_id, board, ColumnNotFound)
         target_swimlane = _board_scoped(Swimlane, target_swimlane_id, board, SwimlaneNotFound)
+        # After the role, assignment and lookup checks (#1923).
+        override_reason = clean_override_reason(override_reason)
 
         cells = {
             (card.column_id, card.swimlane_id),
@@ -2160,11 +2341,16 @@ def _move_card_attempt(
         # cell checks nothing. The target column row is already locked above,
         # so the helper does not lock it again; it locks the target swimlane
         # row itself, after the columns (card -> column -> swimlane).
+        outcome = None
         if column_changed or swimlane_changed:
-            enforce_column_limits(
+            # ``card`` is the row _lock_move_cells locked, so the assignee
+            # override reads assignee/assigned_by a concurrent PATCH cannot
+            # change before COMMIT (#1923).
+            outcome = enforce_column_limits(
                 board=board, column=target_column, card=card, role=role, force=force,
                 lock=False, swimlane=target_swimlane,
                 source=(card.column, card.swimlane_id), check_column=column_changed,
+                actor=actor, override_reason=override_reason,
             )
 
         movement = None
@@ -2243,11 +2429,18 @@ def _move_card_attempt(
             board=board, card_id=card.pk, cells=cells, positions_before=positions_before,
         )
 
+        override = record_overrides(
+            outcome, card=card, actor=actor, trigger=CardOverride.Trigger.MOVE,
+            movement=movement, column=target_column,
+        )
         payload = render(card, movement)
         if transitions:
             # Additive (#1102): present only when a gate was crossed, so the
             # body of every pre-1.3 move is byte-for-byte unchanged.
             payload = {**payload, "gate_transitions": serialize_gate_transitions(transitions)}
+        if override:
+            # Additive (#1923), like gate_transitions.
+            payload = {**payload, "override": override}
         # The WebSocket payload is the REST body, so a client can update its
         # movement history without re-polling /movements/, plus the siblings
         # this move renumbered (#1890; additive, the REST body is unchanged).
@@ -2482,6 +2675,7 @@ def archive_card(*, actor, board, card_id, render, role=None, render_many=None):
 
 def unarchive_card(
     *, actor, board, card_id, render, role=None, render_many=None, force=False,
+    override_reason=None,
 ):
     """Restore a card by clearing ``archived_at``.
 
@@ -2507,6 +2701,8 @@ def unarchive_card(
     _require_own_content(
         board, role, actor, card, denial="You can only restore cards you created.",
     )
+    # After the role, lookup and ownership checks (#1923).
+    override_reason = clean_override_reason(override_reason)
 
     if card.archived_at is None:
         # No-op path: the card was not archived. One render to return state.
@@ -2553,15 +2749,21 @@ def unarchive_card(
         # Checked after the write, with the card row already locked above, so
         # the column row comes second (move_card's lock order); a refusal
         # rolls the restore back.
-        enforce_column_limits(
+        outcome = enforce_column_limits(
             board=board, column=card.column, card=card, role=role, force=force,
-            swimlane=card.swimlane,
+            swimlane=card.swimlane, actor=actor, override_reason=override_reason,
         )
-        _archive_movement(card, actor, CardMovement.MovementType.UNARCHIVED)
+        movement = _archive_movement(card, actor, CardMovement.MovementType.UNARCHIVED)
+        override = record_overrides(
+            outcome, card=card, actor=actor, trigger=CardOverride.Trigger.RESTORE,
+            movement=movement,
+        )
         # Rendered inside the atomic block so the payload is a plain dict
         # captured before the callback is registered (#999), and reused as the
         # response rather than re-fetched (#1050).
         payload = render(card)
+        if override:
+            payload = {**payload, "override": override}
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UNARCHIVED, payload, actor.id)
         # The children show their parent as restored (#1104).
         from .card_links import announce_children_changed, announce_parent_changed
