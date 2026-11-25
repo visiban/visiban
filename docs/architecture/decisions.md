@@ -441,3 +441,84 @@ These bind #448 and #1774 alike. They are requirements, not a component design: 
 
 - **Edition of the flow charts (resolved).** The owner ruled on 2026-11-02 (#1750) that the cumulative flow diagram, the CFD bottleneck highlight and the other #448 charts are OSS; see [Analytics (split)](open-core-boundary.md#analytics-split). Extension panels still render in the Summary tab (see `docs/api/boards.md`), not in #448's Analytics grid. This record does not change the open-core boundary.
 - **The chart components' layout and interaction.** That is #448's `ux-design` pass, bound by the requirements above.
+
+---
+
+<a id="default-card-density"></a>
+
+## Default card density after the board redesign
+
+**Status:** Proposed, owner decision pending (#2433). This record proposes and decides nothing. Until the owner rules, new boards keep `comfortable`. The ruling is recorded as a dated note under this record, never as a silent rewrite.
+
+**The question:** the board redesign (#2259, #2272) made the Comfortable card taller than it was in 1.2. Should new boards default to Standard instead, and should more reach the Comfortable face?
+
+**Where the question came from:** a simulated persona panel (`/voc-audit`), not user research. No user was asked and no user has reported it. The panel's pixel figures were estimated from Tailwind classes. The figures below were measured.
+
+### What the code does today
+
+- **The default lives on the server.** `Board.card_density` is a `CharField` with `default="comfortable"` and no `db_default` (`backend/boards/models.py:212`). Migration `0051_board_card_density` set every board that existed at 1.1 to `dense` and new boards to `comfortable`. A board created over the API without `card_density` gets the model default (`docs/api/boards.md:78`).
+- **Every board stores a value, so no board is "unset".** The column is `NOT NULL`. A board that took the default and a board whose admin chose Comfortable hold the same value and cannot be told apart. "All boards without an explicit density" therefore does not exist as a set the server could select.
+- **Three layers already sit on top of the board value.** A board admin sets the tier (`BoardSettingsModal.tsx:2518`). The board default preset can override it: the **Default** preset sets Standard (`frontend/src/boardPresets/registry.ts:86`, the #871 ruling of 2026-11-01). A member can set a personal override stored in the browser (`board:{id}:card-density-override`, `useCardDensityOverride.ts`). The precedence is resolved once, in `useBoardPreset`.
+- **The frontend fallback is not the default.** `CardItem`'s `density = "comfortable"` (`CardItem.tsx:255`) applies only when a caller passes no density, such as a drag overlay with no board context.
+- **Demo data:** `seed_demo_data` creates boards at `comfortable` unless a spec says otherwise (`seed_demo_data.py:1088`). The demo site's Software Team board is `dense` (`_demo_site_data.py:102`).
+
+### Measured card heights
+
+Measured with Playwright and Chromium at 1440×900 on the seeded redesign sample board (`e2e/fixtures/redesign-board.ts`, 8 columns, cards 158px wide), with each density forced on the board and `getBoundingClientRect` read for every card. The measurement was made for this record and is not committed. Heights include the 1px border.
+
+| Tier | Typical card | Row by row | Gap | Cards per 569px lane area |
+|---|---|---|---|---|
+| Comfortable | 125px (103–125) | padding 16, title 2 lines 38.5, subtitle 2+16.5, metadata row 6+22, status row 6+16, border 2 | 6px | about 4 |
+| Standard | 65px | padding 16, title 1 line 19.3, metadata row (status inline) 6+22, border 2 | 6px | about 8 |
+| Dense | 40px | padding 16, one row 22, border 2 | 6px | about 12 |
+
+The 569px is the space below the board chrome in the first lane on a 900px window (the first card's top edge is at 331px). 8 of the 29 cards carry an extra block (+48px at Comfortable and Standard, +26px at Dense). They are left out of the typical figure because they are taller at every tier.
+
+**Method.** Chromium via Playwright at 1440×900, on the seeded redesign sample board (`e2e/fixtures/redesign-board.ts`): 29 cards across 8 leaf columns, every card 158px wide. One run per tier (`comfortable`, `standard`, `dense`); how each tier was forced was not recorded. Each run read `getBoundingClientRect` for every card, and a second pass read the row heights inside a sample card. The script was throwaway: it was a temporary spec, it is not committed, and the numbers are reproducible only by repeating the setup above.
+
+The persona panel estimated "about 5-6 cards per column" at Comfortable. That was an estimate from Tailwind classes, and the measured figure of about 4 in the table above supersedes it.
+
+**Where Comfortable's extra 60px comes from:** the second title line (19.3px, because Comfortable clamps the title to 2 lines and Standard to 1, `CardItem.tsx:988`), the subtitle row (18.5px, `CardItem.tsx:1005`; since !1976 it is one line, not two as #2433's body says), and the status line on its own row (22px, `CardItem.tsx:1427`; Standard puts it inline). Padding and margins add 30px in total. The shipped 8px vertical padding and 6px row gaps are already tighter than the canvas's 10px card padding and 7px row gap (`docs/development/board-redesign.md` § Design tokens).
+
+**1.2, estimated, not measured:** the v1.2.0 Comfortable card was padding, a 1- or 2-line title and one metadata row with the urgency badge inline (v1.2.0 `CardItem.tsx:563–577`), so about 63–83px. That is close to the 1.3 **Standard** card, which keeps the same rows. 1.3 Comfortable is the 1.2 card plus a subtitle row and a status row.
+
+### Options
+
+**A. Keep Comfortable as the default for new boards.** No code change.
+- *For:* the redesign draws the card face at Comfortable (`docs/development/board-redesign.md` § Cards, "Rows, top to bottom, at Comfortable density"), and the owner ruled on 2026-11-14 that the design is the standard. The subtitle is the canvas's second identifier (the company name in the sample), and Comfortable is the only tier that shows it: Standard and Dense draw only the text before ` -- ` and keep the rest in the tooltip (`CardItem.tsx:988–1001`). The taller card is the cost of the calm face, not an accident. Admins, presets and members can each move to Standard in one step.
+- *Against:* about half as many cards fit in view as at Standard, and roughly 1.5 to 2 times taller than the 1.2 Comfortable card (estimated). A team that never opens the View menu gets the least dense board.
+- *Backward compatibility:* none affected.
+
+**B. Default new boards to Standard.** Change `default="comfortable"` to `"standard"` in `models.py:214`, with an `AlterField` migration. A default-only change on a field with no `db_default` is expected to emit no SQL, which `sqlmigrate` and `migration-check` confirm at implementation. Existing boards keep their stored value.
+- *For:* restores the 1.2 Comfortable card's height for new boards. Agrees with the **Default** preset's Standard ruling (#871). Shows the due date, a second label, weight and attachments on the face.
+- *Against:* new boards lose the subtitle on the face, the redesign's most visible card element. Departs from the reference face. Moves the board default away from the tier the redesign was drawn, reviewed and screenshot-tested at (`e2e/board-redesign.spec.ts` captures Comfortable).
+- *Backward compatibility:* a changed default for an API field. Clients that create boards without `card_density` get Standard. That is not a breaking change under the rules in `CLAUDE.md` (no field removed or retyped), but it changes behavior for existing installs, so it needs a `changed` changelog fragment and a note in `docs/administration/upgrade.md`.
+
+**B2. Also move existing Comfortable boards to Standard.** Rejected. The server cannot tell a defaulted board from one an admin set to Comfortable (see above), so a data migration would overwrite deliberate choices on every install. That breaks the rule against changing behavior for existing installs, and no evidence asks for it.
+
+**C. An instance-wide default density (a new setting or environment variable).** Per-board admin control already exists, as do the board default preset and the personal override. A fourth knob adds configuration surface, docs and tests for a need nobody has reported. Not recommended now. It stays available, as a new optional setting, if self-hosting admins ask for it.
+
+**D. Tighten Comfortable's spacing.** Changing `py-2` to `py-1.5` and the `mt-1.5` row gaps to `mt-1` saves about 8px (6%) and moves the card further below the canvas's padding and gaps. Closing the gap would take removing rows: the subtitle, the second title line or the separate status row, which turns Comfortable into Standard. The separate status row is a #2272 decision. Not recommended.
+
+**Separate sub-question: more on the Comfortable face, such as a high or urgent priority cue.** This reopens the calm-face rule (#2272, #2393). Priority is in the card's accessible name and the peek at every non-compact density (`frontend/CLAUDE.md` § Cards). It is independent of the default, so this record proposes no change. If the owner wants a cue, it should be its own issue with a `ux-design` pass.
+
+### Recommendation
+
+> **RECOMMENDATION (implementer proposal, not a decision): option A.** Keep Comfortable as the default for new boards in 1.3 and change no code. Record the measured heights above so the trade-off is explicit, and revisit when there is real evidence: the usability baseline (#1590) or a first real user report about scrolling.
+
+Why A over B:
+
+1. The extra height comes from the subtitle and the status row, which are the redesign's intent. The face was approved at Comfortable, and Standard hides the subtitle.
+2. Every escape is already one step away: the board setting, the Default preset and the personal override.
+3. The choice is cheap to reverse. Changing the default later affects only boards created after the change, and needs no data migration. The owner ruled on 2026-11-14 that there are no users yet, so deferring locks in almost no boards.
+4. The only evidence for B is a simulated panel, and the issue's own falsification line asks for a real report.
+
+*What would change this to B:* the #1590 baseline or real users showing that teams switch new boards to Standard or Dense soon after creating them, or report scrolling more than in 1.2.
+
+### If the owner approves
+
+- **Either option:** update or delete the "Open for the owner: the default card density for new boards (#2433)" line in `docs/development/board-redesign.md` § Decisions so it does not go stale. The A line below replaces it; under B, replace it with the B outcome.
+- **A:** add a dated note under this record ("Decided <date>: Comfortable stays the default; see #2433"), change **Status** to Accepted, and add one line to `docs/development/board-redesign.md` § Decisions: "Decided in #2433: Comfortable stays the default card density for new boards; measured heights are in Technology Decisions." No code, changelog or upgrade note.
+- **B:** a separate implementation MR with: `models.py:214` default and `help_text`, and the migration; `seed_demo_data.py:1088`; `frontend/CLAUDE.md` § Card density table ("Default for") and the blocked-indicator note at line 697 ("`comfortable` is the default for every board created since 1.1"); `docs/features/board.md:376–378`; `docs/features/index.md:383`; `docs/architecture/data-model.md:110` and `:267`; `docs/api/boards.md:78`; a `changed` fragment in `changelog.d/`; a 1.3 note in `docs/administration/upgrade.md`; and the `e2e/board-redesign.spec.ts` captures if the sample board stops naming its density. Gates: `migration-check`, `regression-check`, `api-docs`.
+
+**Aside, true under either option:** the `card_density` `help_text` (`models.py:215–225`) still describes the 1.1 tiers ("``dense`` shows everything"), which the redesign no longer matches. It is a source change, so it is out of scope for this docs-only record.

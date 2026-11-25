@@ -350,6 +350,8 @@ Evidence and its limits: a simulated persona panel (not user research) and desk 
 
 Decided in #2275: the lane WIP limit reuses #1150's `Swimlane.wip_limit`, and the rollup is a number field stored on the board (stale ids kept when the field is retyped, nulled when deleted), computed client-side. Open for `architect`: how tracks are stored (#1920).
 
+Open for the owner: the default card density for new boards (#2433). The measured heights, options and an implementer recommendation are in [Technology Decisions](../architecture/decisions.md#default-card-density).
+
 ## Review checklist
 
 For `ux-review` and `completeness-check` on the implementing MRs:
