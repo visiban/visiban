@@ -105,8 +105,10 @@ class ListOnlyOrderingFilterExtension(OpenApiFilterExtension):
     ``get_schema_operation_parameters()`` lists ``ordering`` on every operation
     drf-spectacular treats as a list. That includes custom ``@action``s that
     return many rows (``/cards/{id}/comments/``, ``/groups/{id}/members/``)
-    and even ``POST .../reorder/``. None of those calls ``filter_queryset()``,
-    so the filter never runs there and the parameter was ignored.
+    and even ``POST .../reorder/``. None of those applies the filter to the
+    rows it returns: most never call ``filter_queryset()``, and a detail action
+    that does so through ``get_object()`` only orders the lookup queryset before
+    ``.get(pk=...)``. The parameter never changed their response.
 
     Same rule as ``CodedDjangoFilterExtension`` above: only the ``list`` action
     runs ``filter_queryset()``, so only ``list`` keeps the parameter. A plain

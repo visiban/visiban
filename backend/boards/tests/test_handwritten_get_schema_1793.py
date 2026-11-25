@@ -8,8 +8,9 @@ is covered in ``git_lens/tests/test_board_schema_1647.py``.
 
 #1757: ``OrderingFilter`` is a default filter backend, so the stock schema
 listed ``?ordering=`` on every operation drf-spectacular treats as a list,
-including custom ``@action``s and ``POST .../reorder/`` that never call
-``filter_queryset()``. ``ListOnlyOrderingFilterExtension`` keeps it on the
+including custom ``@action``s and ``POST .../reorder/`` that never apply it
+to the rows they return (a detail action's ``get_object()`` runs it only on
+the single-row lookup). ``ListOnlyOrderingFilterExtension`` keeps it on the
 ``list`` action only. Runtime is unchanged: the filter still runs on every
 ``list``, including those that honor ``?ordering=`` through DRF's fallback to
 the serializer's fields, which the tests below pin as well.
@@ -236,7 +237,11 @@ class OrderingRuntimeUnchangedTests(TestCase):
         with mock.patch.object(OrderingFilter, "filter_queryset", spy):
             r = self.client.get(f"/api/v1/boards/{self.board.id}/saved-filters/", {"ordering": "-id"})
             self.assertEqual(r.status_code, 200)
-            self.assertEqual(calls, [], "a non-list action must not run OrderingFilter")
+            # saved-filters resolves its board without get_object(), so the
+            # filter does not run at all. Detail actions that do call
+            # get_object() run it on the one-row lookup only, which cannot
+            # reorder their response.
+            self.assertEqual(calls, [], "saved-filters must not run OrderingFilter")
             r = self.client.get(f"/api/v1/boards/{self.board.id}/columns/", {"ordering": "-id"})
             self.assertEqual(r.status_code, 200)
         self.assertEqual(calls, ["list"])
