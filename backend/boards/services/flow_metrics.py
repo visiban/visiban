@@ -1213,8 +1213,10 @@ def movements_on_board(board, *filters, **lookups):
     ``movement_board_moved_card_idx`` (``board, moved_at, card``)
     serves as an index-only range read of this board's rows.
 
-    The extra term never narrows the match. A card never changes board, and
-    every writer fills ``board`` from the card (``CardMovement.save``, the
+    The extra term never narrows the match. A card's movements carry its
+    current board: the only path that moves a card to another board, the
+    Django admin (``CardAdmin.save_model``), rewrites its rows' ``board`` too,
+    and every writer fills ``board`` from the card (``CardMovement.save``, the
     import's and the load fixture's ``bulk_create``), so a row of a card on
     ``board`` carries either ``board`` or, for a row written by a release
     older than migration 0080 during a rolling upgrade, NULL. The NULL rows

@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ('boards', '0140_card_dimension_plan'),
+        ('boards', '0144_activity_assigned_by_idx'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
