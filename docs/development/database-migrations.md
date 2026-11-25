@@ -48,6 +48,31 @@ There are **five** ways to build an index or a uniqueness constraint in a Django
 
 The check also fails a migration that uses a concurrent operation without setting `atomic = False`. That combination raises `NotSupportedError` at `migrate` time. It's loud, but only once it reaches an environment that runs migrations: usually CI at the earliest and production at the worst.
 
+### Foreign keys
+
+The same check fails on two foreign-key shapes that name no index at all (#1798):
+
+| Pattern | Flagged | Fix |
+|---|---|---|
+| `AddField` of a `ForeignKey` without `db_index=False` | yes | set `db_index=False`, then add the index concurrently (see [Adding a foreign key](#adding-a-foreign-key)) |
+| `AddField` of a `OneToOneField` | yes, even with `db_index=False` | its unique index can't be turned off; add a `ForeignKey` and build the unique index separately |
+| `AlterField` that turns a `ForeignKey` index from `db_index=False` back on | yes | keep `db_index=False` |
+| `AlterField` that changes `null` on a `ForeignKey` / `OneToOneField`, in either direction | yes | see [Changing an existing foreign key's nullability](#changing-an-existing-foreign-keys-nullability) |
+| the same `AlterField` with `db_constraint=False` before or after | **no** | nothing to re-validate |
+| any of the above on a table created earlier in the same migration | **no** | the table is empty |
+| any of the above under `SeparateDatabaseAndState(state_operations=...)` | **no** | state only, emits no DDL |
+
+An `AlterField` states only the new definition, so the check learns the old one by replaying
+the same app's earlier migrations in filename order, following `RenameField` and
+`RenameModel`. If it can't find the earlier definition, or `null` isn't written as a literal,
+it flags the operation. Custom `AlterField` subclasses such as
+`DropNotNullKeepingForeignKey` aren't flagged, but the definition they set is recorded.
+
+Four applied migrations predate these two rules and are listed in
+`GRANDFATHERED_FOREIGN_KEY`: `accounts/0011_user_default_board`,
+`boards/0009_board_group`, `boards/0017_notification_actor_action_type` and
+`boards/0044_cardchecklist_created_by`. The older rules still apply to them.
+
 ---
 
 ### A NOT NULL column with a default
@@ -236,8 +261,9 @@ anything that isn't a `CheckConstraint`:
 TypeError: AddConstraintNotValid.constraint must be a check constraint.
 ```
 
-`check_migration_concurrency` doesn't look at foreign-key validation either way — see
-below — so which recipe applies is a judgment call the check can't make for you. It comes
+`check_migration_concurrency` flags the index a foreign key builds and a change to its
+nullability (see [Foreign keys](#foreign-keys)), but not the validation of a new
+constraint, so which recipe applies is a judgment call the check can't make for you. It comes
 down to whether the column being constrained already holds data.
 
 ### A new, nullable column on an existing table
@@ -280,12 +306,12 @@ class Migration(migrations.Migration):
 (#1273) are the precedents in the tree — both add a nullable `ForeignKey` to an existing
 table in one plain `AddField`, no `NOT VALID` split needed.
 
-`db_index=False` is the part worth not skipping. `ForeignKey` builds a b-tree index on the
+`db_index=False` is required; the check fails without it. `ForeignKey` builds a b-tree index on the
 column by default — same as an explicit `db_index=True` on any other field — and that index
 build *does* scan the whole table under `ACCESS EXCLUSIVE`, whether the new column's values
 are `NULL` or not. `accounts/0031` splits it out for exactly this reason: `db_index=False`
 here, then a separate `AddIndexConcurrently` in `accounts/0032_user_pending_email_addr_idx`.
-Follow that shape for new work — `boards/0044` predates the split and left its default index
+Follow that shape — `boards/0044` predates the split and left its default index
 inline, which was only harmless because `cardchecklist` was small at the time.
 
 The constraint half is cheap for a new column, not free. Even with every row `NULL`,
@@ -430,8 +456,9 @@ The `# constraint-safe:` comment convention used elsewhere on this page doesn't 
 Optional follow-up, out of scope for this page:
 
 - `check_migration_concurrency` could flag an `AddField`/`AlterField` that adds a
-  `ForeignKey` with `db_constraint` left at its default (`True`) against an app's
-  non-initial migration, the same way it already flags `db_index=True`.
+  `ForeignKey` with `db_constraint` left at its default (`True`) on an existing table.
+  Today it flags the foreign key's index and nullability changes, not constraint
+  validation.
 - `check_migration_constraint_safety`'s adjacent-migration exemption can't tell a genuine
   data-repair `RunPython` from a schema-only one like the `NOT VALID` step above — both
   satisfy `has_top_level_repair()` by name alone. Narrowing that exemption would need the
@@ -458,7 +485,9 @@ ALTER TABLE "card_movements" ADD CONSTRAINT "..." FOREIGN KEY ("card_id") REFERE
 
 The re-`ADD` validates every row against the referenced table, holding `ACCESS EXCLUSIVE` on
 the referencing table (the migration is atomic) and `SHARE ROW EXCLUSIVE` on the referenced
-one for the whole scan. Neither checker flags it yet (#1798).
+one for the whole scan. `check_migration_concurrency` fails on it (see
+[Foreign keys](#foreign-keys)); `check_migration_constraint_safety` doesn't look at lock
+duration and only flags the `null=False` direction when it's written out.
 
 The change that's needed is only `ALTER COLUMN ... DROP NOT NULL`, which is
 catalog-only and leaves the existing constraint in place. `boards/0079_cardmovement_card_nullable`
@@ -469,6 +498,11 @@ rebuilds the table, which is fine locally). Its `database_backwards` refuses whi
 holds `NULL`, rather than deleting data to restore `NOT NULL`. Confirm the result with
 `python manage.py sqlmigrate <app> <migration>` against PostgreSQL: the output should be the
 single `DROP NOT NULL`.
+
+The check doesn't flag that subclass. It also covers only the `DROP NOT NULL` direction:
+making a foreign key `NOT NULL` scans the table whichever way it's written. If a plain
+`AlterField` really is acceptable (a table known to stay small), add
+`# concurrency-exempt: <reason>`.
 
 ---
 
@@ -738,7 +772,7 @@ fourteen above, without any of them changing.
 Found by the 1.2 pre-release audit (#1662). The shipped migrations weren't edited, because
 installs have already run them; these are documented instead.
 
-- **Foreign keys are not flagged by the concurrency checker.** `accounts/0031` adds a nullable
+- **Foreign-key validation is not flagged by the concurrency checker.** `accounts/0031` adds a nullable
   FK (`pending_email_address`). Even with `db_index=False`, PostgreSQL emits
   `ADD CONSTRAINT ... FOREIGN KEY`, which takes `SHARE ROW EXCLUSIVE` on `users` and
   `account_emailaddress` briefly. With every row `NULL` this is fast. For future FKs on large
