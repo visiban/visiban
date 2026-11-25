@@ -279,7 +279,7 @@ the format are in `docs/development/cost-ledger.md` § *The cost records* and §
 If it cannot post, say so in the report.
 
 The final report always carries the outcome as its own line: the script's one line, or
-`cost record: none (<ledger off | unreadable | no record 1 | no orchestrator usage>)`. A report with no cost line means
+`cost record: none (<ledger off | unreadable | no record 1 | no orchestrator usage | orchestrator window could not be measured>)`. A report with no cost line means
 this step was skipped.
 
 ---
