@@ -3048,6 +3048,8 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         methods=["GET"],
+        # A collection body, so not the default ``*_retrieve`` (#1874).
+        operation_id="api_v1_boards_cards_children_list",
         parameters=[OFFSET_QUERY_PARAMETER],
         responses={200: OpenApiResponse(response=CardChildrenReadSerializer, description=(
             "`{count, visible, offset, limit, results, board}`. When the caller cannot "
