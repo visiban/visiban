@@ -151,7 +151,14 @@ class DimensionPlanWriteTests(_Base):
         self.assertFalse(CardDimensionPlan.objects.exists())
 
     def test_owner_who_later_loses_assignability_is_kept_like_assignee(self):
-        """Accepted (#1922): like ``assignee``, a stored owner is not cleared on demotion."""
+        """Accepted (#1922): like ``assignee``, a stored owner is not cleared when
+        the user loses assignability through a role change.
+
+        "Like assignee" holds for the write path only: ``clear_viewer_assignees``
+        clears card and checklist assignees who were demoted to viewer and does
+        not touch plan owners, so a demoted owner stays until the plan is
+        rewritten (see Rule 5 in docs/development/security-invariants.md).
+        """
         owner = self.member("owner1922d", BoardMembership.Role.MEMBER)
         self.client.put(self.url(), {"owner_id": owner.pk}, format="json")
         BoardMembership.objects.filter(board=self.board, user=owner).update(role=BoardMembership.Role.VIEWER)
@@ -212,6 +219,36 @@ class DimensionPlanWriteTests(_Base):
         CardDimensionPlan.objects.create(card=self.card, field_definition=self.dim, next_action="Ping")
         self.dim.delete()
         self.assertFalse(CardDimensionPlan.objects.exists())
+
+    def test_turning_dimension_off_deletes_its_plans(self):
+        """A field that stops being a dimension loses its plans (#1922).
+
+        Otherwise the rows would keep rendering in ``dimension_plans`` for a
+        field that is no longer a dimension and come back on the next flip on.
+        """
+        CardDimensionPlan.objects.create(card=self.card, field_definition=self.dim, next_action="Ping")
+        other_dim = CustomFieldDefinition.objects.create(
+            board=self.board, name="Legal", field_type="dropdown", choices_json=["A"],
+            is_dimension=True, position=1,
+        )
+        CardDimensionPlan.objects.create(card=self.card, field_definition=other_dim, next_action="Keep")
+        url = f"/api/v1/boards/{self.board.pk}/custom-fields/{self.dim.pk}/"
+        resp = self.client.patch(url, {"is_dimension": False}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertFalse(CardDimensionPlan.objects.filter(field_definition=self.dim).exists())
+        # Only the flipped field's plans go; a sibling dimension keeps its own.
+        self.assertTrue(CardDimensionPlan.objects.filter(field_definition=other_dim).exists())
+        resp = self.client.patch(url, {"is_dimension": True}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        card = self.client.get(f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/").data
+        self.assertEqual([p["field_id"] for p in card["dimension_plans"]], [other_dim.pk])
+
+    def test_update_that_keeps_dimension_on_keeps_its_plans(self):
+        CardDimensionPlan.objects.create(card=self.card, field_definition=self.dim, next_action="Ping")
+        url = f"/api/v1/boards/{self.board.pk}/custom-fields/{self.dim.pk}/"
+        resp = self.client.patch(url, {"name": "Security review"}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(CardDimensionPlan.objects.filter(field_definition=self.dim).exists())
 
 
 class DimensionPinPoolTests(_Base):
