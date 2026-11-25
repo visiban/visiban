@@ -474,6 +474,10 @@ Measured with Playwright and Chromium at 1440×900 on the seeded redesign sample
 
 The 569px is the space below the board chrome in the first lane on a 900px window (the first card's top edge is at 331px). 8 of the 29 cards carry an extra block (+48px at Comfortable and Standard, +26px at Dense). They are left out of the typical figure because they are taller at every tier.
 
+**Method.** Chromium via Playwright at 1440×900, on the seeded redesign sample board (`e2e/fixtures/redesign-board.ts`): 29 cards across 8 leaf columns, every card 158px wide. One run per tier (`comfortable`, `standard`, `dense`) with that density set on the board, so the board value, not the preset or a personal override, decided the face. Each run read `getBoundingClientRect` for every card, and a second pass read the row heights inside a sample card. The script was throwaway: it was a temporary spec, it is not committed, and the numbers are reproducible only by repeating the setup above.
+
+The persona panel estimated "about 5-6 cards per column" at Comfortable. That was an estimate from Tailwind classes, and the measured figure of about 4 in the table above supersedes it.
+
 **Where Comfortable's extra 60px comes from:** the second title line (19.3px, because Comfortable clamps the title to 2 lines and Standard to 1, `CardItem.tsx:988`), the subtitle row (18.5px, `CardItem.tsx:1005`; since !1976 it is one line, not two as #2433's body says), and the status line on its own row (22px, `CardItem.tsx:1427`; Standard puts it inline). Padding and margins add 30px in total. The shipped 8px vertical padding and 6px row gaps are already tighter than the canvas's 10px card padding and 7px row gap (`docs/development/board-redesign.md` § Design tokens).
 
 **1.2, estimated, not measured:** the v1.2.0 Comfortable card was padding, a 1- or 2-line title and one metadata row with the urgency badge inline (v1.2.0 `CardItem.tsx:563–577`), so about 63–83px. That is close to the 1.3 **Standard** card, which keeps the same rows. 1.3 Comfortable is the 1.2 card plus a subtitle row and a status row.
@@ -513,6 +517,7 @@ Why A over B:
 
 ### If the owner approves
 
+- **Either option:** update or delete the "Open for the owner: the default card density for new boards (#2433)" line in `docs/development/board-redesign.md` § Decisions so it does not go stale. The A line below replaces it; under B, replace it with the B outcome.
 - **A:** add a dated note under this record ("Decided <date>: Comfortable stays the default; see #2433"), change **Status** to Accepted, and add one line to `docs/development/board-redesign.md` § Decisions: "Decided in #2433: Comfortable stays the default card density for new boards; measured heights are in Technology Decisions." No code, changelog or upgrade note.
 - **B:** a separate implementation MR with: `models.py:214` default and `help_text`, and the migration; `seed_demo_data.py:1088`; `frontend/CLAUDE.md` § Card density table ("Default for") and the blocked-indicator note at line 697 ("`comfortable` is the default for every board created since 1.1"); `docs/features/board.md:376–378`; `docs/features/index.md:383`; `docs/architecture/data-model.md:110` and `:267`; `docs/api/boards.md:78`; a `changed` fragment in `changelog.d/`; a 1.3 note in `docs/administration/upgrade.md`; and the `e2e/board-redesign.spec.ts` captures if the sample board stops naming its density. Gates: `migration-check`, `regression-check`, `api-docs`.
 
