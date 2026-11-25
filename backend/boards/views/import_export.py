@@ -553,7 +553,10 @@ async def _stream_under_asgi(chunks, board_id):
 
     Django consumes a synchronous iterator whole before sending it under ASGI,
     which would put the body back in memory. Each ``next`` runs on the
-    request's sync thread, where its database connection lives.
+    request's sync thread, where its database connection lives. This bounds
+    the rows being built, not the bytes: daphne applies no backpressure, so
+    what a slow client has not read waits in the proxy's or server's buffer.
+    The caller's permissions were decided when the request was made.
 
     A failure after the response started must not escape: under daphne it
     stops the loop that reaps every application instance in the process, and
@@ -567,6 +570,9 @@ async def _stream_under_asgi(chunks, board_id):
     while True:
         try:
             chunk = await pull(chunks, done)
+            # Encoded here so that an encoding error is caught too.
+            if chunk is not done:
+                chunk = chunk.encode("utf-8")
         except Exception:
             logger.exception("CSV export of board %s failed after the response started", board_id)
             raise asyncio.CancelledError
@@ -4181,18 +4187,14 @@ class BoardImportExportMixin:
         # document is still assembled in memory.
         cards = (
             Card.objects.filter(board=board)
-            .select_related("column", "swimlane", "assignee", "created_by", "external_ref")
+            .select_related("column", "swimlane", "assignee", "created_by")
+            # Only what both formats read; the JSON branch adds the rest, so a
+            # CSV chunk does not also load comments and activities (#2585).
             .prefetch_related(
                 "labels",
                 "movements__from_column",
                 "movements__to_column",
-                "movements__from_swimlane",
-                "movements__to_swimlane",
                 "movements__moved_by",
-                "comments__author",
-                "checklist_items__assignee",
-                # assigned_by (#2594) joined into the same activity query.
-                Prefetch("activities", queryset=CardActivity.objects.select_related("actor", "assigned_by")),
                 # Custom field values (#371) — one query for the whole export,
                 # with the definition joined so neither branch below resolves a
                 # per-card FK.
@@ -4312,7 +4314,13 @@ class BoardImportExportMixin:
             # Manual block history (#1149): JSON only, so the CSV branch does
             # not pay for queries it never reads. On the queryset, so it runs
             # per chunk like the other prefetches.
-            cards = cards.prefetch_related(
+            cards = cards.select_related("external_ref").prefetch_related(
+                "movements__from_swimlane",
+                "movements__to_swimlane",
+                "comments__author",
+                "checklist_items__assignee",
+                # assigned_by (#2594) joined into the same activity query.
+                Prefetch("activities", queryset=CardActivity.objects.select_related("actor", "assigned_by")),
                 "blocks__blocked_by", "blocks__unblocked_by",
                 # Gate history (#1102), JSON only like blocks.
                 "gate_transitions__actor",
