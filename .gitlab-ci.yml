@@ -4519,35 +4519,52 @@ frontend-dep-scan:
     paths:
       - npm-audit-report.json
 
-# License compliance — flag GPL-2.0/GPL-3.0 dependencies that are incompatible
-# with the project's Apache 2.0 license. Non-blocking so it warns but doesn't
-# gate merges.
+# License compliance — block GPL, AGPL, SSPL and BUSL dependencies, which are
+# incompatible with the project's Apache 2.0 license (LGPL and MPL are allowed).
+# Blocking, on MRs and main (#1755). The matching rules live in
+# scripts/license-gate.py.
+.rules-license-check:
+  rules:
+    # Never in the Sonar nightly (#2471).
+    - if: '$SONAR_SCHEDULED == "true"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
 backend-license-check:
-  extends: [.on-mr, .pip-cache]
+  extends: [.rules-license-check, .pip-cache]
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt pip-licenses
+    # The lock, not requirements.txt: it is what the shipped images install.
+    # Same flags as backend/Dockerfile: wheels only, except the one sdist-only
+    # package, built with the hash-pinned backend from requirements-build.lock.
+    - pip install --quiet --only-binary :all: --require-hashes -r backend/requirements-build.lock
+    - pip install --quiet --only-binary :all: --no-binary dj-rest-auth --no-build-isolation --require-hashes -r backend/requirements.lock
+    - pip install --quiet pip-licenses==5.5.5
   script:
-    - pip-licenses --format=plain --fail-on="GNU General Public License v3 (GPLv3);GNU General Public License v2 (GPLv2)"
-  allow_failure: true
+    - python scripts/license-gate.py --self-test
+    - pip-licenses --from=mixed --format=json --output-file=pip-licenses.json
+    - python scripts/license-gate.py --pip pip-licenses.json
 
 frontend-license-check:
-  extends: [.on-mr, .npm-cache]
+  extends: [.rules-license-check, .npm-cache]
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
   image: ${DOCKERHUB_MIRROR}/node:22-alpine
   before_script:
+    - apk add --no-cache python3
     - cd frontend
     - npm ci --prefer-offline
   script:
-    - npx license-checker --failOn "GPL-2.0;GPL-3.0" --summary
-  allow_failure: true
+    - python3 ../scripts/license-gate.py --self-test
+    # --excludePrivatePackages drops only this app itself, which declares no license.
+    - npx --yes license-checker@25.0.1 --excludePrivatePackages --json --out ../npm-licenses.json
+    - python3 ../scripts/license-gate.py --npm ../npm-licenses.json
 
 # trivy: filesystem scan of the repository for known-vulnerable declared
 # dependencies, IaC misconfigurations in Dockerfiles, and committed secrets.

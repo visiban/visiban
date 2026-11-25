@@ -44,7 +44,7 @@ Map the failure to one of the known CI jobs:
 | test | `backend-docker-build-prod` / `frontend-docker-build-prod` | Same, for `Dockerfile.prod` (compose-prod-drill's image, #2492); also a registry push/auth failure to `ci/` |
 | security | `backend-dep-scan` | New dependency with known CVE |
 | security | `frontend-dep-scan` | npm audit high/critical vulnerability |
-| security | `backend-license-check` | GPL-licensed dependency added |
+| security | `backend-license-check` | GPL/AGPL/SSPL/BUSL or unidentified license (`scripts/license-gate.py`) |
 
 ### 3. Diagnose the root cause
 - For test failures: identify the specific test(s) failing and why — look for assertion errors, import errors, fixture issues, or database state problems

@@ -2,3 +2,12 @@ Visiban
 Copyright 2026 Visiban
 
 This product includes software developed as part of the Visiban open-source project.
+
+Third-party components distributed with Visiban's container images under their
+own licenses include:
+
+- psycopg, psycopg-binary and psycopg-pool (https://www.psycopg.org/), licensed
+  under the GNU Lesser General Public License v3.0 (LGPL-3.0). Used unmodified
+  as separately installed Python packages.
+- certifi (https://github.com/certifi/python-certifi), licensed under the
+  Mozilla Public License 2.0 (MPL-2.0). Used unmodified.

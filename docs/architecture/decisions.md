@@ -162,7 +162,7 @@ The CI pipeline is a gate, not a suggestion: every failing job blocks the merge,
 
 **Ruff and ESLint.** Style and correctness are enforced before review, so reviewers spend time on logic, not whitespace or import order. Both tools run on every commit without adding meaningful pipeline time.
 
-**GPL license check.** The project is Apache 2.0, so GPL-2.0 and GPL-3.0 dependencies are blocked: a GPL dependency in an Apache 2.0 project creates a compatibility problem only removal resolves. The job catches it when introduced, not at legal review.
+**License check.** The project is Apache 2.0, so GPL, AGPL, SSPL and BUSL dependencies are blocked (LGPL and MPL are allowed): such a dependency creates a compatibility problem only removal resolves. An unidentified license is blocked too. The job catches it when introduced, not at legal review.
 
 **SAST (Semgrep, Bandit, SonarQube).** Static analysis runs on every MR. Bandit covers Python-specific security patterns (hardcoded secrets, `shell=True`, unsafe deserialization). Semgrep adds cross-language rules, including custom rules for Visiban-specific patterns. SonarQube keeps the persistent quality history.
 
