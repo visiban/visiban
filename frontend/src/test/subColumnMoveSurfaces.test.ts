@@ -75,6 +75,11 @@ describe('activity drawer row for card.moved (#1102)', () => {
     const row = cardMovedActivity({ card: { title: 'X' }, movement: { from_column_name: 'A', to_column_name: 'B', moved_by: { display_name: 'Maya' } } })
     expect(row).toMatchObject({ actor: 'Maya', headline: 'moved X', detail: 'A → B' })
   })
+  it('names a live mover like the saved row does: username when there is no display name (#2596)', () => {
+    const row = cardMovedActivity({ card: { title: 'X' }, movement: { from_column_name: 'A', to_column_name: 'B', moved_by: { display_name: '', username: 'maya' } } })
+    expect(row.actor).toBe('maya')
+    expect(cardMovedActivity({ card: { title: 'X' }, movement: { from_column_name: 'A', to_column_name: 'B', moved_by: null } }).actor).toBe('Someone')
+  })
 })
 
 describe('swimlane.updated merge carries not_applicable_field_ids (#1921)', () => {

@@ -41,10 +41,16 @@ vi.mock('../hooks/useBoardSocket', () => ({
 
 // Capture the activityFeed prop the drawer receives. The drawer is rendered
 // only when drawerOpen=true; we control that by clicking the drawer toggle.
-const drawerCalls: { feed: { actor: string; headline: string; detail: string; kind: string }[] }[] = []
+type DrawerCall = {
+  feed: { actor: string; headline: string; detail: string; kind: string }[]
+  historyStatus?: string
+  truncated?: boolean
+  onRetryHistory?: () => void
+}
+const drawerCalls: DrawerCall[] = []
 vi.mock('../components/Board/BoardActivityDrawer', () => ({
-  default: (props: { feed: { actor: string; headline: string; detail: string; kind: string }[] }) => {
-    drawerCalls.push({ feed: props.feed })
+  default: (props: DrawerCall) => {
+    drawerCalls.push({ feed: props.feed, historyStatus: props.historyStatus, truncated: props.truncated, onRetryHistory: props.onRetryHistory })
     return (
       <div data-testid="activity-drawer">
         {props.feed.map((e, i) => (
@@ -418,6 +424,62 @@ describe('BoardView.collectActivityEvent', () => {
         })
       })
       expect(screen.getAllByTestId('activity-entry')).toHaveLength(1)
+    })
+
+    it('hands the drawer the load status: loading, then ready', async () => {
+      let resolve!: (v: unknown) => void
+      getBoardMovements.mockReturnValue(new Promise((r) => { resolve = r }))
+      render(<BoardView />)
+      await act(async () => {})
+      await openDrawer()
+      expect(drawerCalls[drawerCalls.length - 1].historyStatus).toBe('loading')
+      await act(async () => { resolve({ results: [movement({ id: 3 })], count: 1, offset: 0, page_size: 50 }) })
+      const last = drawerCalls[drawerCalls.length - 1]
+      expect(last.historyStatus).toBe('ready')
+      expect(last.truncated).toBe(false)
+      expect(screen.getAllByTestId('activity-entry')).toHaveLength(1)
+    })
+
+    it('a failed load is an error the drawer can retry', async () => {
+      getBoardMovements.mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValueOnce({ results: [movement({ id: 4 })], count: 1, offset: 0, page_size: 50 })
+      render(<BoardView />)
+      await act(async () => {})
+      await openDrawer()
+      await act(async () => {})
+      expect(drawerCalls[drawerCalls.length - 1].historyStatus).toBe('error')
+      await act(async () => { drawerCalls[drawerCalls.length - 1].onRetryHistory!() })
+      await act(async () => {})
+      expect(getBoardMovements).toHaveBeenCalledTimes(2)
+      expect(drawerCalls[drawerCalls.length - 1].historyStatus).toBe('ready')
+      expect(screen.getAllByTestId('activity-entry')).toHaveLength(1)
+    })
+
+    it('reports truncation when the board has more saved rows than the feed holds', async () => {
+      const ids = (from: number) => Array.from({ length: 50 }, (_, i) => movement({ id: from + i }))
+      getBoardMovements
+        .mockResolvedValueOnce({ results: ids(1), count: 140, offset: 0, page_size: 50 })
+        .mockResolvedValueOnce({ results: ids(51), count: 140, offset: 50, page_size: 50 })
+      render(<BoardView />)
+      await act(async () => {})
+      await openDrawer()
+      await act(async () => {})
+      expect(drawerCalls[drawerCalls.length - 1].truncated).toBe(true)
+      expect(screen.getAllByTestId('activity-entry')).toHaveLength(100)
+    })
+
+    it('a live creation names its actor with the same formatter as saved rows', async () => {
+      render(<BoardView />)
+      await act(async () => {})
+      act(() => {
+        getOnEvent.dispatch({
+          event: 'card.created',
+          data: { uid: 'u9', title: 'Ship 1.3', created_by: { display_name: '', username: 'bob' } },
+        })
+      })
+      await openDrawer()
+      await act(async () => {})
+      expect(screen.getAllByTestId('actor').map((n) => n.textContent)).toEqual(['bob'])
     })
 
     it('a failed load leaves the live rows', async () => {

@@ -6,6 +6,8 @@ import ActiveMark from "../Common/ActiveMark";
 import { useIsLargeViewport } from "../../hooks/useIsLargeViewport";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import Avatar from "../Common/Avatar";
+import { ACTIVITY_FEED_LIMIT } from "./boardActivityHistory";
+import type { ActivityHistoryStatus } from "./boardActivityHistory";
 
 export type ActivityEntry = {
   id: string;
@@ -33,6 +35,17 @@ interface Props {
   onTabChange?: (tab: DrawerTab) => void;
   /** Body of the Archived tab (the embedded ArchivedCardsPanel); mounted only while that tab is active. */
   archivedContent?: ReactNode;
+  /**
+   * Where the saved history the feed is built on stands (#2596). "loading"
+   * shows a loading line instead of the empty state, "error" an inline Retry
+   * row above whatever live rows exist. Defaults to "ready" (a feed with no
+   * saved history behind it).
+   */
+  historyStatus?: ActivityHistoryStatus;
+  /** Refetch the saved history after a failure (the error row's Retry). */
+  onRetryHistory?: () => void;
+  /** The feed hit {@link ACTIVITY_FEED_LIMIT} and older rows were dropped. */
+  truncated?: boolean;
   /** Current time supplier — injected only for deterministic tests. */
   now?: () => number;
 }
@@ -45,6 +58,20 @@ const WINDOW_MS: Record<TimeWindow, number> = {
 };
 
 const DEFAULT_WINDOW: TimeWindow = "24h";
+
+/** The window's span in words, for the empty state ("No activity in the last 24 hours"). */
+const WINDOW_WORDS: Record<TimeWindow, string> = { "1h": "hour", "24h": "24 hours", "7d": "7 days" };
+
+/**
+ * Whether the drawer should open on 7d instead of its 24h default (#2596): the
+ * last day is empty but the last week is not. A quiet board (the hosted demo's
+ * seeded boards, whose latest moves are days old) would otherwise open on an
+ * empty list with a week of history one filter away.
+ */
+function shouldWidenToWeek(feed: ActivityEntry[], now: number): boolean {
+  const since = (w: TimeWindow) => feed.some((e) => e.timestamp.getTime() >= now - WINDOW_MS[w]);
+  return !since("24h") && since("7d");
+}
 
 const KIND_OPTIONS: { id: FilterTab; label: string }[] = [
   { id: "all", label: "All" },
@@ -64,7 +91,8 @@ const DRAWER_TABS: { id: DrawerTab; label: string }[] = [
 ];
 
 export default function BoardActivityDrawer({
-  feed, onClose, onOpenHistory, tab: drawerTab = "recent", onTabChange, archivedContent, now = Date.now,
+  feed, onClose, onOpenHistory, tab: drawerTab = "recent", onTabChange, archivedContent,
+  historyStatus = "ready", onRetryHistory, truncated = false, now = Date.now,
 }: Props) {
   const tabRefs = useRef<Record<DrawerTab, HTMLButtonElement | null>>({ recent: null, archived: null });
   // Roving tabindex + arrow keys: a real ARIA tabs widget (frontend/CLAUDE.md § active state).
@@ -91,6 +119,43 @@ export default function BoardActivityDrawer({
   }, [drawerTab]);
   const [tab, setTab] = useState<FilterTab>("all");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(DEFAULT_WINDOW);
+  // Who set the window: the 24h default, the one-time widen to 7d, or the user.
+  // A user's choice is never overridden, even an explicit 24h.
+  const [windowSource, setWindowSource] = useState<"default" | "auto" | "user">("default");
+  const [widenChecked, setWidenChecked] = useState(false);
+  const chooseWindow = (w: TimeWindow) => {
+    setTimeWindow(w);
+    setWindowSource("user");
+  };
+  // Decided once per open, the first time the saved history is in (state
+  // adjusted during render, not in an effect, so the 24h empty state never
+  // flashes before the widen).
+  if (historyStatus === "ready" && !widenChecked) {
+    setWidenChecked(true);
+    if (windowSource === "default" && shouldWidenToWeek(feed, now())) {
+      setTimeWindow("7d");
+      setWindowSource("auto");
+    }
+  }
+  // "Loaded N recent activities", said once when a load this open was waiting on finishes.
+  const [awaitingLoad, setAwaitingLoad] = useState(historyStatus !== "ready");
+  const [announcement, setAnnouncement] = useState("");
+  if (historyStatus !== "ready" && !awaitingLoad) setAwaitingLoad(true);
+  if (historyStatus === "ready" && awaitingLoad) {
+    setAwaitingLoad(false);
+    setAnnouncement(`Loaded ${feed.length} recent ${feed.length === 1 ? "activity" : "activities"}`);
+  }
+  // Retry stays one mounted button through the error -> loading transition
+  // (frontend/CLAUDE.md § Empty states); after a recovery the row unmounts and
+  // focus moves to the feed, never to <body>.
+  const [retrying, setRetrying] = useState(false);
+  const feedRef = useRef<HTMLDivElement | null>(null);
+  // A retry that fails again keeps `retrying` (the row shows Retry either way).
+  useEffect(() => {
+    if (!retrying || historyStatus !== "ready") return;
+    feedRef.current?.focus();
+    setRetrying(false);
+  }, [retrying, historyStatus]);
 
   const [filterOpen, setFilterOpen] = useState(false);
   const filterBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -126,12 +191,15 @@ export default function BoardActivityDrawer({
 
   const cutoff = now() - WINDOW_MS[timeWindow];
 
-  const filtered = feed.filter((e) => {
-    if (e.timestamp.getTime() < cutoff) return false;
+  const inWindow = feed.filter((e) => e.timestamp.getTime() >= cutoff);
+  const filtered = inWindow.filter((e) => {
     if (tab === "moves") return e.kind === "move" || e.kind === "create";
     if (tab === "members") return e.kind === "member";
     return true;
   });
+  // The cap dropped the oldest rows; the window is short only if it reaches back past the oldest row kept.
+  const windowTruncated = truncated && feed.length > 0 && feed[feed.length - 1].timestamp.getTime() >= cutoff;
+  const showHistoryError = historyStatus === "error" || (retrying && historyStatus === "loading");
 
   return (
     <aside
@@ -254,7 +322,7 @@ export default function BoardActivityDrawer({
                     <button
                       key={w.id}
                       type="button"
-                      onClick={() => setTimeWindow(w.id)}
+                      onClick={() => chooseWindow(w.id)}
                       aria-pressed={timeWindow === w.id}
                       className={`inline-flex items-center gap-1 min-h-6 px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                         timeWindow === w.id ? "bg-surface-hover text-fg font-medium" : "text-fg-tertiary hover:text-fg"
@@ -283,9 +351,59 @@ export default function BoardActivityDrawer({
       ) : (
       <>
       {/* Feed */}
-      <div className="flex-1 overflow-y-auto px-4 text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" tabIndex={0}>
+      <div
+        ref={feedRef}
+        role="region"
+        aria-label="Recent activity"
+        aria-busy={historyStatus === "loading"}
+        className="flex-1 overflow-y-auto px-4 text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
+        tabIndex={0}
+      >
+        {showHistoryError && (
+          <div data-testid="activity-history-error" className="flex items-center justify-between gap-2 py-2.5 border-b border-line text-xs">
+            <span className="text-danger">Couldn't load earlier activity</span>
+            <button
+              type="button"
+              aria-disabled={historyStatus === "loading"}
+              onClick={() => {
+                if (historyStatus === "loading") return;
+                setRetrying(true);
+                onRetryHistory?.();
+              }}
+              className="shrink-0 rounded border border-line bg-surface px-2 py-1 text-xs font-medium text-fg-secondary hover:border-line-emphasis hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              {historyStatus === "loading" ? "Loading…" : "Retry"}
+            </button>
+          </div>
+        )}
+        {windowSource === "auto" && timeWindow === "7d" && filtered.length > 0 && (
+          <p data-testid="activity-window-widened" className="text-xs text-fg-muted pt-2.5">
+            Nothing in the last 24 hours. Showing the last 7 days.
+          </p>
+        )}
         {filtered.length === 0 ? (
-          <p className="text-fg-muted italic text-center py-8 text-xs">{activeFilters ? "No activity matches the filter" : "No activity yet"}</p>
+          historyStatus === "loading" && !showHistoryError ? (
+            <p className="text-fg-tertiary text-center py-8 text-xs">Loading activity…</p>
+          ) : historyStatus === "ready" ? (
+            feed.length === 0 ? (
+              <p className="text-fg-muted italic text-center py-8 text-xs">No activity yet</p>
+            ) : inWindow.length === 0 ? (
+              <div className="text-center py-8 text-xs space-y-2">
+                <p className="text-fg-muted italic">No activity in the last {WINDOW_WORDS[timeWindow]}</p>
+                {timeWindow !== "7d" && (
+                  <button
+                    type="button"
+                    onClick={() => chooseWindow("7d")}
+                    className="rounded px-1.5 py-0.5 text-fg-secondary underline hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  >
+                    Show the last 7 days
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-fg-muted italic text-center py-8 text-xs">No activity matches the filter</p>
+            )
+          ) : null
         ) : (
           <ul className="divide-y divide-line">
             {filtered.map((entry) => {
@@ -312,7 +430,17 @@ export default function BoardActivityDrawer({
             })}
           </ul>
         )}
+        {filtered.length > 0 && historyStatus === "loading" && !showHistoryError && (
+          <p className="text-fg-tertiary text-xs py-2.5">Loading earlier activity…</p>
+        )}
+        {windowTruncated && filtered.length > 0 && (
+          <p data-testid="activity-feed-truncated" className="text-xs text-fg-muted py-2.5 border-t border-line">
+            Showing the {ACTIVITY_FEED_LIMIT} most recent activities. Older ones are in the full History view.
+          </p>
+        )}
       </div>
+      {/* Always mounted so the one load announcement is read; the list itself is not live. */}
+      <div role="status" className="sr-only">{announcement}</div>
 
       </>
       )}

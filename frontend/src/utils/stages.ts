@@ -1,4 +1,5 @@
 import type { Card, Column, CustomFieldDefinition, SubColumn, Swimlane } from "../types";
+import { activityActorName } from "../types";
 import type { ToastInput } from "./toastQueue";
 
 /**
@@ -234,7 +235,7 @@ export function cardMovedActivity(d: Record<string, unknown>): { actor: string; 
   // The payload's movement is a CardMovementSerializer row, whose actor is
   // `moved_by`; this read `movement.user`, which it never has, so every live
   // column move was credited to "Someone" (#2596).
-  const movement = d.movement as { from_column_name?: string; to_column_name?: string; moved_by?: { display_name?: string } | null } | undefined;
+  const movement = d.movement as { from_column_name?: string; to_column_name?: string; moved_by?: { display_name?: string; username?: string } | null } | undefined;
   type Transition = { actor?: string | null; sub_column_name?: string | null; kind?: string };
   const transitions = (d.gate_transitions ?? card?.gate_transitions) as Transition[] | undefined;
   const last = Array.isArray(transitions) && transitions.length > 0 ? transitions[transitions.length - 1] : undefined;
@@ -242,7 +243,7 @@ export function cardMovedActivity(d: Record<string, unknown>): { actor: string; 
   const back = last?.kind === "reopen";
   const title = card?.title ?? "a card";
   return {
-    actor: movement?.moved_by?.display_name || last?.actor || "Someone",
+    actor: movement?.moved_by ? activityActorName(movement.moved_by) : last?.actor || "Someone",
     headline: sub ? `moved ${title} ${back ? "back " : ""}to ${sub}` : `moved ${title}`,
     subject: card?.title,
     detail: movement

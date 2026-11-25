@@ -33,6 +33,8 @@ const defaultProps = {
 };
 
 const openFilters = () => fireEvent.click(screen.getByRole("button", { name: /^filter activity/i }));
+// The Filter button's name once a non-default window is active ("Filter, 1 active").
+const openActiveFilters = () => fireEvent.click(screen.getByRole("button", { name: /^filter, 1 active/i }));
 
 describe("BoardActivityDrawer", () => {
   it("heading is bold 17px like the reference (#2390)", () => {
@@ -350,6 +352,148 @@ describe("BoardActivityDrawer", () => {
       expect(aside).toHaveClass("fixed", "inset-y-0", "right-0", "max-w-full");
       expect(aside).not.toHaveClass("absolute");
       vi.mocked(useIsLargeViewport).mockReturnValue(true);
+    });
+  });
+
+  // #2596: the Recent tab is built on fetched saved history, so it tells
+  // loading, empty and failed apart, and opens on a window that has rows.
+  describe("saved history states (#2596)", () => {
+    it("shows a loading line, aria-busy, and never the empty state while history loads", () => {
+      render(<BoardActivityDrawer {...defaultProps} historyStatus="loading" />);
+      expect(screen.getByText("Loading activity…")).toBeInTheDocument();
+      expect(screen.queryByText("No activity yet")).not.toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Recent activity" })).toHaveAttribute("aria-busy", "true");
+    });
+
+    it("keeps live rows on screen while history loads, with a loading note under them", () => {
+      render(<BoardActivityDrawer {...defaultProps} historyStatus="loading" feed={[makeEntry({ actor: "@live" })]} />);
+      expect(screen.getByText("live")).toBeInTheDocument();
+      expect(screen.getByText("Loading earlier activity…")).toBeInTheDocument();
+    });
+
+    it("says No activity yet only when history is ready and the board has none", () => {
+      render(<BoardActivityDrawer {...defaultProps} historyStatus="ready" />);
+      expect(screen.getByText("No activity yet")).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Recent activity" })).toHaveAttribute("aria-busy", "false");
+    });
+
+    it("a failed load shows an inline error with Retry above the live rows, not the empty state", () => {
+      const onRetryHistory = vi.fn();
+      const { rerender } = render(
+        <BoardActivityDrawer {...defaultProps} historyStatus="error" onRetryHistory={onRetryHistory} feed={[makeEntry({ actor: "@live" })]} />,
+      );
+      expect(screen.getByText("Couldn't load earlier activity")).toBeInTheDocument();
+      expect(screen.getByText("live")).toBeInTheDocument();
+      expect(screen.queryByText("No activity yet")).not.toBeInTheDocument();
+      const retry = screen.getByRole("button", { name: "Retry" });
+      expect(retry).toHaveClass("rounded", "text-xs", "focus:outline-none", "focus:ring-2", "focus:ring-primary-emphasis");
+      retry.focus();
+      fireEvent.click(retry);
+      expect(onRetryHistory).toHaveBeenCalledTimes(1);
+      // The same button stays mounted and busy while the retry runs, so focus is kept.
+      rerender(<BoardActivityDrawer {...defaultProps} historyStatus="loading" onRetryHistory={onRetryHistory} feed={[makeEntry({ actor: "@live" })]} />);
+      const busy = screen.getByRole("button", { name: "Loading…" });
+      expect(busy).toHaveAttribute("aria-disabled", "true");
+      expect(busy).toHaveFocus();
+      fireEvent.click(busy);
+      expect(onRetryHistory).toHaveBeenCalledTimes(1);
+      // Recovery unmounts the row and hands focus to the feed, never <body>.
+      rerender(<BoardActivityDrawer {...defaultProps} historyStatus="ready" onRetryHistory={onRetryHistory} feed={[makeEntry({ actor: "@live" })]} />);
+      expect(screen.queryByTestId("activity-history-error")).not.toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Recent activity" })).toHaveFocus();
+    });
+
+    it("a retry that fails again returns the row to Retry", () => {
+      const onRetryHistory = vi.fn();
+      const { rerender } = render(<BoardActivityDrawer {...defaultProps} historyStatus="error" onRetryHistory={onRetryHistory} />);
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+      rerender(<BoardActivityDrawer {...defaultProps} historyStatus="loading" onRetryHistory={onRetryHistory} />);
+      expect(screen.queryByText("Loading activity…")).not.toBeInTheDocument();
+      rerender(<BoardActivityDrawer {...defaultProps} historyStatus="error" onRetryHistory={onRetryHistory} />);
+      expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    });
+
+    it("words the empty state for the window when the window, not the kind filter, empties it", () => {
+      render(<BoardActivityDrawer {...defaultProps} feed={[makeEntry({ actor: "@old", timestamp: daysAgo(10) })]} />);
+      expect(screen.getByText("No activity in the last 24 hours")).toBeInTheDocument();
+      expect(screen.queryByText("No activity matches the filter")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Show the last 7 days" }));
+      expect(screen.getByText("No activity in the last 7 days")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Show the last 7 days" })).not.toBeInTheDocument();
+    });
+
+    it("says Loaded N recent activities once, in a polite status, when history loads", () => {
+      const feed = [makeEntry(), makeEntry()];
+      const { rerender } = render(<BoardActivityDrawer {...defaultProps} historyStatus="loading" />);
+      const status = screen.getByText("", { selector: '[role="status"].sr-only' });
+      expect(status).toHaveTextContent("");
+      rerender(<BoardActivityDrawer {...defaultProps} historyStatus="ready" feed={feed} />);
+      expect(status).toHaveTextContent("Loaded 2 recent activities");
+      rerender(<BoardActivityDrawer {...defaultProps} historyStatus="ready" feed={[...feed, makeEntry()]} />);
+      expect(status).toHaveTextContent("Loaded 2 recent activities");
+      expect(screen.getByRole("region", { name: "Recent activity" })).not.toHaveAttribute("aria-live");
+    });
+
+    it("says when the feed cap cut the active window short, and not when the window is whole", () => {
+      const feed = [makeEntry({ timestamp: hoursAgo(1) }), makeEntry({ timestamp: hoursAgo(3) })];
+      const { rerender } = render(<BoardActivityDrawer {...defaultProps} feed={feed} truncated />);
+      expect(screen.getByTestId("activity-feed-truncated")).toHaveTextContent("Showing the 100 most recent activities");
+      openFilters();
+      fireEvent.click(screen.getByRole("button", { name: "1h" }));
+      expect(screen.queryByTestId("activity-feed-truncated")).not.toBeInTheDocument();
+      rerender(<BoardActivityDrawer {...defaultProps} feed={feed} truncated={false} />);
+      fireEvent.click(screen.getByRole("button", { name: "24h" }));
+      expect(screen.queryByTestId("activity-feed-truncated")).not.toBeInTheDocument();
+    });
+  });
+
+  // #2596 BLOCKER: the hosted demo's boards have no moves in the last day, so
+  // a 24h default opened on an empty list with a week of history behind it.
+  describe("auto-widen to 7 days (#2596)", () => {
+    const weekOnly = [makeEntry({ actor: "@lastweek", timestamp: daysAgo(3) })];
+
+    it("opens on 7d once history is in, when the last 24 hours are empty but the week is not", () => {
+      const { rerender } = render(<BoardActivityDrawer {...defaultProps} historyStatus="loading" />);
+      rerender(<BoardActivityDrawer {...defaultProps} historyStatus="ready" feed={weekOnly} />);
+      expect(screen.getByText("lastweek")).toBeInTheDocument();
+      expect(screen.getByTestId("activity-window-widened")).toHaveTextContent("Nothing in the last 24 hours. Showing the last 7 days.");
+      // The widened window counts as an active filter, so the badge says so.
+      openActiveFilters();
+      expect(screen.getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("stays on 24h when the last day has rows", () => {
+      render(<BoardActivityDrawer {...defaultProps} feed={[makeEntry({ timestamp: hoursAgo(2) }), ...weekOnly]} />);
+      expect(screen.queryByText("lastweek")).not.toBeInTheDocument();
+      openFilters();
+      expect(screen.getByRole("button", { name: "24h" })).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("never overrides a window the user chose, even an explicit 24h", () => {
+      const { rerender } = render(<BoardActivityDrawer {...defaultProps} historyStatus="loading" />);
+      openFilters();
+      fireEvent.click(screen.getByRole("button", { name: "24h" }));
+      rerender(<BoardActivityDrawer {...defaultProps} historyStatus="ready" feed={weekOnly} />);
+      expect(screen.getByRole("button", { name: "24h" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByText("No activity in the last 24 hours")).toBeInTheDocument();
+      expect(screen.queryByTestId("activity-window-widened")).not.toBeInTheDocument();
+    });
+
+    it("widens once: going back to 24h is kept, and later rows do not flip it again", () => {
+      const { rerender } = render(<BoardActivityDrawer {...defaultProps} feed={weekOnly} />);
+      openActiveFilters();
+      expect(screen.getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
+      fireEvent.click(screen.getByRole("button", { name: "24h" }));
+      rerender(<BoardActivityDrawer {...defaultProps} feed={[...weekOnly, makeEntry({ actor: "@older", timestamp: daysAgo(4) })]} />);
+      expect(screen.getByRole("button", { name: "24h" })).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("does not widen while history is still loading or after it failed", () => {
+      const { rerender } = render(<BoardActivityDrawer {...defaultProps} historyStatus="loading" feed={weekOnly} />);
+      openFilters();
+      expect(screen.getByRole("button", { name: "24h" })).toHaveAttribute("aria-pressed", "true");
+      rerender(<BoardActivityDrawer {...defaultProps} historyStatus="error" feed={weekOnly} />);
+      expect(screen.getByRole("button", { name: "24h" })).toHaveAttribute("aria-pressed", "true");
     });
   });
 });
