@@ -234,7 +234,24 @@ The Helm defaults fit a small team, not a large board with long history. Opening
 
 **Why it matters:** The chart sets `backend.resources` to `requests: 100m / 256Mi` and `limits: 500m / 512Mi`. One Analytics overview on a 12k-card board peaked at 551 MB of process memory, and on a 2.4k-card board with three years of history it peaked at 1.1 GB. Idle, the backend uses about 115 MB.
 
-**By the numbers:** These figures were measured on 2026-11-20, before #2426 and #2427 shipped. They are per Analytics overview open as it was then (`analytics/?days=90`, `analytics/?days=365`, the `metrics/*` endpoints and `summary`). The overview now sends two requests, `metrics/overview/?days=90` and `analytics/?days=90`, so treat them as upper-bound, pre-fix figures:
+**The headline:** A 512 MB backend limit is too small for a board with about three years of history and 12k active cards. On such a board, one cumulative-flow day drill-down (`?date=`) peaked at 678-720 MB of process memory. Until that is fixed ([#2559](https://gitlab.com/visiban/visiban/-/issues/2559)), give the backend more than 512 MB; the tiers below suggest `2Gi` for a board of that size and age.
+
+**Measured since:** The 1.3 beta-exit stress run ([#2588](https://gitlab.com/visiban/visiban/-/issues/2588), [#2595](https://gitlab.com/visiban/visiban/-/issues/2595)) measured the current code (results reported 2026-11-25):
+
+- **Fixture:** `seed_demo_data --scale 100 --aged-generations 12`, which gave 11,990 active and 143,880 archived cards (12 generations, about 3 years).
+- **Setup:** a CI runner, `daphne`, `DEBUG=False`, `ANALYTICS_MAX_CONCURRENT=1`, two runs.
+
+| Request | Result |
+|---|---|
+| `metrics/cumulative-flow/?date=` drill-down | Peak process memory 720 MB (first run) and 678 MB (second run: 10 requests, about 5.1-5.8 s each, 218,843 streamed rows) |
+| `metrics/cumulative-flow/` (no `date`) | Refused with `422 analytics_too_large`: 150,001 held movements, over `ANALYTICS_MAX_MOVEMENTS=150000` |
+| `metrics/overview/?days=90` | Refused with `422`, same count |
+| `analytics/?days=365` | No response within 30 s (first run) or 90 s (second run), and no completion logged within about 6.5 minutes |
+
+- **Latencies are indicative:** the second run shared a busy runner. Its memory figures are not much affected by that load.
+- **Not yet measured:** the concurrency figures (memory and responsiveness while several overviews are opened at once) are still pending a third run.
+
+**By the numbers:** The figures below were measured on 2026-11-20, before #2426 and #2427 shipped. They are per Analytics overview open as it was then (`analytics/?days=90`, `analytics/?days=365`, the `metrics/*` endpoints and `summary`). The overview now sends two requests, `metrics/overview/?days=90` and `analytics/?days=90`, so treat them as upper-bound, pre-fix figures:
 
 | Largest board | Cards / movements | Largest single request (peak Python allocation) | Overview, 8 requests serial (measured 2026-11-20, before #2426 and #2427) |
 |---|---|---|---|
@@ -263,15 +280,15 @@ backend:
       memory: 2Gi
 ```
 
-The latencies above are from a laptop on a full core. The default `cpu: 500m` limit roughly doubles the wall time of a heavy request. Raise `limits.cpu` if Analytics on a large board feels slow. If you enable `backendAutoscaling`, keep `requests.cpu` set, because the autoscaler needs it.
+The 2026-11-20 latencies above are from a laptop on a full core. The default `cpu: 500m` limit roughly doubles the wall time of a heavy request. Raise `limits.cpu` if Analytics on a large board feels slow. If you enable `backendAutoscaling`, keep `requests.cpu` set, because the autoscaler needs it.
 
 **Yes, but:** `daphne` keeps its high-water mark. After a burst of Analytics requests the process does not give the memory back: it sat at 703 MB before the next burst after a 1,128 MB peak, and at 1,407 MB after a 1,956 MB peak. A pod that survived one heavy open starts the next one closer to its limit. This is CPython allocator behavior (arenas and fragmentation), not a leak in Visiban code, and it was not proven to grow without bound. Leave headroom above the peak, not just above idle.
 
 **Watch out:**
 
-- The Helm chart's default limits are **not** raised yet. Raising a default changes behavior for existing installs, so that decision waits on #2425 (still open) and a re-measure (#2430). #2426 and #2427 have shipped and should shrink most of these numbers.
-- These are pre-fix numbers from a local run (Apple Silicon laptop, PostgreSQL 17, `DEBUG=False`, an aged copy of the demo seed). Treat them as a floor for sizing, not a guarantee. Re-measure on your own data.
-- They were also measured before the [Analytics limits](#analytics-limits) existed. Since 1.3 a request that would hold more than `ANALYTICS_MAX_MOVEMENTS` movement rows is refused with `analytics_too_large`, and each process computes at most `ANALYTICS_MAX_CONCURRENT` Analytics requests at once. If you raise `limits.memory` for a large board, raise `ANALYTICS_MAX_MOVEMENTS` with it, or that board's Analytics stays refused.
+- The Helm chart's default limits are **not** raised yet. Raising a default changes behavior for existing installs, so that decision waits on #2425 (still open) and the rest of the re-measure (#2430). #2426 and #2427 have shipped and should shrink most of the 2026-11-20 numbers.
+- The 2026-11-20 numbers are pre-fix numbers from a local run (Apple Silicon laptop, PostgreSQL 17, `DEBUG=False`, an aged copy of the demo seed). Treat them as a floor for sizing, not a guarantee. Re-measure on your own data.
+- The 2026-11-20 numbers were also measured before the [Analytics limits](#analytics-limits) existed. Since 1.3 a request that would hold more than `ANALYTICS_MAX_MOVEMENTS` movement rows is refused with `analytics_too_large`, and each process computes at most `ANALYTICS_MAX_CONCURRENT` Analytics requests at once. If you raise `limits.memory` for a large board, raise `ANALYTICS_MAX_MOVEMENTS` with it, or that board's Analytics stays refused.
 - `daphne` has no `--max-requests`. If memory keeps climbing between Analytics bursts, restart the backend pods on a schedule (for example `kubectl -n <namespace> rollout restart deployment -l app.kubernetes.io/instance=<release>,app.kubernetes.io/component=backend`; in-flight requests can be cut and WebSocket clients reconnect). Tuning `MALLOC_ARENA_MAX` or `PYTHONMALLOC` is untested for Visiban, so measure before and after if you try it.
 
 **Go deeper:** [Helm chart README](https://gitlab.com/visiban/visiban/-/blob/main/helm/visiban/README.md#backend-sizing), [Kubernetes install](../getting-started/kubernetes.md).
@@ -445,8 +462,12 @@ there is effectively the process-wide one.
 
 One Analytics request's memory grows with the movement rows it holds, so the
 size limit is what bounds it. Rows a pass reads one card at a time and drops
-cost CPU time, not memory; they are bounded by the fixed ceiling of four times
-`ANALYTICS_MAX_MOVEMENTS`, so even a runaway pass ends. Rows are counted as
+are not held, and are meant to cost CPU time rather than memory; they are
+bounded by the fixed ceiling of four times `ANALYTICS_MAX_MOVEMENTS`, so even a
+runaway pass ends. Do not read that as a guarantee that such a pass uses little
+memory: on a board with years of history, the cumulative-flow `?date=`
+drill-down, a streamed pass, peaked far above the estimate below
+([#2559](https://gitlab.com/visiban/visiban/-/issues/2559)). Rows are counted as
 they are read: a request over a limit is refused once it has read up to that
 limit, and holds its slot until then. Size a pod so that:
 
@@ -463,6 +484,13 @@ at that size `ANALYTICS_MAX_CONCURRENT=1` leaves headroom for the rest of the
 process's work under `512Mi`. Measure your
 own peak (the `analytics.replay` log line reports each request's `movements`
 held and `streamed`) before raising either setting.
+
+**Yes, but:** that estimate does not hold for a board with years of history. On a
+board with 11,990 active and 143,880 archived cards (about 3 years), one
+cumulative-flow `?date=` drill-down (218,843 streamed rows) peaked at 678-720 MB
+of process memory, with `ANALYTICS_MAX_CONCURRENT=1` and the default
+`ANALYTICS_MAX_MOVEMENTS`. A `512Mi` limit is too small for a board of that age.
+See [Backend memory and CPU sizing](#backend-memory-and-cpu-sizing).
 
 The baseline in the formula is not only idle memory: `daphne` keeps its
 high-water mark after a burst of Analytics requests, so a process that has

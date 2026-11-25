@@ -94,7 +94,14 @@ rename to `valkey:`; see [Bundled Valkey](#bundled-valkey).
 
 ## Backend sizing
 
-The default `backend.resources` (`requests: 100m / 256Mi`, `limits: 500m / 512Mi`) fit a small team. One Analytics overview peaked at 551 MB of process memory on a 12k-card board, and at 1.1 GB on a 2.4k-card board with three years of history. Idle, the backend uses about 115 MB. A pod over its limit is `OOMKilled`, which drops every WebSocket.
+The default `backend.resources` (`requests: 100m / 256Mi`, `limits: 500m / 512Mi`) fit a small team. **A 512 MB limit is too small for a board with about three years of history and 12k active cards.** One Analytics overview peaked at 551 MB of process memory on a 12k-card board, and at 1.1 GB on a 2.4k-card board with three years of history. Idle, the backend uses about 115 MB. A pod over its limit is `OOMKilled`, which drops every WebSocket.
+
+**Measured on the current code:** the 1.3 beta-exit stress run ([#2588](https://gitlab.com/visiban/visiban/-/issues/2588), [#2595](https://gitlab.com/visiban/visiban/-/issues/2595), reported 2026-11-25) used a board with 11,990 active and 143,880 archived cards (12 generations, about 3 years), `daphne`, `DEBUG=False` and `analyticsMaxConcurrent: 1`:
+
+- **Drill-down:** one `metrics/cumulative-flow/?date=` request peaked at 678-720 MB of process memory.
+- **Refused:** the cumulative-flow chart and the Analytics overview returned `422 analytics_too_large` at the default `analyticsMaxMovements` of 150000.
+- **Timed out:** `analytics/?days=365` did not answer within 90 s, and no completion was logged within about 6.5 minutes.
+- **Pending:** concurrency figures await a third run.
 
 | Largest board | Suggested `backend.resources.limits.memory` |
 |---|---|
@@ -102,7 +109,7 @@ The default `backend.resources` (`requests: 100m / 256Mi`, `limits: 500m / 512Mi
 | Up to about 12k active cards with under a year of history, or about 2.4k active with 1 to 2 years of history | `1Gi` |
 | 12k or more active cards with a year or more of history, or 2 or more years of history | `2Gi` (leaves only about 190 MB over the 1,956 MB burst peak) |
 
-The tiers are interpolated from the peaks above, not measured per tier. These peaks were measured on 2026-11-20, before #2426 and #2427 shipped. Process memory for 12k cards with a year of history was never measured.
+The tiers are interpolated from the peaks above, not measured per tier. The peaks in the first paragraph and the table were measured on 2026-11-20, before #2426 and #2427 shipped. Process memory for 12k cards with a year of history was never measured.
 
 ```yaml
 backend:
@@ -115,7 +122,7 @@ backend:
       memory: 2Gi
 ```
 
-`daphne` keeps its high-water mark after an Analytics burst (CPython allocator behavior, not a proven leak), so leave headroom above the peak. The chart's defaults are unchanged: raising them alters behavior for existing installs, and waits on #2425 (still open) and a re-measure (#2430). The measurements, the CPU note and the restart options are in "Backend memory and CPU sizing" in `docs/administration/configuration.md`.
+`daphne` keeps its high-water mark after an Analytics burst (CPython allocator behavior, not a proven leak), so leave headroom above the peak. The chart's defaults are unchanged: raising them alters behavior for existing installs, and waits on #2425 (still open) and the rest of the re-measure (#2430). The measurements, the CPU note and the restart options are in "Backend memory and CPU sizing" in `docs/administration/configuration.md`.
 
 Analytics also has its own per-process limits, `backend.settings.analyticsMaxConcurrent` and `backend.settings.analyticsMaxMovements` (#2428). If you raise `limits.memory` for a large board, raise `analyticsMaxMovements` with it, or that board's Analytics stays refused with `analytics_too_large`. See "Analytics limits" in `docs/administration/configuration.md`.
 

@@ -803,7 +803,7 @@ Read the notes for every version between your current release and the target bef
     - given a higher `weight` with `PATCH`
     - saved in the Django admin
 
-    A request that used to return `201` or `200` into a full column now returns `409` with the same body a blocked move returns (`wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`), and nothing is written. Board admins can override a soft limit with the optional `?force=true` query parameter, exactly as on a move; with **Enforce WIP hard** on, nobody can. Lowering a card's weight, and editing any other field, is never blocked.
+    A request that used to return `201` or `200` into a full column now returns `409` with the same body a blocked move returns (`wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`), and nothing is written. Board admins can override a soft limit with the optional `?force=true` query parameter, exactly as on a move; with **Hard mode (no admin override)** on, nobody can. Lowering a card's weight, and editing any other field, is never blocked.
 
     **Check any integration, script, or automation that creates or restores cards** in columns with a WIP or weight limit: handle the `409`, raise the limit, turn enforcement off for that board, or (for a board admin's token) send `?force=true`. Board import (JSON, CSV, Trello) is not affected — it restores a board as exported, over its limits or not. Existing over-limit columns are left as they are. See [Field Enforcement](../architecture/field-enforcement.md) (#1428).
 
