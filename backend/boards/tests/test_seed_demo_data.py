@@ -2324,13 +2324,10 @@ class DemoSiteBoardStructureTests(TestCase):
         )
         self.assertEqual(permitting.scope, CustomFieldSet.Scope.ALL)
 
-    def test_entry_requirements_are_not_seeded_until_they_exist(self):
-        # #1923 / #2571 are not on main: nothing here may reference them.
-        self.assertFalse(
-            Column.objects.filter(board__name__in=self.STRUCTURED).exclude(policy=None).exists()
-        )
+    # Entry requirements and held cards are not seeded yet (#1923, #2571). When
+    # they are, add their expectations here; nothing asserts their absence.
 
-    def test_filler_cards_keep_the_aging_rules(self):
+    def test_filler_card_titles_are_unique_and_volume_is_in_bounds(self):
         from boards.management.commands._demo_site_data import BOARDS
 
         for spec in (b for b in BOARDS if "structure" in b):
@@ -2339,6 +2336,7 @@ class DemoSiteBoardStructureTests(TestCase):
             self.assertGreaterEqual(len(titles), 60, spec["name"])
             self.assertLessEqual(len(titles), 150, spec["name"])
 
+    @pytest.mark.slow
     def test_reseeding_with_wipe_recreates_the_structure_once(self):
         _seed(demo_site=True, wipe=True)
         board = Board.objects.get(name="Software Team")

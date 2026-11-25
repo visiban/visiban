@@ -109,7 +109,7 @@ It creates, alongside the normal demo board:
     | **Content Moderation** | content queue | Moderator lead, Region, Policy tier | Report reasons (multi-select), Reporter count | What has waited longest for review? |
     | **Logistics Exceptions** | shipment | Carrier, Lane, Customer | Exception type, ETA, tracking link | Which shipments need intervention? |
 
-    Software Team has 20 cards and the five other hand-built boards 16 each, with comments, assignees, labels, and movement history.
+    Software Team has 90 cards, Property Management 71, Construction 76, Sales Territory 66, Content Moderation 86 and Logistics Exceptions 66 (a hand-written core plus generated cards, see 1.3 board structure below), with comments, assignees, labels, and movement history.
 
     **Sales Territory (Overlay) is the [Sales Overlay sample board](../getting-started/sample-boards.md)** (#1889). The command imports the shipped sample through the importer the gallery's **Create from sample** uses, named "Sales Territory (Overlay)". It carries what any imported board carries:
 
@@ -156,8 +156,8 @@ It creates, alongside the normal demo board:
 
     **1.3 board structure** ([#2597](https://gitlab.com/visiban/visiban/-/issues/2597)). The six hand-built showcase boards (Software Team, Property Management, Construction, Sales Territory, Content Moderation, Logistics Exceptions) each carry structure in their own vocabulary, defined in the `_STRUCTURE` table at the end of the boards list in `backend/boards/management/commands/_demo_site_data.py`:
 
-    - **Volume:** 60 to 110 cards per board (generated deterministically, same age and due rules as the hand-written cards), so WIP limits and card aging have something to show. Simple Kanban stays at ten.
-    - **Limits:** WIP and weight limits on the busy columns. Some columns are over their limit on purpose, so the visitor sees the over-limit state; the seed writes the cards directly, so no limit blocks it.
+    - **Volume:** 66 to 90 cards per board (the hand-written core plus deterministic generated cards, same age and due rules), so WIP limits and card aging have something to show. Simple Kanban stays at ten.
+    - **Limits:** WIP and weight limits on the two busiest working columns. One per board sits slightly over its limit on purpose (about 1.1 to 1.3 times), so the visitor sees the over-limit state next to a column that is at or under its limit; the seed writes the cards directly, so no limit blocks it.
     - **Stages in columns:** one stage per board is split into sub-columns, for example Content Moderation's In Review into Triage, Policy check and Decision, with each card sitting in one and the gates it passed recorded.
     - **Tracks and field sets:** a dimension field (for example QA sign-off, Tenant notified) shown as a track on a stage, and the board's custom fields grouped into named field sets.
     - **Health:** a board health status with a note and a history entry.

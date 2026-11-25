@@ -967,17 +967,25 @@ _FILLER_PRIORITIES = ("medium", "low", "high", "medium", "urgent", "low", "mediu
 _FILLER_ASSIGNEES = ("maya", "jordan", "admin", None, "jordan", "maya", None, "admin")
 
 
-def _filler_cards(spec, count, subjects, places, column_cycle, label_names):
+def _filler_cards(spec, count, subjects, places, column_counts, label_names):
     """``count`` deterministic cards: a subject at a place, spread by ``column_cycle``.
 
-    ``column_cycle`` is a tuple of column indexes repeated down the list, so
-    its shape decides which columns run over their WIP limit. A Done card is
+    ``column_counts`` is how many generated cards land in each column (by
+    column index), interleaved down the list, so it decides which columns run
+    over their WIP limit and by how much. A Done card is
     never overdue and moved in the last two days, the same rule the
     hand-written cards follow (``test_every_card_has_an_explicit_age_and_due_offset``).
     """
     done = {i for i, (_n, _c, is_done) in enumerate(spec["columns"]) if is_done}
     taken = {card[0] for card in spec["cards"]}
     lanes = len(spec["swimlanes"])
+    assert sum(column_counts) == count, f"{spec['name']}: column counts must sum to {count}"
+    # Interleave the columns by each card's fractional position in its column.
+    column_cycle = [
+        col for _frac, col in sorted(
+            ((k + 0.5) / n, col) for col, n in enumerate(column_counts) for k in range(n)
+        )
+    ]
     out = []
     # Every (subject, place) pair once, diagonals first so neighbors differ.
     pairs = [
@@ -1034,7 +1042,7 @@ _STRUCTURE = {
              "Tighten validation", "Improve error copy", "Profile slow query", "Add audit log entry", "Update dependency"),
             ("card detail", "board header", "search", "saved filters", "notifications", "import", "export",
              "webhooks", "attachments", "swimlane settings", "analytics", "keyboard shortcuts"),
-            (0, 0, 0, 1, 1, 1, 2, 2, 3, 0, 1, 2, 3, 1),
+            (32, 5, 18, 15),
             ("Bug", "Feature", "Tech debt"),
         ),
         "wip": {"In Progress": (8, 30), "Review": (24, 80)},
@@ -1057,10 +1065,10 @@ _STRUCTURE = {
              "Service water heater", "Unclog bathroom drain", "Reseal window", "Replace door lock", "Clean dryer vent"),
             ("unit 1A", "unit 2B", "unit 3C", "unit 4D", "unit 5A", "unit 6B", "unit 7C", "lobby", "laundry room",
              "parking garage", "roof", "courtyard"),
-            (0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 0, 1, 2),
+            (26, 14, 5, 10),
             ("Plumbing", "Electrical", "HVAC", "Pest", "Appliance", "Turnover"),
         ),
-        "wip": {"Scheduled": (30, None), "In Progress": (7, None)},
+        "wip": {"Scheduled": (18, None), "In Progress": (7, None)},
         "sub_columns": {"In Progress": ["On site", "Awaiting parts", "Final walkthrough"]},
         "dimensions": [(
             "Tenant notified", ["Yes", "No", "Not needed"], "Has the tenant been told when the crew arrives?",
@@ -1081,10 +1089,10 @@ _STRUCTURE = {
              "Set rebar", "Mount fixtures", "Seal envelope", "Install ductwork", "Paint and finish"),
             ("level 1", "level 2", "level 3", "stairwell A", "mechanical room", "north elevation", "south elevation",
              "lobby", "roof deck", "loading dock"),
-            (0, 0, 1, 1, 2, 2, 2, 3, 3, 0, 1, 2),
+            (30, 11, 7, 12),
             ("Permit", "Inspection", "Change order", "Weather risk", "Safety"),
         ),
-        "wip": {"Waiting": (30, None), "In Progress": (10, 40)},
+        "wip": {"Waiting": (16, None), "In Progress": (10, 40)},
         "sub_columns": {"In Progress": ["Rough-in", "Inspection", "Punch list"]},
         "dimensions": [(
             "Inspection status", ["Not required", "Scheduled", "Passed"], "Where the inspector sign-off stands.",
@@ -1104,10 +1112,10 @@ _STRUCTURE = {
              "Prepare proposal", "Follow up on trial", "Map the buying committee", "Renewal outreach"),
             ("security team", "finance lead", "regional office", "new hire onboarding", "pilot group", "VP sponsor",
              "procurement", "support team", "data team"),
-            (0, 0, 1, 1, 1, 2, 2, 3, 3, 0, 1, 2),
+            (26, 6, 9, 9),
             ("New logo", "Expansion", "Renewal", "At risk"),
         ),
-        "wip": {"In Progress": (9, None), "Waiting on Customer": (30, None)},
+        "wip": {"In Progress": (9, None), "Waiting on Customer": (14, None)},
         "sub_columns": {"In Progress": ["Outreach", "Meeting held", "Proposal out"]},
         "dimensions": [(
             "Next step booked", ["Yes", "No"], "Is the next meeting on the calendar?",
@@ -1122,15 +1130,15 @@ _STRUCTURE = {
     },
     "Content Moderation": {
         "filler": (
-            85,
+            70,
             ("Spam wave", "Harassment report", "Impersonation claim", "Counterfeit listing", "Graphic content flag",
              "Scam link", "Repeat offender review", "Appeal", "Misleading claim", "Coordinated posting"),
             ("reply thread", "product listing", "live chat", "profile bio", "stream title", "review section",
              "group post", "direct message report", "video comment", "seller storefront"),
-            (0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 0, 1, 2, 3),
+            (41, 9, 8, 12),
             ("Appeal", "Repeat account", "Legal hold", "Coordinated"),
         ),
-        "wip": {"In Review": (12, None), "Escalated": (30, None)},
+        "wip": {"In Review": (12, None), "Escalated": (12, None)},
         "sub_columns": {"In Review": ["Triage", "Policy check", "Decision"]},
         "dimensions": [(
             "Legal review", ["Not needed", "Pending", "Cleared"], "Does legal need to look before an action?",
@@ -1150,10 +1158,10 @@ _STRUCTURE = {
              "Cold chain alert", "Missed pickup", "Refused delivery", "Carrier rerouted", "Short shipment"),
             ("Chicago hub", "port of Savannah", "Denver depot", "Dallas cross-dock", "Reno warehouse",
              "Atlanta hub", "Seattle terminal", "Memphis hub", "Newark port"),
-            (0, 0, 1, 1, 1, 2, 2, 3, 3, 0, 1, 2),
+            (27, 6, 8, 9),
             ("Expedite", "Temperature-controlled", "Hazmat", "Claim filed"),
         ),
-        "wip": {"Investigating": (8, None), "Awaiting Carrier": (30, None)},
+        "wip": {"Investigating": (8, None), "Awaiting Carrier": (12, None)},
         "sub_columns": {"Investigating": ["Locate shipment", "Contact carrier", "Decide remedy"]},
         "dimensions": [(
             "Customer notified", ["Yes", "No", "Not needed"], "Has the customer been told about the exception?",
