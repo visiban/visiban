@@ -3065,122 +3065,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#writing-tests-that-catch-mutations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Writing tests that catch mutations
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Writing tests that catch mutations">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-exact-values-over-truthiness" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Exact values over truthiness
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-boundary-tests-at-n-1-n-and-n1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Boundary tests at N-1, N, and N+1
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-persisted-state-after-a-reload" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Persisted state after a reload
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-denied-paths-assert-that-nothing-happened" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Denied paths assert that nothing happened
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#row-lock-tests-postgresql-only" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Row-lock tests (PostgreSQL only)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#successful-writes-assert-persisted-state-not-just-a-status-1404" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Successful writes assert persisted state, not just a status (#1404)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#property-based-tests-hypothesis-1424" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Property-based tests (Hypothesis) (#1424)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#what-not-to-do" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What not to do
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ci" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CI
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -4983,7 +4867,9 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 </ul>
 <h3 id="flake-resistance-checklist-vitest-unit-tests">Flake-resistance checklist (Vitest unit tests)<a class="headerlink" href="#flake-resistance-checklist-vitest-unit-tests" title="Permanent link">&para;</a></h3>
 <p>The Playwright list above has a unit-test counterpart. Every root-caused <code>frontend-test</code> flake so
-far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed, not test noise:</p>
+far was a real defect that a loaded CI runner exposed, not test noise: a component defect in</p>
+<h1 id="1304-1305-1319-and-2608-focus-left-on-body-and-in-2608-also-two-test-defects-a">1304, #1305, #1319 and #2608 (focus left on <code>&lt;body&gt;</code>), and in #2608 also two test defects (a<a class="headerlink" href="#1304-1305-1319-and-2608-focus-left-on-body-and-in-2608-also-two-test-defects-a" title="Permanent link">&para;</a></h1>
+<p>wait on nothing, and page-wide queries too slow for the timeout):</p>
 <ul>
 <li>[ ] <strong>Act only on a settled page.</strong> Finding the first element a fetch renders doesn't mean the
   page is idle: the commit that shows it can still have mount effects and further fetches queued,
@@ -5011,6 +4897,15 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
   ends it once cleanup unmounts the panel (see the focus-trap Move-popover test in
   <code>cardDetail.test.tsx</code>). The victim is usually a later test whose portaled menu closes on
   Tab, not the loop's own test.</li>
+<li>[ ] <strong>Wait for what the next line asserts (#2608).</strong> A <code>findBy*</code> for text the first render already
+  shows (a column name in a status strip) waits on nothing; the lines after it race the fetch.
+  Wait for the fetched state itself (<code>No history yet.</code>), as <code>cardPeekSheet.test.tsx</code> does.</li>
+<li>[ ] <strong>Keep a large fixture cheap (#2608).</strong> A page-wide <code>getByRole</code> or <code>getByLabelText</code> walks the
+  whole document, and every extra row is also rendered on each update; a test on a 50-row Users
+  page can pass locally and exceed the 5 s timeout on a loaded runner. Query <code>within()</code> the form
+  or row (the <code>addUser</code> and <code>rowOf</code> helpers in <code>adminUsersFilters2501.test.tsx</code>), and where the
+  server sets the page size and the size is not what is under test, serve a small page. Measure a
+  slow test per step before raising its timeout.</li>
 </ul>
 <h2 id="writing-tests-that-catch-mutations">Writing tests that catch mutations<a class="headerlink" href="#writing-tests-that-catch-mutations" title="Permanent link">&para;</a></h2>
 <p>A test that only checks <code>status_code == 200</code> or <code>assertTrue(result)</code> passes when the code under it is wrong. The <a href="../mutation-testing/">mutation baseline</a> shows what kills mutants instead. Four patterns account for nearly all of it. The examples are real excerpts from <code>backend/boards/tests/</code>.</p>
