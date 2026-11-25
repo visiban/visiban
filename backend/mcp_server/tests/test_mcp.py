@@ -1406,6 +1406,12 @@ class UserFieldParityTests(McpTestCase):
             card=self.card, event_type=CardActivity.EventType.TITLE_CHANGE,
             from_value="Old", to_value="Parity card", actor=self.assignee,
         )
+        # #2594: an assignee-basis override row names its assigner.
+        CardActivity.objects.create(
+            card=self.card, event_type=CardActivity.EventType.OVERRIDE_USED,
+            from_value="assignee", to_value="wip", item_text="escalation",
+            actor=self.assignee, assigned_by=self.user,
+        )
         token = set_current_user(self.assignee)
         try:
             moved = tools.move_card(card_id=self.card.id, to_column_id=self.done.id)
@@ -1453,6 +1459,11 @@ class UserFieldParityTests(McpTestCase):
             *(c["author"] for c in detail["comments"]),
             *(c["assignee"] for c in self._list_cards()),
         ]
+        # #2594: the assigner on an override row is a user shape too.
+        override_rows = [a for a in detail["activities"] if a["event_type"] == "override_used"]
+        self.assertEqual(len(override_rows), 1)
+        self.assertEqual(override_rows[0]["assigned_by"]["username"], self.user.username)
+        user_values.append(override_rows[0]["assigned_by"])
         self.assertTrue(user_values)
         for value in user_values:
             self.assertIsInstance(value, dict)

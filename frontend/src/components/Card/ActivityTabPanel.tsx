@@ -7,7 +7,7 @@ import { userDisplayName } from "../../types";
 import { formatRelativeTime, formatDateTimeUser } from "../../utils/date";
 import type { UserDatePrefs } from "../../utils/date";
 import { historyAttribution } from "../../utils/importedHistory";
-import { activityLabel, gateTransitionLabel } from "../../utils/cardTimelineLabels";
+import { activityLabel, gateTransitionLabel, overrideAssignerSuffix } from "../../utils/cardTimelineLabels";
 import ActiveMark from "../Common/ActiveMark";
 import { HISTORY_PAGE_LIMIT } from "./cardDetailTabMemory";
 
@@ -491,14 +491,26 @@ export default function ActivityTabPanel({
             const description = timelineEntry.kind === "gate"
               ? gateTransitionLabel(timelineEntry.data as unknown as CardGateTransition)
               : activityLabel(timelineEntry.event_type, timelineEntry.data, userDateFormat);
+            // #2594: the assigner tail stays visible; only the reason text truncates.
+            const assignerSuffix = timelineEntry.kind === "gate"
+              ? ""
+              : overrideAssignerSuffix(timelineEntry.event_type, timelineEntry.data);
+            const descriptionMain = assignerSuffix ? description.slice(0, -assignerSuffix.length) : description;
             return (
               <li key={`${timelineEntry.kind}-${timelineEntry.id}`} tabIndex={-1} className="relative mb-3 ml-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-line-subtle shadow ${dot}`} />
                 <div className="bg-surface border border-line rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-fg-secondary truncate" title={description}>
-                      {description}
-                    </span>
+                    {assignerSuffix ? (
+                      <span className="flex min-w-0 items-baseline text-sm text-fg-secondary" title={description}>
+                        <span className="truncate">{descriptionMain}</span>
+                        <span className="shrink-0 whitespace-pre">{assignerSuffix}</span>
+                      </span>
+                    ) : (
+                      <span className="text-sm text-fg-secondary truncate" title={description}>
+                        {description}
+                      </span>
+                    )}
                     {attribution && (
                       <span className="text-xs text-fg-tertiary ml-auto shrink-0 max-w-full truncate" title={attribution}>{attribution}</span>
                     )}

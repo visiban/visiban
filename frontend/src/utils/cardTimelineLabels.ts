@@ -24,6 +24,18 @@ function cappedName(name: string): string {
   return name.length > ITEM_TEXT_IN_LABEL_MAX ? `${name.slice(0, ITEM_TEXT_IN_LABEL_MAX - 1)}\u2026` : name;
 }
 
+/**
+ * The " · Assigned by {name}" tail of an assignee override row (#2594), or ""
+ * with no assigner (admin basis, older or imported row, deleted account).
+ * Exposed so the History row can render it apart from the truncating text.
+ */
+export function overrideAssignerSuffix(event_type: string, data: Record<string, unknown>): string {
+  const d = data as unknown as CardActivity;
+  return event_type === "override_used" && d.from_value === "assignee" && d.assigned_by
+    ? ` · Assigned by ${userDisplayName(d.assigned_by)}`
+    : "";
+}
+
 /** One-line description of a timeline activity entry (the History tab's row text). */
 export function activityLabel(
   event_type: string,
@@ -122,9 +134,7 @@ export function activityLabel(
       const basis = d.from_value === "assignee" ? "assignee override" : "admin override";
       const head = `${kinds ? `${kinds.charAt(0).toUpperCase()}${kinds.slice(1)}` : "Card"} ${noun} overridden (${basis})`;
       const withReason = d.item_text ? `${head}. Reason: ${d.item_text}` : head;
-      return d.from_value === "assignee" && d.assigned_by
-        ? `${withReason} · Assigned by ${userDisplayName(d.assigned_by)}`
-        : withReason;
+      return `${withReason}${overrideAssignerSuffix(event_type, d)}`;
     }
     case "archived":
       return "Card archived";

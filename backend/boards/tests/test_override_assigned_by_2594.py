@@ -133,10 +133,47 @@ class OverrideAssignedByTests(TestCase):
         # Drop every other reference the admin has to this card.
         Card.objects.filter(pk=self.card.pk).update(created_by=self.member, assigned_by=None)
         CardActivity.objects.filter(card=self.card, actor=self.admin).delete()
+        # The override snapshot also names the admin; only the activity row's
+        # assigner may be left, or this stops isolating that reference.
+        CardOverride.objects.filter(card=self.card).delete()
         self.board.owner = self.member
         self.board.save(update_fields=["owner"])
         locked = set(VisibanUserAdmin._cards_to_lock([self.admin.pk]).values_list("pk", flat=True))
         self.assertIn(self.card.pk, locked)
+
+    def test_each_assigner_and_override_reference_alone_locks_the_card(self, _):
+        # A bare card that references nobody; the target user gets exactly one
+        # reference at a time, and each one alone must put the card in the set.
+        target = User.objects.create_user(username="ab_target", password="pass")
+        self.board.owner = self.member
+        self.board.save(update_fields=["owner"])
+        bare = Card.objects.create(
+            board=self.board, column=self.src, swimlane=self.lane, title="Bare",
+            created_by=self.member, position=5,
+        )
+
+        def locked():
+            return set(VisibanUserAdmin._cards_to_lock([target.pk]).values_list("pk", flat=True))
+
+        self.assertNotIn(bare.pk, locked())  # the baseline: no reference, no lock
+
+        # Card.assigned_by: the delete updates the cards row itself.
+        Card.objects.filter(pk=bare.pk).update(assigned_by=target)
+        self.assertIn(bare.pk, locked())
+        Card.objects.filter(pk=bare.pk).update(assigned_by=None)
+        self.assertNotIn(bare.pk, locked())
+
+        def override(**kw):
+            return CardOverride.objects.create(
+                card=bare, board=self.board, actor_basis="assignee", **kw,
+            )
+
+        for field in ("actor", "assigned_by"):
+            with self.subTest(reference=f"CardOverride.{field}"):
+                row = override(**{field: target})
+                self.assertIn(bare.pk, locked())
+                CardOverride.objects.filter(pk=row.pk).delete()
+                self.assertNotIn(bare.pk, locked())
 
     def test_activities_endpoint_and_mcp_expose_the_assigner(self, _):
         self._move(self.member, reason="escalation")

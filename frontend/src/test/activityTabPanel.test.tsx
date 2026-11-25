@@ -90,6 +90,35 @@ describe("ActivityTabPanel", () => {
     });
   });
 
+  it("keeps the assigner visible apart from a long override reason (#2594)", async () => {
+    const reason = "R".repeat(300);
+    mockGetTimeline.mockResolvedValue(
+      makeTimelinePage([
+        makeEntry({
+          id: 7,
+          event_type: "override_used",
+          data: {
+            event_type: "override_used",
+            from_value: "assignee",
+            to_value: "wip",
+            item_text: reason,
+            assigned_by: { id: 3, username: "bo", display_name: "Bo Lead", avatar_url: "" },
+          },
+        }),
+      ])
+    );
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    const suffix = await screen.findByText(/Assigned by Bo Lead/);
+    // The suffix is its own non-truncating span; the reason truncates beside it.
+    expect(suffix).toHaveClass("shrink-0");
+    expect(suffix).not.toHaveClass("truncate");
+    expect(suffix.previousElementSibling).toHaveClass("truncate");
+    expect(suffix.previousElementSibling).toHaveTextContent(reason);
+    // The tooltip still carries the full text.
+    expect(suffix.parentElement).toHaveAttribute("title", expect.stringContaining("Assigned by Bo Lead"));
+    expect(suffix.parentElement).toHaveAttribute("title", expect.stringContaining(reason));
+  });
+
   it('shows "Load more" button when hasMore is true', async () => {
     mockGetTimeline.mockResolvedValue(
       makeTimelinePage(
