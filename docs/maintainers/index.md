@@ -36,11 +36,15 @@ The version-string half of a release is enforced by a gate rather than by memory
   (#1269).
 - Roll-up summary for stable feature releases (#1995): a stable `X.Y.0` must open its notes with
   a summary of everything since the last non-bug-fix stable release, not just since the last
-  tag. The `/release` skill drafts it (headline features, action-required changes with a link to
+  tag.
+
+    The `/release` skill drafts it (headline features, action-required changes with a link to
   `docs/administration/upgrade.md`, an upgrade-urgency line), gets it approved, and passes it as
   `scripts/release.sh --summary-file <path>` (or `RELEASE_SUMMARY_FILE`). The script refuses a
   stable `X.Y.0` with no file (`RELEASE_SKIP_SUMMARY=1` bypasses it), refuses a missing or
-  blank file, and refuses a file for a pre-release. The approved text opens the dated
+  blank file, and refuses a file for a pre-release.
+
+    The approved text opens the dated
   `CHANGELOG.md` section and the GitLab Release body ahead of the assembled fragment notes, goes
   through the same `confirm_release_notes` gate, and reaches the GitHub Release through the
   `github-release` job, which reads that dated section. Pre-releases and bug-fix patches are
@@ -60,12 +64,18 @@ The version-string half of a release is enforced by a gate rather than by memory
 - A failure means fix the page (there is no allowlist).
 - `New in X` labels are provenance and are intentionally not flagged.
 
-**Yes, but:** Publishing is gated too, with one exception. On a `v*` tag, every publish job `needs:`
+**Yes, but:** Publishing is gated too, with one exception.
+
+On a `v*` tag, every publish job `needs:`
 `release-main-pipeline-guard`: images, manifests, attestations, the Helm chart and the GitHub
 release. That job refuses unless every check in the tagged commit's own `main` pipeline is
-green, including `allow_failure: true` jobs (#1154). That includes the versioned docs:
+green, including `allow_failure: true` jobs (#1154).
+
+That includes the versioned docs:
 `main`'s `docs-deploy` skips a version whose tag does not exist yet, so the tag pipeline's
-`docs-deploy` publishes them after the guard (#1997). A refused tag stays on origin, but
+`docs-deploy` publishes them after the guard (#1997).
+
+A refused tag stays on origin, but
 `main` also requires the tag pipeline's `release-main-pipeline-guard` job to be `success`
 before it deploys that version, so a refusal cannot publish docs from `main` (#2398). If it refuses, see
 [Known CI Failures](known-ci-failures.md#release-main-pipeline-guard-refuses-to-publish-a-release-tag).

@@ -12,7 +12,9 @@ the one real deployment.
 !!! warning "Nothing below is verified by CI"
     CI proves the chart on kind: it installs `values-demo.yaml`, runs `helm test`, runs a
     reset, and on Calico proves the egress policy denies outbound traffic
-    (`helm-install` and `helm-netpol`). CI cannot see the real node, the Cloudflare
+    (`helm-install` and `helm-netpol`).
+
+    CI cannot see the real node, the Cloudflare
     Tunnel, or the Cloudflare dashboard. Every "verify" step on this page is a human
     check. Record the result in [Deployment record](#deployment-record).
 
@@ -130,9 +132,13 @@ so the deployment record is the only durable trace that these were actually set 
         From #1873 the chart renders `demo.throttle.userRate` as `DEMO_THROTTLE_USER_RATE`.
         Backend images from before that change (every 1.2 pre-release, including the
         chart's `v1.2.0-beta.3` default on `main` today) read only the old
-        `DEMO_USER_THROTTLE_RATE`. With such an image the `60000/hour` ceiling is silently
+        `DEMO_USER_THROTTLE_RATE`.
+
+        With such an image the `60000/hour` ceiling is silently
         dropped, and every visitor shares the normal `user` limit, so a handful of visitors
-        can exhaust it and get 429 responses. Deploying `./helm/visiban` from `main` therefore needs a
+        can exhaust it and get 429 responses.
+
+        Deploying `./helm/visiban` from `main` therefore needs a
         `backend.image.tag` built from the same commit or later. See the
         [1.2 upgrade notes](../administration/upgrade.md#upgrading-to-12x).
 
@@ -243,7 +249,9 @@ below).
 
 `values-demo.yaml` sets `backend.settings.numProxies: 2`. It assumes this chain:
 visitor → Cloudflare edge (appends the visitor to `X-Forwarded-For`) → `cloudflared` →
-frontend nginx (appends the `cloudflared` pod) → backend. If the chain changes, for
+frontend nginx (appends the `cloudflared` pod) → backend.
+
+If the chain changes, for
 example a second proxy is added or `cloudflared` moves, recount. A value that is too low
 puts every visitor in one throttle bucket, so one crawler locks the demo for everyone. A
 value that is too high lets a visitor choose their own bucket.
@@ -271,12 +279,18 @@ kubectl -n visiban-demo logs deploy/visiban-demo-frontend --tail=20
 ## Operating it
 
 - **Reset schedule.** Every hour, on the hour, UTC (`demo.reset.schedule`). The same value
-  drives the countdown visitors see. To pause resets, set `demo.reset.enabled=false` and
+  drives the countdown visitors see.
+
+    To pause resets, set `demo.reset.enabled=false` and
   upgrade. The login page then stops promising a reset.
 - **A failed reset** leaves the previous seed up. It is never a readiness signal, so the
-  demo keeps serving stale data. Find it with
+  demo keeps serving stale data.
+
+    Find it with
   `kubectl -n visiban-demo get jobs -l app.kubernetes.io/component=demo-seed` and read it
-  with `kubectl -n visiban-demo logs job/<name> --all-containers`. The last three failed
+  with `kubectl -n visiban-demo logs job/<name> --all-containers`.
+
+    The last three failed
   runs are kept.
 - **Run a reset now**: `kubectl -n visiban-demo create job --from=cronjob/visiban-demo-demo-reset reset-now`.
   `concurrencyPolicy: Forbid` only stops the *scheduled* CronJob from overlapping itself —
@@ -289,14 +303,18 @@ kubectl -n visiban-demo logs deploy/visiban-demo-frontend --tail=20
   run the manual reset, then `kubectl -n visiban-demo patch cronjob visiban-demo-demo-reset -p '{"spec":{"suspend":false}}'`.
 - **Node sharing.** `values-demo.yaml` enables `demo.resourceQuota` (a ResourceQuota plus a
   LimitRange for the namespace). Check headroom with
-  `kubectl -n visiban-demo describe resourcequota`. TruePPM's namespace should carry its own
+  `kubectl -n visiban-demo describe resourcequota`.
+
+    TruePPM's namespace should carry its own
   quota for the reverse direction.
 - **Rotate a password**: change it in the secrets file and upgrade. The backend pods roll,
   because the demo Secret is checksummed into the pod template, and the seed hook
   re-applies the new password.
 - **Blank page after a deploy, console says "Expected a JavaScript module script but the
   server responded with a MIME type of text/html".** The visitor's browser holds a cached
-  `index.html` from the previous build. The chart's nginx now sends `no-cache` for it and
+  `index.html` from the previous build.
+
+    The chart's nginx now sends `no-cache` for it and
   404s missing `/assets/*` (#1633), so this should not recur; if it does, check that nothing
   in front (Cloudflare cache rules) is caching `index.html`. A hard reload clears it for one
   visitor.
@@ -310,8 +328,12 @@ connector is registered for the tunnel. It does not say why, so work down this l
 **Root cause seen on 2026-10-21 (#1820):** the node's root filesystem filled past the
 kubelet's eviction threshold (`nodefs.available<10%`). The kubelet set `DiskPressure`,
 tainted the node `node.kubernetes.io/disk-pressure:NoSchedule`, and evicted every pod,
-`cloudflared` included. Replacement pods then sat `Pending` because nothing could schedule
-onto a tainted node. The demo was down about 5.5 hours because nothing alerted. Both demos
+`cloudflared` included.
+
+Replacement pods then sat `Pending` because nothing could schedule
+onto a tainted node. The demo was down about 5.5 hours because nothing alerted.
+
+Both demos
 and the tunnel failed together, which is the tell: check the node before debugging any one
 release.
 
@@ -336,11 +358,14 @@ A pod's `status.message` of `The node had condition: [DiskPressure]` confirms it
 2. If the volume group has free extents (`vgs`), grow the root LV online:
    `lvextend -r -l +100%FREE /dev/<vg>/<root-lv>`.
 3. Wait for `DiskPressure` to go `False`. The kubelet holds the condition for
-   `eviction-pressure-transition-period` (5 minutes by default) after space recovers. If
+   `eviction-pressure-transition-period` (5 minutes by default) after space recovers.
+
+    If
    the taint is still there after that with `df` healthy, `systemctl restart k3s` clears
    it. That briefly interrupts every pod on the node.
 4. Remove the leftovers: `kubectl delete pod -A --field-selector=status.phase=Failed`.
-   Pending pods and the StatefulSets (`*-postgresql-0`, `*-valkey-*`) start on their own
+
+    Pending pods and the StatefulSets (`*-postgresql-0`, `*-valkey-*`) start on their own
    once the taint is gone. Do not delete them.
 5. Confirm from inside the cluster, because Cloudflare's bot protection returns `403` to
    `curl` and so says nothing about the origin:

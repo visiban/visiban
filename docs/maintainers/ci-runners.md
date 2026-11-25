@@ -53,7 +53,9 @@ here (the `gitlab-runner` binary itself runs under Rosetta) and `uname -m` on th
     every job queues for *any* available runner, self-hosted or GitLab SaaS. A self-hosted
     runner going offline doesn't fail its jobs loudly with "no runner available" — they get
     scheduled onto a SaaS runner instead and fail with a confusing error deep inside the job
-    script. This has already happened once (see "Docker push" below). If a job needs the
+    script.
+
+    This has already happened once (see "Docker push" below). If a job needs the
     self-hosted runner specifically, add a `tags:` selector rather than relying on the
     untagged runners staying healthy.
 
@@ -64,10 +66,14 @@ build and push **amd64** with **kaniko**, which needs no Docker daemon and runs 
 
 This wasn't always true. Before the kaniko conversion (merged in **!852**, 2026-09-14), these
 jobs ran `docker buildx` against a Docker socket mounted by a self-hosted runner's
-`config.toml` (`volumes = ["/var/run/docker.sock:/var/run/docker.sock"]`). That runner (the
+`config.toml` (`volumes = ["/var/run/docker.sock:/var/run/docker.sock"]`).
+
+That runner (the
 "nuc runner", group runner id `53511568`) went stale on **2026-07-18**. Because the jobs
 carried no `tags:`, every push after that date silently fell through to a GitLab SaaS runner
-and failed with `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`. The
+and failed with `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`.
+
+The
 last successful push before the conversion was **2026-06-26**. kaniko removes that single
 point of failure for amd64.
 
@@ -131,10 +137,14 @@ runner host `gitlab-nuc-03` is shared with TruePPM (`concurrent = 6` across the 
   limit, and kind never raises it, so the kind node container runs the whole nested control
   plane (kube-apiserver, etcd, containerd, kubelet, kube-proxy) inside one 1024-fd budget.
   kube-proxy then crash-loops with `too many open files`, in-cluster DNS degrades, and init
-  containers fail intermittently. `.helm-drill-base` therefore passes
+  containers fail intermittently.
+
+    `.helm-drill-base` therefore passes
   `--default-ulimit nofile=1048576:1048576` to the dind service's dockerd (#1568). GitLab's
   `services:` keyword (as of this writing) has no `ulimit:` option, so passing the flag via
-  `command:` is the only lever reachable from the repo. `.compose-drill-base` does not need it (no nested Kubernetes control plane).
+  `command:` is the only lever reachable from the repo.
+
+    `.compose-drill-base` does not need it (no nested Kubernetes control plane).
 - **inotify instances (host-level, not in the repo).** `fs.inotify.max_user_instances` defaulted
   to 128 on the host; kind recommends 512 or more. It was raised directly on `gitlab-nuc-03` via
   `/etc/sysctl.d/99-kind.conf`:
@@ -163,14 +173,28 @@ Now four kaniko jobs build and push the images (`.kaniko-ci-image` in `.gitlab-c
 How it fits together:
 
 - **Push.** Each job pushes to `$CI_REGISTRY_IMAGE/ci/<name>:<branch slug>` with the job's own `CI_REGISTRY_USER`/`CI_REGISTRY_PASSWORD`, labels the image `org.opencontainers.image.revision=$CI_COMMIT_SHA`, and writes `<repo>@sha256:<digest>` to a dotenv report. A fork MR pipeline runs in the fork and pushes to the fork's registry; a fork MR pipeline a maintainer runs in the parent project pushes to the parent's `ci/` path.
-- **Pull.** The drill `needs:` its build jobs (`compose-upgrade-drill` boots no frontend, so it needs only `backend-docker-build`). `scripts/drill-image.sh` pulls the digest, fails unless the revision label equals `$CI_COMMIT_SHA` and the architecture matches the dind daemon, then re-tags it under the drill's local name. In CI a missing variable fails the drill; it never falls back to a rebuild. Run by hand on a laptop (no `GITLAB_CI`), the drill scripts still build from the working tree.
-- **No registry.** On a project with its container registry disabled (e.g. a fork), GitLab leaves `CI_REGISTRY_IMAGE` undefined. The build jobs then run `--no-push`, as before #2492, and write no dotenv, and `scripts/drill-image.sh` logs a warning and builds the image locally in the drill's dind. This is the only case where CI falls back to a rebuild; with a registry present, a missing variable still fails.
+- **Pull.** The drill `needs:` its build jobs (`compose-upgrade-drill` boots no frontend, so it needs only `backend-docker-build`). `scripts/drill-image.sh` pulls the digest, fails unless the revision label equals `$CI_COMMIT_SHA` and the architecture matches the dind daemon, then re-tags it under the drill's local name.
+
+    In CI a missing variable fails the drill; it never falls back to a rebuild. Run by hand on a laptop (no `GITLAB_CI`), the drill scripts still build from the working tree.
+- **No registry.** On a project with its container registry disabled (e.g. a fork), GitLab leaves `CI_REGISTRY_IMAGE` undefined. The build jobs then run `--no-push`, as before #2492, and write no dotenv, and `scripts/drill-image.sh` logs a warning and builds the image locally in the drill's dind.
+
+    This is the only case where CI falls back to a rebuild; with a registry present, a missing variable still fails.
 - **Layer cache.** `--cache-repo $CI_REGISTRY_IMAGE/ci/cache/<name>`. A change that does not touch an image's inputs reuses every layer.
 - **Rules.** Each build job's rules are the union of its MR-time verification rule and the rules of the drills that need it, in the same order. A drill whose build job is absent fails pipeline creation, so change both together (this includes #2471's schedule-leg fix).
-- **No `resource_group`.** The two jobs used to share the project-wide `kaniko-build` resource group and wait for the lint stage. With the drills waiting on them, a project-wide group would queue every drill behind every other pipeline's image builds. Total concurrent image builds on a drill pipeline go down, not up: the drills used to run up to nine uncached builds in dind (two per drill, one for `compose-upgrade-drill`). On backend-only or frontend-only MRs kaniko now starts at t=0 alongside lint and the test shards, so watch the shard timings on the first such pipeline. **Non-interruptible.** The build jobs are `interruptible: false`, as the #2419 rule requires for jobs that push to the registry (`scripts/tests/ci-interruptible.test.sh`). Before #2492 the MR-time builds were interruptible, so a superseded push now runs its kaniko builds (about 1-2 minutes) to completion. That cost is accepted rather than exempted; #2495 tracks drill interruptibility.
+- **No `resource_group`.** The two jobs used to share the project-wide `kaniko-build` resource group and wait for the lint stage. With the drills waiting on them, a project-wide group would queue every drill behind every other pipeline's image builds.
+
+    Total concurrent image builds on a drill pipeline go down, not up: the drills used to run up to nine uncached builds in dind (two per drill, one for `compose-upgrade-drill`). On backend-only or frontend-only MRs kaniko now starts at t=0 alongside lint and the test shards, so watch the shard timings on the first such pipeline.
+
+    **Non-interruptible.** The build jobs are `interruptible: false`, as the #2419 rule requires for jobs that push to the registry (`scripts/tests/ci-interruptible.test.sh`).
+
+    Before #2492 the MR-time builds were interruptible, so a superseded push now runs its kaniko builds (about 1-2 minutes) to completion. That cost is accepted rather than exempted; #2495 tracks drill interruptibility.
 - **Nothing ships from `ci/`.** The release push jobs (`.kaniko-push-common`) still build from scratch, with no cache, to the release paths. A `ci/` image or cache layer cannot reach a published image.
 
-**Cleanup.** The drill pins the digest, so the tag is only a handle. It is the branch slug rather than the SHA: each branch overwrites one tag, the superseded manifest goes untagged, and the registry's garbage collection reclaims untagged manifests (GitLab.com runs online GC with a review delay of about a day, long enough for a drill that started a few minutes after its build). Tags of merged or deleted branches, and the 64-hex `ci/cache/*` tags, fall under the project's existing cleanup policy (`keep_n: 10`, `older_than: 90d`, `name_regex: ".*"`), which never protects them because `name_regex_keep` only matches release tags. See [Make sure registry cleanup never deletes a released image](../administration/container-image-retention.md). The build jobs pass `--cache-ttl=24h`, so a cached layer is at most 24 hours old (the Dockerfiles run unpinned `apt-get install`, so older layers could drift from a fresh build). The release push jobs build uncached, so what ships never depends on this cache.
+**Cleanup.** The drill pins the digest, so the tag is only a handle. It is the branch slug rather than the SHA: each branch overwrites one tag, the superseded manifest goes untagged, and the registry's garbage collection reclaims untagged manifests (GitLab.com runs online GC with a review delay of about a day, long enough for a drill that started a few minutes after its build).
+
+Tags of merged or deleted branches, and the 64-hex `ci/cache/*` tags, fall under the project's existing cleanup policy (`keep_n: 10`, `older_than: 90d`, `name_regex: ".*"`), which never protects them because `name_regex_keep` only matches release tags. See [Make sure registry cleanup never deletes a released image](../administration/container-image-retention.md).
+
+The build jobs pass `--cache-ttl=24h`, so a cached layer is at most 24 hours old (the Dockerfiles run unpinned `apt-get install`, so older layers could drift from a fresh build). The release push jobs build uncached, so what ships never depends on this cache.
 
 **Watch out:** If the drill fails with `drill-image: ... was built from revision 'X', but this drill is testing 'Y'`, the drill was handed some other commit's image. Don't relax the check. Fix the dotenv/`needs:` wiring.
 
@@ -188,6 +212,7 @@ a warm cache (`.gitlab-ci.yml`, "Cache templates" section). This requires both:
 **Watch out:** Runner `config.toml` lives on the runner VM's disk, outside GitLab's variable masking. It
 previously had the MinIO access key and secret key hardcoded directly in that file
 (confidential issue **#141**, closed) instead of interpolated from environment variables.
+
 The current `.gitlab-ci.yml` comments show the fixed form (`AccessKey = "<MINIO_ACCESS_KEY>"`
 placeholders resolved via env interpolation), and the corresponding `MINIO_*` CI variables
 are now present and masked — consistent with the issue's recommended fix having been applied.
@@ -236,15 +261,21 @@ Every Docker Hub `image:`/`services:` reference in `.gitlab-ci.yml`
    variable.** The Dependency Proxy is a **group-level-only** GitLab feature — it does not exist
    for personal namespaces at all — so `CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX` (and
    `CI_DEPENDENCY_PROXY_SERVER`/`_USER`/`_PASSWORD`) are empty on, most notably, an external
-   contributor's personal-namespace fork pipeline. `.gitlab-ci.yml`'s top-level `variables:`
+   contributor's personal-namespace fork pipeline.
+
+    `.gitlab-ci.yml`'s top-level `variables:`
    defines `DOCKERHUB_MIRROR: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}`; a `script:`/
    `before_script:` usage of it (the kaniko jobs' `--build-arg BASE_REGISTRY`,
    `scripts/helm-install-drill.sh`, `scripts/helm-netpol-drill.sh`) falls back automatically with
    real shell syntax (`${DOCKERHUB_MIRROR:-docker.io/library}`), because those run in an actual
-   shell. The bare `image:`/`services:`/`name:` keyword usages **cannot** self-heal this way —
+   shell.
+
+    The bare `image:`/`services:`/`name:` keyword usages **cannot** self-heal this way —
    GitLab's variable expansion for those keywords is plain substitution, with no equivalent of
    bash's `:-` fallback operator — so with an empty `DOCKERHUB_MIRROR` they'd resolve to a
-   leading-slash `/python:3.12-slim` and fail outright. A fork or self-hosted project without a
+   leading-slash `/python:3.12-slim` and fail outright.
+
+    A fork or self-hosted project without a
    working group Dependency Proxy **must** set its own project CI/CD variable
    `DOCKERHUB_MIRROR` (Settings → CI/CD → Variables) — e.g. `docker.io` to pull Docker Hub
    directly (project variables take precedence over the `.gitlab-ci.yml` default), or its own
