@@ -231,3 +231,131 @@ class DimensionPinPoolTests(_Base):
             self.fields_url(), {"name": "G3", "field_type": "text", "show_on_card": True}, format="json",
         )
         self.assertEqual(resp.status_code, 400)
+
+    def test_flipping_is_dimension_on_a_pinned_field_when_the_dimension_pool_is_full(self):
+        # A pinned generic dropdown turned into a dimension moves into the
+        # dimension pool; when that pool is full the PATCH is refused rather
+        # than landing a fourth pinned dimension.
+        for d in (self.dim, self.make_dim("Budget", 1), self.make_dim("Legal", 2)):
+            d.show_on_card = True
+            d.save()
+        generic = CustomFieldDefinition.objects.create(
+            board=self.board, name="Tech", field_type="dropdown", choices_json=["A"],
+            position=4, show_on_card=True,
+        )
+        resp = self.client.patch(self.fields_url(generic), {"is_dimension": True}, format="json")
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn("Up to 3 dimensions", str(resp.data["show_on_card"]))
+        generic.refresh_from_db()
+        self.assertFalse(generic.is_dimension)
+
+    def test_flipping_is_dimension_is_refused_by_the_locked_recheck_too(self):
+        # The viewset re-runs the cap under the board lock (a concurrent pin
+        # can fill the pool after serializer validation); simulate that by
+        # skipping the serializer-level check.
+        for d in (self.dim, self.make_dim("Budget", 1), self.make_dim("Legal", 2)):
+            d.show_on_card = True
+            d.save()
+        generic = CustomFieldDefinition.objects.create(
+            board=self.board, name="Tech", field_type="dropdown", choices_json=["A"],
+            position=4, show_on_card=True,
+        )
+        from boards import serializers as _ser
+        real = _ser.assert_definition_caps
+        calls = []
+
+        def first_call_passes(*args, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                return None
+            return real(*args, **kwargs)
+
+        with patch("boards.serializers.assert_definition_caps", side_effect=first_call_passes), \
+                patch("boards.views.custom_fields.assert_definition_caps", side_effect=first_call_passes):
+            resp = self.client.patch(self.fields_url(generic), {"is_dimension": True}, format="json")
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(calls[1]["is_dimension"])
+        generic.refresh_from_db()
+        self.assertFalse(generic.is_dimension)
+
+
+class DimensionPinPoolImportTests(_Base):
+    """JSON import counts the generic and dimension pin pools separately (#1922)."""
+
+    IMPORT_URL = "/api/v1/boards/import/"
+
+    def _import(self, data):
+        import json
+
+        from django.core.cache import cache
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        cache.clear()  # the import throttle counts every request
+        upload = SimpleUploadedFile(
+            "board1922.json", json.dumps(data).encode(), content_type="application/octet-stream",
+        )
+        return self.client.post(self.IMPORT_URL, {"file": upload}, format="multipart")
+
+    @staticmethod
+    def _minimal(custom_fields):
+        return {
+            "name": "Src1922", "columns": [{"name": "To Do"}], "swimlanes": [{"name": "General"}],
+            "cards": [], "custom_fields": custom_fields,
+        }
+
+    @staticmethod
+    def _dim(name, pinned=True):
+        return {
+            "name": name, "field_type": "dropdown", "choices": ["A", "B"],
+            "is_dimension": True, "show_on_card": pinned,
+        }
+
+    def test_export_with_two_generic_and_three_pinned_dimensions_round_trips(self):
+        import json
+
+        self.dim.show_on_card = True
+        self.dim.save()
+        for i, name in enumerate(("Budget", "Legal"), start=1):
+            CustomFieldDefinition.objects.create(
+                board=self.board, name=name, field_type="dropdown", choices_json=["A"],
+                is_dimension=True, show_on_card=True, position=i,
+            )
+        for i in range(2):
+            CustomFieldDefinition.objects.create(
+                board=self.board, name=f"G{i}", field_type="text", position=10 + i, show_on_card=True,
+            )
+        exported = self.client.get(f"/api/v1/boards/{self.board.pk}/export/", {"format": "json"})
+        self.assertEqual(exported.status_code, 200)
+        data = json.loads(exported.content)
+        resp = self._import(data)
+        self.assertEqual(resp.status_code, 201, resp.content[:500])
+        new_board_id = resp.json()["id"]
+        pinned = CustomFieldDefinition.objects.filter(board_id=new_board_id, show_on_card=True)
+        self.assertEqual(pinned.filter(is_dimension=True).count(), 3)
+        self.assertEqual(pinned.filter(is_dimension=False).count(), 2)
+
+    def test_four_pinned_dimensions_is_400(self):
+        fields = [self._dim(n) for n in ("D1", "D2", "D3", "D4")]
+        resp = self._import(self._minimal(fields))
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            resp.json()["detail"],
+            "'custom_fields' pins 4 dimensions with 'show_on_card'; at most 3 are allowed.",
+        )
+
+    def test_three_generic_pins_is_still_400_beside_dimensions(self):
+        fields = [self._dim("D1")] + [
+            {"name": f"G{i}", "field_type": "text", "show_on_card": True} for i in range(3)
+        ]
+        resp = self._import(self._minimal(fields))
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            resp.json()["detail"],
+            "'custom_fields' pins 3 fields with 'show_on_card'; at most 2 are allowed.",
+        )
+
+    def test_unpinned_dimensions_do_not_count(self):
+        fields = [self._dim(f"D{i}", pinned=False) for i in range(5)]
+        resp = self._import(self._minimal(fields))
+        self.assertEqual(resp.status_code, 201, resp.content[:500])

@@ -2276,8 +2276,15 @@ Typed, per-board metadata fields that cards can carry: a label is an untyped tag
 
 Definition objects include a `uid` field — stable across renames, read-only.
 
-**Limits:** at most **30** definitions per board, and at most **2** with
-`show_on_card: true`.
+**Limits:** at most **30** definitions per board. Pins come from two separate pools
+*(changed in 1.3, #1922)*: at most **2** non-dimension fields with `show_on_card: true`,
+and at most **3** [dimension](../features/custom-fields.md#dimension-fields-13) fields (`is_dimension: true`) with
+`show_on_card: true`. A pinned dimension never takes one of the 2 generic slots. A write
+past either cap is a `400` on `show_on_card`: `"At most 2 custom fields can be shown on the
+card face."` for the generic pool, `"Up to 3 dimensions show on the card. Unpin one to pin
+another."` for the dimension pool. Turning `is_dimension` on for a pinned field moves it
+into the dimension pool and is refused the same way when that pool is full. A JSON board
+import counts the two pools the same way.
 
 | Field | Type | Read-only | Description |
 |---|---|---|---|
@@ -2287,7 +2294,7 @@ Definition objects include a `uid` field — stable across renames, read-only.
 | `field_type` | string | no\* | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"`, `"url"` (see [URL fields](#url-fields)), `"multi_select"` (see [Multi-select fields](#multi-select-fields)) |
 | `choices` | string[] | no | Permitted values; required and non-empty (at most 100, unique) for `"dropdown"` and `"multi_select"`, rejected for every other type |
 | `position` | integer | yes | Display order; set on create and changed only via `reorder/` |
-| `show_on_card` | boolean | no | Pin the value to the card face. Max 2 per board |
+| `show_on_card` | boolean | no | Pin the field to the card face. Max 2 non-dimension fields per board, plus a separate max of 3 dimensions (*1.3+*, #1922); see **Limits** above |
 | `is_required` | boolean | no | Declared but **not enforced** in this release |
 | `help_text` | string | no | Hint shown next to the input |
 | `number_prefix` | string | no | *Since 1.2.* Display-only text before a number value; `""` (default) for none. `"number"` fields only — see [Number formatting](#number-formatting) |
@@ -2566,7 +2573,8 @@ A dropdown or multi-select field may also color its choices — see [Choice colo
   non-number type supplies a [number format](#number-formatting) option, a number format
   option is out of range, `choice_colors` is malformed or set on a type without choices
   (see [Choice colors](#choice-colors)), the board already has 30 definitions, or a
-  third field is pinned with `show_on_card`.
+  pin with `show_on_card` would exceed its pool (a third non-dimension field or a
+  fourth dimension; see **Limits** under [Custom fields](#custom-fields-since-12)).
 
 ### `PATCH /api/v1/boards/{id}/custom-fields/{field_id}/` / `PUT /api/v1/boards/{id}/custom-fields/{field_id}/`
 Update a definition. Requires board admin. *(1.3+, #2009)* A caller below admin gets `403` before the body is validated, so an invalid body no longer answers `400` with the field errors for them; a caller with no access to the board still gets `404`.

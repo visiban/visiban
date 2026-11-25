@@ -65,8 +65,9 @@ export function TrackIcon({ state }: { state: CardTrackState["state"] }) {
 /**
  * Pinned dimension chips (#1922): the track-chip language (icon AND fill,
  * spelled-out state for screen readers and the tooltip), then the
- * "N need attention" count, which carries a flag glyph and words so it never
- * rests on color. Not controls, like track chips (#2542).
+ * "N need attention" count, which is words in amber (no glyph: the flag and
+ * danger red stay the overdue card's alone), so it never rests on color. Not
+ * controls, like track chips (#2542).
  */
 export function DimensionChips({ dimensions, attention, spelledOut = false }: { dimensions: CardTrackState[]; attention: string[]; spelledOut?: boolean }) {
   if (dimensions.length === 0 && attention.length === 0) return null;

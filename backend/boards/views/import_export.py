@@ -731,12 +731,25 @@ def _validate_import_field_definitions(raw, serializer_class, model, pin_attr, l
     dupes = _duplicates_detail(f"{list_name} names", [v["name"] for v in validated])
     if dupes:
         return None, dupes
-    pinned = sum(1 for v in validated if v.get(pin_attr))
-    if pinned > model.MAX_PINNED_PER_BOARD:
-        return None, (
-            f"'{list_name}' pins {pinned} fields with '{pin_attr}'; "
-            f"at most {model.MAX_PINNED_PER_BOARD} are allowed."
+    # Count each pin pool separately (#1922): pinned dimensions draw from
+    # their own cap, so a board exported with 2 generic pins and 3 pinned
+    # dimensions must import. ``pin_pool_cap`` is the same pool rule the API
+    # write path enforces through ``assert_definition_caps``.
+    from boards.serializers import pin_pool_cap
+
+    has_dimension_pool = getattr(model, "MAX_PINNED_DIMENSIONS_PER_BOARD", None) is not None
+    for dimension_pool in ((False, True) if has_dimension_pool else (False,)):
+        pinned = sum(
+            1 for v in validated
+            if v.get(pin_attr) and bool(v.get("is_dimension")) == dimension_pool
         )
+        cap, _message = pin_pool_cap(model, is_dimension=dimension_pool)
+        if pinned > cap:
+            kind = "dimensions" if dimension_pool else "fields"
+            return None, (
+                f"'{list_name}' pins {pinned} {kind} with '{pin_attr}'; "
+                f"at most {cap} are allowed."
+            )
     return validated, None
 
 

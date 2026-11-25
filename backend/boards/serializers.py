@@ -1337,29 +1337,40 @@ def assert_definition_caps(
             })
     if show_on_card:
         pinned_qs = siblings.filter(**{pin_attr: True})
-        dimension_cap = getattr(definition_model, "MAX_PINNED_DIMENSIONS_PER_BOARD", None)
-        if dimension_cap is not None:
+        if getattr(definition_model, "MAX_PINNED_DIMENSIONS_PER_BOARD", None) is not None:
             # Dimensions pin from their own pool (#1922): a pinned dimension is
             # a state chip, not one of the generic value chips, so each pool
             # counts only its own kind.
             pinned_qs = pinned_qs.filter(is_dimension=is_dimension)
-            if is_dimension:
-                if pinned_qs.count() >= dimension_cap:
-                    raise serializers.ValidationError({
-                        pin_attr: (
-                            f"Up to {dimension_cap} dimensions show on the card. "
-                            "Unpin one to pin another."
-                        )
-                    })
-                return
-        pinned = pinned_qs.count()
-        if pinned >= definition_model.MAX_PINNED_PER_BOARD:
-            raise serializers.ValidationError({
-                pin_attr: (
-                    f"At most {definition_model.MAX_PINNED_PER_BOARD} "
-                    f"{field_noun} can be shown on {pin_surface}."
-                )
-            })
+        cap, message = pin_pool_cap(
+            definition_model,
+            is_dimension=is_dimension,
+            field_noun=field_noun,
+            pin_surface=pin_surface,
+        )
+        if pinned_qs.count() >= cap:
+            raise serializers.ValidationError({pin_attr: message})
+
+
+def pin_pool_cap(definition_model, *, is_dimension=False, field_noun="custom fields",
+                 pin_surface="the card face"):
+    """Return ``(cap, message)`` for the pin pool a definition draws from (#1922).
+
+    A model with ``MAX_PINNED_DIMENSIONS_PER_BOARD`` has two pools: dimensions
+    pin from their own (they render as state chips, not value chips) and every
+    other field from ``MAX_PINNED_PER_BOARD``. A model without it (swimlane
+    fields) has one pool. This is the one place that maps a definition to its
+    pool, shared by :func:`assert_definition_caps` (API writes) and the JSON
+    import's whole-list check, so the two cannot drift apart.
+    """
+    dimension_cap = getattr(definition_model, "MAX_PINNED_DIMENSIONS_PER_BOARD", None)
+    if dimension_cap is not None and is_dimension:
+        return dimension_cap, (
+            f"Up to {dimension_cap} dimensions show on the card. "
+            "Unpin one to pin another."
+        )
+    cap = definition_model.MAX_PINNED_PER_BOARD
+    return cap, f"At most {cap} {field_noun} can be shown on {pin_surface}."
 
 
 #: How each choice-bearing type is named in a validation message. Dropdown's

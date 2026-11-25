@@ -436,7 +436,7 @@ Every change to any custom field value, dimension or not, appears in the card's 
 
 *Added in 1.3* (#1922). A board admin can pin up to **3 dimensions** with **Pin** on the field's row in Board Settings → Card fields. This pool is separate from the 2 pinned fields. A pinned dimension shows as a chip under the card title at Comfortable and Standard density: the dimension's name with an icon for its state (a check for done, a hollow circle for open, a dash for not applicable). The state is spelled out for screen readers and in the chip's tooltip ("Security: open"), so it never depends on color. A dimension that is already a track of the card's column shows once, as a track chip.
 
-When any open dimension on the card is past its plan's target date, the row ends with **N need attention** (with a flag icon); its tooltip names the dimensions. Dimensions with no target date never count, so a card nobody has planned shows nothing. At Dense density, and in the compact layout, the chips and the count are not drawn; screen readers still read them from text on the card.
+A dimension **needs attention** when it is still open and its plan's target date has passed. When any dimension on the card needs attention, the row ends with **N need attention** in amber words (no icon: the red flag stays for an overdue card); its tooltip names the dimensions. Dimensions with no target date never count, so a card nobody has planned shows nothing. At Dense density, and in the compact layout, the chips and the count are not drawn; screen readers still read them from text on the card.
 
 ### Dimension plans: owner, next action, target date
 
