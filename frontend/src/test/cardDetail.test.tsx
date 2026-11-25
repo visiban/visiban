@@ -510,10 +510,34 @@ describe('CardDetail', () => {
     expect(active).toHaveAttribute('aria-pressed', 'true')
     expect(active.textContent).toContain('\u2713')
     expect(idle).toHaveAttribute('aria-pressed', 'false')
-    expect(idle.querySelector('.invisible')).not.toBeNull()
-    expect(active.querySelector('.invisible')).toBeNull()
+    expect(idle.textContent).toBe('Keep')
     expect(active.className).toContain('cf-choice-badge')
     expect(active.style.getPropertyValue('--cf-fg-light')).toMatch(/^#[0-9A-F]{6}$/)
+  })
+
+  // jsdom has no layout, so this pins the arithmetic: idle padding equals active padding plus
+  // half the check box (w-3) and gap (gap-1) on each side.
+  it('centers a label name when idle and the check plus name when active, at one width (#2618)', () => {
+    const on = { id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }
+    const off = { id: 101, uid: 'lbluid000002', name: 'Keep', color: '#22C55E' }
+    render(<CardDetail {...defaultProps()} board={makeBoard({ labels: [on, off] })} card={makeCard({ labels: [on] })} />)
+    const active = screen.getByRole('button', { name: 'Bug' })
+    const idle = screen.getByRole('button', { name: 'Keep' })
+
+    // Idle: nothing but the name takes flow space, and the padding is symmetric.
+    expect(idle.children).toHaveLength(0)
+    expect(idle).toHaveClass('px-[1.125rem]')
+    expect(idle).not.toHaveClass('px-2.5')
+
+    // Active: a fixed-width, decorative check in the room the idle padding held.
+    expect(active).toHaveClass('px-2.5', 'gap-1')
+    expect(active).not.toHaveClass('px-[1.125rem]')
+    expect(active.children).toHaveLength(1)
+    expect(active.firstElementChild).toHaveClass('w-3', 'shrink-0')
+    expect(active.firstElementChild).toHaveAttribute('aria-hidden', 'true')
+
+    const rem = { idlePx: 1.125, activePx: 0.625, check: 0.75, gap: 0.25 }
+    expect(2 * rem.idlePx).toBe(2 * rem.activePx + rem.check + rem.gap)
   })
 
   it('drops a label from an open detail when it is deleted, keeping other edits (#1888)', async () => {
