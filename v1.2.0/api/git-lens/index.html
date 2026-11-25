@@ -5394,6 +5394,7 @@ renders a board instead of returning <code>400</code>.</p>
 </tr>
 </tbody>
 </table>
+<p>Every <code>200</code> carries an <code>ETag</code>. Send it back as <code>If-None-Match</code> and an unchanged board answers <code>304 Not Modified</code> with no body.</p>
 <h2 id="current-milestone">Current milestone<a class="headerlink" href="#current-milestone" title="Permanent link">&para;</a></h2>
 <p>When <code>swimlane_dim=milestone</code>, the server marks at most one swimlane <code>is_current: true</code> — the
 milestone being actively worked on — so a client can promote it instead of burying it among
