@@ -514,6 +514,8 @@ deleted container's.
 
     The [change feed](events.md) applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.
 
+Open for the owner: whether joining a group, or a role change on a group, should also send a frame on the board channel (#1743). Today they send no board-channel `member.*` frame, only [group channel](#group-channel-since-11) frames (a demotion or a role-lowering join can still send board-channel `board.updated` and `share_link.updated` for share links that lapse), so an open board's roster does not show the change until the client re-reads `GET /api/v1/boards/{id}/full/`. Only a removal from a group sends board-channel `member.removed`. The options and an implementer recommendation are in [Technology Decisions](../architecture/decisions.md#group-membership-board-frames).
+
 ### Invite events (since 1.2)
 
 Emitted by the [board invite](boards.md#board-invites) endpoints. Refetch
