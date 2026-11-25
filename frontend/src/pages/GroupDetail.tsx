@@ -865,10 +865,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     }
   }, [boards]);
 
-  useEffect(() => { showSubgroupBoardsRef.current = showSubgroupBoards; }, [showSubgroupBoards]);
-  useEffect(() => { subgroupBoardsRef.current = subgroupBoards; }, [subgroupBoards]);
-  useEffect(() => { sgCountRef.current = sgCount; }, [sgCount]);
-  useEffect(() => {
+  // Layout effects, so a frame that arrives once rows are on screen never reads
+  // the previous render's lists: board.deleted would remove the row but leave the
+  // total unchanged (#2610).
+  useLayoutEffect(() => { showSubgroupBoardsRef.current = showSubgroupBoards; }, [showSubgroupBoards]);
+  useLayoutEffect(() => { subgroupBoardsRef.current = subgroupBoards; }, [subgroupBoards]);
+  useLayoutEffect(() => { sgCountRef.current = sgCount; }, [sgCount]);
+  useLayoutEffect(() => {
     directBoardsRef.current = boards;
     directBoardIdsRef.current = new Set(boards.map((b) => b.id));
   }, [boards]);

@@ -1801,6 +1801,21 @@ describe('GroupDetail', () => {
       await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenLastCalledWith(1, 1, 50))
     })
 
+    it('lowers the total for a removal that lands as soon as the row is on screen (#2610)', async () => {
+      mockGetGroupDescendantBoards.mockResolvedValue(env(0, 3, [sgBoard(10, 'Alpha'), sgBoard(11, 'Beta')]))
+      await openToggle()
+      // Fired from inside waitFor's DOM observer: after the rows commit, before passive effects run.
+      let sent = false
+      await waitFor(() => {
+        screen.getByText('Alpha')
+        if (sent) return
+        sent = true
+        capturedOnEvent?.({ event: 'board.deleted', data: { board_uid: 'u10' } } as BoardEvent)
+      })
+      await waitFor(() => expect(screen.queryByText('Alpha')).toBeNull())
+      expect(await screen.findByText('Showing 1 of 2 subgroup boards')).toBeInTheDocument()
+    })
+
     it('drops a failed Load more when the toggle went off and on meanwhile (#1779)', async () => {
       let hold = false
       let reject: (e: Error) => void = () => {}
