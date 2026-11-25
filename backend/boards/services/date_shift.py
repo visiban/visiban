@@ -6,10 +6,13 @@ export *before* validation, so every shifted value goes through the same
 checks as an unshifted one, and a malformed date is left as it was for the
 existing validators to report.
 
+The retained history of deleted cards (``deleted_card_history``, #1796/#2413)
+moves with the rest (#2580), so Board History shows one timeline.
+
 Shifted: card ``due_date``, ``archived_at``, ``created_at`` and
 ``blocked_at``; checklist item ``due_date`` (#445); comment, movement, activity and gate transition timestamps (#1102); each block's
 ``blocked_at`` and ``unblocked_at`` (#1149); the ``from_value`` / ``to_value`` of
-``due_date_change`` and ``checklist_item_due_changed`` activities (so history agrees with the shifted card), and of ``custom_field_changed`` activities on ``date`` fields (#1921); and
+``due_date_change`` and ``checklist_item_due_changed`` activities (so history agrees with the shifted card), the ``to_value`` of ``planned_released`` activities (the child's due date, #2371), and of ``custom_field_changed`` activities on ``date`` fields (#1921); and
 values of ``date`` custom fields on cards and swimlanes. Relative spacing between all of them is preserved.
 """
 
@@ -62,6 +65,60 @@ def _shift_custom_values(values, date_names, delta):
             values[name] = _shift_date(values[name], delta)
 
 
+def _shift_history(owner, card_date_fields, delta):
+    """Shift every dated history row of one card, live or deleted (#2580).
+
+    ``owner`` is a card or a ``deleted_card_history`` entry. The two carry the
+    same child lists (a deleted entry has no ``comments``), so one walk keeps a
+    new dated key from being shifted for one and forgotten for the other.
+    """
+    # Manual blocks (#1149): both ends move, so durations are unchanged and the
+    # blocks stay aligned with their blocked/unblocked activities.
+    blocks = owner.get("blocks")
+    for block in blocks if isinstance(blocks, list) else []:
+        if isinstance(block, dict):
+            for key in ("blocked_at", "unblocked_at"):
+                if block.get(key):
+                    block[key] = _shift_datetime(block[key], delta)
+    for child, key in (
+        ("comments", "created_at"), ("movements", "moved_at"), ("activities", "created_at"),
+        ("gate_transitions", "created_at"),  # #1102
+    ):
+        items = owner.get(child)
+        for item in items if isinstance(items, list) else []:
+            if not isinstance(item, dict):
+                continue
+            if item.get(key):
+                item[key] = _shift_datetime(item[key], delta)
+            if child == "activities":
+                _shift_activity_values(item, card_date_fields, delta)
+
+
+def _shift_activity_values(item, card_date_fields, delta):
+    """Shift the dates an activity stores as values, so history agrees with the card."""
+    event_type = item.get("event_type")
+    if event_type in ("due_date_change", "checklist_item_due_changed"):
+        value_keys = ("from_value", "to_value")
+    elif event_type == "planned_released":
+        # from_value is the cause; to_value the child's own due date (#2371).
+        value_keys = ("to_value",)
+    elif (
+        # #1921: the row's item_text is the field name; on a date field its
+        # values are dates the shift already moved on the card.
+        event_type == "custom_field_changed"
+        and isinstance(item.get("item_text"), str)
+        and item["item_text"] in card_date_fields
+    ):
+        value_keys = ("from_value", "to_value")
+    else:
+        return
+    # Only keys the file set: writing None for an absent one would turn an
+    # importable file into a 400 (#1507).
+    for value_key in value_keys:
+        if value_key in item:
+            item[value_key] = _shift_date(item[value_key], delta)
+
+
 def shift_board_dates(data, days):
     """Shift ``data`` (a parsed Visiban JSON export) by ``days``, in place.
 
@@ -89,44 +146,17 @@ def shift_board_dates(data, days):
             if card.get(key):
                 card[key] = _shift_datetime(card[key], delta)
         _shift_custom_values(card.get("custom_field_values"), card_date_fields, delta)
-        # Manual blocks (#1149): both ends move, so durations are unchanged
-        # and the blocks stay aligned with their blocked/unblocked activities.
-        blocks = card.get("blocks")
-        for block in blocks if isinstance(blocks, list) else []:
-            if isinstance(block, dict):
-                for key in ("blocked_at", "unblocked_at"):
-                    if block.get(key):
-                        block[key] = _shift_datetime(block[key], delta)
         # Checklist item due dates (#445) are plain dates like the card's.
         checklist = card.get("checklist")
         for entry in checklist if isinstance(checklist, list) else []:
             if isinstance(entry, dict) and entry.get("due_date"):
                 entry["due_date"] = _shift_date(entry["due_date"], delta)
-        for child, key in (
-            ("comments", "created_at"), ("movements", "moved_at"), ("activities", "created_at"),
-            ("gate_transitions", "created_at"),  # #1102
-        ):
-            items = card.get(child)
-            for item in items if isinstance(items, list) else []:
-                if isinstance(item, dict) and item.get(key):
-                    item[key] = _shift_datetime(item[key], delta)
-                if child == "activities" and isinstance(item, dict) and item.get("event_type") in (
-                    "due_date_change", "checklist_item_due_changed",
-                ):
-                    # Only keys the file set: writing None for an absent one
-                    # would turn an importable file into a 400 (#1507).
-                    for value_key in ("from_value", "to_value"):
-                        if value_key in item:
-                            item[value_key] = _shift_date(item[value_key], delta)
-                elif (
-                    child == "activities" and isinstance(item, dict)
-                    and item.get("event_type") == "custom_field_changed"
-                    and isinstance(item.get("item_text"), str)
-                    and item["item_text"] in card_date_fields
-                ):
-                    # #1921: the row's item_text is the field name; on a date
-                    # field its values are dates the shift already moved on the card.
-                    for value_key in ("from_value", "to_value"):
-                        if value_key in item:
-                            item[value_key] = _shift_date(item[value_key], delta)
+        _shift_history(card, card_date_fields, delta)
+
+    # Deleted cards' retained history (#2580): same row shapes as a live card's
+    # blocks, movements, activities and gate transitions, with no card around them.
+    deleted = data.get("deleted_card_history")
+    for entry in deleted if isinstance(deleted, list) else []:
+        if isinstance(entry, dict):
+            _shift_history(entry, card_date_fields, delta)
     return data
