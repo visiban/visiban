@@ -522,3 +522,77 @@ Why A over B:
 - **B:** a separate implementation MR with: `models.py:214` default and `help_text`, and the migration; `seed_demo_data.py:1088`; `frontend/CLAUDE.md` § Card density table ("Default for") and the blocked-indicator note at line 697 ("`comfortable` is the default for every board created since 1.1"); `docs/features/board.md:376–378`; `docs/features/index.md:383`; `docs/architecture/data-model.md:110` and `:267`; `docs/api/boards.md:78`; a `changed` fragment in `changelog.d/`; a 1.3 note in `docs/administration/upgrade.md`; and the `e2e/board-redesign.spec.ts` captures if the sample board stops naming its density. Gates: `migration-check`, `regression-check`, `api-docs`.
 
 **Aside, true under either option:** the `card_density` `help_text` (`models.py:215–225`) still describes the 1.1 tiers ("``dense`` shows everything"), which the redesign no longer matches. It is a source change, so it is out of scope for this docs-only record.
+
+---
+
+<a id="csv-deleted-card-history"></a>
+
+## Deleted-card history in the CSV export
+
+**Status:** Proposed, owner decision pending (#2414). This record proposes and decides nothing. Until the owner rules, the CSV export stays as it is today: it carries no deleted-card history. The ruling is recorded as a dated note under this record, never as a silent rewrite.
+
+**The question:** since 1.3 (#1796) the JSON export carries the retained history of hard-deleted cards in `deleted_card_history`. The CSV export does not. Should it, and if so in what form?
+
+**Where the question came from:** the #1796 branch, which shipped the JSON half and left CSV out on purpose. No user has asked for it. No persona panel was run for this record.
+
+### What the code does today
+
+Each claim below was read in the code. The ones marked *verified* were also checked with a throwaway test against the SQLite test database (not committed).
+
+- **A deleted card's records stay on the board.** `CardMovement.card` is nullable and uses `set_null_keeping_board` (`backend/boards/models.py:1194`). Activities, blocks and gate transitions follow the same rule (#1799, #2413). The rows keep `board`, `card_uid` and `card_title`.
+- **The CSV export is one row per live card.** The export reads `Card.objects.filter(board=board)` and writes one row per card (`backend/boards/views/import_export.py:4529–4602`). A deleted card has no `Card` row, so it has no CSV row, and its movements are in no live card's `Movement History` cell. *Verified:* a board with one live and one deleted card, both moved, exports one data row (`Live`), and the deleted card's title appears nowhere in the file.
+- **The "one row per card" rule is documented.** The column list is in `docs/api/boards.md:1038`, and `docs/api/boards.md:1044` says the swimlane field columns repeat per card "so the CSV stays one row per card". The audit log's `row_count` counts cards (`import_export.py:4607–4613`).
+- **The CSV writer uses CRLF line endings.** `csv.writer(buf)` takes the default `lineterminator` of `"\r\n"` (`import_export.py:4504`). *Verified:* the body contains `\r\n`. The repository's `.gitattributes` sets `* text=auto eol=lf`, so a CSV committed as a byte-for-byte fixture would be rewritten to LF on checkout.
+- **The CSV importer makes a card of every row.** It requires the `Title`, `Column` and `Swimlane` headers (`import_export.py:3568`), rejects the whole file if any row has one of them blank (`:3613–3619`), and appends one `Card` per remaining row (`:3847–3880`). Headers it does not know are ignored. It caps a file at 500 rows (`:3559`) and does not read `Movement History` at all. *Verified:* a file with an extra `Row Type` column and a row marked `deleted_card_movement`:
+  - with that row's `Column` blank, the import fails with `400` "Row 3 is missing required field: Column";
+  - with `Column` filled in, the import succeeds and creates the marked row as a card (`A` and `Old`).
+- **The JSON export carries all four kinds of record.** `_deleted_card_history_export` (`import_export.py:359`) reads the board's movements, activities, blocks and gate transitions with `card IS NULL`, groups them by `card_uid`, and drops any uid that is also exported as a live card. Its docstring (`:374–376`) says why CSV is left out and points to #2414. JSON import restores the entries as retained rows when the `history` option is on (`docs/api/boards.md:1073`).
+- **Board members already read deleted cards' movements.** `GET /boards/{id}/movements/` selects by the movement's own `board`, so retained rows are included and serialize from their snapshot (`backend/boards/views/analytics.py:2143–2195`). *Verified:* the History response lists the deleted card's title next to the live card's. Activities, blocks and gate transitions of a deleted card are on no per-card surface. They leave the board only in the JSON export (`models.py:1511–1514`, `docs/administration/card-history-retention.md:31`).
+- **A flat movement export is an enterprise extension point.** `?export=<format>` on the movements endpoint calls the first `MOVEMENT_EXPORT_BACKENDS` callable (`analytics.py:2274–2327`, `backend/boards/hooks.py:19–49`). Since #1796 a backend that sets `accepts_deleted_cards = True` also receives deleted cards' rows (`analytics.py:2310–2313`). OSS registers no backend, and the History view shows an export button only when one is registered (`frontend/src/components/Board/MovementHistoryView.tsx:425`). The open-core boundary classifies the "movement history delivery report export (CSV/PDF)" as enterprise (`docs/architecture/open-core-boundary.md:38`, `:169–175`).
+- **Downloaded files are beyond the purge.** `purge_card_history` deletes rows in the database (`backend/boards/management/commands/purge_card_history.py:332–336`). Board exports downloaded before a purge, and copies of them, are out of its reach (`docs/administration/card-history-retention.md:44`).
+
+**Not verified:** whether the enterprise repository's movement export backend exists, what format it writes, or whether it sets `accepts_deleted_cards`; this record reads only the OSS repository. The probe ran on SQLite, not PostgreSQL. Nothing here depends on database-specific behavior.
+
+### Options
+
+**A. Keep the CSV without deleted-card history, and say so as a decision.** No code change. The CSV stays a file of the board's cards. The JSON export is the complete, lossless format, including deleted cards' history. Board History and the movements API cover reading it.
+- *For:* matches what a CSV row means to the importer and to every consumer today. Nothing can bring a deleted card back by accident. Keeps the flat movement report in the enterprise extension point, where the boundary ruling put it. Adds no new copy of deleted cards' titles and notes in the format most often opened in a spreadsheet and passed around.
+- *Against:* an auditor who wants deleted cards' moves in a spreadsheet has to page through the movements API or convert the JSON. Nobody has reported that need.
+- *Backward compatibility:* none affected.
+
+**B. A separate history CSV, served by a new optional query parameter.** For example `GET /boards/{id}/export/?format=csv&section=deleted_card_history`, returning a second file with one row per retained movement of a deleted card: `Card UID`, `Card Title`, `Moved At`, `From Column`, `To Column`, `From Swimlane`, `To Swimlane`, `Moved By`, `Movement Type`, `Notes`, `Imported From`.
+- *For:* additive. The board CSV is unchanged, and a new optional parameter is allowed by the backward-compatibility rules in `CLAUDE.md`. The importer already refuses such a file (it has no `Title`, `Column` or `Swimlane` header), so it cannot bring cards back. Opens in a spreadsheet directly.
+- *Against:*
+  - It covers movements only. Activities, blocks and gate transitions have three more shapes. Either the file is incomplete and looks complete, or it needs three more files or a column union that is mostly empty cells.
+  - It is close to the enterprise "delivery report export (CSV)" and needs an `enterprise-check` before design.
+  - It adds a public contract to keep stable from 1.3 on: columns, order and sanitization, plus importer behavior for the file (either a clear error naming it or a documented refusal).
+  - It is one more copy of deleted cards' titles and notes that `purge_card_history` cannot reach once downloaded. `Notes` and `Imported From` are free text and need the same formula sanitization as every other cell (`_sanitize_csv_field`, `import_export.py:1116`).
+  - Line endings: the new file should use the board CSV's CRLF, so the two exports agree. Tests should compare parsed rows. A byte-for-byte fixture committed to the repository needs `lineterminator="\n"` when generated, or `.gitattributes` (`eol=lf`) will rewrite it and the comparison fails only in CI.
+- *Backward compatibility:* additive if it is a new optional parameter. Changing what `?format=csv` alone returns, for example a zip of two files, would break every existing consumer and is not part of this option.
+
+**C. Deleted-card rows in the existing CSV, marked by a new row-type column.** Rejected.
+- Appending a column is additive. Adding rows that are not cards is not: it breaks the documented one-row-per-card contract (`docs/api/boards.md:1044`) for every consumer that counts rows, pivots on them or reads `Movement Count`.
+- Every importer that predates the marker either fails the whole file or creates a card from the marked row. The verified probe above shows this importer does both, depending on whether the row's `Column` is blank. That includes a 1.2 instance importing a newer file.
+- The marked rows would also count toward the 500-row import cap and the audit log's `row_count`.
+
+**D. Defer: leave the docs pointing at an open #2414.** No change. This leaves the docs saying the question is open in #2414, with no date for an answer. Not recommended. Option A costs the same and closes the question.
+
+### Recommendation
+
+> **RECOMMENDATION (implementer proposal, not a decision): option A.** Keep the CSV export a file of the board's cards, with no deleted-card history, and record it as decided. JSON remains the export for a complete audit trail, deleted cards included.
+
+Why A over B:
+
+1. The JSON export already carries all four kinds of deleted-card record and round-trips them, so no data is unreachable. B would add a second, partial route to a subset of it.
+2. A flat movement report is classified as enterprise. An OSS history CSV would need that boundary reopened first, and nothing has asked for it.
+3. B is cheap to add later. It is a new optional parameter, so it can ship in any minor release without breaking anything. Choosing A now locks in nothing. Choosing B now locks in a column contract.
+4. A keeps deleted cards' free text out of the format most likely to be copied around.
+
+*What would change this to B:* a real user or customer report that they need deleted cards' moves in a spreadsheet and cannot use the JSON export or the History view, together with an `enterprise-check` ruling that a plain movement CSV is OSS.
+
+### If the owner approves
+
+- **A:** add a dated note under this record ("Decided <date>: the CSV export carries no deleted-card history; see #2414"), change **Status** to Accepted, and replace the "open for the owner in #2414" sentences with the decided wording below. Docs only, no changelog fragment. The docstring in `import_export.py:374–376` ("whether the CSV should carry it in another form: #2414") is a source comment: update it in the same MR, or leave it to the next MR that touches the file.
+  - `docs/features/card-history.md:112`, replace the sentence "CSV export does not carry any of it, because a CSV row is a card; whether it should carry the movement history is open for the owner in #2414 (…)." with: "CSV export does not carry any of it, by decision (#2414): a CSV row is a card, and the CSV importer creates a card from every row. Use the JSON export, or the board's **History** view for movements."
+  - `docs/api/boards.md:1071`, replace the sentence "The CSV export does not carry it, because a CSV row is a card and the CSV importer would create a card from it; whether the CSV should carry the retained movement history in another form is open for the owner in #2414 (…)." with: "The CSV export does not carry it, by decision (#2414; see [Technology Decisions](../architecture/decisions.md#csv-deleted-card-history)): a CSV row is a card and the CSV importer would create a card from it. JSON is the export for the complete history."
+- **B:** a separate implementation MR, after an `enterprise-check`, with the new parameter on `export` and its OpenAPI entry; the column contract in `docs/api/boards.md`; importer behavior for the file (a named `400` rather than the generic missing-headers message); the `BoardExportLog` format value; formula sanitization of every free-text cell; tests for the absent and present parameter, an empty history, `export_min_role`, and the importer's refusal; an `added` fragment in `changelog.d/`; and the docs lines above reworded for B. Gates: `architect`, `security-review`, `rbac-check`, `perf-check`, `regression-check`, `api-docs`.
