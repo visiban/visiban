@@ -1806,16 +1806,24 @@ class DemoSiteHistoryReconciliationTests(TestCase):
                 self.assertLessEqual({"move", "activity"}, kinds)
 
     def test_every_board_with_moves_has_recent_moves_for_the_activity_drawer(self):
-        """#2596 guard: the board Activity drawer opens with the board's moves
-        from the last 7 days (its widest window), read from the board
-        movements endpoint with archive rows excluded, exactly as the drawer
-        asks. A demo board whose seeded moves all predate that window would
-        open the drawer empty again."""
+        """#2596 guard: the board Activity drawer opens on rows, not "No
+        activity yet", for every demo board with moves.
+
+        Asks the board movements endpoint exactly as the drawer does (7 days
+        back by date, archive rows excluded, pages followed up to its 100-row
+        cap) and then applies the drawer's own windows to what comes back:
+        the 24h default, and the 7-day window it widens to once on open when
+        the last 24 hours are empty (BoardActivityDrawer, tested in
+        boardActivityDrawer.test.tsx "auto-widen to 7 days"). The seeded
+        boards' latest moves are days before seed time (the staleness tints
+        and stalled-card analytics depend on that), so the demo relies on the
+        widen: the window the visitor actually sees must hold rows."""
         from rest_framework.test import APIClient
 
         client = APIClient()
         client.force_authenticate(User.objects.get(username="visitor"))
-        week_ago = (timezone.now() - datetime.timedelta(days=7)).date().isoformat()
+        now = timezone.now()
+        week_ago = (now - datetime.timedelta(days=7)).date().isoformat()
         # Column moves, not creations: the Trello import's history keeps the
         # source file's dates and has no moves of its own.
         boards = Board.objects.filter(
@@ -1824,13 +1832,21 @@ class DemoSiteHistoryReconciliationTests(TestCase):
         self.assertGreaterEqual(boards.count(), 8)
         for board in boards:
             with self.subTest(board.name):
-                r = client.get(
-                    f"/api/v1/boards/{board.pk}/movements/",
-                    {"moved_after": week_ago, "exclude_type": "archived,unarchived"},
-                )
-                self.assertEqual(r.status_code, 200)
-                self.assertGreater(r.data["count"], 0)
-
+                rows = []
+                while len(rows) < 100:
+                    r = client.get(
+                        f"/api/v1/boards/{board.pk}/movements/",
+                        {"moved_after": week_ago, "exclude_type": "archived,unarchived", "offset": len(rows)},
+                    )
+                    self.assertEqual(r.status_code, 200)
+                    rows.extend(r.data["results"])
+                    if not r.data["results"] or len(rows) >= r.data["count"]:
+                        break
+                times = [datetime.datetime.fromisoformat(m["moved_at"]) for m in rows[:100]]
+                in_day = sum(t >= now - datetime.timedelta(hours=24) for t in times)
+                in_week = sum(t >= now - datetime.timedelta(days=7) for t in times)
+                shown = in_day if in_day else in_week
+                self.assertGreater(shown, 0, f"24h: {in_day}, 7d: {in_week}")
 
 @override_settings(**_DEMO_SITE_SETTINGS)
 class DemoSiteOverlayBoardTests(TestCase):
