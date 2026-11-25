@@ -76,3 +76,36 @@ class ImportCardPositionTests(TestCase):
             {"title": "B", "column": "To Do", "position": 0},
         ])
         self.assertEqual(_positions(board)[("To Do", "General")], [("B", 0), ("A", 1)])
+
+    def test_json_archived_cards_are_renumbered_together_with_live_ones(self):
+        board = self._json([
+            {"title": "A", "column": "To Do", "position": 0},
+            {"title": "B", "column": "To Do", "position": 1, "archived_at": "2026-01-01T00:00:00Z"},
+            {"title": "C", "column": "To Do", "position": 2},
+            {"title": "D", "column": "To Do", "position": 7, "archived_at": "2026-01-02T00:00:00Z"},
+        ])
+        cards = {c.title: c for c in Card.objects.filter(board_id=board)}
+        self.assertEqual([cards[t].position for t in "ABCD"], [0, 1, 2, 3])
+        self.assertIsNotNone(cards["B"].archived_at)
+        self.assertIsNotNone(cards["D"].archived_at)
+        self.assertIsNone(cards["A"].archived_at)
+        self.assertIsNone(cards["C"].archived_at)
+
+    def test_json_cards_in_distinct_cells_are_each_numbered_from_zero(self):
+        data = {
+            "name": "P",
+            "columns": [{"name": "To Do", "position": 0}, {"name": "Done", "position": 1}],
+            "swimlanes": [{"name": "General", "position": 0}, {"name": "Ops", "position": 1}],
+            "labels": [],
+            "cards": [
+                {"title": "A", "column": "To Do", "swimlane": "General", "position": 4},
+                {"title": "B", "column": "To Do", "swimlane": "Ops", "position": 9},
+                {"title": "C", "column": "Done", "swimlane": "General", "position": 3},
+                {"title": "D", "column": "To Do", "swimlane": "General", "position": 1},
+                {"title": "E", "column": "To Do", "swimlane": "Ops", "position": 2},
+            ],
+        }
+        cells = _positions(self._post(json.dumps(data), "board.json"))
+        self.assertEqual(cells[("To Do", "General")], [("D", 0), ("A", 1)])
+        self.assertEqual(cells[("To Do", "Ops")], [("E", 0), ("B", 1)])
+        self.assertEqual(cells[("Done", "General")], [("C", 0)])
