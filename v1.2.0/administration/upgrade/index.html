@@ -5087,6 +5087,15 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <p>Read the notes for every version between your current release and the target before you upgrade. Each callout is a change an operator may need to act on: a changed default, a renamed setting, or a new requirement.</p>
 <h3 id="upgrading-to-13x">Upgrading to 1.3.x<a class="headerlink" href="#upgrading-to-13x" title="Permanent link">&para;</a></h3>
 <div class="admonition note">
+<p class="admonition-title">Turn on the assignee override only after the rollout completes</p>
+<p>Since 1.3 a board admin can <a href="../../features/board/#letting-a-cards-assignee-move-it-anyway-since-13">let a card's assignee move it past a Block limit</a> (off by default). It is refused when the assignee assigned the card to themselves, which the server knows from who set the assignee. Only 1.3 records that.</p>
+<ul>
+<li><strong>Rolling upgrade.</strong> Wait until every instance runs 1.3 before turning the switch on. An instance still on the older release changes an assignee without updating who assigned it, so a card first assigned through 1.3 and then reassigned through the older instance keeps the earlier assigner, and a member who assigned it to themselves there would qualify.</li>
+<li><strong>Rollback, then upgrade again.</strong> The same happens to every card reassigned while the older release ran. Turn the switch off, and for each such card clear the assignee and set it again before turning it back on. Toggling the switch alone corrects nothing.</li>
+<li>A card whose assigner was never recorded (assigned before 1.3, or imported) never qualifies until it is reassigned.</li>
+</ul>
+</div>
+<div class="admonition note">
 <p class="admonition-title">A Valkey outage no longer fails the readiness probe: monitors on its <code>503</code> stop firing</p>
 <p>Since 1.3, <code>/api/health/readiness/</code> depends on the database only. When Valkey is unreachable it answers <code>200</code> with <code>{"status": "degraded"}</code> instead of <code>503</code> with a <code>redis</code> key, so pods stay in the Service and ordinary REST requests keep working (#1465). See <a href="../configuration/#if-valkey-goes-down">If Valkey goes down</a> for what still fails.</p>
 <ul>

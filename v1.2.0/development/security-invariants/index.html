@@ -5932,6 +5932,11 @@ fails closed.</p>
 <td><code>webhooks/dispatch.py</code> <code>_deliver</code>, <code>send_test</code></td>
 <td>A delivery is one change-feed row as <code>GET /boards/{id}/events/</code> returns it to a viewer, so it is no broader than REST for the lowest board role; the test event carries ids only. Configuration is board-admin only and is not readable over any other transport; the URL is returned once, on create (#863). The admin-only <code>webhook.changed</code> frame (<code>webhooks/live.py</code>, #2057, in <code>ADMIN_ONLY_EVENTS</code>) is an invalidation with ids and codes only (<code>{id, status, reason_code, consecutive_failures, changed_by, at}</code>), never the URL, host, label or a secret; it is not written to the change feed and is not subscribable</td>
 </tr>
+<tr>
+<td>Override reason (#1923)</td>
+<td><code>boards/services/cards.py</code> <code>record_overrides</code> (the additive <code>override</code> object on <code>card.moved</code>, <code>card.created</code>, <code>card.unarchived</code> and the move/restore REST bodies); <code>CardActivity</code> <code>override_used</code> <code>item_text</code></td>
+<td>Same exposure as <code>Card.blocked_reason</code>: every board reader, the change feed and outbound webhooks see it; never on <code>PublicCardSerializer</code> (a whitelist). <code>purge_card_history</code> deletes <code>CardOverride</code> rows with the card's history and nulls <code>override.reason</code> in feed payloads</td>
+</tr>
 </tbody>
 </table>
 <p>Coverage: <code>mcp_server/tests/test_mcp.py</code> (<code>UserFieldParityTests</code>, which pins
@@ -6181,7 +6186,10 @@ ones, directly and under <code>migrate</code>), <code>groups/tests/test_groups.p
 honors the target column's <code>wip_limit</code>/<code>weight_limit</code> and, since 1.3 (#1150),
 the target swimlane's, on every transport. A soft limit (<code>block</code>, or a board
 flag) refuses the write with <code>409</code> unless a board admin or site admin passes
-<code>?force=true</code>; a hard WIP limit refuses every role and ignores <code>force</code>. When
+<code>?force=true</code>, or, when the board's <code>allow_assignee_override</code> is on (default off,
+re-read at decision time), the card's assignee with role <code>member</code> passes it with
+an <code>override_reason</code> and did not assign the card to themselves (<code>assigned_by</code> set
+and not the caller; #1923); a hard WIP limit refuses every role and ignores <code>force</code>. When
 several limits trip, the strictest one is reported (hard before block; the
 column first when equal), and one <code>force</code> covers every soft limit tripped. A
 swimlane limit applies only when the write adds to the swimlane's counted total
@@ -6213,7 +6221,7 @@ check.</p>
 <tr>
 <td>REST move</td>
 <td><code>boards/views/cards.py</code> <code>CardViewSet.move</code></td>
-<td><code>boards/services/cards.py</code> <code>move_card</code> -&gt; <code>_move_card_attempt</code>: <code>enforce_column_limits(..., swimlane=target_swimlane, source=(card.column, card.swimlane_id), check_column=column_changed)</code> when the column or the swimlane changes; <code>force</code> from <code>?force=true</code>, authorized by <code>_require_force_role</code></td>
+<td><code>boards/services/cards.py</code> <code>move_card</code> -&gt; <code>_move_card_attempt</code>: <code>enforce_column_limits(..., swimlane=target_swimlane, source=(card.column, card.swimlane_id), check_column=column_changed)</code> when the column or the swimlane changes; <code>force</code> from <code>?force=true</code>, authorized by <code>_require_force</code></td>
 </tr>
 <tr>
 <td>REST create</td>
@@ -6274,6 +6282,26 @@ check.</p>
 <td>WebSocket</td>
 <td>none</td>
 <td>No consumer writes cards</td>
+</tr>
+<tr>
+<td>Force override: assignee basis (#1923)</td>
+<td><code>boards/services/cards.py</code> <code>_require_force</code>, called once per placement by <code>_evaluate_constraints</code> from <code>enforce_column_limits</code> (move, create, restore, weight-raising PATCH)</td>
+<td>Board admins (<code>admin</code>) and site admins (<code>site_admin</code>) may pass <code>?force=true</code> past a Block WIP or weight limit. Since #1923 a card's assignee may too (<code>assignee</code> basis), only when <code>Board.allow_assignee_override</code> is on (default off, re-read in the transaction), the actor's role is <code>member</code>, the actor is the assignee, and <code>Card.assigned_by</code> is set and is not the actor, all read from the card row the caller locked. The basis requires a non-empty <code>override_reason</code> (400 <code>override_reason_required</code>); an admin/site-admin WIP or weight force may omit it. Every override writes one <code>CardOverride</code> row per kind plus an <code>override_used</code> <code>CardActivity</code>. Hard WIP stops every role. The Django admin keeps <code>force=False</code>. Import and seed are exempt. Flipping the switch, <code>enforce_wip_limits</code>, <code>enforce_wip_hard</code>, <code>enforce_weight_limits</code> or a swimlane's <code>limit_enforcement</code> writes a <code>BoardSettingChange</code> row (#2584)</td>
+</tr>
+<tr>
+<td><code>assigned_by</code> freshness (#1923): known limitation</td>
+<td>every assignee write path in this release; <code>boards/models.py</code> <code>clear_assigned_by_of_deleted_assignee</code> (user deletion)</td>
+<td><code>Card.assigned_by</code> is only maintained by 1.3 code. An older instance (during a rolling deploy, or after a rollback) changes <code>assignee</code> without it, leaving an earlier assigner that can make a self-assignment look like someone else's. Not enforced in code: operators turn <code>allow_assignee_override</code> on only once every instance runs 1.3, and after a rollback and roll-forward turn it off and reassign the affected cards first (<code>docs/administration/upgrade.md</code>). A new assignee write path must set or clear <code>assigned_by</code></td>
+</tr>
+<tr>
+<td>MCP stays force-less (#1923)</td>
+<td><code>mcp_server/tools.py</code> <code>move_card</code>, <code>create_card</code>, <code>update_card</code></td>
+<td>No <code>force</code> or <code>override_reason</code> argument: a Block limit acts as Hard over MCP for every role. Adding one later must go through <code>_require_force</code>, never a copy in <code>tools.py</code></td>
+</tr>
+<tr>
+<td>Eligibility predicate fails closed (#1923)</td>
+<td><code>boards/services/cards.py</code> <code>_require_force</code></td>
+<td>One shared function; a missing or unresolved role, actor, card, board, assignee or <code>assigned_by</code>, a viewer or collaborator role, an ex-member (role <code>None</code>), or the switch off raises <code>ForceNotPermitted</code> (403 <code>code: force_not_permitted</code>; <code>reason: self_assigned</code> only when the switch is on and the assignee assigned the card to themselves). Absent-input tests: <code>boards/tests/test_assignee_override_1923.py</code> <code>RequireForcePredicateTests</code>; the PostgreSQL race test there proves the read waits on the card lock</td>
 </tr>
 </tbody>
 </table>

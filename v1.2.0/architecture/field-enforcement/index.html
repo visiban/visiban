@@ -4522,14 +4522,14 @@
 <td><code>Swimlane.weight_limit</code></td>
 <td>Binding (import exempt by design)</td>
 <td>The swimlane's counted weight stays within budget</td>
-<td>Same paths as <code>Swimlane.wip_limit</code>, plus raising a card's <code>weight</code> with PATCH (or in the Django admin) when its column counts. No hard mode: a board admin can always override it with <code>?force=true</code></td>
+<td>Same paths as <code>Swimlane.wip_limit</code>, plus raising a card's <code>weight</code> with PATCH (or in the Django admin) when its column counts. No hard mode: a board admin (or the card's assignee, when enabled) can override it with <code>?force=true</code></td>
 <td>— (by design, #1150)</td>
 </tr>
 <tr>
 <td><code>Swimlane.limit_enforcement</code></td>
 <td>Binding</td>
 <td>How the swimlane's own limits are enforced</td>
-<td><code>block</code> (admin override), <code>hard</code> (no override for the WIP limit), or <code>null</code> to inherit the board's three flags, as a column does</td>
+<td><code>block</code> (admin override, or the card's assignee when enabled), <code>hard</code> (no override for the WIP limit), or <code>null</code> to inherit the board's three flags, as a column does</td>
 <td>— (#1150)</td>
 </tr>
 <tr>
@@ -4543,7 +4543,7 @@
 <td><code>Board.enforce_wip_limits</code></td>
 <td>Binding (import exempt by design)</td>
 <td>Over-limit placement returns 409</td>
-<td>Applies to move, create, restore, and the Django admin; board admins can override with <code>?force=true</code> (no override in the Django admin)</td>
+<td>Applies to move, create, restore, and the Django admin; board admins (or the card's assignee, when enabled) can override with <code>?force=true</code> (no override in the Django admin)</td>
 <td>— (by design, #1428)</td>
 </tr>
 <tr>
@@ -4559,6 +4559,13 @@
 <td>Over-budget placement returns 409</td>
 <td>Applies to move, create, restore, weight increases via PATCH, and the Django admin</td>
 <td>— (by design, #1428)</td>
+</tr>
+<tr>
+<td><code>Board.allow_assignee_override</code></td>
+<td>Binding</td>
+<td>A card's assignee may force past a Block limit</td>
+<td>Default off, board-admin-only to change. On every <code>?force=true</code> path, <code>_require_force()</code> re-reads it and admits the assignee only with role <code>member</code>, a required <code>override_reason</code>, and <code>assigned_by</code> set to somebody else. Never a hard limit. Changes are recorded in <code>BoardSettingChange</code></td>
+<td>— (#1923)</td>
 </tr>
 <tr>
 <td><code>Board.allowed_priorities</code></td>
