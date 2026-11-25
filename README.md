@@ -12,7 +12,7 @@
 
 **See how work flows. Know what needs attention.**
 
-Visiban is a Kanban board with a swimlane for every customer, project or workstream, so the whole board shows where everything stands at a glance. Because every card move is recorded, Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work, without a plugin or a spreadsheet. You can see which cards are blocked or stalled, and (new in 1.3) compare swimlanes by how long work takes and how long it sits blocked. Analytics is in beta.
+Visiban is a Kanban board with a swimlane for every customer, project or workstream, so the whole board shows where everything stands at a glance. Because every card move is recorded, Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work, without a plugin or a spreadsheet. You can see which cards are blocked or stalled, and compare swimlanes by how long work takes and how long it sits blocked. Blocked state, the flow charts (cycle time, throughput, cumulative flow, WIP age), the bottleneck panel and the Swimlanes view are new in 1.3; 1.2 does not have them. Analytics is in beta.
 
 - **Every move is on the record.** Each move is written down automatically: who moved it, when, and from where. You always know where something is _and_ how it got there.
 - **Rows carry data.** Swimlane rows have typed fields of their own, so the data teams usually keep in a side-spreadsheet lives on the board instead.

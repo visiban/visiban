@@ -1,6 +1,6 @@
 # Why Visiban, and when to pick something else
 
-> **Reflects 1.2**
+> **Reflects 1.3.** Blocked state, the flow charts (cycle time, throughput, cumulative flow, WIP age), the bottleneck panel and the Swimlanes view are new in 1.3; 1.2 does not have them.
 
 <a id="the-one-sentence-answer"></a>
 
@@ -37,7 +37,7 @@ Visiban does many things, but other tools do those too. These four are what set 
 
 ### 2. Flow intelligence is built on the movement history
 
-**How it works:** Visiban records every card movement as structured data: from column, to column, from swimlane, to swimlane, actor, and timestamp. It keeps the records permanently. [Analytics](../features/analytics.md) *(beta)* turns them into cycle time, throughput, WIP age, bottlenecks, and blocked time, grouped around four questions: what is happening, how fast work moves, where it is stuck, and why. New in 1.3, its [Swimlanes view](../features/analytics.md#swimlanes-view) compares lanes by cycle time and blocked time.
+**How it works:** Visiban records every card movement as structured data: from column, to column, from swimlane, to swimlane, actor, and timestamp. It keeps the records permanently. [Analytics](../features/analytics.md) *(beta)* turns them into cycle time, throughput, WIP age, bottlenecks, and blocked time, grouped around four questions: what is happening, how fast work moves, where it is stuck, and why. Its [Swimlanes view](../features/analytics.md#swimlanes-view) compares lanes by cycle time and blocked time.
 
 **Why it matters:** In an incident retrospective you can ask *"how long did this actually sit in Review, and how does that compare to the last thirty cards?"* You get an answer, not a scroll-back.
 
