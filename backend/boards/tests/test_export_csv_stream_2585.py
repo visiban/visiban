@@ -11,8 +11,10 @@ from unittest import mock
 
 from asgiref.sync import async_to_sync
 from django.core.cache import cache
+from django.db import connection
 from django.http import StreamingHttpResponse
 from django.test import AsyncClient
+from django.test.utils import CaptureQueriesContext
 
 from boards.models import BoardExportLog
 from boards.tests.test_export_relations_history_2413 import _Fixture
@@ -55,6 +57,14 @@ class CsvStreamTests(_Fixture):
                 self.assertEqual(body, _buffered(rows))
                 self.assertTrue(body.startswith(b"Card ID,Title,Description,"))
                 self.assertTrue(body.endswith(b"\r\n"))
+
+    def test_csv_export_never_reads_card_activities(self):
+        # The activities prefetch is JSON-only: no CSV column reads it.
+        with CaptureQueriesContext(connection) as ctx:
+            self._get().getvalue()
+        queries = [q["sql"] for q in ctx.captured_queries]
+        self.assertTrue(any('FROM "cards"' in q for q in queries), queries)
+        self.assertEqual([q for q in queries if "card_activities" in q], [])
 
     def test_chunk_helper_matches_a_single_buffer_at_every_boundary(self):
         header = ["a", "b"]

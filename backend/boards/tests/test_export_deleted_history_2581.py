@@ -42,6 +42,19 @@ class DeletedHistoryChunkTests(_Fixture):
             with self.subTest(size):
                 self.assertEqual(self._history(size)[0], expected)
 
+    def test_assigned_by_on_a_card_less_row_is_joined_not_queried_per_row(self):
+        # Distinct users, so a missing join cannot be hidden by a cached one.
+        rows = list(CardActivity.objects.filter(board=self.board, card__isnull=True)[:2])
+        self.assertEqual(len(rows), 2)
+        names = {"assigner-a", "assigner-b"}
+        for row, name in zip(rows, sorted(names)):
+            user = User.objects.create_user(username=name, password="pw-2581-x")
+            CardActivity.objects.filter(pk=row.pk).update(assigned_by=user)
+        history, queries = self._history(500)
+        exported = {a["assigned_by"] for entry in history for a in entry["activities"]}
+        self.assertLessEqual(names, exported)
+        self.assertEqual(len(queries), 4, queries)
+
     def test_a_type_larger_than_a_chunk_is_read_a_window_at_a_time(self):
         _, queries = self._history(2)
         movement_reads = [q for q in queries if 'FROM "card_movements"' in q]
