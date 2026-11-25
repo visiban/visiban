@@ -63,14 +63,22 @@ def page_anchors(md: str) -> set[str]:
 
 
 def parse_registry(ts: str) -> dict[str, dict[str, str]]:
-    """Read `key: { path: "...", anchor: "..." }` entries from HELP_TOPICS."""
+    """Read `key: { path: "...", anchor: "..." }` entries from HELP_TOPICS.
+
+    Entries are split at each two-space-indented `key: {` (any quote style, inline or
+    multi-line); an entry with no parseable `path` is kept with an empty path so the
+    caller fails on it instead of silently skipping it.
+    """
     start = ts.find("HELP_TOPICS")
     body = ts[start:] if start >= 0 else ts
+    heads = list(re.finditer(r"""^ {2}(?:["'`]([\w.-]+)["'`]|([\w.-]+)):\s*\{""", body, re.M))
     topics: dict[str, dict[str, str]] = {}
-    for m in re.finditer(r'^\s{2}("?)([\w.-]+)\1:\s*\{(.*?)^\s{2}\},', body, re.S | re.M):
-        fields = dict(re.findall(r'\b(path|anchor):\s*"([^"]*)"', m.group(3)))
-        if "path" in fields:
-            topics[m.group(2)] = fields
+    for i, m in enumerate(heads):
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(body)
+        chunk = body[m.end():end]
+        fields = dict(re.findall(r"""\b(path|anchor):\s*["'`]([^"'`]*)["'`]""", chunk))
+        fields.setdefault("path", "\0unparsed")
+        topics[m.group(1) or m.group(2)] = fields
     return topics
 
 
@@ -98,6 +106,9 @@ def check(root: Path) -> tuple[list[str], list[str]]:
         return [f"no topics parsed from {REGISTRY} (registry format changed?)"], []
     cache: dict[str, set[str] | None] = {}
     for key, t in topics.items():
+        if t["path"] == "\0unparsed":
+            errors.append(f"help topic '{key}': no parseable path in {REGISTRY} (use a plain string literal)")
+            continue
         rel = docs_file_for(t["path"])
         anchors = load_page(root, rel, cache)
         if anchors is None:
@@ -166,6 +177,15 @@ def self_test() -> int:
         errs, _ = check(root)
         if not any("a.good" in e and "features/gone/" in e for e in errs):
             fails.append(f"missing page not reported: {errs}")
+        # Inline entries and single quotes must parse; a path-less entry must fail.
+        (root / REGISTRY).write_text(
+            "export const HELP_TOPICS = {\n  a: { path: 'features/a/', anchor: 'nope' },\n"
+            "  'b.c': {\n    path: \"features/a/\",\n  },\n  d: {\n    path: someVar,\n  },\n} as const;\n"
+        )
+        errs, _ = check(root)
+        text = "\n".join(errs)
+        if not ("'a'" in text and "'#nope'" in text.replace("#nope", "'#nope") and "'d'" in text and "'b.c'" not in text):
+            fails.append(f"parser hardening cases wrong: {errs}")
         # Heading inside a code fence is not an anchor.
         if "not-a-heading" in page_anchors(page):
             fails.append("fenced heading counted as anchor")
