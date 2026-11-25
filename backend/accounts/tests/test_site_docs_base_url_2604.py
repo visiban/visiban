@@ -273,5 +273,13 @@ class ActionLogTests(TestCase):
         SiteSetting.get()
         self.assert_transitions(self.api_patch, AdminActionLog.Source.ADMIN_API)
 
+    def test_stored_blank_cleared_to_null_records_nothing(self):
+        # A shell write can leave "" on the row; null means the same "unset".
+        SiteSetting.get()
+        SiteSetting.objects.filter(pk=1).update(docs_base_url="")
+        self.api_patch(None)
+        self.assertIsNone(SiteSetting.get().docs_base_url)
+        self.assertEqual(self.rows(), [])
+
     def test_django_admin_records_set_and_clear_only(self):
         self.assert_transitions(self.admin_save, AdminActionLog.Source.DJANGO_ADMIN)

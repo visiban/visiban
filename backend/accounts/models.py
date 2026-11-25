@@ -415,13 +415,11 @@ class SiteEmailSetting(models.Model):
 
     Why this is a separate model and not fields on ``SiteSetting``
     -------------------------------------------------------------
-    The reason is already written down in this file. The
-    ``AUDITED_SITE_SETTING_FIELDS`` docstring above says:
-
-        "Today every SiteSetting field is an enum, a boolean or the admin's own
-        notice text; the day one of them holds an SMTP password or an OIDC
-        client secret, a generic loop would copy that value verbatim into the
-        audit log, and the rows are never rewritten."
+    The reason is already written down in this file. The comment on
+    ``AUDITED_SITE_SETTING_FIELDS`` below warns that the day a ``SiteSetting``
+    field holds an SMTP password or an OIDC client secret, a generic loop would
+    copy that value verbatim into the audit log, and the rows are never
+    rewritten.
 
     That day is this model. Keeping the secret in its own table makes "this
     column is never diffed into the audit log" a structural property rather
