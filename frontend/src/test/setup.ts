@@ -7,6 +7,10 @@ import { configure } from '@testing-library/react'
 // `ignore: ''` or a direct selector.
 configure({ defaultIgnore: 'script, style, [data-confirm-announcer]' })
 
+// findBy* and waitFor give up after 1s by default, which loaded CI runners also
+// exceed (#2610). Same CI-only allowance as testTimeout in vitest.config.ts.
+if (process.env.CI) configure({ asyncUtilTimeout: 5_000 })
+
 // jsdom does not implement PointerEvent.  Polyfill it as a MouseEvent subclass
 // so tests that exercise real @dnd-kit/core sensors (which check event.isPrimary
 // and event.button) can dispatch pointer events without mocking the library.
