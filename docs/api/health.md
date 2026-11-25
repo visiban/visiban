@@ -80,7 +80,7 @@ Use this as a **readiness probe**. Traffic should not be routed to the instance 
 
 ## `GET /api/v1/version/`
 
-Returns the running application version string. **Requires authentication** (`IsAuthenticated`). Unauthenticated requests receive `401 Unauthorized` (with a `WWW-Authenticate: Token` header).
+Returns the running application version string. **Requires authentication** (`IsAuthenticated`). Unauthenticated requests receive `401 Unauthorized` (with a `WWW-Authenticate: Token` header). A pending forced password or username change, or a personal access token without the `read` scope, gets `403`.
 
 **Response**
 ```json

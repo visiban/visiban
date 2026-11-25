@@ -132,7 +132,7 @@ The plaintext token is shown **once**, at creation. Only a SHA-256 hash is store
 
 Requiring a scope that can only have been chosen deliberately means no pre-existing token quietly becomes an agent credential because MCP was switched on.
 
-**Watch out:** Scopes never widen access: an `mcp:read` token still sees exactly the boards its owner can see, with the same roles.
+Scopes never widen access: an `mcp:read` token still sees exactly the boards its owner can see, with the same roles.
 
 A token intended for both an agent and a script needs both sets of scopes, e.g. `["read", "mcp:read"]`.
 
@@ -477,7 +477,7 @@ Lists a board's cards, ordered by column position, then swimlane position, then 
 
 **Trade-off for clients:** because the card array has no room for a flag, the notice is a plain text block after the per-card JSON blocks, and only on truncated calls. A client that JSON-parses every content block will hit one non-card block then; `structuredContent` (`{"result": [...]}`) is unchanged and is the machine-readable path. A `limit` of `0` is a total-only request and gets no notice; use `include_meta` for the total.
 
-**Yes, but:** `limit`/`offset` and the totals mirror the REST `GET /api/v1/boards/{board_id}/cards/` endpoint's `X-Total-Count` / `X-Truncated` headers and `limit`/`offset` query params, with the same bounds. The names are deliberate: `limit` and `total`/`truncated` match the card list's own `?limit=` and headers (a second pagination style by design, see the [API overview](index.md)), and MCP `total` corresponds to the paginated REST envelope's `count` and to the `X-Total-Count` header.
+`limit`/`offset` and the totals mirror the REST `GET /api/v1/boards/{board_id}/cards/` endpoint's `X-Total-Count` / `X-Truncated` headers and `limit`/`offset` query params, with the same bounds. The names are deliberate: `limit` and `total`/`truncated` match the card list's own `?limit=` and headers (a second pagination style by design, see the [API overview](index.md)), and MCP `total` corresponds to the paginated REST envelope's `count` and to the `X-Total-Count` header.
 
 **Arguments:** `board_id` (integer, required); `column_id`, `swimlane_id` (integers), `assignee` (username, case-insensitive), `priority`, `label` (name) — all optional filters, ANDed together; `include_archived` (boolean, default `false`); `limit` (integer, default and maximum `200`; a larger value is clamped to `200`, as in REST); `offset` (integer, default `0`); `include_meta` (boolean, default `false`).
 
@@ -571,9 +571,7 @@ Broadcasts `card.moved` with the same payload as the REST move endpoint (`{card,
 
 Updates one or more fields on a card. Requires `admin` or `member` board role and the `mcp:write` scope.
 
-**Arguments:** `card_id` (required); any of `title`, `description`, `priority`, `assignee` (username), `labels`, `due_date` — omitted fields are left unchanged. `labels: []` clears every label; `assignee: ""` unassigns the card.
-
-**Watch out:** Cannot change a card's column or swimlane — use `move_card`. `version` (integer, optional, *added in 1.3*): the card's `version` from a prior read; the update then fails with `version_conflict`, changing nothing, if the card changed since (see [Optimistic concurrency](#optimistic-concurrency)).
+**Arguments:** `card_id` (required); any of `title`, `description`, `priority`, `assignee` (username), `labels`, `due_date` — omitted fields are left unchanged. `labels: []` clears every label; `assignee: ""` unassigns the card. Cannot change a card's column or swimlane — use `move_card`. `version` (integer, optional, *added in 1.3*): the card's `version` from a prior read; the update then fails with `version_conflict`, changing nothing, if the card changed since (see [Optimistic concurrency](#optimistic-concurrency)).
 
 **Returns:** the updated card, same shape as `create_card`. Records a `CardActivity` audit entry per field that actually changed. Broadcasts `card.updated` with the full card, as a REST update does, not the tool's return shape. *Fixed in 1.2 (#1926).*
 
