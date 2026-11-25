@@ -88,9 +88,12 @@ const quoteLabels = (t) =>
   [...stripFences(t).matchAll(/^>\s*\*\*([^*]+)\*\*/gm)]
     .map((m) => m[1].replace(/:\s*$/, '').trim())
     .filter((l) => !VERSION_ONLY.test(l)) // version notes are checked under versions
+// A "**" inside an inline code span (a path glob such as `clients/**`) is not
+// bold. Left in, it flips the pairing of every bold span after it.
+const maskCodeStars = (s) => s.replace(/`[^`\n]*`/g, (code) => code.replaceAll('**', '..'))
 const bulletTerms = (t) =>
-  [...unbadge(stripFences(t)).matchAll(/^\s*(?:[-*+]|\d+\.)\s+\*\*([^*]+)\*\*/gm)].map((m) => m[1].replace(/[.:]\s*$/, '').trim())
-const boldTerms = (t) => new Set([...unbadge(stripFences(t)).matchAll(/\*\*([^*]+)\*\*/g)].map((m) => key(m[1].replace(/[.:]\s*$/, ''))))
+  [...maskCodeStars(unbadge(stripFences(t))).matchAll(/^\s*(?:[-*+]|\d+\.)\s+\*\*([^*]+)\*\*/gm)].map((m) => m[1].replace(/[.:]\s*$/, '').trim())
+const boldTerms = (t) => new Set([...maskCodeStars(unbadge(stripFences(t))).matchAll(/\*\*([^*]+)\*\*/g)].map((m) => key(m[1].replace(/[.:]\s*$/, ''))))
 const NUM = '(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\\d+(?:[.,]\\d+)?)'
 // Function words after a number say nothing about a quantity ("one to three").
 const STOP = new Set(['to', 'of', 'or', 'and', 'the', 'a', 'an', 'in', 'on', 'for', 'is', 'are', 'at', 'per', 'by', 'with', 'than', 'that'])
