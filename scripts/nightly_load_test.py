@@ -1252,9 +1252,12 @@ def _self_test():
             timeouts_used.append((url, timeout))
             return _RecResp(url)
 
+    sample_calls = []
+
     def _rec_time(_session, url, iterations, warmup, timeout=None):
         requested.append(url)
         timeouts_used.append((url, timeout))
+        sample_calls.append((url, iterations, warmup))
         return [float(iterations)]
 
     hwm_mb, growth_mb = 444.0, 7.0
@@ -1290,6 +1293,10 @@ def _self_test():
                      lambda u: u == f"{root9}/analytics/?days=365")
     if a365 != ([float(EXIT_ANALYTICS_365_SAMPLES)], growth_mb):
         failures.append(f"exit run ops: analytics_365 returned {a365}, not (samples, RSS growth)")
+    # One request, no warm-up: the stub above ignores its counts, so pin them from what it was handed.
+    _365_calls = [(i, w) for u, i, w in sample_calls if u == f"{root9}/analytics/?days=365"]
+    if _365_calls != [(1, 0)]:
+        failures.append(f"exit run ops: analytics_365 sampled (iterations, warmup) {_365_calls}, not one request, no warm-up [(1, 0)]")
     conc = rec_ops.concurrent()
     if conc[4] != hwm_mb or conc[3] != 55:
         failures.append(f"exit run ops: concurrent returned peak {conc[4]}, payload {conc[3]}")
@@ -1549,9 +1556,12 @@ EXIT_UNREAD_TIMEOUT_SECONDS = 30
 # warm-up and no repeats: its p95 is that one sample. Worst case inside the job's 3 h (10800 s)
 # timeout, less the 600 s the `timeout` wrapper in .gitlab-ci.yml leaves: seed and server start about
 # 2460 s (41 min, first run) + cumulative flow (2 warm-up + 10) x 90 s = 1080 + drill-down 10 x 90 =
-# 900 + overview 90 + burst (rounds x 60 s, 3 rounds = 180) + five idle waits x 300 = 1500 + this
-# request 900 = about 7110 s, under the 10200 s the wrapper allows. One 900 s request replaces the ten
-# 90 s requests it used to be, so its worst case is the same 900 s.
+# 900 + overview 90 + burst (rounds x 60 s, 3 rounds = 180) + five idle waits x 300 = 1500 + the two
+# fixture reads 2 x 120 = 240 (always first) + this request 900 = about 7350 s, under the 10200 s the
+# wrapper allows (about 2850 s headroom). One 900 s request replaces the ten 90 s requests it used to
+# be, so its worst case is the same 900 s. The 900 s is a per-socket-read limit, not an overall cap, so
+# a body that trickles could run longer; if it did, the `timeout` wrapper ends the script with exit 124
+# and the artifact holds the last checkpoint (`complete: false`, no analytics_365 entry).
 EXIT_ANALYTICS_365_READ_TIMEOUT_SECONDS = 900
 EXIT_ANALYTICS_365_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, EXIT_ANALYTICS_365_READ_TIMEOUT_SECONDS)
 EXIT_ANALYTICS_365_SAMPLES = 1
