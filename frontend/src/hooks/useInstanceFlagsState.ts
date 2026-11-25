@@ -3,6 +3,7 @@ import { getSiteConfig } from "../api/auth";
 import { useVisibilityResync } from "./useVisibilityResync";
 import { stashDemoNextReset } from "../utils/demoReset";
 import { setInstanceTimezone } from "../utils/instanceTimezone";
+import { setRuntimeDocsBase } from "../help/docsUrl";
 import { DEFAULT_INSTANCE_FLAGS, type InstanceFlags } from "../contexts/InstanceFlagsContext";
 import type { SiteConfig } from "../types";
 
@@ -38,6 +39,8 @@ export function useInstanceFlagsState(signedIn: boolean) {
       .then((config) => {
         // The overdue rule's "today" (#2313); module state, read by cardUrgency.
         setInstanceTimezone(config.instance_timezone);
+        // Where the help links point (#2604); module state, read by docsUrl.
+        setRuntimeDocsBase(config.docs_base_url);
         setFlags(pickFlags(config));
       })
       // Swallowed deliberately: a failed refresh must not break the app; the

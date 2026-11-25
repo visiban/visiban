@@ -37,6 +37,13 @@ export interface SiteConfig {
    */
   instance_timezone?: string;
   /**
+   * Docs base URL for the in-app help links, set by a site admin in Site
+   * settings (#2604); null when unset. http(s) only, validated server-side, and
+   * sanitized again by `docsUrl` before it reaches an href. Optional: absent from
+   * a server older than 1.3.
+   */
+  docs_base_url?: string | null;
+  /**
    * Whether the Issue Board Lens is enabled instance-wide (GIT_LENS_ENABLED).
    * Same value as `User.git_lens_enabled` (#1872).
    */
@@ -1964,6 +1971,8 @@ export interface SiteSettings {
   pat_max_lifetime_days: number | null;
   /** 1.3+ (#1572). Expiry the token form pre-fills, in days from today; null = none. Never above the max. */
   pat_default_lifetime_days: number | null;
+  /** 1.3+ (#2604). Docs base URL for the in-app help links, http(s) only; null = unset. */
+  docs_base_url: string | null;
 }
 
 /** Which source configures outbound mail. Never a field-level merge of the two. */

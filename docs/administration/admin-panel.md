@@ -79,6 +79,24 @@ Changes to either field are recorded in [Change history](#change-history) (`pat_
 
 **Go deeper:** [Maintenance Mode](maintenance-mode.md) is the full runbook: what everyone else sees, the exempt endpoints that keep you from locking yourself out, the shell break-glass command, and a known limitation on tabs left open in the background.
 
+### Help links
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+Choose where the app's "?" and "Learn more" links open. By default they open `docs.visiban.com` at the docs for your version. Set **Docs address** to send them to your own copy of the docs instead, for example an internal mirror on an air-gapped network. The field saves when you leave it, and leaving it blank clears it.
+
+| Field | Effect |
+|---|---|
+| **Docs address** | An `http://` or `https://` address, such as `https://docs.example.internal/visiban`. Links use it as given (a trailing slash is ignored) and add the page path, with no version added, so the address should serve one doc set. Blank uses the `VITE_DOCS_BASE_URL` address the image was built with, else `docs.visiban.com`. |
+
+**Yes, but:**
+
+- Anyone who can reach the instance can read this address, signed in or not: it is in every help link and in the public [site configuration](../api/authentication.md#site-configuration). So it can't contain a user name or password, and it can't have a `?` or `#` part.
+- Open tabs pick up a change the next time they reload site settings: on a page reload, after signing in, or when someone returns to the tab.
+- Changes to this field are not recorded in [Change history](#change-history).
+
+See [In-app help links](configuration.md#in-app-help-links) for the build-time alternative.
+
 ### Change history
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>

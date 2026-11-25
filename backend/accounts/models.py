@@ -72,6 +72,54 @@ UPLOADS_ENABLED_CACHE_TTL = 60  # seconds
 # validator and the admin serializer so the two can never disagree.
 MAINTENANCE_MESSAGE_MAX_LENGTH = 1000
 
+# Runtime docs base URL for in-app help links (#2604). Shared by the model
+# validator and the admin serializer so the two can never disagree.
+DOCS_BASE_URL_MAX_LENGTH = 500
+
+
+def validate_docs_base_url(value):
+    """Reject anything but a plain http(s) base URL for the in-app help links (#2604).
+
+    Why this is stricter than ``URLValidator``: the value is served on the
+    anonymous site-config endpoint and lands verbatim in an ``href`` on every
+    page, so it is checked for what it is used as, not for "is a URL".
+
+    - http(s) only: ``javascript:``, ``data:`` and the rest would run or render
+      in the app's origin when a help link is clicked.
+    - No user:password: the endpoint is public, so credentials embedded in the
+      URL would be published to every visitor.
+    - No query or fragment: the client appends ``/<page path>#<anchor>``, which
+      a query or fragment in the base would swallow.
+    - Single-label hosts (``http://docs:8080``) are allowed, unlike
+      ``URLValidator``: an air-gapped mirror is exactly where they occur.
+    """
+    from urllib.parse import urlsplit
+
+    if value in (None, ""):
+        return
+    text = str(value)
+    message = "Enter an http:// or https:// address, such as https://docs.example.internal/visiban."
+    if any(ch.isspace() for ch in text) or any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
+        raise ValidationError(message, code="invalid")
+    try:
+        parts = urlsplit(text)
+        # Accessing .port validates it (raises ValueError when out of range or not numeric).
+        parts.port  # noqa: B018
+    except ValueError:
+        raise ValidationError(message, code="invalid")
+    if parts.scheme.lower() not in ("http", "https") or not parts.hostname:
+        raise ValidationError(message, code="invalid")
+    if parts.username is not None or parts.password is not None:
+        raise ValidationError(
+            "Leave the user name and password out of the address: it is shown to everyone.",
+            code="credentials",
+        )
+    if parts.query or parts.fragment or text.endswith(("?", "#")):
+        raise ValidationError(
+            "Leave out the ? and # parts: help links add their own page and section.",
+            code="query",
+        )
+
 MAINTENANCE_CACHE_KEY = "site_setting_maintenance"
 MAINTENANCE_CACHE_TTL = 60  # seconds
 
@@ -277,6 +325,25 @@ class SiteSetting(models.Model):
         help_text=(
             "Expiry pre-filled when someone creates a personal access token, in days from today "
             "(1-365, at most the maximum). Blank means no expiry is pre-filled."
+        ),
+    )
+
+    # Runtime docs base URL for the in-app help links (#2604). Null is the
+    # default and today's behavior: the SPA uses its build-time
+    # VITE_DOCS_BASE_URL, else docs.visiban.com. It exists so an air-gapped
+    # operator on the stock release image (where the build arg cannot be set)
+    # can point help at an internal mirror. Nullable, no index: a zero-downtime
+    # AddField. The validator repeats the serializer's for the Django admin
+    # path, as maintenance_message does.
+    docs_base_url = models.CharField(
+        max_length=DOCS_BASE_URL_MAX_LENGTH,
+        null=True,
+        blank=True,
+        validators=[validate_docs_base_url],
+        help_text=(
+            "Base address of the documentation the in-app help links open, http:// or https:// "
+            "only. Used as given, with no version added. Blank uses the build-time setting, "
+            "else docs.visiban.com."
         ),
     )
 

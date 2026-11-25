@@ -62,6 +62,9 @@ SITE_CONFIG_KEYS = {
     # #2313: the zone the overdue rule counts "today" in. A deployment locale,
     # not caller-dependent and not a secret.
     "instance_timezone",
+    # #2604: the help-link docs base URL from Site settings. An instance
+    # setting, not caller-dependent; the validator refuses embedded credentials.
+    "docs_base_url",
 }
 
 

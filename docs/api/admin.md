@@ -38,7 +38,8 @@ Return the current instance-wide settings.
   "maintenance_mode": false,
   "maintenance_message": "",
   "pat_max_lifetime_days": null,
-  "pat_default_lifetime_days": null
+  "pat_default_lifetime_days": null,
+  "docs_base_url": null
 }
 ```
 
@@ -50,6 +51,7 @@ Return the current instance-wide settings.
 | `maintenance_message` | string | Plain-text notice shown while maintenance mode is active. Max 1000 characters. Blank means "use the built-in default". Added in 1.2. |
 | `pat_max_lifetime_days` | integer\|null | *(1.3+, #1572)* Maximum lifetime of a new personal access token, in days (1-365). When set, [token creation](authentication.md#post-apiv1authtokens) requires an `expires_at` on or before the UTC date this many days from now. `null` (the default) means no site maximum. Existing tokens are not affected. |
 | `pat_default_lifetime_days` | integer\|null | *(1.3+, #1572)* Expiry the token form pre-fills, in days from today (1-365). Must not be greater than `pat_max_lifetime_days` when both are set. `null` (the default) pre-fills nothing. The API does not apply it to a create that omits `expires_at`. |
+| `docs_base_url` | string\|null | *(1.3+, #2604)* Base address the in-app help links open, at most 500 characters. Must be `http://` or `https://` with a host, and must not contain a user name or password, a query (`?`) or a fragment (`#`); anything else returns `400` keyed by the field. `null` (the default) means unset: the web app then uses its build-time `VITE_DOCS_BASE_URL`, else `docs.visiban.com`. Published to anonymous callers on [`GET /api/v1/auth/site-config/`](authentication.md#site-configuration). |
 
 ### `PATCH /api/v1/admin/settings/`
 Update site settings. All fields are optional.
@@ -61,15 +63,15 @@ Update site settings. All fields are optional.
 
 Changes take effect within approximately 60 seconds (server-side cache TTL) — no restart required.
 
-A `PATCH` that sends `null` for `pat_max_lifetime_days` or `pat_default_lifetime_days` clears it; leaving
-the key out keeps the stored value. The default-not-above-maximum rule is checked against the state the
+A `PATCH` that sends `null` for `pat_max_lifetime_days`, `pat_default_lifetime_days` or `docs_base_url` clears it
+(for `docs_base_url`, a blank string also clears it to `null`); leaving the key out keeps the stored value. The default-not-above-maximum rule is checked against the state the
 `PATCH` would produce, so lowering the maximum below the stored default returns `400` with
 `{"pat_default_lifetime_days": ["The default expiry (60 days) cannot be longer than the maximum lifetime (30 days)."]}`.
 Out-of-range values (below 1, above 365) return `400` keyed by the field.
 
 Every change to `registration_mode`, `uploads_enabled`, `maintenance_mode`,
 `maintenance_message`, `pat_max_lifetime_days` and `pat_default_lifetime_days` is recorded in the [action log](#action-log). Submitting a field with
-the value it already holds is not a change and records nothing.
+the value it already holds is not a change and records nothing. Changes to `docs_base_url` are not recorded.
 
 ---
 

@@ -3,6 +3,7 @@ import { renderHook, waitFor, act } from '@testing-library/react'
 import { useInstanceFlagsState } from '../hooks/useInstanceFlagsState'
 import { DEFAULT_INSTANCE_FLAGS } from '../contexts/InstanceFlagsContext'
 import { instanceTimezone, setInstanceTimezone } from '../utils/instanceTimezone'
+import { docsUrl, setRuntimeDocsBase } from '../help/docsUrl'
 
 vi.mock('../api/auth', () => ({
   getSiteConfig: vi.fn(),
@@ -63,6 +64,17 @@ describe('useInstanceFlagsState (#1913)', () => {
       setInstanceTimezone('UTC')
     }
     expect(instanceTimezone()).toBe('UTC')
+  })
+
+  it('applies site-config docs_base_url to the help links (#2604)', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...baseConfig, docs_base_url: 'https://docs.example.internal' })
+    try {
+      const { result } = renderHook(() => useInstanceFlagsState(true))
+      await waitFor(() => expect(result.current.loaded).toBe(true))
+      expect(docsUrl('webhooks')).toBe('https://docs.example.internal/features/webhooks/')
+    } finally {
+      setRuntimeDocsBase(null)
+    }
   })
 
   it('falls back to defaults and still reports loaded when site-config fails', async () => {

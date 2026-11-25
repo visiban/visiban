@@ -6,6 +6,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model, password_validation
 from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Count, Q
@@ -49,6 +50,7 @@ from visiban.mail import (
 )
 from .models import (
     AdminActionLog,
+    DOCS_BASE_URL_MAX_LENGTH,
     InviteLink,
     MAINTENANCE_MESSAGE_MAX_LENGTH,
     MAX_ACTIVE_INVITE_LINKS,
@@ -57,6 +59,7 @@ from .models import (
     SiteEmailSetting,
     SiteSetting,
     get_registration_mode,
+    validate_docs_base_url,
     record_access_flag_changes,
     record_email_settings_changes,
     record_email_test,
@@ -129,6 +132,16 @@ class SiteSettingSerializer(drf_serializers.Serializer):
     pat_default_lifetime_days = drf_serializers.IntegerField(
         required=False, allow_null=True, min_value=1, max_value=PAT_HARD_MAX_LIFETIME_DAYS,
     )
+    # Runtime docs base URL for the in-app help links (#2604). Blank and null
+    # both mean "unset" and are stored as null, so there is one empty state for
+    # the SPA to fall back from. An absent key leaves the stored value alone.
+    docs_base_url = drf_serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=DOCS_BASE_URL_MAX_LENGTH,
+        trim_whitespace=True,
+    )
 
     def __init__(self, *args, **kwargs):
         # The stored row, so validate() judges the state a partial PATCH would
@@ -139,6 +152,17 @@ class SiteSettingSerializer(drf_serializers.Serializer):
         # against nothing and pass, so the view always supplies it.
         self.current = kwargs.pop("current", None)
         super().__init__(*args, **kwargs)
+
+    def validate_docs_base_url(self, value):
+        # Validated here, at the API boundary, with the same rule the model
+        # field carries for the Django admin path (accounts.models).
+        if not value:
+            return None
+        try:
+            validate_docs_base_url(value)
+        except DjangoValidationError as exc:
+            raise drf_serializers.ValidationError(exc.messages) from exc
+        return value
 
     def validate(self, attrs):
         if self.current is None and self.instance is None:
@@ -913,6 +937,7 @@ class AdminSettingsView(APIView):
                 "maintenance_message",
                 "pat_max_lifetime_days",
                 "pat_default_lifetime_days",
+                "docs_base_url",
             ):
                 if field in validated:
                     setattr(setting, field, validated[field])

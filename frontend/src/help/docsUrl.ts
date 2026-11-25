@@ -48,10 +48,33 @@ function buildBase(): string | undefined {
   return import.meta.env.VITE_DOCS_BASE_URL as string | undefined;
 }
 
-/** Full docs URL for a registry topic: version-matched, override-aware. */
+/**
+ * Instance override set at runtime by a site admin (#2604): Site settings, served
+ * on /auth/site-config/ as `docs_base_url`. Module state, like the instance time
+ * zone, because `docsUrl` is a plain function called during render with no React
+ * tree to read a context from. `useInstanceFlagsState` (mounted at the app root,
+ * signed in or not) sets it when site-config loads; until then, and on a server
+ * older than the field, it is unset and the build-time value applies.
+ */
+let runtimeBase: string | undefined;
+
+export function setRuntimeDocsBase(value: string | null | undefined): void {
+  runtimeBase = value ?? undefined;
+}
+
+/**
+ * Full docs URL for a registry topic: version-matched, override-aware.
+ *
+ * Base precedence: an explicit `opts.base`, then the runtime Site settings value,
+ * then the build-time `VITE_DOCS_BASE_URL`, then the version-matched public
+ * docs. Each candidate must pass `sanitizeBase`; one that does not is skipped,
+ * so a bad runtime value falls back to the operator's build-time mirror rather
+ * than straight to the public host.
+ */
 export function docsUrl(topic: HelpTopicKey, opts: DocsUrlOptions = {}): string {
   const entry: { path: string; anchor?: string } = HELP_TOPICS[topic];
-  const override = sanitizeBase(opts.base ?? buildBase());
+  const override =
+    sanitizeBase(opts.base) ?? sanitizeBase(runtimeBase) ?? sanitizeBase(buildBase());
   const root = override ?? `${DEFAULT_DOCS_BASE_URL}/${docsVersionSegment(opts.version ?? buildVersion())}`;
   const anchor = entry.anchor ? `#${entry.anchor}` : "";
   return `${root}/${entry.path}${anchor}`;

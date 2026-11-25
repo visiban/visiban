@@ -1129,6 +1129,14 @@ class SiteConfigView(APIView):
                         "overdue. The browser applies the same rule as the server (#2313)."
                     ),
                 ),
+                "docs_base_url": drf_serializers.CharField(
+                    allow_null=True,
+                    help_text=(
+                        "Site settings docs base URL for the in-app help links, http(s) only, "
+                        "or null when unset (the SPA then uses its build-time value, else "
+                        "docs.visiban.com). Added in 1.3 (#2604)."
+                    ),
+                ),
             },
         ),
     )
@@ -1168,6 +1176,14 @@ class SiteConfigView(APIView):
             # the instance counts from. Anonymous because shared read-only boards
             # render overdue cues before (or without) a sign-in.
             "instance_timezone": settings.INSTANCE_TIMEZONE,
+            # #2604: where the in-app help links point. An instance setting, not
+            # caller dependent, and no secret: every visitor sees it in a help
+            # link's href anyway, and the validator refuses embedded
+            # credentials. Served here because this is the payload the SPA
+            # bootstraps instance config from, signed in or not. Read off the
+            # row this view already loaded: no extra query.
+            # `or None` folds a blank written by a non-API path into null.
+            "docs_base_url": setting.docs_base_url or None,
         })
 
     @staticmethod
