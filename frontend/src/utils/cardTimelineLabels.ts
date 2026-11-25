@@ -134,7 +134,7 @@ export function activityLabel(
       const basis = d.from_value === "assignee" ? "assignee override" : "admin override";
       const head = `${kinds ? `${kinds.charAt(0).toUpperCase()}${kinds.slice(1)}` : "Card"} ${noun} overridden (${basis})`;
       const withReason = d.item_text ? `${head}. Reason: ${d.item_text}` : head;
-      return `${withReason}${overrideAssignerSuffix(event_type, d)}`;
+      return `${withReason}${overrideAssignerSuffix(event_type, data)}`;
     }
     case "archived":
       return "Card archived";
