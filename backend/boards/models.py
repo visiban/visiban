@@ -1363,6 +1363,17 @@ class CardMovement(models.Model):
                 fields=["board", "-moved_at", "-id"],  # pragma: no mutate -- schema constant (migration-check)
                 name="movement_board_moved_id_idx",  # pragma: no mutate -- schema constant (migration-check)
             ),
+            # The flow loaders' "which of this board's cards moved in the
+            # range" subqueries (#2579, flow_metrics.movements_on_board): an
+            # index-only range read of one board's recent movements. Without
+            # card_id in the index every match is a heap fetch, so the planner
+            # preferred the instance-wide card_movements_moved_at scan on an
+            # aged board. Built concurrently in migration 0141.
+            models.Index(
+                fields=["board", "moved_at"],  # pragma: no mutate -- schema constant (migration-check)
+                include=["card"],  # pragma: no mutate -- schema constant (migration-check)
+                name="movement_board_moved_card_idx",  # pragma: no mutate -- schema constant (migration-check)
+            ),
         ]
 
     def save(self, *args, **kwargs):

@@ -294,6 +294,25 @@ _MIN_ID = -(2**63)
 _MAX_ID = 2**63 - 1
 
 
+def _heatmap_extra_term(board, buffer_cutoff, done_col_ids):
+    """The heatmap's ``also_matching`` term: live done cards moved since ``buffer_cutoff``.
+
+    Narrowed the way ``flow_metrics.load_recent_dwell`` narrows its own
+    movement term (#2567, #2579). A live card outside a done column is
+    already kept by the dwell load's first term, so naming only the done
+    columns' cards cannot change the loaded set, and with no done column the
+    term has nothing to add (``pk__in=[]`` compiles away inside the ``OR``).
+    ``movements_on_board`` gives the subquery the board-scoped, index-only
+    path instead of the instance-wide ``moved_at`` range scan.
+    """
+    if not done_col_ids:
+        return Q(pk__in=[])
+    return Q(archived_at__isnull=True) & Q(pk__in=flow_metrics.movements_on_board(
+        board, card__archived_at__isnull=True, card__column_id__in=done_col_ids,
+        moved_at__gte=buffer_cutoff,
+    ))
+
+
 def _invalid_query_param(detail):
     return Response({"detail": detail, "code": _INVALID_QUERY_PARAM}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1645,9 +1664,7 @@ class BoardAnalyticsMixin:
                     stall_cutoff=stall_cutoff, col_id_to_name=col_id_to_name, done_col_ids=done_col_ids,
                 ))
 
-            extra = Q(archived_at__isnull=True) & Q(pk__in=CardMovement.objects.filter(
-                card__board=board, card__archived_at__isnull=True, moved_at__gte=buffer_cutoff,
-            ).values("card_id"))
+            extra = _heatmap_extra_term(board, buffer_cutoff, done_col_ids)
             flow = flow_metrics.load_recent_dwell(
                 board, flow_range, columns=columns, swimlane_id=swimlane_filter, label_id=label_filter,
                 also_matching=extra, on_card_rows=heatmap_card,

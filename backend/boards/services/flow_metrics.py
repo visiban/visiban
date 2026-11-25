@@ -1201,6 +1201,38 @@ def load_recent_completions(board, flow_range, *, columns):
     return load_board_flow(board, now=flow_range.end, columns=columns, cards_matching=Exists(entered_done))
 
 
+def movements_on_board(board, *filters, **lookups):
+    """``card_id`` of ``board``'s cards' movements matching the filters, board-scoped (#2579).
+
+    For an uncorrelated ``pk__in`` term. Bounding the subquery only by
+    ``card__board`` left the planner one board-scoped driver, a probe of
+    ``movement_card_moved_idx`` per candidate card, and on the aged nightly
+    board (about 10,150 candidates) it preferred the instance-wide
+    ``card_movements_moved_at`` range scan, a heap fetch per row of every
+    board. This names the movement's own ``board`` column as well, which
+    ``movement_board_moved_card_idx`` (``board, moved_at`` INCLUDE ``card``)
+    serves as an index-only range read of this board's rows.
+
+    The extra term never narrows the match. A card never changes board, and
+    every writer fills ``board`` from the card (``CardMovement.save``, the
+    import's and the load fixture's ``bulk_create``), so a row of a card on
+    ``board`` carries either ``board`` or, for a row written by a release
+    older than migration 0080 during a rolling upgrade, NULL. The NULL rows
+    are kept by a second ``UNION`` arm, an empty slice of the same index in
+    practice. A ``UNION`` and not ``board = X OR board IS NULL``: the ``OR``
+    can only be served by a bitmap scan, which fetches the heap and lost the
+    index-only read (measured on the nightly fixture, it kept the
+    ``moved_at`` scan and made the load-test board's 30-day read 4x worse).
+    ``card__board`` stays in both arms, so the result is exactly the old one.
+    """
+    # order_by(): the model's default ordering would put an ORDER BY in each
+    # arm, which a compound statement does not allow (SQLite refuses it).
+    base = CardMovement.objects.order_by().filter(*filters, card__board=board, **lookups)
+    return base.filter(board=board).values("card_id").union(
+        base.filter(board__isnull=True).values("card_id")
+    )
+
+
 def load_recent_dwell(
     board, flow_range, *, columns, swimlane_id=None, label_id=None, also_matching=None, on_card_rows=None,
 ):
@@ -1250,14 +1282,22 @@ def load_recent_dwell(
     10,150 such cards to probe (9,640 archived), the instance-wide ``moved_at`` range scan
     is still the cheaper read at 30 days. That residual is a planner choice,
     not a wider bound.
+
+    #2579 removes that residual by giving the planner a board-scoped driver:
+    ``movements_on_board`` also names the movement's own ``board`` column, so
+    the range read is an index-only scan of ``movement_board_moved_card_idx``
+    instead of every board's movements in ``card_movements_moved_at`` (aged
+    board, cards load: 30,706 -> 2,246 buffers at 30 days). The term is redundant
+    with ``card__board``, so the kept set is unchanged. Figures are in
+    ``docs/development/nightly-load-test.md``.
     """
     done_ids = {c.id for c in columns if c.is_done}
     skipped = Q(card__archived_at__lt=flow_range.start)
     if done_ids:
         skipped |= Q(card__archived_at__isnull=True, card__column_id__in=done_ids)
-    moved = CardMovement.objects.filter(
-        skipped, card__board=board, moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
-    ).values("card_id")
+    moved = movements_on_board(
+        board, skipped, moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
+    )
     relevant = (
         (Q(archived_at__isnull=True) & ~Q(column__is_done=True))
         | Q(archived_at__gte=flow_range.start)

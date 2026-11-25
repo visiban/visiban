@@ -269,3 +269,95 @@ class RecentDwellNarrowedMovementTests(FlowFixture):
         subquery = self.movement_subquery(statements)
         self.assertRegex(subquery, r'"archived_at" < ')
         self.assertNotRegex(subquery, r'"column_id" IN')
+
+
+def _old_heatmap_extra(board, buffer_cutoff):
+    """origin/main's heatmap ``also_matching`` term before #2579, as the reference."""
+    return Q(archived_at__isnull=True) & Q(pk__in=CardMovement.objects.filter(
+        card__board=board, card__archived_at__isnull=True, moved_at__gte=buffer_cutoff,
+    ).values("card_id"))
+
+
+class RecentDwellBoardScopedMovementTests(FlowFixture):
+    """#2579: the dwell movement term (and the heatmap's) also reads the movement's own board.
+
+    On the aged nightly board the #2567 term still drove from the instance-wide
+    ``card_movements_moved_at`` range scan. ``movements_on_board`` gives the
+    planner the index-only ``movement_board_moved_card_idx`` path; it is
+    redundant with ``card__board``, so the answers must not move. Pinned on a
+    board with archived history (generations of finished work, one archived
+    card that moved in the range, and a legacy row whose ``board`` is NULL)
+    against the unnarrowed whole-board load.
+    """
+
+    def setUp(self):
+        super().setUp()
+        _range_cards(self)
+        self.flow_range = fm.rolling_range(30, now=self.now)
+        # Archived generations: finished work quarters back, none in the range.
+        self.generations = [
+            self.path(self.backlog, 100 + g * 90, self.doing, 95 + g * 90, self.done, 90 + g * 90,
+                      archived=85 + g * 90)
+            for g in range(4)
+        ]
+        # Archived before the range, moved inside it by a row written before
+        # migration 0080 (board NULL): only the NULL arm keeps it.
+        self.legacy = self.path(self.backlog, 400, self.done, 300, archived=200)
+        legacy_row = self.row(self.legacy, self.done, self.done, 6)
+        CardMovement.objects.filter(pk=legacy_row.pk).update(board=None)
+        self.done_recent = self.path(self.backlog, 60, self.done, 10)
+        self.done_old = self.path(self.backlog, 90, self.done, 50)
+
+    def columns(self):
+        return list(self.board.columns.order_by("position"))
+
+    def answers(self, flow):
+        r = self.flow_range
+        return (
+            fm.current_dwell_by_swimlane(flow), fm.completed_dwell_by_swimlane(flow, r),
+            fm.current_wait_by_swimlane(flow), fm.completed_wait_by_swimlane(flow, r),
+            fm.blocked_time(flow, r), flow.gate_last,
+        )
+
+    def test_dwell_answers_match_the_whole_board_load(self):
+        with CaptureQueriesContext(connection) as ctx:
+            flow = fm.load_recent_dwell(self.board, self.flow_range, columns=self.columns())
+        kept = {card.id for card in flow.cards}
+        self.assertEqual(kept, _old_dwell_rule_ids(self.board, self.flow_range))
+        self.assertIn(self.legacy.pk, kept)
+        self.assertIn(self.late_row.pk, kept)
+        self.assertFalse(kept & {c.pk for c in self.generations})
+        whole = fm.load_board_flow(self.board, now=self.flow_range.end, columns=self.columns())
+        self.assertEqual(self.answers(flow), self.answers(whole))
+        cards_statement = next(
+            q["sql"] for q in ctx.captured_queries if q["sql"].lstrip().startswith('SELECT "cards"."id"')
+        )
+        subquery = cards_statement[cards_statement.index('"card_movements"'):]
+        # The movement's own board, not only the joined card's, in two UNION
+        # arms: this board's rows and the legacy rows with no board.
+        self.assertRegex(subquery, r'\bUNION\b')
+        self.assertRegex(subquery, rf'U\d+\."board_id" = {self.board.pk}\b')
+        self.assertRegex(subquery, r'U\d+\."board_id" IS NULL')
+
+    def test_heatmap_extra_term_loads_the_same_cards(self):
+        from boards.views.analytics import _heatmap_extra_term
+
+        columns = self.columns()
+        done_ids = {c.id for c in columns if c.is_done}
+        buffer_cutoff = self.flow_range.start - (self.flow_range.end - self.flow_range.start)
+        for label, done in (("done columns", done_ids), ("no done column", set())):
+            with self.subTest(label):
+                if not done:
+                    Column.objects.filter(board=self.board).update(is_done=False)
+                    columns = self.columns()
+                old = fm.load_recent_dwell(
+                    self.board, self.flow_range, columns=columns,
+                    also_matching=_old_heatmap_extra(self.board, buffer_cutoff),
+                )
+                new = fm.load_recent_dwell(
+                    self.board, self.flow_range, columns=columns,
+                    also_matching=_heatmap_extra_term(self.board, buffer_cutoff, done),
+                )
+                self.assertEqual({c.id for c in new.cards}, {c.id for c in old.cards})
+                self.assertEqual(self.answers(new), self.answers(old))
+        self.assertIn(self.done_recent.pk, {c.id for c in old.cards})
