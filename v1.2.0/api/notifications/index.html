@@ -4504,7 +4504,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Token </span><span class="nv">$TOKEN</span><span class="s2">"</span><span class="w"> </span>http://localhost:8000/api/v1/notifications/unread-count/
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># {"count": 5}</span>
 </code></pre></div>
-<p><strong>Why it matters:</strong> each notification type has its own <code>notif_*</code> preference on <code>PATCH /api/v1/auth/me/</code>, so check the toggle for the type you expect.</p>
+<p><strong>Why it matters:</strong> each notification type except <code>webhook_disabled</code> has its own <code>notif_*</code> preference on <code>PATCH /api/v1/auth/me/</code>, so check the toggle for the type you expect.</p>
 <p><strong>By the numbers:</strong> the list returns at most 50 notifications, unread only. Three endpoints, all authenticated: <code>GET /api/v1/notifications/</code>, <code>POST /api/v1/notifications/mark-read/</code>, and <code>GET /api/v1/notifications/unread-count/</code>.</p>
 <p><strong>How it works:</strong> Visiban creates notifications for board members when:</p>
 <ul>

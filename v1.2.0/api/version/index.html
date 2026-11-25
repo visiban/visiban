@@ -4491,7 +4491,7 @@ calling anything else — see the stability commitment below.</p>
 </table>
 <p><strong>Stability commitment:</strong> this endpoint and its <code>version</code> field are part of the public 1.x API contract. The field will never be removed or renamed in a minor/patch release. The value follows <a href="https://semver.org/">Semantic Versioning</a> — clients may parse the string to compare against a minimum required server version.</p>
 <p>The <code>APP_VERSION</code> environment variable that provides this value is set as the release tag operators pin (e.g. <code>v1.2.0</code> — see <a href="../../administration/configuration/">Configuration</a>). The server strips only a leading <code>v</code>, so this field is bare semver (<code>1.2.0</code>) whenever <code>APP_VERSION</code> is pinned to a release tag. A non-release value such as <code>latest</code> or <code>dev</code> has no leading <code>v</code> to strip and is served back verbatim.</p>
-<p><strong>Errors:</strong> <code>401 Unauthorized</code> when the request carries no valid session or token; <code>429 Too Many Requests</code> when the throttle is exceeded. Otherwise the endpoint returns <code>200 OK</code> while the server is running.</p>
+<p><strong>Errors:</strong> <code>401 Unauthorized</code> when the request carries no valid session or token; <code>403 Forbidden</code> when the account has a pending forced password or username change, or a personal access token lacks the <code>read</code> scope; <code>429 Too Many Requests</code> when the throttle is exceeded. Otherwise the endpoint returns <code>200 OK</code> while the server is running.</p>
 
 
 

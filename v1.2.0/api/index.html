@@ -4406,7 +4406,7 @@
 <p>Send authenticated JSON requests to <code>/api/v1</code>; start with <a href="authentication/">Authentication</a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Token </span><span class="nv">$TOKEN</span><span class="s2">"</span><span class="w"> </span>http://localhost:8000/api/v1/boards/
 </code></pre></div>
-<p><strong>Why it matters:</strong> versioned REST endpoints live under the <code>/api/v1/</code> prefix. Most need a valid token or session, and an unauthenticated request gets <code>401</code>; the health endpoints are the exception.</p>
+<p><strong>Why it matters:</strong> versioned REST endpoints live under the <code>/api/v1/</code> prefix. Most need a valid token or session, and an unauthenticated request gets <code>401</code>; the exceptions are public endpoints, such as the health probes, sign-in, and the public share-link board.</p>
 <p><strong>Go deeper:</strong> the reference table below, <a href="#versioning-policy">versioning policy</a>, and <a href="#common-conventions">common conventions</a> (errors, pagination, maintenance mode).</p>
 <p><strong>The big picture:</strong> Visiban exposes a REST JSON API. All endpoints require an authenticated session unless noted otherwise.</p>
 <p><strong>Base URL:</strong> <code>http://localhost:8000/api/v1</code> (dev) or <code>https://&lt;your-domain&gt;/api/v1</code> (production)</p>

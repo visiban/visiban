@@ -4566,7 +4566,7 @@
 </div>
 <hr />
 <h2 id="get-apiv1version"><code>GET /api/v1/version/</code><a class="headerlink" href="#get-apiv1version" title="Permanent link">&para;</a></h2>
-<p>Returns the running application version string. <strong>Requires authentication</strong> (<code>IsAuthenticated</code>). Unauthenticated requests receive <code>401 Unauthorized</code> (with a <code>WWW-Authenticate: Token</code> header).</p>
+<p>Returns the running application version string. <strong>Requires authentication</strong> (<code>IsAuthenticated</code>). Unauthenticated requests receive <code>401 Unauthorized</code> (with a <code>WWW-Authenticate: Token</code> header). A pending forced password or username change, or a personal access token without the <code>read</code> scope, gets <code>403</code>.</p>
 <p><strong>Response</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.2.0"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>

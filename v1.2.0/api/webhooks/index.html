@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#webhooks-api" class="md-skip">
+        <a href="#get-board-changes-pushed-to-your-own-url" class="md-skip">
           Skip to content
         </a>
       
@@ -4665,7 +4665,7 @@
   
 
 
-<h1 id="webhooks-api">Webhooks API<a class="headerlink" href="#webhooks-api" title="Permanent link">&para;</a></h1>
+<h1 id="get-board-changes-pushed-to-your-own-url">Get board changes pushed to your own URL<a class="headerlink" href="#get-board-changes-pushed-to-your-own-url" title="Permanent link">&para;</a></h1>
 <p><code>/api/v1/boards/{board_pk}/webhooks/</code> lets a board admin register URLs that receive a signed <code>POST</code> for each board change-feed event.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-b<span class="w"> </span>cookies.txt<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-CSRFToken: </span><span class="nv">$CSRF</span><span class="s2">"</span><span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"name": "Deploys", "url": "https://hooks.example.com/visiban", "event_types": ["card.moved"]}'</span><span class="w"> </span><span class="se">\</span>
@@ -4716,7 +4716,10 @@
 </tr>
 </tbody>
 </table>
-<p>Board admins and site admins (<code>can_access_all_content</code>) may use every action. <strong>Session-only</strong> actions are the ones that choose where data goes or how it is signed: create, a <code>PATCH</code> that changes <code>url</code>, <code>reenable</code>, <code>rotate</code>, <code>end-overlap</code> and <code>test</code>. They refuse personal access tokens and any other non-session credential. <code>reenable</code>, <code>rotate</code>, <code>end-overlap</code> and <code>test</code> refuse before the subscription is looked up, so a token gets <code>403</code>, not <code>404</code>, for an unknown id. A <code>PATCH</code> looks the subscription up first, because it has to read the body to see whether <code>url</code> is present, so a token gets <code>404</code> for an unknown id and <code>403</code> for a known one. On the other actions a token needs the <code>read</code> scope for <code>GET</code> and <code>write</code> for <code>PATCH</code>, <code>DELETE</code> and <code>disable</code>.</p>
+<p>Board admins and site admins (<code>can_access_all_content</code>) may use every action.</p>
+<p><strong>Watch out:</strong> <strong>Session-only</strong> actions are the ones that choose where data goes or how it is signed: create, a <code>PATCH</code> that changes <code>url</code>, <code>reenable</code>, <code>rotate</code>, <code>end-overlap</code> and <code>test</code>. They refuse personal access tokens and any other non-session credential.</p>
+<p><strong>How it works:</strong> <code>reenable</code>, <code>rotate</code>, <code>end-overlap</code> and <code>test</code> refuse before the subscription is looked up, so a token gets <code>403</code>, not <code>404</code>, for an unknown id. A <code>PATCH</code> looks the subscription up first, because it has to read the body to see whether <code>url</code> is present, so a token gets <code>404</code> for an unknown id and <code>403</code> for a known one.</p>
+<p>On the other actions a token needs the <code>read</code> scope for <code>GET</code> and <code>write</code> for <code>PATCH</code>, <code>DELETE</code> and <code>disable</code>.</p>
 <h2 id="endpoints">Endpoints<a class="headerlink" href="#endpoints" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4785,7 +4788,7 @@
 </tbody>
 </table>
 <p><code>PUT</code> is not supported.</p>
-<p>Throttled actions (<code>webhook_config</code>: create, a <code>PATCH</code> that includes <code>url</code>, rotate; <code>webhook_test</code>: test) answer <code>429</code> with a <code>Retry-After</code> header once the per-user limit is reached.</p>
+<p><strong>Watch out:</strong> Throttled actions (<code>webhook_config</code>: create, a <code>PATCH</code> that includes <code>url</code>, rotate; <code>webhook_test</code>: test) answer <code>429</code> with a <code>Retry-After</code> header once the per-user limit is reached.</p>
 <h3 id="get-status"><code>GET status/</code><a class="headerlink" href="#get-status" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">"enabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
@@ -4874,8 +4877,10 @@
 </table>
 <h3 id="post-create"><code>POST /</code> — create<a class="headerlink" href="#post-create" title="Permanent link">&para;</a></h3>
 <p>Body: <code>url</code> (required), <code>name</code> (optional, at most 200 characters), <code>event_types</code> (optional, default <code>[]</code>).</p>
-<p>The <code>201</code> response is the subscription object plus <code>url</code> and <code>secret</code>, with <code>Cache-Control: no-store</code>. <strong>This is the only response that contains them.</strong> The secret is <code>whsec_</code> followed by 43 URL-safe characters.</p>
-<p>A new webhook starts at the board's newest event, so <code>last_delivered_event_id</code> starts at the id of the newest event a webhook can receive: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id of such an event instead, and at <code>0</code> on a board that never had one. <em>(1.3+, #2053)</em> The newest event is read once no write on the board is still in flight, waiting up to about 0.2 s, so every event that commits after the webhook is created is delivered. If a write is still open after the wait, the webhook starts after the newest committed event, and that write's event, written before the request, is not delivered. The same applies to <code>resume_from: latest</code>.</p>
+<p>The <code>201</code> response is the subscription object plus <code>url</code> and <code>secret</code>, with <code>Cache-Control: no-store</code>.</p>
+<p><strong>This is the only response that contains them.</strong> The secret is <code>whsec_</code> followed by 43 URL-safe characters.</p>
+<p><strong>How it works:</strong> A new webhook starts at the board's newest event, so <code>last_delivered_event_id</code> starts at the id of the newest event a webhook can receive: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id of such an event instead, and at <code>0</code> on a board that never had one.</p>
+<p><strong>How it works:</strong> <em>(1.3+, #2053)</em> The newest event is read once no write on the board is still in flight, waiting up to about 0.2 s, so every event that commits after the webhook is created is delivered. If a write is still open after the wait, the webhook starts after the newest committed event, and that write's event, written before the request, is not delivered. The same applies to <code>resume_from: latest</code>.</p>
 <h3 id="patch-id"><code>PATCH {id}/</code><a class="headerlink" href="#patch-id" title="Permanent link">&para;</a></h3>
 <p>Send only the keys you change. Changing <code>url</code> validates it again, makes the caller the owner (<code>configured_by</code>), and leaves the secret unchanged.</p>
 <h3 id="post-idreenable"><code>POST {id}/reenable/</code><a class="headerlink" href="#post-idreenable" title="Permanent link">&para;</a></h3>
@@ -4940,7 +4945,9 @@
 </tr>
 </tbody>
 </table>
-<p><strong>With <code>overlap_seconds</code> above 0</strong>, every delivery lists two signatures until <code>previous_secret_expires_at</code>, so a receiver holding either secret keeps working while you update it (see <a href="#rotating-without-downtime">Rotating without downtime</a>). Once the time has passed the old secret never signs again and <code>previous_secret_expires_at</code> reads <code>null</code>. Its stored copy is then deleted by the next dispatcher run, by the next request a board admin makes to this board's webhook endpoints (<code>status</code> included), or by the daily <code>sweep_webhook_secrets</code> <a href="../../administration/scheduled-jobs/">scheduled job</a> (since 1.3, #2119). If you run none of the three (no dispatcher, no scheduler, and nobody opens the webhook API), the expired ciphertext stays stored, though it never signs again. Only one previous secret is kept: rotating during an overlap replaces it with the secret being retired and starts a new window.</p>
+<p><strong>With <code>overlap_seconds</code> above 0</strong>, every delivery lists two signatures until <code>previous_secret_expires_at</code>, so a receiver holding either secret keeps working while you update it (see <a href="#rotating-without-downtime">Rotating without downtime</a>). Once the time has passed the old secret never signs again and <code>previous_secret_expires_at</code> reads <code>null</code>. Its stored copy is then deleted by the next dispatcher run, by the next request a board admin makes to this board's webhook endpoints (<code>status</code> included), or by the daily <code>sweep_webhook_secrets</code> <a href="../../administration/scheduled-jobs/">scheduled job</a> (since 1.3, #2119).</p>
+<p><strong>Yes, but:</strong> If you run none of the three (no dispatcher, no scheduler, and nobody opens the webhook API), the expired ciphertext stays stored, though it never signs again.</p>
+<p>Only one previous secret is kept: rotating during an overlap replaces it with the secret being retired and starts a new window.</p>
 <p><strong>With <code>0</code>, or an empty body</strong>, the old secret stops signing immediately and any open overlap ends: a dispatcher run that started before the rotation stops before its next delivery. A delivery already in flight may still be signed with the old secret, and it is retried with the new one if your receiver rejects it.</p>
 <p>If the current secret cannot be decrypted (or is empty), the rotation still succeeds, no overlap opens and <code>previous_secret_expires_at</code> is <code>null</code>.</p>
 <div class="admonition warning">
@@ -4951,7 +4958,8 @@
 <p>Changing a webhook's <code>url</code> also ends any open overlap: the new host never held the old secret, and requests signed with it could be replayed at the old receiver.</p>
 <h3 id="post-idend-overlap"><code>POST {id}/end-overlap/</code><a class="headerlink" href="#post-idend-overlap" title="Permanent link">&para;</a></h3>
 <p><em>Since 1.3 (#2118).</em> Ends an open rotation overlap early, <strong>without issuing a new secret</strong>: once your receiver has the new secret, there is no need to wait for <code>previous_secret_expires_at</code>. No body. Returns the subscription object (<code>200</code>), with <code>previous_secret_expires_at: null</code> and no <code>secret</code>.</p>
-<p>After it, every delivery carries one signature, from the current secret, which is unchanged: your receiver keeps the secret it has. A dispatcher run already in progress keeps going and drops the second signature from its next delivery; one already in flight may still carry both. The stored previous secret is deleted at once. The owner (<code>configured_by</code>) does not change, because the destination and the current secret stay as they were.</p>
+<p><strong>How it works:</strong> After it, every delivery carries one signature, from the current secret, which is unchanged: your receiver keeps the secret it has.</p>
+<p><strong>Watch out:</strong> A dispatcher run already in progress keeps going and drops the second signature from its next delivery; one already in flight may still carry both. The stored previous secret is deleted at once. The owner (<code>configured_by</code>) does not change, because the destination and the current secret stay as they were.</p>
 <p>With no overlap open it changes nothing and still answers <code>200</code>, so it is safe to retry. Like <code>rotate</code> it is session-only, so a personal access token gets <code>403 {"code": "session_required"}</code>.</p>
 <p>Without it, a second rotation with <code>overlap_seconds: 0</code> also ends the overlap, but issues a new secret your receiver then has to install.</p>
 <h3 id="post-idtest"><code>POST {id}/test/</code><a class="headerlink" href="#post-idtest" title="Permanent link">&para;</a></h3>
@@ -5040,9 +5048,10 @@
 <h3 id="response">Response<a class="headerlink" href="#response" title="Permanent link">&para;</a></h3>
 <p>Answer <code>2xx</code> within 10 seconds (<code>WEBHOOK_TIMEOUT_SECONDS</code>). Visiban reads only the status line; the response body is discarded and never stored.</p>
 <p>A receiver also gets at most <code>WEBHOOK_HOST_MAX_PER_MINUTE</code> (120) deliveries a minute and <code>WEBHOOK_HOST_MAX_CONCURRENCY</code> (2) at once, counted per destination host across every board's webhooks on the server (since 1.3, #2055). A webhook whose host is at either limit waits for a later dispatcher run; that is not a failure, so it does not back off or count toward being turned off, and its events stay in order. See <a href="../../administration/configuration/#webhooks">Configuration — Webhooks</a>.</p>
-<p>Anything else is a failure, including <code>3xx</code>: redirects are not followed. After a failure the webhook retries the <strong>same</strong> event after 30 seconds, doubling up to an hour (each delay gets up to 10% added jitter), and later events wait behind it. After 20 consecutive failures or 24 hours of failing (the defaults of <code>WEBHOOK_DISABLE_AFTER_FAILURES</code> and <code>WEBHOOK_DISABLE_AFTER_HOURS</code>) it is turned off with <code>disabled_reason: "failures"</code>, and the board's admins get a <code>webhook_disabled</code> <a href="../notifications/">notification</a> and an email.</p>
+<p><strong>How it works:</strong> Anything else is a failure, including <code>3xx</code>: redirects are not followed. After a failure the webhook retries the <strong>same</strong> event after 30 seconds, doubling up to an hour (each delay gets up to 10% added jitter), and later events wait behind it. After 20 consecutive failures or 24 hours of failing (the defaults of <code>WEBHOOK_DISABLE_AFTER_FAILURES</code> and <code>WEBHOOK_DISABLE_AFTER_HOURS</code>) it is turned off with <code>disabled_reason: "failures"</code>, and the board's admins get a <code>webhook_disabled</code> <a href="../notifications/">notification</a> and an email.</p>
 <h3 id="ordering">Ordering<a class="headerlink" href="#ordering" title="Permanent link">&para;</a></h3>
-<p>Events for one webhook are delivered in increasing <code>X-Visiban-Event-Id</code> order, and none is skipped. Ids are assigned when an event is written, not when it commits, so a lower id can commit after a higher one. The dispatcher never reads past an event that is still committing on the board, however long its transaction stays open, so the webhook's cursor never passes it (since 1.3, #2053; before that, a transaction held open longer than the settle window could land behind the cursor). It also waits <code>WEBHOOK_SETTLE_SECONDS</code> (10) before it sends an event, which only delays delivery.</p>
+<p>Events for one webhook are delivered in increasing <code>X-Visiban-Event-Id</code> order, and none is skipped.</p>
+<p><strong>How it works:</strong> Ids are assigned when an event is written, not when it commits, so a lower id can commit after a higher one. The dispatcher never reads past an event that is still committing on the board, however long its transaction stays open, so the webhook's cursor never passes it (since 1.3, #2053; before that, a transaction held open longer than the settle window could land behind the cursor). It also waits <code>WEBHOOK_SETTLE_SECONDS</code> (10) before it sends an event, which only delays delivery.</p>
 <h2 id="verifying-signatures">Verifying signatures<a class="headerlink" href="#verifying-signatures" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Read the raw request body as bytes, <strong>before</strong> any JSON parsing.</li>
