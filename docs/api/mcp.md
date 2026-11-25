@@ -16,7 +16,7 @@ MCP_SERVER_ENABLED=true   # backend environment; restart the backend
 
 **The big picture:** Visiban can expose its boards to AI agents over the [Model Context Protocol](https://spec.modelcontextprotocol.io) (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to `/mcp`, authenticates with a Personal Access Token, and calls tools that read and write your Visiban data.
 
-The feature is flag-gated: `/mcp` returns `404 Not Found` unless the server is started with `MCP_SERVER_ENABLED=true`.
+**Watch out:** `/mcp` returns `404 Not Found` unless the server starts with `MCP_SERVER_ENABLED=true`.
 
 !!! note
     This is the Phase 1 (OSS core) surface: board discovery, full card CRUD, and the `board://`/`card://` resources below. A full setup guide is tracked separately.
@@ -25,7 +25,7 @@ The feature is flag-gated: `/mcp` returns `404 Not Found` unless the server is s
 
 ## Enabling the server
 
-Set the environment variable on the backend and restart it:
+Set `MCP_SERVER_ENABLED=true` on the backend and restart:
 
 ```bash
 MCP_SERVER_ENABLED=true
@@ -58,7 +58,7 @@ MCP_SERVER_ENABLED=true
 
     The chart's frontend proxy already forwards `/mcp` to the backend.
 
-When the flag is off, the app is not installed, the `/mcp` route does not exist, and the MCP SDK is never imported — an install that does not use MCP exposes no additional surface.
+**How it works:** When the flag is off, the app is not installed, the `/mcp` route does not exist, and the MCP SDK is never imported — an install that does not use MCP exposes no additional surface.
 
 ---
 
@@ -71,13 +71,15 @@ When the flag is off, the app is not installed, the `/mcp` route does not exist,
 | Methods | `POST` |
 | Session mode | Stateless |
 
-The server runs **stateless**: every request is self-contained and no session state is pinned to a single process. This means a deployment running several backend replicas needs no sticky-session configuration.
+**How it works:** The server runs **stateless**: every request is self-contained and no session state is pinned to a single process. This means a deployment running several backend replicas needs no sticky-session configuration.
 
-If you terminate TLS behind a reverse proxy, the `/mcp` location must disable response buffering: the transport holds a long-lived Server-Sent Events response open, and a buffering proxy withholds event frames. The bundled Nginx templates and the Helm chart already include a correct `/mcp` block.
+**Watch out:** If you terminate TLS behind a reverse proxy, the `/mcp` location must disable response buffering: the transport holds a long-lived Server-Sent Events response open, and a buffering proxy withholds event frames. The bundled Nginx templates and the Helm chart already include a correct `/mcp` block.
 
 ### DNS rebinding protection
 
-The transport checks every request's `Host` and `Origin` headers against `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS`, which stops a malicious web page from using DNS rebinding to reach the MCP server from a victim's browser. A request whose `Host` is not allowed gets `421 Misdirected Request`. If you reach the server on a hostname the backend does not know, add it to `ALLOWED_HOSTS`.
+**How it works:** The transport checks every request's `Host` and `Origin` headers against `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS`, which stops a malicious web page from using DNS rebinding to reach the MCP server from a victim's browser.
+
+**Watch out:** A request whose `Host` is not allowed gets `421 Misdirected Request`. If you reach the server on a hostname the backend does not know, add it to `ALLOWED_HOSTS`.
 
 !!! warning "If `ALLOWED_HOSTS` is `*`"
     A wildcard cannot serve as a rebinding allowlist: the two settings guard different threats, and inheriting the wildcard would silently switch this protection off. Set `MCP_ALLOWED_HOSTS` to the hostnames clients actually reach `/mcp` on:
@@ -126,7 +128,9 @@ The plaintext token is shown **once**, at creation. Only a SHA-256 hash is store
 - a token created **before 1.2** (no scopes recorded) is **refused** at `/mcp`, even though it still works across the whole REST API
 - `mcp:write` does not imply `mcp:read`
 
-The reason is consent, not capability. Users paste a PAT into an agent, a different kind of consumer from a shell script. Requiring a scope that can only have been chosen deliberately means no pre-existing token quietly becomes an agent credential because MCP was switched on.
+**Why it matters:** The reason is consent, not capability. Users paste a PAT into an agent, a different kind of consumer from a shell script.
+
+Requiring a scope that can only have been chosen deliberately means no pre-existing token quietly becomes an agent credential because MCP was switched on.
 
 Scopes never widen access: an `mcp:read` token still sees exactly the boards its owner can see, with the same roles.
 
@@ -138,7 +142,7 @@ A token intended for both an agent and a script needs both sets of scopes, e.g. 
 
 `mcp:read` opens a session and is enough for every read tool below. Any **write** tool (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`) additionally requires **`mcp:write`** on the same token. Scopes are non-hierarchical: `mcp:read` does not grant `mcp:write`, and `mcp:write` alone does not even open a session (a token needs `mcp:read` to reach `/mcp` at all). A write-capable agent credential therefore needs **both**: `["mcp:read", "mcp:write"]`.
 
-Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a missing `mcp:write` is reported by the tool as a [tool error](#tool-errors): an `isError: true` result carrying `{"error": {"code": "missing_scope", "detail": "..."}}`, not a `401`. The session is valid; only that call was declined.
+**Watch out:** Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a missing `mcp:write` is reported by the tool as a [tool error](#tool-errors): an `isError: true` result carrying `{"error": {"code": "missing_scope", "detail": "..."}}`, not a `401`. The session is valid; only that call was declined.
 
 ### Errors
 
@@ -150,7 +154,7 @@ Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a
 | `404 Not Found` | `MCP_SERVER_ENABLED` is not set. |
 | `421 Misdirected Request` | The `Host` header is not in `ALLOWED_HOSTS`. |
 
-Authentication is enforced at the transport layer, before any MCP protocol frame is parsed, so an unauthenticated caller never reaches the protocol machinery. The `401` body is a JSON-RPC error envelope, so spec-compliant clients surface a useful message.
+**How it works:** Authentication is enforced at the transport layer, before any MCP protocol frame is parsed, so an unauthenticated caller never reaches the protocol machinery. The `401` body is a JSON-RPC error envelope, so spec-compliant clients surface a useful message.
 
 ### Protocol errors and limits
 
@@ -175,16 +179,20 @@ These responses come from the MCP SDK rather than from a Visiban tool, so a clie
 
 > **Added in 1.2**
 
-DRF's request throttles (`DEFAULT_THROTTLE_RATES`) never apply to `/mcp`: the MCP server is mounted in-process at the ASGI level and calls tool functions directly, not through a DRF view. `/mcp` has its own per-token limiter, keyed on the presented Personal Access Token (never on IP or the raw token value). Limits therefore hold whatever network or proxy a caller uses, and across every backend replica, because they share the cache backend the REST throttles use.
+**How it works:** DRF's request throttles (`DEFAULT_THROTTLE_RATES`) never apply to `/mcp`: the MCP server is mounted in-process at the ASGI level and calls tool functions directly, not through a DRF view.
 
-Two limits stack on every call:
+`/mcp` has its own per-token limiter, keyed on the presented Personal Access Token (never on IP or the raw token value). Limits therefore hold whatever network or proxy a caller uses, and across every backend replica, because they share the cache backend the REST throttles use.
+
+**By the numbers:** Two limits stack on every call:
 
 | Bucket | Applies to | Default | Setting |
 |---|---|---|---|
 | Baseline (read) | Every tool call and every resource read | `300/min` per token | `MCP_THROTTLE_READ_RATE` |
 | Compute | `list_cards`, `board_flow_metrics`, `aging_cards` and `board://{board_id}` only, **in addition to** the baseline limit above | `30/min` per token | `MCP_THROTTLE_COMPUTE_RATE` |
 
-A call to `list_cards`, `board_flow_metrics`, `aging_cards` or `board://{board_id}` spends a unit from **both** buckets; every other tool/resource spends only the baseline unit. There is no `DEBUG`-time bypass: unlike the REST throttle rates, these apply in local development too, since a runaway agent loop is exactly what the compute bucket exists to catch.
+A call to `list_cards`, `board_flow_metrics`, `aging_cards` or `board://{board_id}` spends a unit from **both** buckets; every other tool/resource spends only the baseline unit.
+
+**Watch out:** There is no `DEBUG`-time bypass: unlike the REST throttle rates, these apply in local development too, since a runaway agent loop is exactly what the compute bucket exists to catch.
 
 This applies uniformly to every token, including a site admin's — there is no admin exemption from the throttle, unlike maintenance mode.
 
@@ -205,7 +213,15 @@ The per-token limits above only apply once a token has resolved, so they cannot 
 |---|---|---|---|
 | Pre-auth failures | Requests whose Bearer token is unknown, revoked, expired, or otherwise fails lookup (HTTP `401`) | `30/min` per client IP | `MCP_THROTTLE_PREAUTH_RATE` |
 
-Only failed lookups spend this budget. A valid token that merely lacks the `mcp:read` scope is not counted, and neither are successful requests, but the check runs before the lookup for every request. Once an IP has used its budget, further requests from it, **valid ones included**, are answered `429` (a `Retry-After` header and a JSON-RPC error with `data.code: "throttled"` and `data.retry_after`) until the window slides. Valid agents that share an IP with a client that keeps failing (an agent looping on a revoked token, or a hostile host behind the same NAT) are therefore blocked too. This is a best-effort brake on guessing, not a hard cap: the counter is approximate, and concurrent or multi-replica failures can exceed the budget or lose counts. The client IP is resolved with the same `NUM_PROXIES` logic as the REST throttles; set `NUM_PROXIES` to match your proxy chain or all clients behind a proxy will share one bucket. The setting is optional, uses the same `<count>/<period>` syntax as the others, and an unparseable value raises `ImproperlyConfigured`. Like the per-token buckets, the limiter fails closed: if the cache backend is unavailable the request errors rather than skipping the check.
+**How it works:** Only failed lookups spend this budget. A valid token that merely lacks the `mcp:read` scope is not counted, and neither are successful requests, but the check runs before the lookup for every request.
+
+**Watch out:** Once an IP has used its budget, further requests from it, **valid ones included**, are answered `429` (a `Retry-After` header and a JSON-RPC error with `data.code: "throttled"` and `data.retry_after`) until the window slides. Valid agents that share an IP with a client that keeps failing (an agent looping on a revoked token, or a hostile host behind the same NAT) are therefore blocked too.
+
+**Yes, but:** This is a best-effort brake on guessing, not a hard cap: the counter is approximate, and concurrent or multi-replica failures can exceed the budget or lose counts.
+
+The client IP is resolved with the same `NUM_PROXIES` logic as the REST throttles; set `NUM_PROXIES` to match your proxy chain or all clients behind a proxy will share one bucket.
+
+The setting is optional, uses the same `<count>/<period>` syntax as the others, and an unparseable value raises `ImproperlyConfigured`. Like the per-token buckets, the limiter fails closed: if the cache backend is unavailable the request errors rather than skipping the check.
 
 ### Throttled tool calls
 
@@ -359,9 +375,13 @@ A successful call has `isError: false` and its payload in `structuredContent.res
 - **Tool errors** (everything in the table below): `isError: true`, with the `{"error": {...}}` payload in `structuredContent.result` and in the text block.
 - **Failures outside Visiban's tool code**: arguments that do not match a tool's input schema (a missing required argument, or a string where an integer is expected), which the SDK rejects before any Visiban code runs, and an unexpected server-side exception. Both are `isError: true` with a single text message and **no** `structuredContent`, so no `code`.
 
-A client must check that `structuredContent` is present before reading an error `code` from it, and treat an `isError: true` result without one as a generic failure.
+**Watch out:** A client must check that `structuredContent` is present before reading an error `code` from it, and treat an `isError: true` result without one as a generic failure.
 
-Every error has a `code` your agent can branch on, and the table below is the complete set. Codes are never removed; new ones may be added in a minor release, so treat an unrecognized `code` as a generic failure rather than crashing. Most errors also carry a human-readable `detail`. Exactly six codes do not: `wip_limit_exceeded`, `weight_limit_exceeded`, `swimlane_wip_limit_exceeded` and `swimlane_weight_limit_exceeded` carry only their own fields (`column_name`, `swimlane_name` for the swimlane codes, and the counters), `validation_error` carries an `errors` object, and `card_creation_not_allowed` carries a `column` message. `internal_error` carries `code` plus whatever fields the underlying error has, normally `detail`. Branch on `code`, never on `detail`.
+**How it works:** Every error has a `code` your agent can branch on, and the table below is the complete set. Codes are never removed; new ones may be added in a minor release, so treat an unrecognized `code` as a generic failure rather than crashing.
+
+**By the numbers:** Most errors also carry a human-readable `detail`. Exactly six codes do not: `wip_limit_exceeded`, `weight_limit_exceeded`, `swimlane_wip_limit_exceeded` and `swimlane_weight_limit_exceeded` carry only their own fields (`column_name`, `swimlane_name` for the swimlane codes, and the counters), `validation_error` carries an `errors` object, and `card_creation_not_allowed` carries a `column` message. `internal_error` carries `code` plus whatever fields the underlying error has, normally `detail`.
+
+**Watch out:** Branch on `code`, never on `detail`.
 
 | `code` | Meaning |
 |---|---|
@@ -423,7 +443,7 @@ A movement has no `uid` of its own (its integer `id` identifies it), but it carr
 
 Every card object in tool and resource output (from `list_cards`, `create_card`, `move_card`, `update_card`, `board://` and `card://`) carries `version`, a counter that goes up on every field update, every block or unblock (since 1.3), and every move of the card, over MCP or REST. Pass it back as the optional `version` argument of `move_card` or `update_card` to make the write conditional: if the card changed since you read it, the call returns a `version_conflict` [tool error](#tool-errors) carrying `current_version`, and nothing is written or broadcast. Omit `version` and the call behaves exactly as before 1.3, with no check.
 
-`move_card`'s `version` is the REST move endpoint's `version` body field, with the same semantics and the same error. The REST `PATCH`/`PUT` card endpoints still neither accept nor check `version`; the conditional update exists on the MCP `update_card` tool only.
+**Watch out:** `move_card`'s `version` is the REST move endpoint's `version` body field, with the same semantics and the same error. The REST `PATCH`/`PUT` card endpoints still neither accept nor check `version`; the conditional update exists on the MCP `update_card` tool only.
 
 A successful `create_card`, `move_card`, or `update_card` returns the card with its new `version`, which is the one to send on the next write.
 
@@ -433,7 +453,11 @@ Lists a board's columns, ordered by position. All board roles may call it.
 
 **Arguments:** `board_id` (integer, required).
 
-**Returns:** an array of `{id, uid, name, position, color, wip_limit, policy, card_count, sub_columns}` — `card_count` excludes archived cards; `sub_columns` (since 1.3, #1102) is the stage's ordered `[{id, uid, position, name}]`, `[]` on a plain column, and bounds a card's `gates_passed` (0 to the last sub-column's index); `uid` is new in 1.3 (see [Stable identifiers](#stable-identifiers-uid)). `wip_limit` is checked by both `move_card` and `create_card` (since 1.2, #1428); only a board import can leave `card_count` above it (see [Field Enforcement](../architecture/field-enforcement.md)). `policy` (since 1.3, #1101) is the column's written entry criteria and definition of done, `{"v": 1, "entry": [...], "done": [...], "mode": "advisory" | "confirm"}`, or `null`; it is [advisory](../features/column-policies.md), so `move_card` never refuses a move because of it — read it before moving a card if you want to follow the team's policy.
+**Returns:** an array of `{id, uid, name, position, color, wip_limit, policy, card_count, sub_columns}` — `card_count` excludes archived cards; `sub_columns` (since 1.3, #1102) is the stage's ordered `[{id, uid, position, name}]`, `[]` on a plain column, and bounds a card's `gates_passed` (0 to the last sub-column's index); `uid` is new in 1.3 (see [Stable identifiers](#stable-identifiers-uid)).
+
+**Watch out:** `wip_limit` is checked by both `move_card` and `create_card` (since 1.2, #1428); only a board import can leave `card_count` above it (see [Field Enforcement](../architecture/field-enforcement.md)).
+
+`policy` (since 1.3, #1101) is the column's written entry criteria and definition of done, `{"v": 1, "entry": [...], "done": [...], "mode": "advisory" | "confirm"}`, or `null`; it is [advisory](../features/column-policies.md), so `move_card` never refuses a move because of it — read it before moving a card if you want to follow the team's policy.
 
 ### `list_swimlanes`
 
@@ -445,19 +469,27 @@ Lists a board's swimlanes, ordered by position. All board roles may call it.
 
 ### `list_cards`
 
-Lists a board's cards, ordered by column position, then swimlane position, then card position, with ties broken by id so paging is stable. (The REST card list orders by `position` then id by default; the MCP ordering is the board's visual reading order.) All board roles may call it. A call returns at most 200 cards. When more cards match than were returned, the result says so in-band: the array is unchanged, but the result's content gains one extra text block, `Showing N of M cards; call again with offset=K`, and its `_meta` carries `{"visiban/total": M, "visiban/truncated": true}`. A complete result has neither. Page past the cap with `limit`/`offset`. Pass `include_meta: true` to get the total and flag in the returned data itself.
+Lists a board's cards, ordered by column position, then swimlane position, then card position, with ties broken by id so paging is stable. (The REST card list orders by `position` then id by default; the MCP ordering is the board's visual reading order.) All board roles may call it.
+
+**By the numbers:** A call returns at most 200 cards.
+
+**How it works:** When more cards match than were returned, the result says so in-band: the array is unchanged, but the result's content gains one extra text block, `Showing N of M cards; call again with offset=K`, and its `_meta` carries `{"visiban/total": M, "visiban/truncated": true}`. A complete result has neither. Page past the cap with `limit`/`offset`. Pass `include_meta: true` to get the total and flag in the returned data itself.
 
 **Trade-off for clients:** because the card array has no room for a flag, the notice is a plain text block after the per-card JSON blocks, and only on truncated calls. A client that JSON-parses every content block will hit one non-card block then; `structuredContent` (`{"result": [...]}`) is unchanged and is the machine-readable path. A `limit` of `0` is a total-only request and gets no notice; use `include_meta` for the total.
 
 `limit`/`offset` and the totals mirror the REST `GET /api/v1/boards/{board_id}/cards/` endpoint's `X-Total-Count` / `X-Truncated` headers and `limit`/`offset` query params, with the same bounds. The names are deliberate: `limit` and `total`/`truncated` match the card list's own `?limit=` and headers (a second pagination style by design, see the [API overview](index.md)), and MCP `total` corresponds to the paginated REST envelope's `count` and to the `X-Total-Count` header.
 
-**Arguments:** `board_id` (integer, required); `column_id`, `swimlane_id` (integers), `assignee` (username, case-insensitive), `priority`, `label` (name) — all optional filters, ANDed together; `include_archived` (boolean, default `false`); `limit` (integer, default and maximum `200`; a larger value is clamped to `200`, as in REST); `offset` (integer, default `0`); `include_meta` (boolean, default `false`). A negative `limit`, or an `offset` above 2^62, returns a `validation_error`; a negative `offset` is treated as `0`, as on every REST endpoint (*1.2, #1823*), while a non-numeric `offset` is rejected by the input schema like any mistyped argument. The tool's input schema coerces numeric strings, whole numbers and JSON booleans (`"5"`, `5.0`, `true` becomes `1`) to integers and rejects non-numeric or fractional values (`"abc"`, `5.5`) with an `isError` result.
+**Arguments:** `board_id` (integer, required); `column_id`, `swimlane_id` (integers), `assignee` (username, case-insensitive), `priority`, `label` (name) — all optional filters, ANDed together; `include_archived` (boolean, default `false`); `limit` (integer, default and maximum `200`; a larger value is clamped to `200`, as in REST); `offset` (integer, default `0`); `include_meta` (boolean, default `false`).
+
+**Watch out:** A negative `limit`, or an `offset` above 2^62, returns a `validation_error`; a negative `offset` is treated as `0`, as on every REST endpoint (*1.2, #1823*), while a non-numeric `offset` is rejected by the input schema like any mistyped argument. The tool's input schema coerces numeric strings, whole numbers and JSON booleans (`"5"`, `5.0`, `true` becomes `1`) to integers and rejects non-numeric or fractional values (`"abc"`, `5.5`) with an `isError` result.
 
 **Deliberate differences from REST:** the MCP tool filters by names an agent can read, where REST filters by integer ids. `assignee` is a username (REST `?assignee=` takes a user id) and `label` is a label name (REST `?label=` on the cross-board `GET /api/v1/cards/` takes a label id; the board-scoped list has no label filter). The `unassigned` and `overdue` filters exist only on the board-scoped REST list (`GET /api/v1/boards/{board_id}/cards/`); the cross-board `GET /api/v1/cards/` and this tool do not have them. To find unassigned cards over MCP, list the cards and check for `assignee: null`.
 
 *Changed in 1.2: `limit`, `offset` and `include_meta` are new and optional, and the card fields are unchanged. A call that omits them returns the same array as before; the only difference is the in-band notice and `_meta` on a call that was truncated (#1762).*
 
-**Returns:** by default, an array of `{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at, blocked_at, blocked_reason, gates_passed}`. `gates_passed` (*added in 1.3*, #1102) is how many sub-columns of its gated stage the card has passed, `0` outside a stage. `assignee` is a `{username, display_name}` object or `null` (see [User fields](#user-fields)); `labels` is an array of names; `column`/`swimlane` are `{id, uid, name}` objects so a result can be fed straight into `move_card`. `uid`, `version`, and the `uid` inside `column`/`swimlane` are new in 1.3 (#1974; see [Stable identifiers](#stable-identifiers-uid) and [Optimistic concurrency](#optimistic-concurrency)). `blocked_at` (ISO 8601, or `null`) and `blocked_reason` (`""` when not blocked) are the card's manual blocked state, *added in 1.3* (#1149; see [`block_card`](#block_card)).
+**Returns:** by default, an array of `{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at, blocked_at, blocked_reason, gates_passed}`. `gates_passed` (*added in 1.3*, #1102) is how many sub-columns of its gated stage the card has passed, `0` outside a stage. `assignee` is a `{username, display_name}` object or `null` (see [User fields](#user-fields)); `labels` is an array of names; `column`/`swimlane` are `{id, uid, name}` objects so a result can be fed straight into `move_card`. `uid`, `version`, and the `uid` inside `column`/`swimlane` are new in 1.3 (#1974; see [Stable identifiers](#stable-identifiers-uid) and [Optimistic concurrency](#optimistic-concurrency)).
+
+`blocked_at` (ISO 8601, or `null`) and `blocked_reason` (`""` when not blocked) are the card's manual blocked state, *added in 1.3* (#1149; see [`block_card`](#block_card)).
 
 With `include_meta: true`, an object instead (and no in-band notice, since the data carries the signal): `{cards, total, truncated, limit, offset}`. `cards` is the same array described above; `total` is the number of cards matching the filters, ignoring `limit`/`offset`; `truncated` is `true` when more matching cards exist after the returned ones (fetch them with a larger `offset`); `limit` and `offset` echo the values applied.
 
@@ -465,9 +497,17 @@ With `include_meta: true`, an object instead (and no in-band notice, since the d
 
 > **Added in 1.3** (#1151)
 
-Flow metrics for one board over a rolling window, from the same service as the REST [`metrics/*` endpoints](../features/analytics.md) (ADR #1532; both default to 90 days): cycle time and throughput equal `GET /boards/{id}/metrics/cycle-time` and `/throughput` for the same `days` and `swimlane_id`; WIP counts and the `blocked` block come from the same service but are not those REST responses; `blocked_summary` is. WIP has no REST endpoint of its own (the closest is `metrics/wip-age/`'s `columns[].wip_count`). The `blocked` block follows the window and `swimlane_id` (since #2280), but it has the shape of the older `/analytics/` blocked-time block, not of `metrics/blocked/`: days rounded to 0.1, columns keyed by name rather than `column_uid`, and reasons ranked by how many blocks they have, then by time. All board roles may call it; it needs only `mcp:read` and spends from the [compute bucket](#rate-limiting).
+Flow metrics for one board over a rolling window, from the same service as the REST [`metrics/*` endpoints](../features/analytics.md) (ADR #1532; both default to 90 days): cycle time and throughput equal `GET /boards/{id}/metrics/cycle-time` and `/throughput` for the same `days` and `swimlane_id`; WIP counts and the `blocked` block come from the same service but are not those REST responses; `blocked_summary` is.
 
-**Arguments:** `board_id` (integer, required); `window_days` (integer 1 to 365, default `90`, the REST `days` default); `swimlane_id` (integer, optional, must belong to the board). A value that reaches the tool out of range, or a swimlane that is not on the board, is a `validation_error` keyed by the argument. Type coercion and the rejection of non-integers (`30.5`, `"abc"`) are done by the MCP SDK's input schema, as for every tool. A swimlane of another board and a nonexistent swimlane get the same message.
+**Yes, but:** WIP has no REST endpoint of its own (the closest is `metrics/wip-age/`'s `columns[].wip_count`).
+
+The `blocked` block follows the window and `swimlane_id` (since #2280), but it has the shape of the older `/analytics/` blocked-time block, not of `metrics/blocked/`: days rounded to 0.1, columns keyed by name rather than `column_uid`, and reasons ranked by how many blocks they have, then by time.
+
+All board roles may call `board_flow_metrics`; it needs only `mcp:read` and spends from the [compute bucket](#rate-limiting).
+
+**Arguments:** `board_id` (integer, required); `window_days` (integer 1 to 365, default `90`, the REST `days` default); `swimlane_id` (integer, optional, must belong to the board).
+
+**Watch out:** A value that reaches the tool out of range, or a swimlane that is not on the board, is a `validation_error` keyed by the argument. Type coercion and the rejection of non-integers (`30.5`, `"abc"`) are done by the MCP SDK's input schema, as for every tool. A swimlane of another board and a nonexistent swimlane get the same message.
 
 **Errors:** besides `board_not_found` and `validation_error`, *since 1.3* (#2428) `analytics_busy` and `analytics_too_large` (see [Tool errors](#tool-errors)). The tool is refused at once when no analytics slot is free; it never waits.
 
@@ -483,7 +523,7 @@ Flow metrics for one board over a rolling window, from the same service as the R
 | `blocked` | `{total: {days, seconds, blocks}, days_per_column, seconds_per_column, blocks_per_column, top_reasons: [{reason, count, total_days, total_seconds}]}`, keyed by column name; the same object as the `/analytics/` blocked-time block (#1149), cut by `swimlane_id` when one is given. `days` and `total_days` are rounded to 0.1; `top_reasons` is ordered by block count, then by time. |
 | `blocked_summary` | *New in 1.3.* The same payload as the REST `metrics/blocked` endpoint for the same window and `swimlane_id`, with reasons ranked by blocked time (not block count, as in `blocked`). |
 
-The per-card `samples` and `card_uids` lists REST returns are left out so the result does not grow with the board, and so is the throughput `completed_in_range` field (use `total`, or the per-week counts); use `list_cards` for the cards behind a count. Archived cards count toward cycle time and throughput once completed, and never toward WIP, as in REST.
+**Yes, but:** The per-card `samples` and `card_uids` lists REST returns are left out so the result does not grow with the board, and so is the throughput `completed_in_range` field (use `total`, or the per-week counts); use `list_cards` for the cards behind a count. Archived cards count toward cycle time and throughput once completed, and never toward WIP, as in REST.
 
 ### `aging_cards`
 
@@ -509,11 +549,13 @@ Creates a card, appended to the end of its column/swimlane cell (or inserted at 
 
 **Arguments:** `board_id`, `column_id`, `swimlane_id`, `title` (required); `description`, `priority` (default `"medium"`), `assignee` (username of any board member whose role is not `viewer`), `labels` (array of names), `due_date` (`YYYY-MM-DD`), `position` — all optional.
 
-**Returns:** the created card, same shape as one row of `list_cards`. Writes a `CardMovement` record with no "from" column (matching how the REST API records card creation) and broadcasts `card.created` on the board's WebSocket channel. The broadcast frame (and its [change-feed](events.md) row) carries the full card exactly as a REST create sends it, not the tool's return shape above; when `position` is given and differs from the position the card was appended at, the follow-up reorder also sends a `card.moved` frame (`{card}`, with no `movement`, plus since 1.3 the [`sibling_positions`](websockets.md#sibling-positions-on-cardmoved-since-13) of the cards it shifted). *Fixed in 1.2 (#1926): the frame carried the tool's return shape, which web clients could not apply.*
+**Returns:** the created card, same shape as one row of `list_cards`. Writes a `CardMovement` record with no "from" column (matching how the REST API records card creation) and broadcasts `card.created` on the board's WebSocket channel.
+
+**How it works:** The broadcast frame (and its [change-feed](events.md) row) carries the full card exactly as a REST create sends it, not the tool's return shape above; when `position` is given and differs from the position the card was appended at, the follow-up reorder also sends a `card.moved` frame (`{card}`, with no `movement`, plus since 1.3 the [`sibling_positions`](websockets.md#sibling-positions-on-cardmoved-since-13) of the cards it shifted). *Fixed in 1.2 (#1926): the frame carried the tool's return shape, which web clients could not apply.*
 
 With `position`, the create and the reorder are one transaction: if the call returns an error, no card was created and no frame was sent, so it is safe to retry. *Fixed in 1.2 (#1992): a reorder that failed left the card created behind the error, and a retry created a duplicate.*
 
-Enforces the column's and the swimlane's WIP and weight limits exactly as `move_card` does, with no override: a create into a full column returns `wip_limit_exceeded`/`wip_hard_blocked`/`weight_limit_exceeded`, a create into a full swimlane (when the target column counts toward its limits) returns `swimlane_wip_limit_exceeded`/`swimlane_wip_hard_blocked`/`swimlane_weight_limit_exceeded`, and nothing is written. When both trip, the stricter one is returned (hard before soft, the column first when equal). *Changed in 1.2 (#1428): creates were not checked before. Changed in 1.3 (#1150): swimlane limits.*
+**Watch out:** Enforces the column's and the swimlane's WIP and weight limits exactly as `move_card` does, with no override: a create into a full column returns `wip_limit_exceeded`/`wip_hard_blocked`/`weight_limit_exceeded`, a create into a full swimlane (when the target column counts toward its limits) returns `swimlane_wip_limit_exceeded`/`swimlane_wip_hard_blocked`/`swimlane_weight_limit_exceeded`, and nothing is written. When both trip, the stricter one is returned (hard before soft, the column first when equal). *Changed in 1.2 (#1428): creates were not checked before. Changed in 1.3 (#1150): swimlane limits.*
 
 ### `move_card`
 
@@ -521,7 +563,9 @@ Moves a card to a new column and/or swimlane and/or position. Requires `admin` o
 
 **Arguments:** `card_id` (required); `to_column_id`, `to_swimlane_id` — at least one required, the other defaults to the card's current value; `position` (default `0`); `version` (integer, optional, *added in 1.3*): the card's `version` from a prior read, which makes the move fail with `version_conflict` if the card changed since (see [Optimistic concurrency](#optimistic-concurrency)).
 
-**Returns:** `{"card": <card>, "movement": <movement-or-null>}`. `movement` is `null` for a pure position reorder within the same cell (no column/swimlane change); otherwise it carries `{id, from_column, to_column, from_swimlane, to_swimlane, from_column_uid, to_column_uid, from_swimlane_uid, to_swimlane_uid, moved_at, moved_by, imported_from_username}`. The four `*_uid` keys (*added in 1.3*) are the column and swimlane UIDs captured when the movement was written, `null` where the matching name is `null` (no "from" cell on a creation row) or where an old row predates UID capture. `imported_from_username` is `null` except on a row created by a board import with history (since 1.2), where it holds the username the import file named and `moved_by` is the user who imported it. Enforces the board's WIP/weight limits exactly as the REST move endpoint does, with no override — a blocked move returns `wip_limit_exceeded`/`wip_hard_blocked`/`weight_limit_exceeded` rather than moving the card.
+**Returns:** `{"card": <card>, "movement": <movement-or-null>}`. `movement` is `null` for a pure position reorder within the same cell (no column/swimlane change); otherwise it carries `{id, from_column, to_column, from_swimlane, to_swimlane, from_column_uid, to_column_uid, from_swimlane_uid, to_swimlane_uid, moved_at, moved_by, imported_from_username}`. The four `*_uid` keys (*added in 1.3*) are the column and swimlane UIDs captured when the movement was written, `null` where the matching name is `null` (no "from" cell on a creation row) or where an old row predates UID capture. `imported_from_username` is `null` except on a row created by a board import with history (since 1.2), where it holds the username the import file named and `moved_by` is the user who imported it.
+
+**Watch out:** Enforces the board's WIP/weight limits exactly as the REST move endpoint does, with no override — a blocked move returns `wip_limit_exceeded`/`wip_hard_blocked`/`weight_limit_exceeded` rather than moving the card.
 
 Broadcasts `card.moved` with the same payload as the REST move endpoint (`{card, movement}`, full card and movement objects, `movement` omitted for a same-cell reorder), plus since 1.3 the [`sibling_positions`](websockets.md#sibling-positions-on-cardmoved-since-13) of the cards the move renumbered, not the tool's return shape. *Fixed in 1.2 (#1926).*
 
@@ -622,7 +666,7 @@ Card detail plus audit history (the 200 newest movements, activities and comment
 
 Resources fail differently from tools. A tool that cannot complete returns a structured `{"error": {"code": ...}}` result (see [Tool errors](#tool-errors) above); a resource read has no such channel. A failed read (a bad id, or an id on a board the caller cannot access) surfaces as a plain JSON-RPC-level error, with a message like `No Board matches the given query.` or `No Card matches the given query.`
 
-That message is deliberately identical whether the id does not exist or sits on a board the caller cannot see, for the same IDOR-prevention reason as the `board_not_found`/`card_not_found` tool error codes above. The two cases cannot be told apart, by design.
+**Watch out:** That message is deliberately identical whether the id does not exist or sits on a board the caller cannot see, for the same IDOR-prevention reason as the `board_not_found`/`card_not_found` tool error codes above. The two cases cannot be told apart, by design.
 
 The same "raise, don't return" rule applies to a throttled resource read — see [Throttled resource reads](#throttled-resource-reads) above.
 

@@ -100,7 +100,7 @@ which match what the WebSocket sends that reader.
 | `after` | `0` | Return only events with an `id` strictly greater than this. Pass the last `id` you processed. `0` (or omitted) starts at the oldest retained event. |
 | `limit` | `100` | Maximum events to return. Must be between `1` and `500`. |
 
-Both parameters are validated, not clamped. A malformed `after` is a `400`, not a silent restart from the start of the feed, because a consumer that quietly replayed processed history would never notice. A `limit` outside the range is a `400` for the same reason: a consumer that asked for `10000` and silently got `500` would read `len(results) < limit` as "caught up" and stop paging with events unread.
+**Watch out:** Both parameters are validated, not clamped. A malformed `after` is a `400`, not a silent restart from the start of the feed, because a consumer that quietly replayed processed history would never notice. A `limit` outside the range is a `400` for the same reason: a consumer that asked for `10000` and silently got `500` would read `len(results) < limit` as "caught up" and stop paging with events unread.
 
 **Response**
 
@@ -141,7 +141,11 @@ curl -s -H "Authorization: Token vbn_..." \
   "http://localhost:8000/api/v1/boards/42/events/?after=0&limit=200"
 ```
 
-Call again with `after` set to the previous `next_cursor` until `next_cursor` is `null`. Order is by `id`. Ids follow insertion order, not commit order, but a page never reaches past an event that is still committing, so paging this way never skips one (see [Event coverage](#event-coverage)). Never re-sort by `created_at`: two events can share a timestamp.
+Call again with `after` set to the previous `next_cursor` until `next_cursor` is `null`. Order is by `id`.
+
+**How it works:** Ids follow insertion order, not commit order, but a page never reaches past an event that is still committing, so paging this way never skips one (see [Event coverage](#event-coverage)).
+
+**Watch out:** Never re-sort by `created_at`: two events can share a timestamp.
 
 ### Pagination shapes
 
@@ -329,7 +333,11 @@ Every key is kept, at every level, so the row has the same shape as when it was 
 
 ## Retention
 
-Events are kept for `BOARD_EVENT_RETENTION_DAYS` days (default `30`) and removed by a management command. Nothing expires on its own: **an install that never runs the pruner grows the `board_events` table forever**. Retention bounds how much history the feed returns: any reader with access to the board receives every retained row for it, whenever they joined, each filtered by the rules in [Fields that depend on who is reading](#fields-that-depend-on-who-is-reading). Run the pruner on a schedule:
+Events are kept for `BOARD_EVENT_RETENTION_DAYS` days (default `30`) and removed by a management command. Nothing expires on its own: **an install that never runs the pruner grows the `board_events` table forever**.
+
+**How it works:** Retention bounds how much history the feed returns: any reader with access to the board receives every retained row for it, whenever they joined, each filtered by the rules in [Fields that depend on who is reading](#fields-that-depend-on-who-is-reading).
+
+**Watch out:** Run the pruner on a schedule:
 
 ```bash
 # See what would go, without deleting anything
@@ -350,7 +358,7 @@ Schedule it nightly. Both deployment paths ship an opt-in scheduler. On the Comp
 
 See [Scheduled Jobs](../administration/scheduled-jobs.md).
 
-Deletion runs in batches (`--batch-size`, default `5000`), so a large cleanup does not hold locks against concurrent writers for the whole run. Each batch also records, per board and event type, the highest event id it deleted, in the same transaction; that record is what decides [when a cursor expires](#errors). `--dry-run` records nothing.
+**How it works:** Deletion runs in batches (`--batch-size`, default `5000`), so a large cleanup does not hold locks against concurrent writers for the whole run. Each batch also records, per board and event type, the highest event id it deleted, in the same transaction; that record is what decides [when a cursor expires](#errors). `--dry-run` records nothing.
 
 See [Configuration](../administration/configuration.md) for
 `BOARD_EVENT_RETENTION_DAYS`.
@@ -361,7 +369,9 @@ A [webhook](webhooks.md) that falls further behind than the window, and misses a
 
 ## Sizing the window
 
-Pick a retention window longer than the longest outage a consumer should survive. A consumer offline longer than the window is not broken: if events it could have read were pruned, it gets a `410` and re-syncs; if the board was quiet and nothing it could have read was pruned, it keeps reading. But every re-sync is a full `/full/` fetch, so a too-short window makes routine restarts expensive.
+Pick a retention window longer than the longest outage a consumer should survive. A consumer offline longer than the window is not broken: if events it could have read were pruned, it gets a `410` and re-syncs; if the board was quiet and nothing it could have read was pruned, it keeps reading.
+
+**Yes, but:** every re-sync is a full `/full/` fetch, so a too-short window makes routine restarts expensive.
 
 ---
 
@@ -370,7 +380,9 @@ Pick a retention window longer than the longest outage a consumer should survive
 !!! warning "Experimental, 0.x"
     The Python and TypeScript clients are new in 1.3 and are **not published** to PyPI or npm. Their API can change in any 0.x release, and they follow the 1.x compatibility rules only once they reach 1.0. The feed itself is the stable contract; the clients are a convenience over it.
 
-Every consumer outside the Django process ends up writing the same loop: hold a cursor, page the feed, save the cursor, and handle `410` by re-syncing. The clients in [`clients/python`](https://gitlab.com/visiban/visiban/-/tree/main/clients/python) and [`clients/typescript`](https://gitlab.com/visiban/visiban/-/tree/main/clients/typescript) implement exactly that and nothing else. They are not a general REST SDK. Both need **server 1.3 or later**, because only 1.3 returns `next_cursor` on a `410` (see [When a cursor expires](#errors)). Against a 1.2 server a `410` raises `ResyncUnsupported` rather than guessing a resume point.
+**How it works:** Every consumer outside the Django process ends up writing the same loop: hold a cursor, page the feed, save the cursor, and handle `410` by re-syncing. The clients in [`clients/python`](https://gitlab.com/visiban/visiban/-/tree/main/clients/python) and [`clients/typescript`](https://gitlab.com/visiban/visiban/-/tree/main/clients/typescript) implement exactly that and nothing else. They are not a general REST SDK.
+
+**Watch out:** Both need **server 1.3 or later**, because only 1.3 returns `next_cursor` on a `410` (see [When a cursor expires](#errors)). Against a 1.2 server a `410` raises `ResyncUnsupported` rather than guessing a resume point.
 
 === "Python"
 

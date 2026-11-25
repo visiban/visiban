@@ -1,4 +1,4 @@
-# Webhooks API
+# Get board changes pushed to your own URL
 
 `/api/v1/boards/{board_pk}/webhooks/` lets a board admin register URLs that receive a signed `POST` for each board change-feed event.
 
@@ -33,7 +33,13 @@ Checked in this order:
 | A personal access token on a session-only action | `403 {"code": "session_required"}` |
 | A subscription id that belongs to another board | `404` |
 
-Board admins and site admins (`can_access_all_content`) may use every action. **Session-only** actions are the ones that choose where data goes or how it is signed: create, a `PATCH` that changes `url`, `reenable`, `rotate`, `end-overlap` and `test`. They refuse personal access tokens and any other non-session credential. `reenable`, `rotate`, `end-overlap` and `test` refuse before the subscription is looked up, so a token gets `403`, not `404`, for an unknown id. A `PATCH` looks the subscription up first, because it has to read the body to see whether `url` is present, so a token gets `404` for an unknown id and `403` for a known one. On the other actions a token needs the `read` scope for `GET` and `write` for `PATCH`, `DELETE` and `disable`.
+Board admins and site admins (`can_access_all_content`) may use every action.
+
+**Watch out:** **Session-only** actions are the ones that choose where data goes or how it is signed: create, a `PATCH` that changes `url`, `reenable`, `rotate`, `end-overlap` and `test`. They refuse personal access tokens and any other non-session credential.
+
+**How it works:** `reenable`, `rotate`, `end-overlap` and `test` refuse before the subscription is looked up, so a token gets `403`, not `404`, for an unknown id. A `PATCH` looks the subscription up first, because it has to read the body to see whether `url` is present, so a token gets `404` for an unknown id and `403` for a known one.
+
+On the other actions a token needs the `read` scope for `GET` and `write` for `PATCH`, `DELETE` and `disable`.
 
 ## Endpoints
 
@@ -53,7 +59,7 @@ Board admins and site admins (`can_access_all_content`) may use every action. **
 
 `PUT` is not supported.
 
-Throttled actions (`webhook_config`: create, a `PATCH` that includes `url`, rotate; `webhook_test`: test) answer `429` with a `Retry-After` header once the per-user limit is reached.
+**Watch out:** Throttled actions (`webhook_config`: create, a `PATCH` that includes `url`, rotate; `webhook_test`: test) answer `429` with a `Retry-After` header once the per-user limit is reached.
 
 ### `GET status/`
 
@@ -119,9 +125,13 @@ Throttled actions (`webhook_config`: create, a `PATCH` that includes `url`, rota
 
 Body: `url` (required), `name` (optional, at most 200 characters), `event_types` (optional, default `[]`).
 
-The `201` response is the subscription object plus `url` and `secret`, with `Cache-Control: no-store`. **This is the only response that contains them.** The secret is `whsec_` followed by 43 URL-safe characters.
+The `201` response is the subscription object plus `url` and `secret`, with `Cache-Control: no-store`.
 
-A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at the id of the newest event a webhook can receive: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id of such an event instead, and at `0` on a board that never had one. *(1.3+, #2053)* The newest event is read once no write on the board is still in flight, waiting up to about 0.2 s, so every event that commits after the webhook is created is delivered. If a write is still open after the wait, the webhook starts after the newest committed event, and that write's event, written before the request, is not delivered. The same applies to `resume_from: latest`.
+**This is the only response that contains them.** The secret is `whsec_` followed by 43 URL-safe characters.
+
+**How it works:** A new webhook starts at the board's newest event, so `last_delivered_event_id` starts at the id of the newest event a webhook can receive: nothing earlier is delivered. On a board whose events have all been removed by retention pruning it starts at the highest removed id of such an event instead, and at `0` on a board that never had one.
+
+**How it works:** *(1.3+, #2053)* The newest event is read once no write on the board is still in flight, waiting up to about 0.2 s, so every event that commits after the webhook is created is delivered. If a write is still open after the wait, the webhook starts after the newest committed event, and that write's event, written before the request, is not delivered. The same applies to `resume_from: latest`.
 
 ### `PATCH {id}/`
 
@@ -155,7 +165,11 @@ Returns the subscription object plus a new `secret`, with `Cache-Control: no-sto
 |---|---|---|
 | `overlap_seconds` | integer, optional | How long the old secret keeps signing beside the new one: `0` to `604800` (seven days). Default `0`. |
 
-**With `overlap_seconds` above 0**, every delivery lists two signatures until `previous_secret_expires_at`, so a receiver holding either secret keeps working while you update it (see [Rotating without downtime](#rotating-without-downtime)). Once the time has passed the old secret never signs again and `previous_secret_expires_at` reads `null`. Its stored copy is then deleted by the next dispatcher run, by the next request a board admin makes to this board's webhook endpoints (`status` included), or by the daily `sweep_webhook_secrets` [scheduled job](../administration/scheduled-jobs.md) (since 1.3, #2119). If you run none of the three (no dispatcher, no scheduler, and nobody opens the webhook API), the expired ciphertext stays stored, though it never signs again. Only one previous secret is kept: rotating during an overlap replaces it with the secret being retired and starts a new window.
+**With `overlap_seconds` above 0**, every delivery lists two signatures until `previous_secret_expires_at`, so a receiver holding either secret keeps working while you update it (see [Rotating without downtime](#rotating-without-downtime)). Once the time has passed the old secret never signs again and `previous_secret_expires_at` reads `null`. Its stored copy is then deleted by the next dispatcher run, by the next request a board admin makes to this board's webhook endpoints (`status` included), or by the daily `sweep_webhook_secrets` [scheduled job](../administration/scheduled-jobs.md) (since 1.3, #2119).
+
+**Yes, but:** If you run none of the three (no dispatcher, no scheduler, and nobody opens the webhook API), the expired ciphertext stays stored, though it never signs again.
+
+Only one previous secret is kept: rotating during an overlap replaces it with the secret being retired and starts a new window.
 
 **With `0`, or an empty body**, the old secret stops signing immediately and any open overlap ends: a dispatcher run that started before the rotation stops before its next delivery. A delivery already in flight may still be signed with the old secret, and it is retried with the new one if your receiver rejects it.
 
@@ -172,7 +186,9 @@ Changing a webhook's `url` also ends any open overlap: the new host never held t
 
 *Since 1.3 (#2118).* Ends an open rotation overlap early, **without issuing a new secret**: once your receiver has the new secret, there is no need to wait for `previous_secret_expires_at`. No body. Returns the subscription object (`200`), with `previous_secret_expires_at: null` and no `secret`.
 
-After it, every delivery carries one signature, from the current secret, which is unchanged: your receiver keeps the secret it has. A dispatcher run already in progress keeps going and drops the second signature from its next delivery; one already in flight may still carry both. The stored previous secret is deleted at once. The owner (`configured_by`) does not change, because the destination and the current secret stay as they were.
+**How it works:** After it, every delivery carries one signature, from the current secret, which is unchanged: your receiver keeps the secret it has.
+
+**Watch out:** A dispatcher run already in progress keeps going and drops the second signature from its next delivery; one already in flight may still carry both. The stored previous secret is deleted at once. The owner (`configured_by`) does not change, because the destination and the current secret stay as they were.
 
 With no overlap open it changes nothing and still answers `200`, so it is safe to retry. Like `rotate` it is session-only, so a personal access token gets `403 {"code": "session_required"}`.
 
@@ -240,11 +256,13 @@ Answer `2xx` within 10 seconds (`WEBHOOK_TIMEOUT_SECONDS`). Visiban reads only t
 
 A receiver also gets at most `WEBHOOK_HOST_MAX_PER_MINUTE` (120) deliveries a minute and `WEBHOOK_HOST_MAX_CONCURRENCY` (2) at once, counted per destination host across every board's webhooks on the server (since 1.3, #2055). A webhook whose host is at either limit waits for a later dispatcher run; that is not a failure, so it does not back off or count toward being turned off, and its events stay in order. See [Configuration — Webhooks](../administration/configuration.md#webhooks).
 
-Anything else is a failure, including `3xx`: redirects are not followed. After a failure the webhook retries the **same** event after 30 seconds, doubling up to an hour (each delay gets up to 10% added jitter), and later events wait behind it. After 20 consecutive failures or 24 hours of failing (the defaults of `WEBHOOK_DISABLE_AFTER_FAILURES` and `WEBHOOK_DISABLE_AFTER_HOURS`) it is turned off with `disabled_reason: "failures"`, and the board's admins get a `webhook_disabled` [notification](notifications.md) and an email.
+**How it works:** Anything else is a failure, including `3xx`: redirects are not followed. After a failure the webhook retries the **same** event after 30 seconds, doubling up to an hour (each delay gets up to 10% added jitter), and later events wait behind it. After 20 consecutive failures or 24 hours of failing (the defaults of `WEBHOOK_DISABLE_AFTER_FAILURES` and `WEBHOOK_DISABLE_AFTER_HOURS`) it is turned off with `disabled_reason: "failures"`, and the board's admins get a `webhook_disabled` [notification](notifications.md) and an email.
 
 ### Ordering
 
-Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order, and none is skipped. Ids are assigned when an event is written, not when it commits, so a lower id can commit after a higher one. The dispatcher never reads past an event that is still committing on the board, however long its transaction stays open, so the webhook's cursor never passes it (since 1.3, #2053; before that, a transaction held open longer than the settle window could land behind the cursor). It also waits `WEBHOOK_SETTLE_SECONDS` (10) before it sends an event, which only delays delivery.
+Events for one webhook are delivered in increasing `X-Visiban-Event-Id` order, and none is skipped.
+
+**How it works:** Ids are assigned when an event is written, not when it commits, so a lower id can commit after a higher one. The dispatcher never reads past an event that is still committing on the board, however long its transaction stays open, so the webhook's cursor never passes it (since 1.3, #2053; before that, a transaction held open longer than the settle window could land behind the cursor). It also waits `WEBHOOK_SETTLE_SECONDS` (10) before it sends an event, which only delays delivery.
 
 ## Verifying signatures
 

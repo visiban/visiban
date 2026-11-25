@@ -32,6 +32,12 @@ const t = (name, fn) => {
   console.log(`ok - ${name}`)
 }
 
+t('a "**" glob inside inline code does not hide later bold terms', () => {
+  const page = '# T\n\nRuns on `clients/**` changes.\n\n- **Row fields** only gain fields.\n'
+  assert.equal(count(run(page, page)), 0, JSON.stringify(run(page, page)))
+  assert.ok(run(page, page.replace('**Row fields**', 'Row fields')).terms.length > 0)
+})
+
 t('baseline: the prototype root page loses nothing', () => assert.equal(count(run(old, neu)), 0, JSON.stringify(run(old, neu))))
 
 for (const [name, re, kind] of [

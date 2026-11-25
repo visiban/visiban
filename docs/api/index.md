@@ -6,7 +6,7 @@ Send authenticated JSON requests to `/api/v1`; start with [Authentication](authe
 curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/boards/
 ```
 
-**Why it matters:** versioned REST endpoints live under the `/api/v1/` prefix. Most need a valid token or session, and an unauthenticated request gets `401`; the health endpoints are the exception.
+**Why it matters:** versioned REST endpoints live under the `/api/v1/` prefix. Most need a valid token or session, and an unauthenticated request gets `401`; the exceptions are public endpoints, such as the health probes, sign-in, and the public share-link board.
 
 **Go deeper:** the reference table below, [versioning policy](#versioning-policy), and [common conventions](#common-conventions) (errors, pagination, maintenance mode).
 

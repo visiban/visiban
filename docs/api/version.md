@@ -29,4 +29,4 @@ Returns the running server version string. Authentication is required.
 
 The `APP_VERSION` environment variable that provides this value is set as the release tag operators pin (e.g. `v1.2.0` — see [Configuration](../administration/configuration.md)). The server strips only a leading `v`, so this field is bare semver (`1.2.0`) whenever `APP_VERSION` is pinned to a release tag. A non-release value such as `latest` or `dev` has no leading `v` to strip and is served back verbatim.
 
-**Errors:** `401 Unauthorized` when the request carries no valid session or token; `429 Too Many Requests` when the throttle is exceeded. Otherwise the endpoint returns `200 OK` while the server is running.
+**Errors:** `401 Unauthorized` when the request carries no valid session or token; `403 Forbidden` when the account has a pending forced password or username change, or a personal access token lacks the `read` scope; `429 Too Many Requests` when the throttle is exceeded. Otherwise the endpoint returns `200 OK` while the server is running.
