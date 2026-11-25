@@ -76,13 +76,13 @@ A **track** is a check every card in a stage needs, which can be finished in any
 - **Full section:** [Column Policies](column-policies.md#column-policies).
 
 !!! note "Entry requirements"
-    Entry criteria are advisory text. A rule the server enforces on a move, such as a field that must be filled before a card enters a column, is a different thing, called an entry requirement. Entry requirements are not described here until they ship. Use WIP limits or [Field Enforcement](../architecture/field-enforcement.md) to see what the server enforces today.
+    Entry criteria are advisory text. A rule the server enforces on a move, such as a field that must be filled before a card enters a column, is a different thing, called an entry requirement. Entry requirements are not described here yet; they are tracked in #2602. Use WIP limits or [Field Enforcement](../architecture/field-enforcement.md) to see what the server enforces today.
 
 ### Column policy
 
 <a id="concept-column-policy"></a>
 
-A **column policy** is a column's entry criteria and its definition of done, plus a mode: **Advisory** or **Confirm on entry**.
+A **column policy** is a column's entry criteria and its definition of done, plus a mode: **Advisory**, or **Ask the mover to confirm** (shown as a **Confirm on entry** badge).
 
 - **Belongs to:** the column.
 - **Where do I find it?** The **Policy** button in the column header. Admins edit it from the column's **⋮** menu or from **Board settings → Rules & limits → Column policies**.
@@ -92,7 +92,7 @@ A **column policy** is a column's entry criteria and its definition of done, plu
 
 <a id="concept-wip-limit"></a>
 
-A **WIP limit** is the most active cards a column (or a swimlane) should hold at once. The column header shows `count / limit` with a meter. Whether a move past the limit is refused depends on the board's **Enforce WIP limits** and **Enforce WIP hard** settings.
+A **WIP limit** is the most active cards a column (or a swimlane) should hold at once. The column header shows `count / limit` with a meter. Whether a move past the limit is refused depends on the board's **Enforce WIP limits** setting and its **Hard mode (no admin override)** option.
 
 - **Belongs to:** the column, or a swimlane.
 - **Where do I find it?** The column header. To change it, the column's **⋮** menu, then **Edit settings…**. Enforcement is in **Board settings → Rules & limits**.

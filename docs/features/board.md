@@ -110,7 +110,7 @@ Set them in the **Edit Swimlane** modal (board admins), under **Limits**:
 
 - **WIP limit** and **Weight limit.** Leave a field empty, or enter `0`, for no limit. The helper under each field shows the row's current count ("Now 4"). When the new limit is already below that count, a note says so and says what happens next for the enforcement you selected: nothing already in the row moves; with **Block, admins can override** new cards are refused unless a board admin overrides, with **Block for everyone** they are refused for everyone, and when the limit is not enforced (**Follow board settings** on a board that enforces nothing) it only shows on the row.
 - **Columns that count.** Only cards in the checked columns count toward the row's limits. By default every column not marked as done counts, so a finished card stops counting the moment it reaches a done column. Deleting a column removes it from every row's selection; a row left with none goes back to the default.
-- **When the row is full.** **Follow board settings** (the default) applies the board's **Enforce WIP limits**, **Enforce WIP hard** and **Enforce weight limits** rules, exactly as for columns. **Block, admins can override** refuses the move and lets a board admin move anyway (and the card's assignee, [when enabled](#letting-a-cards-assignee-move-it-anyway-since-13) and unless they assigned the card to themselves). **Block for everyone** is the hard mode: nobody, board admins included, can add a card past the row's WIP limit. A weight limit can always be overridden by a board admin, as on columns, and by the assignee on the same terms.
+- **When the row is full.** **Follow board settings** (the default) applies the board's **Enforce WIP limits** (including **Hard mode (no admin override)**) and **Enforce weight limits** rules, exactly as for columns. **Block, admins can override** refuses the move and lets a board admin move anyway (and the card's assignee, [when enabled](#letting-a-cards-assignee-move-it-anyway-since-13) and unless they assigned the card to themselves). **Block for everyone** is the hard mode: nobody, board admins included, can add a card past the row's WIP limit. A weight limit can always be overridden by a board admin, as on columns, and by the assignee on the same terms.
 
 **What the row shows.** Once a row has a limit, its band shows one state line in the right-hand stats, worst state first:
 
@@ -320,14 +320,14 @@ Dragging a column shows a **Hold ⌥ to delete** hint on the drag overlay.
 
 > **Added in 1.0**
 
-By default, WIP limit enforcement is "soft": board admins can bypass a full column by appending `?force=true` to the request. The **Enforce WIP hard** board setting removes this override entirely. When enabled:
+By default, WIP limit enforcement is "soft": board admins can bypass a full column by appending `?force=true` to the request. The **Hard mode (no admin override)** board setting removes this override entirely. When enabled:
 
 - Moving a card into a column at or over its WIP limit, creating a card in it, and restoring an archived card into it are blocked for **all roles**, including board admins and site admins.
 - The `?force=true` query parameter is ignored. There is no bypass.
 - The API returns a `409` error with `code: "wip_hard_blocked"`.
 - The toast indicator uses a `⛔` icon instead of `⚠` to distinguish hard blocks from soft blocks.
 
-Hard enforcement is **off by default**. Enable it in **Board settings → Rules & limits → Enforce WIP hard**. Toggling it on requires an inline confirmation step because the change takes effect immediately and applies board-wide.
+Hard enforcement is **off by default**. Enable it in **Board settings → Rules & limits → Enforce WIP limits → Hard mode (no admin override)**. Toggling it on requires an inline confirmation step because the change takes effect immediately and applies board-wide.
 
 !!! tip
     Hard WIP enforcement is useful for teams that treat WIP limits as a strict policy rather than a guideline. To unblock a column, move a card out of it or ask an admin to raise the WIP limit.
@@ -352,7 +352,7 @@ See [Field Enforcement](../architecture/field-enforcement.md).
 - Columns **over** their limit are unaffected: the existing `⚠ Over WIP` treatment always takes precedence.
 - Columns under the limit are unaffected: always `N cards`.
 
-This setting is purely ambient: it does not change limit enforcement, which is controlled independently by **Enforce WIP limits** / **Enforce WIP hard** above (#973).
+This setting is purely ambient: it does not change limit enforcement, which is controlled independently by **Enforce WIP limits** / **Hard mode (no admin override)** above (#973).
 
 ## Custom colors
 
