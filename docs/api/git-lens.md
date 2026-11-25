@@ -444,6 +444,8 @@ There is deliberately no `available_labels` or `available_assignees` field: ever
 | `502 Bad Gateway` | `{ "detail": "...", "code": "lens_error" }` | Upstream provider returned an unexpected error or the request timed out. Redirects are not followed, so a moved or renamed repository (the provider answers `301`) also returns this error; update the connection's repo slug. |
 | `503 Service Unavailable` | `{ "detail": "...", "code": "lens_unavailable" }` | The cache (Valkey) is unreachable *(1.3+)*. The fetch budgets, refresh cooldown and fetch lock live there, so no upstream request is made and no cached copy can be read. Retry once Valkey is back. |
 
+Every `200` carries an `ETag`. Send it back as `If-None-Match` and an unchanged board answers `304 Not Modified` with no body.
+
 
 ## Current milestone
 

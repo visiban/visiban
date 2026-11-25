@@ -27,6 +27,7 @@ from django.test import SimpleTestCase
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework import serializers
 
+from git_lens import providers
 from git_lens.serializers import (
     LensAxisSerializer,
     LensDataSerializer,
@@ -43,6 +44,7 @@ from git_lens.types import (
     NormalizedIssue,
     PipelineEvidence,
 )
+from git_lens.views import _lens_cache_unavailable_response, _provider_error_response
 
 _PATH = "/api/v1/git-lens/board/{board_id}/"
 
@@ -90,6 +92,33 @@ class LensBoardResponseSchemaTests(SimpleTestCase):
             ok["content"]["application/json"]["schema"],
             {"$ref": "#/components/schemas/LensData"},
         )
+
+    def test_error_and_not_modified_statuses_are_declared(self):
+        responses = self.schema["paths"][_PATH]["get"]["responses"]
+        self.assertNotIn("content", responses["304"])
+        for status, name in (
+            ("409", "LensBoardAuthRequired"),
+            ("502", "LensBoardProviderError"),
+            ("503", "LensBoardUnavailable"),
+        ):
+            with self.subTest(status=status):
+                self.assertEqual(
+                    responses[status]["content"]["application/json"]["schema"],
+                    {"$ref": f"#/components/schemas/{name}"},
+                )
+                self.assertEqual(sorted(self.components[name]["required"]), ["code", "detail"])
+
+    def test_declared_error_keys_match_the_bodies_the_view_builds(self):
+        cases = (
+            ("LensBoardAuthRequired", _provider_error_response(providers.LensAuthError()), 409, "auth_required"),
+            ("LensBoardProviderError", _provider_error_response(providers.LensError()), 502, "lens_error"),
+            ("LensBoardUnavailable", _lens_cache_unavailable_response(), 503, "lens_unavailable"),
+        )
+        for name, response, status, code in cases:
+            with self.subTest(status=status):
+                self.assertEqual(response.status_code, status)
+                self.assertEqual(response.data["code"], code)
+                self.assertEqual(set(response.data), set(self.components[name]["properties"]))
 
     def test_every_lens_data_key_is_required(self):
         # to_dict() always emits every key, so none may be published as optional.

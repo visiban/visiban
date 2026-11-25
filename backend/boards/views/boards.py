@@ -49,6 +49,7 @@ from ..serializers import (
     EXPAND_QUERY_PARAMETER,
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, ChildrenViewSerializer, ParentBoardOptionSerializer, SavedFilterSerializer, SwimlaneSerializer,
+    BoardDeleteImpactSerializer, ChildrenSettingBlockersSerializer, DefaultChildBoardOptionsSerializer,
     _swimlane_custom_field_prefetch,
 )
 from ..services import card_links, children_view as _children_view, setting_changes
@@ -593,7 +594,7 @@ class BoardViewSet(
             self._persist_and_broadcast_board_updated(board_id, old_group_id)
 
     @extend_schema(
-        responses={200: OpenApiResponse(description=(
+        responses={200: OpenApiResponse(response=BoardDeleteImpactSerializer, description=(
             "`{child_cards, parent_boards, hidden_parent_boards, parent_cards}` for the "
             "delete confirm: `parent_boards` names only boards the caller can open."
         ))},
@@ -611,7 +612,7 @@ class BoardViewSet(
         return Response(card_links.board_delete_impact_for_viewer(board, request.user))
 
     @extend_schema(
-        responses={200: OpenApiResponse(description=(
+        responses={200: OpenApiResponse(response=ChildrenSettingBlockersSerializer, description=(
             "`{child_cards, parent_cards, default_of}`: cards here that are children "
             "of other cards, cards here that have children, and the boards whose "
             "default child board this is (`{hidden: true}` for a board the caller "
@@ -633,7 +634,7 @@ class BoardViewSet(
         return Response(card_links.default_child_blockers_for_viewer(board, request.user))
 
     @extend_schema(
-        responses={200: OpenApiResponse(description=(
+        responses={200: OpenApiResponse(response=DefaultChildBoardOptionsSerializer, description=(
             "`{boards: [{id, name}], boards_total}`: qualifying boards where the caller is "
             "admin, by name, at most 100 (`boards_total` counts them all, since 1.3, #2449)."
         ))},

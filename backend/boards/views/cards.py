@@ -54,6 +54,7 @@ from ..serializers import (
     CardRelationCreateSerializer, CardRelationSerializer,
     CardExtensionSectionListSerializer, CardTimelineEntrySerializer, ChildCandidateSerializer,
     ParentCandidateSerializer,
+    CardChildrenReadSerializer, ChildBoardOptionsSerializer,
     CARD_CHILDREN_ROLLUP_CONTEXT_KEY,
     CARD_PARENTS_CONTEXT_KEY,
     _card_queryset,
@@ -3048,7 +3049,7 @@ class CardViewSet(viewsets.ModelViewSet):
     @extend_schema(
         methods=["GET"],
         parameters=[OFFSET_QUERY_PARAMETER],
-        responses={200: OpenApiResponse(description=(
+        responses={200: OpenApiResponse(response=CardChildrenReadSerializer, description=(
             "`{count, visible, offset, limit, results}`. When the caller cannot "
             "open the child board, `visible` is false and only `count` is given."
         ))},
@@ -3179,7 +3180,7 @@ class CardViewSet(viewsets.ModelViewSet):
         return Response(result.payload, status=status.HTTP_201_CREATED)
 
     @extend_schema(
-        responses={200: OpenApiResponse(description=(
+        responses={200: OpenApiResponse(response=ChildBoardOptionsSerializer, description=(
             "`{fixed_board, default, boards, can_set_default, boards_total, disabled_reason}`, computed for the caller. "
             "`fixed_board` is the board this card's children are already on "
             "(`{hidden: true}` when the caller cannot open it; otherwise with `can_add`, "

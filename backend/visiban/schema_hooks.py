@@ -245,6 +245,8 @@ _PINNED_ENUMS = {
     ("BoardFull", "current_user_role"): "EffectiveBoardRoleEnum",
     # Children mode (#2370): the viewer's role on each child board.
     ("ChildrenViewBoard", "role"): "EffectiveBoardRoleEnum",
+    # The card children read (#1793): the same effective-role set.
+    ("CardChildrenBoard", "role"): "EffectiveBoardRoleEnum",
     # Board invites (#1444) grant member/collaborator/viewer only — a third
     # ``role`` choice set, which would otherwise hash-rename RoleEnum again.
     ("BoardInviteLink", "role"): "BoardInviteRoleEnum",

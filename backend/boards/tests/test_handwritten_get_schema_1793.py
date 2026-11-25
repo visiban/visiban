@@ -20,12 +20,17 @@ import contextlib
 import io
 from unittest import mock
 
+import jsonschema
 from django.test import SimpleTestCase, TestCase
+from django.utils import timezone
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework.filters import OrderingFilter
 from rest_framework.test import APIClient
 
-from boards.tests.conftest import _make_board, _make_column, _make_user
+from boards.models import CardParentLink, Label, SwimlaneTeamMember
+from boards.tests.conftest import (
+    _make_board, _make_card, _make_column, _make_membership, _make_swimlane, _make_user,
+)
 
 _JSON = "application/json"
 
@@ -121,6 +126,126 @@ class HandWrittenGetResponseSchemaTests(SimpleTestCase):
                 self.assertIn("detail", self._component(path, status)["properties"])
         board = self.schema["paths"]["/api/v1/boards/join/{token}/"]["get"]["responses"]
         self.assertIn("410", board)
+
+
+def _as_json_schema(node):
+    """OpenAPI 3.0 ``nullable`` rewritten so ``jsonschema`` honors it."""
+    if isinstance(node, list):
+        return [_as_json_schema(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    out = {k: _as_json_schema(v) for k, v in node.items() if k != "nullable"}
+    return {"anyOf": [out, {"type": "null"}]} if node.get("nullable") is True else out
+
+
+class ParentChildReadSchemaTests(TestCase):
+    """The five parent/child reads publish the bodies they serve (#1793)."""
+
+    CASES = {
+        "/api/v1/boards/{board_pk}/cards/{id}/child-board-options/": "ChildBoardOptions",
+        "/api/v1/boards/{board_pk}/cards/{id}/children/": "CardChildrenRead",
+        "/api/v1/boards/{id}/children-setting-blockers/": "ChildrenSettingBlockers",
+        "/api/v1/boards/{id}/default-child-board-options/": "DefaultChildBoardOptions",
+        "/api/v1/boards/{id}/delete-impact/": "BoardDeleteImpact",
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.schema, _ = _schema()
+        cls.components = _as_json_schema(cls.schema["components"])
+
+    def setUp(self):
+        self.owner = _make_user()
+        self.parents = _make_board(self.owner, name="Pipeline", cards_can_have_children=True)
+        self.delivery = _make_board(self.owner, name="Delivery")
+        self.column = _make_column(self.parents)
+        self.lane = _make_swimlane(self.parents)
+        self.child_column = _make_column(self.delivery, allow_card_creation=True)
+        self.child_lane = _make_swimlane(self.delivery)
+        self.parent = _make_card(self.column, self.lane)
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _link(self):
+        child = _make_card(self.child_column, self.child_lane, assignee=self.owner, due_date="2026-12-01")
+        child.labels.add(Label.objects.create(board=self.delivery, name="bug", color="#ff0000"))
+        CardParentLink.objects.create(parent=self.parent, child=child, created_by=self.owner)
+        return child
+
+    def _read(self, path, board, client=None):
+        """GET ``path``, check the 200 against its published schema, return the body."""
+        url = path.replace("{board_pk}", str(board.pk)).replace(
+            "{id}", str(self.parent.pk if "{board_pk}" in path else board.pk),
+        )
+        response = (client or self.client).get(url)
+        self.assertEqual(response.status_code, 200, response.content)
+        body = response.json()
+        name = self.CASES[path]
+        declared = self.schema["paths"][path]["get"]["responses"]["200"]["content"][_JSON]["schema"]
+        self.assertEqual(declared, {"$ref": f"#/components/schemas/{name}"})
+        jsonschema.validate(body, {**declared, "components": self.components})
+        self._assert_no_undeclared_keys(body, declared)
+        return body
+
+    def _assert_no_undeclared_keys(self, value, node):
+        if isinstance(node, dict) and "$ref" in node:
+            node = self.components["schemas"][node["$ref"].rsplit("/", 1)[-1]]
+        for key in ("allOf", "anyOf", "oneOf"):
+            if key in node:
+                if value is not None:
+                    self._assert_no_undeclared_keys(value, node[key][0])
+                return
+        if isinstance(value, list):
+            for item in value:
+                self._assert_no_undeclared_keys(item, node["items"])
+        elif isinstance(value, dict) and "properties" in node:
+            self.assertEqual(set(value) - set(node["properties"]), set())
+            for key, item in value.items():
+                self._assert_no_undeclared_keys(item, node["properties"][key])
+
+    def test_children_empty_visible_and_hidden(self):
+        path = "/api/v1/boards/{board_pk}/cards/{id}/children/"
+        self.assertNotIn("board", self._read(path, self.parents))
+        self._link()
+        body = self._read(path, self.parents)
+        self.assertEqual(len(body["results"]), 1)
+        self.assertIn("board", body)
+        outsider = _make_user()
+        _make_membership(self.parents, outsider, "viewer")
+        client = APIClient()
+        client.force_authenticate(outsider)
+        hidden = self._read(path, self.parents, client)
+        self.assertFalse(hidden["visible"])
+
+    def test_child_board_options_without_and_with_a_fixed_board_and_team(self):
+        path = "/api/v1/boards/{board_pk}/cards/{id}/child-board-options/"
+        body = self._read(path, self.parents)
+        self.assertIsNone(body["fixed_board"])
+        self.assertIsNone(body["default_team"])
+        self.assertEqual(len(body["boards"]), 1)
+        self.parents.default_child_board = self.delivery
+        self.parents.save(update_fields=["default_child_board"])
+        SwimlaneTeamMember.objects.create(swimlane=self.lane, user=self.owner)
+        self._link()
+        self.parent.archived_at = timezone.now()
+        self.parent.save(update_fields=["archived_at"])
+        body = self._read(path, self.parents)
+        self.assertEqual(body["fixed_board"]["default_assignee_id"], self.owner.pk)
+        self.assertEqual(body["default"]["id"], self.delivery.pk)
+        self.assertEqual(body["default_team"]["member_ids"], [self.owner.pk])
+        self.assertEqual(body["disabled_reason"], "parent_archived")
+
+    def test_board_level_reads(self):
+        self._link()
+        self.parents.default_child_board = self.delivery
+        self.parents.save(update_fields=["default_child_board"])
+        blockers = self._read("/api/v1/boards/{id}/children-setting-blockers/", self.delivery)
+        self.assertEqual(len(blockers["default_of"]), 1)
+        options = self._read("/api/v1/boards/{id}/default-child-board-options/", self.parents)
+        self.assertEqual(options["boards_total"], 1)
+        impact = self._read("/api/v1/boards/{id}/delete-impact/", self.delivery)
+        self.assertEqual(len(impact["parent_boards"]), 1)
 
 
 class OrderingParamSchemaTests(SimpleTestCase):
