@@ -1210,7 +1210,7 @@ def movements_on_board(board, *filters, **lookups):
     board (about 10,150 candidates) it preferred the instance-wide
     ``card_movements_moved_at`` range scan, a heap fetch per row of every
     board. This names the movement's own ``board`` column as well, which
-    ``movement_board_moved_card_idx`` (``board, moved_at`` INCLUDE ``card``)
+    ``movement_board_moved_card_idx`` (``board, moved_at, card``)
     serves as an index-only range read of this board's rows.
 
     The extra term never narrows the match. A card never changes board, and

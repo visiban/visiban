@@ -349,7 +349,11 @@ def _evict_lost_board_access(user_id, group_pk, pre_read_board_ids):
     board moved *out* of the subtree in the same window is still re-checked.
     A placement that commits after this read cannot grant access through the
     removed membership, which is already gone; any other access change it makes
-    is backstopped by the consumer's periodic access re-check.
+    is backstopped by the consumer's periodic access re-check. Such a board
+    can still receive a ``member.removed`` frame and feed row naming a user
+    who never had access to it through this membership; that is harmless (the
+    consumer closes only that user's sockets) and preferred to a missed
+    eviction.
 
     **One role resolution.** The roles come from ``get_board_roles`` in a
     fixed number of queries, never ``get_board_role`` per board.

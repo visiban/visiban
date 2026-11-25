@@ -21,6 +21,6 @@ class Migration(migrations.Migration):
     operations = [
         AddIndexConcurrently(
             model_name='cardmovement',
-            index=models.Index(fields=['board', 'moved_at'], include=('card',), name='movement_board_moved_card_idx'),
+            index=models.Index(fields=['board', 'moved_at', 'card'], name='movement_board_moved_card_idx'),
         ),
     ]

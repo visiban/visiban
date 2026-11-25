@@ -1368,10 +1368,12 @@ class CardMovement(models.Model):
             # index-only range read of one board's recent movements. Without
             # card_id in the index every match is a heap fetch, so the planner
             # preferred the instance-wide card_movements_moved_at scan on an
-            # aged board. Built concurrently in migration 0141.
+            # aged board. card is a trailing key column, not INCLUDE: SQLite
+            # has no INCLUDE (Django warns models.W040 and drops it), and a key
+            # column is covering on both backends. Built concurrently in
+            # migration 0141.
             models.Index(
-                fields=["board", "moved_at"],  # pragma: no mutate -- schema constant (migration-check)
-                include=["card"],  # pragma: no mutate -- schema constant (migration-check)
+                fields=["board", "moved_at", "card"],  # pragma: no mutate -- schema constant (migration-check)
                 name="movement_board_moved_card_idx",  # pragma: no mutate -- schema constant (migration-check)
             ),
         ]
