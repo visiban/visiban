@@ -312,7 +312,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
             </div>
           ) : tab === "stage" ? null : (
             <div className="flex flex-col gap-3">
-              <p className="flex items-center gap-1.5 text-xs text-fg-muted">Every column's policy can also be edited together in Board settings → Rules. <HelpLink topic="column-policies" /></p>
+              <p className="text-xs text-fg-muted">Every column's policy can also be edited together in Board settings → Rules. <HelpLink topic="column-policies" variant="text" /></p>
               <ColumnPolicyEditor
                 entry={entry}
                 done={done}

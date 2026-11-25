@@ -2390,7 +2390,7 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                 <div className="flex items-center gap-1.5 mb-2">
                 <button
                   type="button"
-                  className="max-sm:min-h-11 flex items-center justify-between flex-1 min-w-0 group/cl rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="max-sm:min-h-11 flex items-center gap-1.5 min-w-0 group/cl rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   aria-expanded={checklistOpen}
                   onClick={() => setChecklistOpen((o) => !o)}
                 >

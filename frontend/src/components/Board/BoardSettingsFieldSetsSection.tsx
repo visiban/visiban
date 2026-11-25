@@ -230,10 +230,10 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
   return (
     <div className="flex flex-col gap-4" data-testid="field-sets-section">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="inline-flex items-center gap-1.5">
+        <div className="inline-flex items-center gap-1.5">
           <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-fg focus:outline-none">Field sets</h3>
           <HelpLink topic="field-sets" />
-        </span>
+        </div>
         {isAdmin && (
           <div className="flex items-center gap-2 flex-wrap">
             <button ref={copyButtonRef} type="button" className={BTN_SECONDARY} aria-disabled={atCap}

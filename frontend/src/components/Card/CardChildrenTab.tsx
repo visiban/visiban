@@ -437,7 +437,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
 
         <div className="flex flex-col gap-1">
           <div className="flex items-baseline justify-between gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1.5"><h4 className="text-sm font-semibold text-fg">{boardName} board · this card&apos;s {total} {total === 1 ? "child" : "children"}</h4><HelpLink topic="child-cards" /></span>
+            <div className="inline-flex items-start gap-1.5"><h4 className="text-sm font-semibold text-fg">{boardName} board · this card&apos;s {total} {total === 1 ? "child" : "children"}</h4><HelpLink topic="child-cards" /></div>
             {/* Router navigation, no full page load; a bare render with no router (a unit test) keeps an anchor. */}
             {inRouter
               ? <Link to={`/boards/${childBoard?.id}?f_parent=${cardId}`} className={`${tgt} inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Open on {boardName}</Link>

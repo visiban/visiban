@@ -205,7 +205,7 @@ describe('EditColumnModal', () => {
     render(<EditColumnModal boardId={1} column={makeColumn()} cardCount={0} onUpdated={onUpdated} onRequestDelete={onRequestDelete} onClose={onClose} />)
     expect(screen.getByRole('link', { name: 'Learn more about WIP limits, opens docs' })).toHaveAttribute('href', expect.stringContaining('/features/board/#hard-wip-enforcement'))
     await user.click(screen.getByRole('tab', { name: 'Policy' }))
-    expect(screen.getByRole('link', { name: 'Learn more about entry criteria, opens docs' })).toHaveAttribute('href', expect.stringContaining('/features/column-policies/#column-policies'))
+    expect(screen.getByRole('link', { name: /Learn more about entry criteria, opens docs/ })).toHaveAttribute('href', expect.stringContaining('/features/column-policies/#column-policies'))
     expect(screen.queryByRole('link', { name: /WIP limits/ })).toBeNull()
   })
 
