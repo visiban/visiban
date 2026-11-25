@@ -6613,6 +6613,15 @@ nightly-load-test:
   extends: .pip-cache
   stage: test
   needs: []
+  # Needed only by the exit run (LOAD_TEST_EXIT_RUN=true, #2595): its seed took about 41 minutes on
+  # the first run, and its worst case (every measured request near the 90 s read timeout, plus up to
+  # five 300 s waits for the analytics slot) runs past the project's 60-minute default, which would
+  # kill the job before the script wrote its results. But `timeout` is job-level, so it ALSO applies
+  # to the scheduled nightly: a hung scheduled run now holds the runner for up to 3 hours, not 60
+  # minutes. No per-rule timeout is used here (the job's `rules:` only select when it runs).
+  # The exit run's python call is wrapped in `timeout` so the script ends before this limit and the
+  # artifacts (always uploaded) still go up; see the script section below.
+  timeout: 3h
   # Latency budgets are absolute ms measured on a NUC runner (see
   # backend/nightly-load-test-baseline.json), so the job must run on the same
   # hardware class. Untagged, it landed on gitlab-runner-dell-01-visiban on
@@ -6814,7 +6823,20 @@ nightly-load-test:
     # email-login plan check below are the scheduled nightly's.
     - |
       if [ "${LOAD_TEST_EXIT_RUN}" = "true" ]; then
-        python3 scripts/nightly_load_test.py --exit-run \
+        # A job killed by its own timeout uploads no artifacts, so end the script first: give it
+        # whatever is left of the job timeout (CI_JOB_TIMEOUT, seconds; 10800 = the 3h above if the
+        # variable is absent) minus 10 minutes, counted from CI_JOB_STARTED_AT so the seed and server
+        # start in before_script are already subtracted. Exit 124 (timed out) is non-zero, so the
+        # job fails and uploads what the checkpoints wrote.
+        EXIT_BUDGET_S=$(python3 -c "
+      import datetime, os, time
+      limit = int(os.environ.get('CI_JOB_TIMEOUT') or 10800)
+      started = os.environ.get('CI_JOB_STARTED_AT')
+      used = time.time() - datetime.datetime.fromisoformat(started.replace('Z', '+00:00')).timestamp() if started else 0
+      print(max(60, int(limit - 600 - used)))
+      ")
+        echo "exit run budget: ${EXIT_BUDGET_S}s before the job timeout"
+        timeout "${EXIT_BUDGET_S}" python3 scripts/nightly_load_test.py --exit-run \
           --base-url http://localhost:8000 \
           --analytics-token-file "${VISIBAN_LOAD_TEST_ANALYTICS_TOKEN_FILE}" \
           --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}" \
