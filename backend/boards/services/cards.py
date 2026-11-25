@@ -284,6 +284,9 @@ def record_overrides(outcome, *, card, actor, trigger, movement=None, column=Non
         card=card, event_type=CardActivity.EventType.OVERRIDE_USED,
         from_value=outcome.actor_basis, to_value=",".join(outcome.forced),
         item_text=outcome.reason, actor=actor,
+        # #2594: the same snapshot as the CardOverride rows, so History can
+        # name the assigner without joining the override table.
+        assigned_by_id=assigned_by_id,
     )
     return {
         "kinds": list(outcome.forced),

@@ -703,6 +703,8 @@ def _serialize_activity(activity):
         "imported_from_username": activity.imported_from_username,
         # Additive (#2199): see CardActivitySerializer.item_text.
         "item_text": activity.item_text,
+        # Additive (#2594): see CardActivitySerializer.assigned_by.
+        "assigned_by": _serialize_user(activity.assigned_by) if activity.assigned_by_id else None,
     }
 
 
@@ -1364,7 +1366,7 @@ def card_detail(*, card_id):
     # rows; one extra row is fetched to tell a capped list from a complete one,
     # so the cap costs no COUNT. ``*_truncated`` are additive keys.
     activities = list(
-        card.activities.select_related("actor")
+        card.activities.select_related("actor", "assigned_by")
         .order_by("-created_at", "-pk")[:_CARD_DETAIL_HISTORY_MAX + 1]
     )
     data["activities"] = [_serialize_activity(a) for a in activities[:_CARD_DETAIL_HISTORY_MAX]]

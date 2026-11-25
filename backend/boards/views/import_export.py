@@ -317,6 +317,10 @@ def _activity_export_entry(act):
         # Additive (#2199): null except on checklist
         # assignee and due-date entries.
         "item_text": act.item_text,
+        # Additive (#2594): the assigner's username on an assignee
+        # ``override_used`` row, else null. Informational: import does not
+        # resolve it back to an account (see _imported_activity).
+        "assigned_by": act.assigned_by.username if act.assigned_by_id and act.assigned_by else None,
     }
 
 
@@ -388,7 +392,7 @@ def _deleted_card_history_export(board, exported_uids=frozenset()):
     )
     activities = (
         CardActivity.objects.filter(board=board, card__isnull=True)
-        .select_related("actor")
+        .select_related("actor", "assigned_by")
         .order_by("created_at", "id")
     )
     blocks = (
@@ -3070,6 +3074,10 @@ class BoardImportExportMixin:
                     item_text=(
                         act_data.get("item_text") if event_type in _ITEM_TEXT_EVENT_TYPES else None
                     ),
+                    # ``assigned_by`` (#2594) is never set from the file: like
+                    # ``actor`` (#1675) and ``Card.assigned_by``, history is not
+                    # attributed to an account on a file's word, so an imported
+                    # override row names no assigner.
                 )
 
             for card_obj, card_data in zip(cards_to_create, cards_raw):
@@ -4120,7 +4128,8 @@ class BoardImportExportMixin:
                 "movements__moved_by",
                 "comments__author",
                 "checklist_items__assignee",
-                "activities__actor",
+                # assigned_by (#2594) joined into the same activity query.
+                Prefetch("activities", queryset=CardActivity.objects.select_related("actor", "assigned_by")),
                 # Custom field values (#371) — one query for the whole export,
                 # with the definition joined so neither branch below resolves a
                 # per-card FK.

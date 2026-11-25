@@ -2953,6 +2953,11 @@ class CardActivitySerializer(serializers.ModelSerializer):
     # `actor: null`. Same declared-nested-field gap as CardCommentSerializer.author.
     # Schema-only: read_only, so nothing about request validation changes.
     actor = BoardUserSerializer(read_only=True, allow_null=True)
+    # Additive (#2594): who assigned the card, on an ``override_used`` row with
+    # the ``assignee`` basis; null on every other row and once that account is
+    # deleted. The same slim shape as ``actor``, so it exposes nothing a board
+    # reader cannot already see of the person who acted on the card.
+    assigned_by = BoardUserSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = CardActivity
@@ -2963,8 +2968,9 @@ class CardActivitySerializer(serializers.ModelSerializer):
             # Additive (#2199): the checklist item's text on checklist assignee
             # and due-date rows; null on other rows and on rows before 1.3.
             "item_text",
+            "assigned_by",
         ]
-        read_only_fields = ["imported_from_username", "item_text"]
+        read_only_fields = ["imported_from_username", "item_text", "assigned_by"]
 
 
 # Reason and resolution share CardBlock's column length (#1149). Read from the

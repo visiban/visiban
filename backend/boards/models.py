@@ -1571,7 +1571,8 @@ class CardActivity(models.Model):
         # #1923: a card was placed past a soft limit with ``force``.
         # ``item_text`` is the override reason ("" when an admin gave none);
         # from_value is the actor basis (admin | site_admin | assignee),
-        # to_value the comma-joined kinds tripped (wip, weight).
+        # to_value the comma-joined kinds tripped (wip, weight). On the
+        # assignee basis ``assigned_by`` is who assigned the card (#2594).
         OVERRIDE_USED = "override_used", "Override used"
 
     # Event types whose ``item_text`` is meaningful (#2199, #1921): the
@@ -1648,6 +1649,22 @@ class CardActivity(models.Model):
         null=True,
         blank=True,  # pragma: no mutate -- schema constant (migration-check)
     )
+    # #2594: on an ``override_used`` row with the ``assignee`` basis, who
+    # assigned the card (``CardOverride.assigned_by``, snapshotted at the
+    # override), so History can say " · Assigned by {name}". NULL on every other
+    # row, on admin overrides, on rows written before 1.3, and once the
+    # assigner's account is deleted (SET_NULL, like ``actor``): History then
+    # shows no assigner rather than a stale name. ``db_index=False``: the FK
+    # was added NOT VALID and validated in migrations 0142/0143, and the
+    # partial index is built concurrently in 0144.
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        db_index=False,  # pragma: no mutate -- covered by activity_assigned_by_idx
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
+    )
 
     objects = CardActivityManager()
 
@@ -1665,6 +1682,14 @@ class CardActivity(models.Model):
             models.Index(
                 fields=["board", "-created_at"],  # pragma: no mutate -- schema constant (migration-check)
                 name="activity_board_created_idx",  # pragma: no mutate -- schema constant (migration-check)
+            ),
+            # The user-delete SET_NULL on ``assigned_by`` (#2594). Partial:
+            # only assignee override rows carry an assigner. Built
+            # concurrently in migration 0144.
+            models.Index(
+                fields=["assigned_by"],  # pragma: no mutate -- schema constant (migration-check)
+                name="activity_assigned_by_idx",  # pragma: no mutate -- schema constant (migration-check)
+                condition=models.Q(assigned_by__isnull=False),
             ),
         ]
 

@@ -142,6 +142,23 @@ describe('override copy (#1923)', () => {
     expect(activityLabel('override_used', { from_value: 'admin' })).toBe('Card limit overridden (admin override)')
   })
 
+  it('names the assigner on an assignee override (#2594)', () => {
+    const assigner = { id: 3, username: 'bo', display_name: 'Bo Lead', avatar_url: '' }
+    expect(activityLabel('override_used', { from_value: 'assignee', to_value: 'wip', item_text: 'Hotfix', assigned_by: assigner }))
+      .toBe('WIP limit overridden (assignee override). Reason: Hotfix · Assigned by Bo Lead')
+    // No display name: the username.
+    expect(activityLabel('override_used', { from_value: 'assignee', to_value: 'wip', item_text: '', assigned_by: { ...assigner, display_name: '' } }))
+      .toBe('WIP limit overridden (assignee override) · Assigned by bo')
+    // Absent assigner (older, imported or deleted): no suffix, never a guess.
+    expect(activityLabel('override_used', { from_value: 'assignee', to_value: 'wip', item_text: 'Hotfix', assigned_by: null }))
+      .toBe('WIP limit overridden (assignee override). Reason: Hotfix')
+    expect(activityLabel('override_used', { from_value: 'assignee', to_value: 'wip', item_text: 'Hotfix' }))
+      .toBe('WIP limit overridden (assignee override). Reason: Hotfix')
+    // An admin override never names an assigner, even if a payload carries one.
+    expect(activityLabel('override_used', { from_value: 'admin', to_value: 'wip', assigned_by: assigner }))
+      .toBe('WIP limit overridden (admin override)')
+  })
+
   it('names the assignee-override refusals', () => {
     const fail = (status: number, data: unknown) =>
       new AxiosError('x', 'ERR_BAD_REQUEST', undefined, undefined, { status, data } as never)

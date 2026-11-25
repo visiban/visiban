@@ -676,6 +676,7 @@ Activity log (field changes, comments, attachments, checklist events, and since 
 | `created_at` | string | ISO 8601 timestamp |
 | `imported_from_username` | string \| `null` | *Since 1.2.* `null` unless the entry was created by a board import with history; then `actor` is the importing user and this is the username the import file named (`""` when it named nobody). History imported by earlier versions carries `null`, since the original name was not kept. See [Imported history](../features/card-history.md#imported-history) |
 | `item_text` | string \| `null` | *Since 1.3 (#2199).* On `checklist_item_assigned` and `checklist_item_due_changed` entries, the checklist item's text when the change was made, kept after the item is renamed or deleted. On `custom_field_changed` entries, the custom field's name when the value changed, kept after the field is renamed or deleted (#1921). `null` on every other event type and on entries recorded before 1.3. Read-only |
+| `assigned_by` | object \| `null` | *Since 1.3 (#2594).* On an `override_used` entry whose `from_value` is `assignee`, the user who assigned the card when the override was made, in the same shape as `actor`; a snapshot, so a later reassignment does not change it. `null` on every other entry, on admin overrides, on imported entries and once that user is deleted. Read-only |
 
 ```json
 [
@@ -687,7 +688,8 @@ Activity log (field changes, comments, attachments, checklist events, and since 
     "actor": { "id": 3, "username": "jordan", "display_name": "Jordan Lee", "avatar_url": null },
     "created_at": "2026-09-20T14:03:11Z",
     "imported_from_username": null,
-    "item_text": null
+    "item_text": null,
+    "assigned_by": null
   }
 ]
 ```
@@ -848,7 +850,7 @@ One integer per `event_types` group, always every key (`gate` was added in 1.3 b
 | `actor` | object / null | User who triggered the event — `{ id, username, display_name, avatar_url }`. `null` for system-generated events |
 | `event_type` | string | Concrete event type (see group mapping table above). For `kind: "move"` entries this is the `movement_type` value (e.g. `"move"`, `"archived"`, `"unarchived"`) |
 | `imported_from_username` | string / null | *Since 1.2.* The underlying record's `imported_from_username` — `null` unless it came from a board import with history |
-| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (`from_gates_passed`, `from_gates_open`, `to_gates_passed`). `gate` entries carry the gate transition's REST shape (see [Gate entries](#timeline-gate-entries)). `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the activity's `item_text`: the field's name on `custom_field_changed`, #1921; `null` on entries recorded before 1.3). |
+| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (`from_gates_passed`, `from_gates_open`, `to_gates_passed`). `gate` entries carry the gate transition's REST shape (see [Gate entries](#timeline-gate-entries)). `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the activity's `item_text`: the field's name on `custom_field_changed`, #1921; `null` on entries recorded before 1.3), and since 1.3 `override_used` entries carry `item_text` (the reason) and `assigned_by` (#2594: the activity's `assigned_by` user object, `null` when there is none). |
 
 **Errors**
 
@@ -1707,5 +1709,5 @@ Every custom field value set, changed or cleared, on any transport, writes a car
 - **403 body** gains `code` (additive): `{"detail": "Only board admins can override a WIP limit.", "code": "force_not_permitted"}`. On a board with the switch on, `detail` reads `"Only board admins, or the card's assignee when someone else assigned it to them, can override a WIP limit."` (or `weight`). A self-assigned assignee on a board with the switch on gets `{"detail": "You assigned this card to yourself, so a board admin needs to move it anyway.", "code": "force_not_permitted", "reason": "self_assigned"}`.
 - **Response/broadcast:** when a limit was overridden, the create (`201`), move and restore bodies and the `card.moved` / `card.created` / `card.unarchived` frames carry an additive `override: {kinds: ["wip"|"weight", ...], actor_basis: "admin"|"site_admin"|"assignee", actor: {id, username}, reason}`. Absent otherwise.
 - **Card field `assigned_by`** (read-only, user id or `null`): who set the current assignee. `null` when unassigned, imported, or the assigner was deleted; a `null` value is never eligible for the assignee basis.
-- **History:** each override writes one `CardOverride` row per kind and an `override_used` activity (`from_value` = basis, `to_value` = kinds, `item_text` = reason).
+- **History:** each override writes one `CardOverride` row per kind and an `override_used` activity (`from_value` = basis, `to_value` = kinds, `item_text` = reason, `assigned_by` = who assigned the card on an `assignee` basis, #2594). The card's History reads "… (assignee override). Reason: … · Assigned by {name}"; with no assigner on the row it names no one.
 - MCP tools take no `force`: a Block limit acts as Hard over MCP.

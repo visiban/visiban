@@ -111,14 +111,20 @@ export function activityLabel(
     case "needed_changed":
       if (d.to_value === "now") return d.from_value === "column_deleted" ? "Needed: Now (its column was deleted)" : "Needed: Now";
       return d.from_value === "created" ? "Created planned for a later stage" : "Needed column changed";
-    // #1923: from_value is the actor basis, to_value the kinds, item_text the reason.
+    // #1923: from_value is the actor basis, to_value the kinds, item_text the
+    // reason. #2594: an assignee override names who assigned the card; with no
+    // assigner (admin basis, older or imported row, deleted account) the row
+    // names no one rather than guessing.
     case "override_used": {
       const list = (d.to_value ?? "").split(",").filter(Boolean).map((k) => (k === "wip" ? "WIP" : k));
       const kinds = list.join(" and ");
       const noun = list.length > 1 ? "limits" : "limit";
       const basis = d.from_value === "assignee" ? "assignee override" : "admin override";
       const head = `${kinds ? `${kinds.charAt(0).toUpperCase()}${kinds.slice(1)}` : "Card"} ${noun} overridden (${basis})`;
-      return d.item_text ? `${head}. Reason: ${d.item_text}` : head;
+      const withReason = d.item_text ? `${head}. Reason: ${d.item_text}` : head;
+      return d.from_value === "assignee" && d.assigned_by
+        ? `${withReason} · Assigned by ${userDisplayName(d.assigned_by)}`
+        : withReason;
     }
     case "archived":
       return "Card archived";
