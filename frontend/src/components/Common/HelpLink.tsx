@@ -28,7 +28,7 @@ export default function HelpLink({ topic, variant = "icon", className = "" }: Pr
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className={`inline-flex items-center gap-1 min-h-6 max-sm:min-h-11 text-info underline rounded ${RING} ${className}`.trim()}
+        className={`inline-flex items-center gap-1 min-h-6 max-sm:min-h-11 max-sm:-my-2.5 text-info underline rounded ${RING} ${className}`.trim()}
       >
         {entry.linkText ?? "Learn more"}
         <span className="sr-only">{` about ${entry.subject}, opens docs`}</span>

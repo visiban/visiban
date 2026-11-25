@@ -8,7 +8,7 @@
  *
  * Rules: `path` is relative to the docs root and ends in `/` (mkdocs uses
  * directory URLs); `anchor` has no leading `#`; `summary` is one static line
- * (it is the link's tooltip, so no banners or tours, #2542). Never rename or
+ * (the link's tooltip, at most about 60 characters; no banners or tours, #2542). Never rename or
  * remove a key without grepping every surface.
  */
 export interface HelpTopic {
@@ -34,18 +34,18 @@ export const HELP_TOPICS = {
     path: "features/analytics/",
     anchor: "bottleneck",
     subject: "bottleneck detection",
-    summary: "How Analytics picks the bottleneck column and why the intake column is never named.",
+    summary: "How Analytics picks the bottleneck column.",
   },
   webhooks: {
     path: "features/webhooks/",
     subject: "webhooks",
-    summary: "How webhooks deliver signed events and how to set them up.",
+    summary: "How webhooks work and how to set them up.",
   },
   "webhooks.verify": {
     path: "api/webhooks/",
     anchor: "verifying-signatures",
     subject: "verifying webhook signatures",
-    summary: "How a receiver verifies the signature on a webhook delivery.",
+    summary: "How to verify a webhook signature.",
   },
 } as const satisfies Record<string, HelpTopic>;
 

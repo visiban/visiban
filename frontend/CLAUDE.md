@@ -39,6 +39,8 @@ When a section header (e.g. "My Boards", "Groups") carries action buttons:
 - **One per section.** Never per control, row or toolbar button: a help link is a real tab stop. Dense toolbars have none.
 - **Variants.** `icon` (default; 20px "?" circle; `Tooltip` shows the registry summary; `aria-label` is the name; no `title`) beside headings. `text` ("Learn more", `text-info underline`, external glyph, sr-only suffix) inside callouts and prose. `text-info` is allowed here because it is a link, not an action button (see Section header actions).
 - **Touch and focus.** 44px hit area below `sm` via `max-sm:` with negative margins so the desktop layout does not change (the parent must not clip them). Focus ring `focus:outline-none focus:ring-2 focus:ring-primary-emphasis`. Always `target="_blank" rel="noopener noreferrer"`.
+- **Names and tooltips.** `subject` is a noun phrase that reads after "about" ("tracks", "bottleneck detection"); the text variant's visible words always start its accessible name. The tooltip summary is one static line of about 60 characters or fewer and is a desktop and keyboard extra (it never shows on touch); the name carries the meaning. The text variant uses `max-sm:-my-2.5` so its 44px target does not add height.
+- **Collapsed containers.** A text link inside a collapsed disclosure is correctly out of the tab order until it opens; do not hoist it out.
 - **Menu items.** `UserMenu` "Help & docs" stays a `role="menuitem"` anchor and takes only its `href` from `docsUrl("home")`.
 
 ## Buttons
