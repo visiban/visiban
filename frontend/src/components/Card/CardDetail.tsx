@@ -2142,13 +2142,16 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                         aria-pressed={active}
                         // Active is a check mark plus a heavier weight and inset ring, not
                         // a color change alone (#2094): the tint is the same either way.
-                        className={`max-sm:min-h-11 cf-choice-badge inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                          active ? "font-semibold shadow-[inset_0_0_0_1px_currentColor]" : ""
+                        // The check's room (w-3 + gap-1 = 1rem) is padding when idle, split
+                        // evenly so the name is centered (#2618): px-[1.125rem] is px-2.5 plus
+                        // half of it. Change the three together or toggling resizes the chip.
+                        className={`max-sm:min-h-11 cf-choice-badge inline-flex items-center gap-1 text-xs py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                          active ? "px-2.5 font-semibold shadow-[inset_0_0_0_1px_currentColor]" : "px-[1.125rem]"
                         }`}
                         style={colorChipStyle(label.color)}
                       >
-                        {/* Always rendered so the check reserves its space (weight can still widen the chip slightly); hidden when idle. */}
-                        <span aria-hidden="true" className={active ? "" : "invisible"}>✓</span>
+                        {/* Fixed width, not the glyph's own, so the idle padding can match it in any font. */}
+                        {active && <span aria-hidden="true" className="w-3 shrink-0 text-center">✓</span>}
                         {label.name}
                       </button>
                     );
