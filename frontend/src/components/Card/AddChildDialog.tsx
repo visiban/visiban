@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import HelpLink from "../Common/HelpLink";
 import axios from "axios";
 import { addChild, getChildBoardOptions } from "../../api/cards";
 import { patchBoard } from "../../api/boards";
@@ -265,6 +266,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               />
               {/* #2542: static hint at the point of choice between a child card and a checklist item. */}
               <p id={titleHintId} className="text-xs text-fg-muted" data-testid="child-title-hint">A child card has its own workflow on another board. For a simple to-do, use the checklist.</p>
+              <HelpLink topic="work-breakdown" variant="text" className="self-start" />
             </div>
           )}
 
@@ -283,6 +285,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
                 ]}
               />
               <p id={neededHelpId} className="text-xs text-fg-muted">Options: Now, then each later column on {boardName}.</p>
+              <HelpLink topic="planned-children" variant="text" className="self-start" />
               {needed !== "now" && (
                 <p id={neededHintId} className="text-xs text-fg-muted" data-testid="needed-lead-time-hint">Lead time without dates: split the work.</p>
               )}

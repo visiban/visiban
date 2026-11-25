@@ -4547,7 +4547,22 @@ describe('CardDetail track hint (#2542)', () => {
     await userEvent.click(screen.getByRole('button', { name: /^Custom fields/ }))
     const hint = screen.getByTestId('card-track-hint')
     expect(hint).toHaveTextContent('Tracks show as chips on the card.')
-    expect(hint.querySelector('a, button, input, select, textarea, [tabindex]')).toBeNull()
+    // #2592: the one focusable thing in the line is the help link to where tracks are set.
+    const focusable = hint.querySelectorAll('a, button, input, select, textarea, [tabindex]')
+    expect(focusable).toHaveLength(1)
+    expect(screen.getByRole('link', { name: /Where tracks are set about where a track is set, opens docs/ })).toHaveAttribute('href', expect.stringContaining('/features/concepts/#concept-track'))
+  })
+
+  it('puts one help link beside the Checklist toggle, outside it, and a Which tool? link in the empty state (#2592)', async () => {
+    render(<CardDetail {...defaultProps()} />)
+    const link = await screen.findByRole('link', { name: 'Learn more about the checklist, opens docs' })
+    expect(link).toHaveAttribute('href', expect.stringContaining('/features/board/#checklist'))
+    expect(screen.getByRole('button', { name: /^Checklist/ })).not.toContainElement(link)
+    // An empty checklist loads collapsed; the Which tool? link lives in the expanded empty state.
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Checklist/ })).toHaveAttribute('aria-expanded', 'false'))
+    await userEvent.click(screen.getByRole('button', { name: /^Checklist/ }))
+    const which = await screen.findByRole('link', { name: /Which tool\? about choosing between a checklist, a track and a child card, opens docs/ })
+    expect(which).toHaveAttribute('href', expect.stringContaining('/features/breaking-work-down/#which-tool'))
   })
 
   it('omits the line when the column has no tracks', async () => {

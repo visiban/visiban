@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import HelpLink from "../Common/HelpLink";
 import { Link, useInRouterContext } from "react-router-dom";
 import axios from "axios";
 import { getChildBoardOptions, linkCardParent, moveCard, unlinkCardChild } from "../../api/cards";
@@ -396,7 +397,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
       return (
         <div className="flex flex-col gap-2 items-start" data-testid="children-empty">
           <p className="text-sm font-medium text-fg">No children yet</p>
-          <p className="text-xs text-fg-muted">Children are cards on {boardName || "another board"} that belong to this one. They move on their own board.</p>
+          <p className="text-xs text-fg-muted">Children are cards on {boardName || "another board"} that belong to this one. They move on their own board. <HelpLink topic="child-cards" variant="text" /></p>
           {actions}
         </div>
       );
@@ -436,7 +437,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
 
         <div className="flex flex-col gap-1">
           <div className="flex items-baseline justify-between gap-2 flex-wrap">
-            <h4 className="text-sm font-semibold text-fg">{boardName} board · this card&apos;s {total} {total === 1 ? "child" : "children"}</h4>
+            <span className="inline-flex items-center gap-1.5"><h4 className="text-sm font-semibold text-fg">{boardName} board · this card&apos;s {total} {total === 1 ? "child" : "children"}</h4><HelpLink topic="child-cards" /></span>
             {/* Router navigation, no full page load; a bare render with no router (a unit test) keeps an anchor. */}
             {inRouter
               ? <Link to={`/boards/${childBoard?.id}?f_parent=${cardId}`} className={`${tgt} inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Open on {boardName}</Link>

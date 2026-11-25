@@ -7,6 +7,7 @@
  * The delete confirm copy is built by `deleteSetPrompt` so entry requirements
  * (#1923, MR B) can append the requirements a delete widens.
  */
+import HelpLink from "../Common/HelpLink";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -229,7 +230,10 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
   return (
     <div className="flex flex-col gap-4" data-testid="field-sets-section">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-fg focus:outline-none">Field sets</h3>
+        <span className="inline-flex items-center gap-1.5">
+          <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-fg focus:outline-none">Field sets</h3>
+          <HelpLink topic="field-sets" />
+        </span>
         {isAdmin && (
           <div className="flex items-center gap-2 flex-wrap">
             <button ref={copyButtonRef} type="button" className={BTN_SECONDARY} aria-disabled={atCap}

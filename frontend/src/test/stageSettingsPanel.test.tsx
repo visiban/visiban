@@ -47,6 +47,18 @@ beforeEach(() => {
   mockCounts.mockRejectedValue(new Error('offline'))
 })
 
+describe('StageSettingsPanel help links (#2592)', () => {
+  it('has one help link in each of the Sub-columns and Tracks sections', () => {
+    renderPanel()
+    const sub = screen.getByRole('link', { name: 'Learn more about sub-columns, opens docs' })
+    const tr = screen.getByRole('link', { name: 'Learn more about tracks, opens docs' })
+    expect(sub).toHaveAttribute('href', expect.stringContaining('/features/board/#sub-columns-and-tracks'))
+    expect(tr).toHaveAttribute('href', expect.stringContaining('/features/board/#sub-columns-and-tracks'))
+    expect(screen.getByRole('region', { name: 'Sub-columns, in order' })).toContainElement(sub)
+    expect(screen.getByRole('region', { name: 'Tracks, any order' })).toContainElement(tr)
+  })
+})
+
 describe('StageSettingsPanel (#2278)', () => {
   it('defines "stage" once and describes each section with a hint that it applies to every card (#2543, #2542)', () => {
     renderPanel()

@@ -40,6 +40,21 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+describe('AddChildDialog help links (#2592)', () => {
+  it('offers Which tool? at the title hint and a planned-children link under Needed', async () => {
+    setup(BASE, { laterColumns: [{ id: 3, name: 'Review' }] })
+    await screen.findByRole('dialog', { name: 'Add child' })
+    expect(screen.getByRole('link', { name: /Which tool\? about choosing between/ })).toHaveAttribute('href', expect.stringContaining('/features/breaking-work-down/#which-tool'))
+    expect(screen.getByRole('link', { name: /About planned children about planned children, opens docs/ })).toHaveAttribute('href', expect.stringContaining('/features/board/#planned-child'))
+  })
+
+  it('a parent whose children board is fixed (children turned off since) shows the same Which tool? link', async () => {
+    setup({ ...BASE, fixed_board: { hidden: false, id: 8, name: 'Ops', can_add: true } })
+    await screen.findByRole('dialog', { name: 'Add child' })
+    expect(screen.getByRole('link', { name: /Which tool\? about choosing between/ })).toBeInTheDocument()
+  })
+})
+
 describe('AddChildDialog (#2208)', () => {
   it('member with no default: "Choose a board", Add child disabled until a board and a title are given', async () => {
     const { user, onAdded } = setup(BASE)

@@ -65,6 +65,7 @@ import { colorChipStyle } from "../../utils/colorContrast";
 import { isImeComposing } from "../../utils/imeComposition";
 import { isAssignableMember } from "../../utils/assignableMembers";
 import CardSheetDockToggle from "./CardSheetDockToggle";
+import HelpLink from "../Common/HelpLink";
 import ChecklistItemControls from "./ChecklistItemControls";
 import { checklistToday } from "../../utils/checklistFaceSuffix";
 import { parentSingular } from "../../utils/parentItemNames";
@@ -2268,7 +2269,7 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                       <div className="flex flex-col gap-4">
                         {cardHasTracks && (
                           // #2542: static line, no control; tracks are set here and shown as chips on the card.
-                          <p data-testid="card-track-hint" className="-mb-2 text-xs text-fg-muted">Tracks show as chips on the card.</p>
+                          <p data-testid="card-track-hint" className="-mb-2 text-xs text-fg-muted">Tracks show as chips on the card. <HelpLink topic="tracks.where" variant="text" /></p>
                         )}
                         {[...board.custom_field_definitions]
                           .sort((a, b) => a.position - b.position)
@@ -2385,9 +2386,11 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
 
               {/* Checklist */}
               <div>
+                {/* #2592: the help link is a sibling of the toggle, never inside it (no nested interactive). */}
+                <div className="flex items-center gap-1.5 mb-2">
                 <button
                   type="button"
-                  className="max-sm:min-h-11 flex items-center justify-between w-full mb-2 group/cl rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="max-sm:min-h-11 flex items-center justify-between flex-1 min-w-0 group/cl rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   aria-expanded={checklistOpen}
                   onClick={() => setChecklistOpen((o) => !o)}
                 >
@@ -2401,10 +2404,12 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </button>
+                <HelpLink topic="checklist" />
+                </div>
                 {pendingSections.checklist && <SectionSkeleton rows={2} testId="checklist-skeleton" />}
                 {checklistOpen && checklist.length === 0 && !pendingSections.checklist && (
                   // Design § 5 empty state (#445).
-                  <p className="text-xs text-fg-muted italic px-1 mb-2">No checklist items yet.</p>
+                  <p className="text-xs text-fg-muted italic px-1 mb-2">No checklist items yet. <HelpLink topic="work-breakdown" variant="text" className="not-italic" /></p>
                 )}
                 {checklistOpen && checklist.length > 0 && ( // items and progress only when expanded
                   <>

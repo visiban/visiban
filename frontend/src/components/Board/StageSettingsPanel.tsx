@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import HelpLink from "../Common/HelpLink";
 import { createPortal } from "react-dom";
 import type { Card, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import { createCustomFieldDefinition, getStageCardCounts, saveColumnStage, updateCustomFieldDefinition, type StageSettingsBody, type StageSubColumnCardCount } from "../../api/boards";
@@ -355,7 +356,10 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
       <fieldset disabled={saving} className="contents">
         {/* #2542: the hint at this point of choice says it applies to every card in the column. */}
         <section aria-labelledby={`${uid}-subs`}>
-          <h3 id={`${uid}-subs`} className="text-sm font-semibold text-fg">Sub-columns, in order</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 id={`${uid}-subs`} className="text-sm font-semibold text-fg">Sub-columns, in order</h3>
+            <HelpLink topic="stage.sub-columns" />
+          </div>
           <p id={`${uid}-subs-hint`} className="mt-0.5 text-xs text-fg-muted">Steps every card in this column goes through, in order. One WIP limit covers the whole stage. Time in the last sub-column is recorded as waiting.</p>
           <ol className="mt-2 flex flex-col gap-1.5">
             {subs.map((s, i) => (
@@ -433,7 +437,10 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
         </section>
 
         <section aria-labelledby={`${uid}-tracks`}>
-          <h3 id={`${uid}-tracks`} className="text-sm font-semibold text-fg">Tracks, any order</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 id={`${uid}-tracks`} className="text-sm font-semibold text-fg">Tracks, any order</h3>
+            <HelpLink topic="stage.tracks" />
+          </div>
           <p id={`${uid}-tracks-hint`} className="mt-0.5 text-xs text-fg-muted">Checks every card in this column needs, in any order. Each shows as a chip on the card. For one card's to-dos, use its checklist.</p>
           <ul className="mt-2 flex flex-col gap-1.5">
             {tracks.map((t, i) => (

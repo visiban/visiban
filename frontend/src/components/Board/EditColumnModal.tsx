@@ -10,6 +10,7 @@ import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import ModalWrapper from "../shared/ModalWrapper";
 import IntakeColumnCallout, { DoneColumnMore } from "./IntakeColumnCallout";
 import ColumnPolicyEditor from "./ColumnPolicyEditor";
+import HelpLink from "../Common/HelpLink";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useColumnPolicyDraft } from "../../hooks/useColumnPolicyDraft";
 import { isImeComposing } from "../../utils/imeComposition";
@@ -236,7 +237,10 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-fg-tertiary mb-1 block">WIP limit</label>
+                  <div className="mb-1 flex items-center gap-1.5">
+                    <label className="text-xs text-fg-tertiary">WIP limit</label>
+                    <HelpLink topic="wip-limit" />
+                  </div>
                   <input
                     value={wipLimit}
                     onChange={(e) => setWipLimit(e.target.value.replace(/\D/g, ""))}
@@ -308,7 +312,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
             </div>
           ) : tab === "stage" ? null : (
             <div className="flex flex-col gap-3">
-              <p className="text-xs text-fg-muted">Every column's policy can also be edited together in Board settings → Rules.</p>
+              <p className="flex items-center gap-1.5 text-xs text-fg-muted">Every column's policy can also be edited together in Board settings → Rules. <HelpLink topic="column-policies" /></p>
               <ColumnPolicyEditor
                 entry={entry}
                 done={done}

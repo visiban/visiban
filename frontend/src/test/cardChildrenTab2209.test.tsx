@@ -87,6 +87,13 @@ describe('CardChildrenTab states (#2209)', () => {
     expect(screen.getByTestId('children-empty')).toBeInTheDocument()
   })
 
+  it('the empty state carries one child-cards help link (#2592)', () => {
+    renderTab(state({ data: { count: 0, visible: true, offset: 0, limit: 50, results: [] } }))
+    const links = screen.getAllByRole('link', { name: 'Learn more about child cards, opens docs' })
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute('href', expect.stringContaining('/features/board/#child-cards'))
+  })
+
   it('empty: offers Add child and Link existing to a member, nothing to a viewer', () => {
     const empty = { count: 0, visible: true, offset: 0, limit: 50, results: [] }
     const { rerender } = renderTab(state({ data: empty }))
