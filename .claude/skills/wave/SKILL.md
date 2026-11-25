@@ -665,7 +665,8 @@ answer. It posts record K for the window this session has not yet claimed (whate
 the MR), counts a resumed agent only for its new usage, also counts another session's subagent
 that worked in this MR's worktree (over that session's watermark, never that session's
 orchestrator), and advances the session state; it posts nothing, and says why, when the ledger is off, the MR opts out, or record 1 is
-missing. Do not run the three measuring scripts, `cost-table.py --next-since` or `--ledger`, and
+missing. A `--round` whose window has no orchestrator usage posts nothing and claims nothing; relay its
+`cost record: none (<reason>)` line (#2601). Do not run the three measuring scripts, `cost-table.py --next-since` or `--ledger`, and
 do not save a window pair: the state lives in `${CLAUDE_CONFIG_DIR:-~/.claude}/mr-cost-state/` (one file per session, shared by every repo it works in) and is written
 only by `post-mr-cost.py` (`docs/development/cost-ledger.md` § *Non-overlap*).
 

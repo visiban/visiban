@@ -272,13 +272,14 @@ or the `## Gates` lines. In the worktree, run
 this session has not yet claimed (the orchestrator since its previous cost record, and each
 subagent only for usage after its own previous record), posts the record through
 `scripts/cost-table.py`, and advances the per-session state; a pass that spawned no subagent needs
-nothing extra, and a re-run with nothing new to claim posts nothing. Do not run the three measuring
+nothing extra, and a re-run with nothing new to claim posts nothing. A `--round` whose window has
+no orchestrator usage posts nothing, claims nothing, and prints `cost record: none (<reason>)` (#2601). Do not run the three measuring
 scripts, `cost-table.py --next-since` or `--ledger`, or save a window pair by hand. The steps and
 the format are in `docs/development/cost-ledger.md` § *The cost records* and § *Non-overlap*, not here.
 If it cannot post, say so in the report.
 
 The final report always carries the outcome as its own line: the script's one line, or
-`cost record: none (<ledger off | unreadable | no record 1>)`. A report with no cost line means
+`cost record: none (<ledger off | unreadable | no record 1 | no orchestrator usage | orchestrator window could not be measured>)`. A report with no cost line means
 this step was skipped.
 
 ---
