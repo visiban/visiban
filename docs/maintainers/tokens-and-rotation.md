@@ -125,12 +125,12 @@ Why not something narrower:
   unauthenticated_traffic_per_ip`).
 
     About 60 reads from one workstation that afternoon drew
-  429s with `retry-after` near an hour.
+    429s with `retry-after` near an hour.
 
     The guard may poll for up to 45 minutes from a shared
-  runner IP. On that IP it would compete with every other tenant's anonymous traffic, and
-  a refusal caused by someone else's traffic is noise. The private enterprise mirror, which
-  receives every tag, has no anonymous option at all.
+    runner IP. On that IP it would compete with every other tenant's anonymous traffic, and
+    a refusal caused by someone else's traffic is noise. The private enterprise mirror, which
+    receives every tag, has no anonymous option at all.
 
 ## `RUNNER_STATUS_TOKEN`
 
@@ -149,15 +149,16 @@ job queries the group Runners endpoint (`/groups/visiban/runners`) to match.
    and described it as still needing to be created.
 
     It was, in fact, already created — just
-   as `RUNNER_STATUS_TOKEN` (confirmed present via the project variables API: masked,
-   protected, description "ARM64") — and the name never got reconciled between the variable
-   that was actually set up and the code/docs that expected a different one. Because a
-   missing variable and a wrong variable name both fail the same way (`... not set`), this
-   went unnoticed through #1084's original review.
+    as `RUNNER_STATUS_TOKEN` (confirmed present via the project variables API: masked,
+    protected, description "ARM64") — and the name never got reconciled between the variable
+    that was actually set up and the code/docs that expected a different one. Because a
+    missing variable and a wrong variable name both fail the same way (`... not set`), this
+    went unnoticed through #1084's original review.
 
     No release tag had actually been cut since
-   that merge, so this had not yet failed a real pipeline — but the next one would have,
-   skipping both arm64 legs and the manifest jobs silently.
+    that merge, so this had not yet failed a real pipeline — but the next one would have,
+    skipping both arm64 legs and the manifest jobs silently.
+
 2. The scope/type description above was also wrong (originally "`read_api`-scope PAT, at
    least Reporter on the group") — the token's own metadata (personal access tokens API)
    shows it is actually a fine-grained PAT with `read_runner`, scoped to the `visiban` group,
@@ -291,6 +292,7 @@ its `config.toml` follows the interpolated form — do not hardcode the values a
         real `:latest` reference on either registry (a bug that did exactly that, from
         v1.2.0-alpha.1 through v1.2.0-alpha.3, was fixed; see the `STABLE_TAGS` gating in
         both jobs).
+
       - `DOCS_DEPLOY_TOKEN`: run the `docs-deploy` job manually on `main` with a
         `DOCS_VERSION` set (see the job's comment block in `.gitlab-ci.yml`).
       - Mirror bot PAT: push any commit to `main` and confirm it appears on

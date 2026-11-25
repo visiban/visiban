@@ -134,13 +134,13 @@ so the deployment record is the only durable trace that these were actually set 
         chart's `v1.2.0-beta.3` default on `main` today) read only the old
         `DEMO_USER_THROTTLE_RATE`.
 
-        With such an image the `60000/hour` ceiling is silently
-        dropped, and every visitor shares the normal `user` limit, so a handful of visitors
-        can exhaust it and get 429 responses.
+    With such an image the `60000/hour` ceiling is silently
+    dropped, and every visitor shares the normal `user` limit, so a handful of visitors
+    can exhaust it and get 429 responses.
 
-        Deploying `./helm/visiban` from `main` therefore needs a
-        `backend.image.tag` built from the same commit or later. See the
-        [1.2 upgrade notes](../administration/upgrade.md#upgrading-to-12x).
+    Deploying `./helm/visiban` from `main` therefore needs a
+    `backend.image.tag` built from the same commit or later. See the
+    [1.2 upgrade notes](../administration/upgrade.md#upgrading-to-12x).
 
     ```bash
     helm upgrade --install visiban-demo ./helm/visiban \
@@ -282,16 +282,18 @@ kubectl -n visiban-demo logs deploy/visiban-demo-frontend --tail=20
   drives the countdown visitors see.
 
     To pause resets, set `demo.reset.enabled=false` and
-  upgrade. The login page then stops promising a reset.
+    upgrade. The login page then stops promising a reset.
+
 - **A failed reset** leaves the previous seed up. It is never a readiness signal, so the
   demo keeps serving stale data.
 
     Find it with
-  `kubectl -n visiban-demo get jobs -l app.kubernetes.io/component=demo-seed` and read it
-  with `kubectl -n visiban-demo logs job/<name> --all-containers`.
+    `kubectl -n visiban-demo get jobs -l app.kubernetes.io/component=demo-seed` and read it
+    with `kubectl -n visiban-demo logs job/<name> --all-containers`.
 
     The last three failed
-  runs are kept.
+    runs are kept.
+
 - **Run a reset now**: `kubectl -n visiban-demo create job --from=cronjob/visiban-demo-demo-reset reset-now`.
   `concurrencyPolicy: Forbid` only stops the *scheduled* CronJob from overlapping itself —
   it does not know about a manually created Job, so a manual reset that lands within a few
@@ -306,7 +308,8 @@ kubectl -n visiban-demo logs deploy/visiban-demo-frontend --tail=20
   `kubectl -n visiban-demo describe resourcequota`.
 
     TruePPM's namespace should carry its own
-  quota for the reverse direction.
+    quota for the reverse direction.
+
 - **Rotate a password**: change it in the secrets file and upgrade. The backend pods roll,
   because the demo Secret is checksummed into the pod template, and the seed hook
   re-applies the new password.
@@ -315,9 +318,9 @@ kubectl -n visiban-demo logs deploy/visiban-demo-frontend --tail=20
   `index.html` from the previous build.
 
     The chart's nginx now sends `no-cache` for it and
-  404s missing `/assets/*` (#1633), so this should not recur; if it does, check that nothing
-  in front (Cloudflare cache rules) is caching `index.html`. A hard reload clears it for one
-  visitor.
+    404s missing `/assets/*` (#1633), so this should not recur; if it does, check that nothing
+    in front (Cloudflare cache rules) is caching `index.html`. A hard reload clears it for one
+    visitor.
 
 ## Troubleshooting: Cloudflare Error 1033 and node DiskPressure
 
@@ -361,12 +364,14 @@ A pod's `status.message` of `The node had condition: [DiskPressure]` confirms it
    `eviction-pressure-transition-period` (5 minutes by default) after space recovers.
 
     If
-   the taint is still there after that with `df` healthy, `systemctl restart k3s` clears
-   it. That briefly interrupts every pod on the node.
+    the taint is still there after that with `df` healthy, `systemctl restart k3s` clears
+    it. That briefly interrupts every pod on the node.
+
 4. Remove the leftovers: `kubectl delete pod -A --field-selector=status.phase=Failed`.
 
     Pending pods and the StatefulSets (`*-postgresql-0`, `*-valkey-*`) start on their own
-   once the taint is gone. Do not delete them.
+    once the taint is gone. Do not delete them.
+
 5. Confirm from inside the cluster, because Cloudflare's bot protection returns `403` to
    `curl` and so says nothing about the origin:
    `kubectl -n visiban-demo run curlt --rm -it --restart=Never --image=curlimages/curl -- curl -sI http://visiban-demo-frontend.visiban-demo.svc.cluster.local:80`

@@ -91,7 +91,7 @@ with the bump. Three pieces must stay in step:
   `UV_VERSION` in the lock script as before; the job follows automatically.
 
     The Python version (`install-tool python 3.12.12`) is pinned by hand in that script; Renovate does not bump it.
-  The bootstrap is non-fatal, so if it fails the job logs a WARNING and only pip MRs lose their lock.
+    The bootstrap is non-fatal, so if it fails the job logs a WARNING and only pip MRs lose their lock.
 
 **Watch out:** If a pip MR still arrives with a red `backend-lock-check` (the task failed; read the `renovate`
 job log), check out the branch, run `scripts/lock-backend-requirements.sh` and commit the result.
@@ -110,22 +110,25 @@ node 20 for the `clients/typescript` floor (#2374) are exempt from major bumps.
    MRs; do not grant Maintainer.
 
     The project is on GitLab Free, where project access tokens are
-   not available, so the token belongs to this user.
+    not available, so the token belongs to this user.
+
 2. **Token.** As the bot, create a personal access token with scope **`api`** (Renovate needs
    it to create MRs and comments; `write_repository` alone is not enough) and the longest expiry
    GitLab allows. Note the expiry date.
 3. **CI variable.** In Settings, CI/CD, Variables, add `RENOVATE_TOKEN`: type Variable,
    **Masked**, **Protected**, and set Visibility to masked.
 
-   Protected means it reaches only protected refs. A scheduled pipeline on `main` qualifies; MR pipelines and forks do not.
+    Protected means it reaches only protected refs. A scheduled pipeline on `main` qualifies; MR pipelines and forks do not.
+
 4. **Schedule: nothing to create.** The job runs only on the existing Nightly schedule (the one
    that sets `CVE_SCAN=true`; see
    [Scheduled pipelines](../development/ci-gates.md#scheduled-pipelines)), never on the load-test
    or mutation schedules, so adding the `RENOVATE_TOKEN` variable in step 3 is all it needs.
 
-   Do not add a schedule for it: every schedule runs the whole pipeline. Running nightly is harmless:
-   `renovate.json` limits when new branches are created to Monday before 6am ET, and the other
-   nights only rebase or refresh existing MRs.
+    Do not add a schedule for it: every schedule runs the whole pipeline. Running nightly is harmless:
+    `renovate.json` limits when new branches are created to Monday before 6am ET, and the other
+    nights only rebase or refresh existing MRs.
+
 5. **Labels.** Create the project labels `dependencies`, `security` and `no-changelog` so their colors are
    yours rather than GitLab's default.
 6. **Token row.** Fill in the expiry in the `RENOVATE_TOKEN` row of
@@ -158,10 +161,11 @@ the schedule red. Read the log if no MRs appear for a week.
   job and the `renovate@<version>` in the `renovate-config-check` job.
 
     Renovate does not bump either pin: `renovate.json` disables the `renovate/renovate` dependency (the regex manager
-  would otherwise match the image tag), and the `npx` pin is not matched by any manager.
+    would otherwise match the image tag), and the `npx` pin is not matched by any manager.
 
     Bump both by hand, in one MR, to a release at least a few weeks old. The validator needs Node 24
-  (`engines.node ^24.11.0`), which is why that job runs on `node:24-alpine`.
+    (`engines.node ^24.11.0`), which is why that job runs on `node:24-alpine`.
+
 - Validate locally: `npx --yes --package renovate@<pin> renovate-config-validator --strict`.
 
 ## Rotating the token

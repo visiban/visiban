@@ -156,20 +156,22 @@ the `postcss-selector-parser` pin below; the other entries in the `overrides` bl
   release (the `v3-lts` dist-tag; no further 3.x release is expected) and depends on `postcss-selector-parser ^6.1.2`.
 
     It also
-  requires `postcss-nested ^6.2.0`, whose latest 6.x (6.2.0) depends on `^6.1.1`, so a
-  `^7` `postcss-nested` is not reachable from Tailwind 3. `@tailwindcss/typography` latest
-  0.5.20 pins exactly `6.0.10`; the locked 0.5.19 pins exactly `6.0.10` too.
+    requires `postcss-nested ^6.2.0`, whose latest 6.x (6.2.0) depends on `^6.1.1`, so a
+    `^7` `postcss-nested` is not reachable from Tailwind 3. `@tailwindcss/typography` latest
+    0.5.20 pins exactly `6.0.10`; the locked 0.5.19 pins exactly `6.0.10` too.
 
     No compatible
-  release resolves a fixed parser on its own, so in practice the override stays until #1420
-  lands, and after that until typography stops pinning 6.x.
+    release resolves a fixed parser on its own, so in practice the override stays until #1420
+    lands, and after that until typography stops pinning 6.x.
+
 - **Removal condition:** #1420 (migrate Tailwind CSS v3 to v4, milestone 1.3) is the trigger.
   Tailwind v4 has no `postcss-selector-parser` dependency, so it removes the `tailwindcss`
   and `postcss-nested` dependents.
 
     `@tailwindcss/typography` 0.5.20 accepts v4 (peer
-  `>=4.0.0`) but still pins exactly `6.0.10`, so after #1420 typography is the only
-  remaining blocker. Remove the override once no dependent requests a vulnerable range.
+    `>=4.0.0`) but still pins exactly `6.0.10`, so after #1420 typography is the only
+    remaining blocker. Remove the override once no dependent requests a vulnerable range.
+
 - **How to check:**
 
   ```bash

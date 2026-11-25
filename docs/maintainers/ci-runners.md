@@ -140,11 +140,12 @@ runner host `gitlab-nuc-03` is shared with TruePPM (`concurrent = 6` across the 
   containers fail intermittently.
 
     `.helm-drill-base` therefore passes
-  `--default-ulimit nofile=1048576:1048576` to the dind service's dockerd (#1568). GitLab's
-  `services:` keyword (as of this writing) has no `ulimit:` option, so passing the flag via
-  `command:` is the only lever reachable from the repo.
+    `--default-ulimit nofile=1048576:1048576` to the dind service's dockerd (#1568). GitLab's
+    `services:` keyword (as of this writing) has no `ulimit:` option, so passing the flag via
+    `command:` is the only lever reachable from the repo.
 
     `.compose-drill-base` does not need it (no nested Kubernetes control plane).
+
 - **inotify instances (host-level, not in the repo).** `fs.inotify.max_user_instances` defaulted
   to 128 on the host; kind recommends 512 or more. It was raised directly on `gitlab-nuc-03` via
   `/etc/sysctl.d/99-kind.conf`:
@@ -176,9 +177,11 @@ How it fits together:
 - **Pull.** The drill `needs:` its build jobs (`compose-upgrade-drill` boots no frontend, so it needs only `backend-docker-build`). `scripts/drill-image.sh` pulls the digest, fails unless the revision label equals `$CI_COMMIT_SHA` and the architecture matches the dind daemon, then re-tags it under the drill's local name.
 
     In CI a missing variable fails the drill; it never falls back to a rebuild. Run by hand on a laptop (no `GITLAB_CI`), the drill scripts still build from the working tree.
+
 - **No registry.** On a project with its container registry disabled (e.g. a fork), GitLab leaves `CI_REGISTRY_IMAGE` undefined. The build jobs then run `--no-push`, as before #2492, and write no dotenv, and `scripts/drill-image.sh` logs a warning and builds the image locally in the drill's dind.
 
     This is the only case where CI falls back to a rebuild; with a registry present, a missing variable still fails.
+
 - **Layer cache.** `--cache-repo $CI_REGISTRY_IMAGE/ci/cache/<name>`. A change that does not touch an image's inputs reuses every layer.
 - **Rules.** Each build job's rules are the union of its MR-time verification rule and the rules of the drills that need it, in the same order. A drill whose build job is absent fails pipeline creation, so change both together (this includes #2471's schedule-leg fix).
 - **No `resource_group`.** The two jobs used to share the project-wide `kaniko-build` resource group and wait for the lint stage. With the drills waiting on them, a project-wide group would queue every drill behind every other pipeline's image builds.
@@ -188,6 +191,7 @@ How it fits together:
     **Non-interruptible.** The build jobs are `interruptible: false`, as the #2419 rule requires for jobs that push to the registry (`scripts/tests/ci-interruptible.test.sh`).
 
     Before #2492 the MR-time builds were interruptible, so a superseded push now runs its kaniko builds (about 1-2 minutes) to completion. That cost is accepted rather than exempted; #2495 tracks drill interruptibility.
+
 - **Nothing ships from `ci/`.** The release push jobs (`.kaniko-push-common`) still build from scratch, with no cache, to the release paths. A `ci/` image or cache layer cannot reach a published image.
 
 **Cleanup.** The drill pins the digest, so the tag is only a handle. It is the branch slug rather than the SHA: each branch overwrites one tag, the superseded manifest goes untagged, and the registry's garbage collection reclaims untagged manifests (GitLab.com runs online GC with a review delay of about a day, long enough for a drill that started a few minutes after its build).
@@ -264,22 +268,22 @@ Every Docker Hub `image:`/`services:` reference in `.gitlab-ci.yml`
    contributor's personal-namespace fork pipeline.
 
     `.gitlab-ci.yml`'s top-level `variables:`
-   defines `DOCKERHUB_MIRROR: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}`; a `script:`/
-   `before_script:` usage of it (the kaniko jobs' `--build-arg BASE_REGISTRY`,
-   `scripts/helm-install-drill.sh`, `scripts/helm-netpol-drill.sh`) falls back automatically with
-   real shell syntax (`${DOCKERHUB_MIRROR:-docker.io/library}`), because those run in an actual
-   shell.
+    defines `DOCKERHUB_MIRROR: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}`; a `script:`/
+    `before_script:` usage of it (the kaniko jobs' `--build-arg BASE_REGISTRY`,
+    `scripts/helm-install-drill.sh`, `scripts/helm-netpol-drill.sh`) falls back automatically with
+    real shell syntax (`${DOCKERHUB_MIRROR:-docker.io/library}`), because those run in an actual
+    shell.
 
     The bare `image:`/`services:`/`name:` keyword usages **cannot** self-heal this way —
-   GitLab's variable expansion for those keywords is plain substitution, with no equivalent of
-   bash's `:-` fallback operator — so with an empty `DOCKERHUB_MIRROR` they'd resolve to a
-   leading-slash `/python:3.12-slim` and fail outright.
+    GitLab's variable expansion for those keywords is plain substitution, with no equivalent of
+    bash's `:-` fallback operator — so with an empty `DOCKERHUB_MIRROR` they'd resolve to a
+    leading-slash `/python:3.12-slim` and fail outright.
 
     A fork or self-hosted project without a
-   working group Dependency Proxy **must** set its own project CI/CD variable
-   `DOCKERHUB_MIRROR` (Settings → CI/CD → Variables) — e.g. `docker.io` to pull Docker Hub
-   directly (project variables take precedence over the `.gitlab-ci.yml` default), or its own
-   pull-through mirror.
+    working group Dependency Proxy **must** set its own project CI/CD variable
+    `DOCKERHUB_MIRROR` (Settings → CI/CD → Variables) — e.g. `docker.io` to pull Docker Hub
+    directly (project variables take precedence over the `.gitlab-ci.yml` default), or its own
+    pull-through mirror.
 
 **Yes, but:** Third-party registries (`quay.io`'s Keycloak image, `ghcr.io`/`gcr.io` for trivy/kaniko,
 `mcr.microsoft.com`'s Playwright image) are out of scope — GitLab's Dependency Proxy only
