@@ -3661,10 +3661,10 @@ help-link-anchors:
     - python3 scripts/check-help-link-anchors.py
 
 # Astro docs-site prototype suites (#2614): version slugs, the mkdocs anchor
-# model, and the rewrite fact check. The fact check compares docs-site pages with
-# their docs/ originals, so a docs/-only MR can break it; nothing ran these
-# suites before and main stayed red unnoticed. `changes:` therefore covers both
-# trees. Offline apart from `npm ci`; no site build.
+# model, and the rewrite fact check's controls. The controls compare the
+# prototype root page with docs/index.md, so a docs/-only MR can break them;
+# nothing ran these suites before and main stayed red unnoticed. `changes:`
+# therefore covers both trees. Offline apart from `npm ci`; no site build.
 docs-site-test:
   stage: test
   needs: []
