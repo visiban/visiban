@@ -149,7 +149,7 @@ class CardListQueryCountTests(TestCase):
     # prefetch to `_card_queryset()`. That is one more query for the whole
     # page, not one per card — `test_card_list_budget_scales_with_cards` below
     # is what pins the difference, and it is unchanged.
-    BUDGET = 14
+    BUDGET = 15  # +1 #1922: dimension_plans prefetch (constant);
 
     def setUp(self):
         self.user = User.objects.create_user(username="u", password="x")
@@ -221,7 +221,7 @@ class BoardFullQueryCountTests(TestCase):
     # second time anywhere in this serialization. The budget here cannot
     # detect a regression of that prefetch being removed; BoardForUserPrefetchTests
     # below asserts the prefetch cache directly for that reason.
-    BUDGET = 23  # +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    BUDGET = 24  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u2", password="x")
@@ -331,7 +331,7 @@ class BoardFullQueryCountTests(TestCase):
     # measured count, not 2x: the regression it guards is one constant extra
     # query, get_members() re-reading the all-content user list that
     # get_cards() already loaded.
-    SITE_ADMIN_READER_QUERIES = 23  # +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    SITE_ADMIN_READER_QUERIES = 24  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def test_full_site_admin_reader_reuses_all_content_list(self):
         reader = User.objects.create_user(
@@ -519,7 +519,7 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
     # 21 measured with one board-level + one swimlane-level custom field
     # definition in the fixture (#1334); 23 is generous headroom for
     # middleware and the group-inherited membership walk.
-    BUDGET = 26  # +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    BUDGET = 27  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         from groups.models import Group, GroupMembership
@@ -865,7 +865,7 @@ class ParkedPrefetchQueryCountTests(TestCase):
     query, raise it deliberately with a note.
     """
 
-    FULL_QUERIES = 23  # +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    FULL_QUERIES = 24  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         from boards.models import CustomFieldDefinition
@@ -1250,7 +1250,7 @@ class IsStaleAnnotationQueryCountTests(TestCase):
     the full/ query count does not grow when is_stale-affecting cards are added.
     """
 
-    BUDGET = 23  # +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    BUDGET = 24  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u_stale", password="x")
@@ -1539,7 +1539,7 @@ from boards.models import Notification  # noqa: E402  -- below the fixtures inte
 class ArchivedCardsQueryCountTests(TestCase):
     """GET /api/boards/{id}/cards/archived/ must not issue per-card queries."""
 
-    BUDGET = 14  # Mirrors CardListQueryCountTests.BUDGET plus headroom for the archived flag.
+    BUDGET = 15  # +1 #1922: dimension_plans prefetch (constant); Mirrors CardListQueryCountTests.BUDGET plus headroom for the archived flag.
 
     def setUp(self):
         self.user = User.objects.create_user(username="u_arch", password="x")
@@ -1820,15 +1820,15 @@ class CardMutationQueryCountTests(TestCase):
     # +2 on create and update (#1632): the board row FOR SHARE that every card
     # create/update now takes first, and the re-read of the labels the write
     # names, so a concurrent label delete answers 400, not 500.
-    BUDGET_CREATE = 41              # measured 40 (41 pre-#1883, 38 stale; 36 pre-#1632, 33 pre-#449, 31 pre-#371)
+    BUDGET_CREATE = 43              # +2 #1922: dimension_plans prefetch on the response render, plus one cold-path read; measured 40 (41 pre-#1883, 38 stale; 36 pre-#1632, 33 pre-#449, 31 pre-#371)
     # +1 on update (#1587): update_card locks the card row before the write so
     # a concurrent hard delete cannot be undone by save()'s INSERT fallback.
     BUDGET_UPDATE = 35              # measured 32 (34 pre-#1883, 32 pre-#1632, 31 pre-#1587, 28 pre-#449, 26 pre-#371)
     # +1 on a column change (#2210): the one CardParentLink lookup that finds
     # the moved card's parent so its board gets the ids-only
     # card.children_changed ping. Constant: one query whatever the card.
-    BUDGET_MOVE_COLUMN_CHANGE = 32  # measured 31 (30 pre-#2210, 29 pre-#1883; was 25 pre-#449, 24 pre-#371)
-    BUDGET_MOVE_REORDER = 25        # measured 24 (25 pre-#1883; was 20 pre-#449, 19 pre-#371)
+    BUDGET_MOVE_COLUMN_CHANGE = 33  # +1 #1922: dimension_plans prefetch (constant); measured 31 (30 pre-#2210, 29 pre-#1883; was 25 pre-#449, 24 pre-#371)
+    BUDGET_MOVE_REORDER = 26        # +1 #1922: dimension_plans prefetch (constant); measured 24 (25 pre-#1883; was 20 pre-#449, 19 pre-#371)
     # Archive, unarchive and destroy each carry one further query: the lookup
     # of the cards this one actively blocks, whose blocker_count moves when it
     # leaves the board and which therefore need their own `card.updated` frame
@@ -1837,7 +1837,7 @@ class CardMutationQueryCountTests(TestCase):
     # this one blocks — `CardRelationPeerBroadcastQueryCountTests` below pins
     # that separately.
     BUDGET_ARCHIVE = 23             # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
-    BUDGET_UNARCHIVE = 24           # +1 #2563: column row lock + free-slot probe, constant (measured 24 with the pair); was 23, measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
+    BUDGET_UNARCHIVE = 25           # +1 #1922: dimension_plans prefetch (constant); +1 #2563: column row lock + free-slot probe, constant (measured 24 with the pair); was 23, measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
     BUDGET_DESTROY = 39             # measured 39 (+1 #1923: card_overrides SET_NULL, the collector's one UPDATE for the new append-only audit FK, as for card_gate_transitions; constant); was 38 (+1 #2447: one cascade DELETE of card_parent_unlinks, both FKs in one query; constant); was 37 (+1 #1799: set_null_keeping_board fills card_activities' board + card snapshot with one UPDATE before the SET_NULL, as for card_movements; constant); was 36 (+4 #2409, PostgreSQL only, constant: lock_card_and_link_peers' savepoint open + release, its pk-ordered card-and-peers lock, and the peer re-read under that lock that detects a link committed in between); was 32 (+1 #2383: the card's link peers read before the pk-ordered lock, PostgreSQL only; constant); was 31 (+2 #1104: one SELECT of the card's parent links to announce removal, one cascade DELETE of card_parent_links; neither scales with row count); was 29 (measured 28, +1 #1102: card_gate_transitions SET_NULL); was 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
     # two `card.updated` broadcasts, but in one batched `_card_queryset` pass —
     # these budgets are what stops that quietly becoming two passes again.
@@ -1959,8 +1959,8 @@ class CardMutationQueryCountTests(TestCase):
             # + the board row FOR SHARE and the label_ids re-read (#1632)
             # - the two movements prefetches (card fetch + response re-fetch)
             # that last-move subquery annotations replaced (#1883).
-            len(ctx), 33,  # +1 #2446: announce_parent_changed reads the card's child links on every board
-            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 33. "
+            len(ctx), 35,  # +2 #1922: dimension_plans prefetch on the re-render plus the pre-write serializer's cold read; +1 #2446: announce_parent_changed reads the card's child links on every board
+            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 35. "
             "If this grew by exactly one, check for a reader that fell back "
             "from a to_attr-parked list to the manager's .all() (#1223); if "
             "it is a legitimate change, re-measure and move this number in "

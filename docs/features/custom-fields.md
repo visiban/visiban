@@ -72,6 +72,8 @@ The tab header shows a running count, for example `12 of 30 · 1 of 2 pinned`.
 
 Up to **2 fields per board** can be pinned so their values show on the card face without opening the card. Toggle **Pin to card face** in the field editor, or click **Pin** on a field's row.
 
+Dimension fields pin from their own pool of 3 and never take one of these 2 slots; see [Dimension chips on the card face](#dimension-chips-on-the-card-face).
+
 Pinning a third field opens a swap prompt naming the 2 pinned fields; pick which to replace. Unpinning doesn't delete data: unpinned values stay visible in the card detail panel and in the [hover peek](#hover-peek).
 
 ### Deleting a field
@@ -429,3 +431,14 @@ Dimensions are what a stage's **tracks** are: a board admin binds dimension fiel
 **Renaming or removing a choice.** Renaming a choice keeps its done/open setting for the choice itself, but stored card values are not rewritten, so cards that already hold the old name read as open until their value is updated. Removing a choice drops its setting.
 
 Every change to any custom field value, dimension or not, appears in the card's history with the old value, the new value and who made it.
+
+### Dimension chips on the card face
+
+*Added in 1.3* (#1922). A board admin can pin up to **3 dimensions** with **Pin** on the field's row in Board Settings → Card fields. This pool is separate from the 2 pinned fields. A pinned dimension shows as a chip under the card title at Comfortable and Standard density: the dimension's name with an icon for its state (a check for done, a hollow circle for open, a dash for not applicable). The state is spelled out for screen readers and in the chip's tooltip ("Security: open"), so it never depends on color. A dimension that is already a track of the card's column shows once, as a track chip.
+
+When any open dimension on the card is past its plan's target date, the row ends with **N need attention** (with a flag icon); its tooltip names the dimensions. Dimensions with no target date never count, so a card nobody has planned shows nothing. At Dense density, and in the compact layout, the chips and the count are not drawn; they stay in the card's accessible name.
+
+### Dimension plans: owner, next action, target date
+
+*Added in 1.3* (#1922). Each dimension on a card can carry an owner (an assignable board member), a next action (up to 200 characters) and an optional target date. The plan is kept apart from the dimension's value: a dimension can be planned before it has a value, and clearing its value keeps the plan. Plans are set through the API (`PUT /api/v1/boards/{board_id}/cards/{id}/dimension-plans/{field_id}/`, see [Cards API](../api/cards.md#dimension-plans-since-13)); every open board updates live. Board export does not carry plans yet.
+

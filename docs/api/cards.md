@@ -196,6 +196,7 @@ Every card object has these fields, in this endpoint, `POST /cards/`, `PATCH /ca
 | `archived_at` | string / null | yes | yes | ISO 8601 timestamp of archiving, or `null` for active cards |
 | `version` | integer | yes | no | Optimistic concurrency counter; increments when the card's fields are updated (including its labels and custom-field values), the card is blocked or unblocked (since 1.3, #1149), or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040), so a move sent with the `version` read before an admin save gets `409 version_conflict`. Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged. It never decreases, so a client can discard a copy of the card whose `version` is lower than the one it holds. Pass as `version` in the [move endpoint](#move) to enable OCC. PATCH and PUT do not accept or check `version`. |
 | `custom_field_values` | array | no | no | Values for the board's [custom fields](boards.md#custom-fields-since-12) — `[{ field_definition, value }]`. Readable and writable in the same shape; see below. Empty array when the card has no values. |
+| `dimension_plans` | array | yes | no | *Added in 1.3* (#1922). One entry per planned [dimension](../features/custom-fields.md#dimension-fields-13): `[{ field_id, owner, next_action, target_date, updated_at }]`. `owner` is a user object or `null`, `target_date` is `YYYY-MM-DD` or `null`. Read-only here; written through the [dimension plan endpoint](#dimension-plans-since-13). Empty array when nothing is planned. Not part of the public share payload. |
 | `external_ref` | object / null | no | no | Link to the GitLab/GitHub merge request, pull request, or issue that implements this card (since 1.2) — `{ provider, ref, url }` or `null`. Always present; `null` when unset. Readable and writable in the same shape; see [External ref](#external-ref-since-12). |
 | `is_blocked` | boolean | yes | no | *Added in 1.3* (#1149). `true` when the card is blocked manually (`blocked_at` is set) or by at least one active `blocks` relation (`blocker_count` > 0). Derived; the one signal the card face and the board's **Blocked only** filter show. |
 | `blocked_at` | string / null | yes | no | *Added in 1.3* (#1149). When the card's open [manual block](#block-and-unblock-since-13) started, or `null` when it is not manually blocked. Changes only through the block and unblock endpoints; PATCH ignores it. |
@@ -453,6 +454,28 @@ The body is optional.
 | `403` | As for block |
 | `404` | As for block |
 | `409` | `{"code": "card_not_blocked", "detail": "This card is not blocked."}`: the card has no open block |
+
+## Dimension plans (since 1.3)
+
+Each [dimension](../features/custom-fields.md#dimension-fields-13) on a card can carry a plan: who owns it, the next action, and an optional target date (#1922). The plan is separate from the dimension's value, so a dimension with no value yet can still be planned, and clearing the value keeps the plan. Same edit rule as block: **minimum role Member**, and a member may plan only cards they created unless they have the `is_moderator` entitlement or are a board admin. It bumps `version` and broadcasts `card.updated` with the full card after the transaction commits; there is no new WebSocket event type.
+
+### `PUT /api/v1/boards/{board_id}/cards/{id}/dimension-plans/{field_id}/`
+
+A full replace: an omitted key is cleared. Sending all three empty (`{}`) removes the plan.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `owner_id` | integer / null | no | An assignable board member (viewers excluded). Default `null` |
+| `next_action` | string | no | Up to 200 characters, trimmed. Default `""` |
+| `target_date` | string / null | no | `YYYY-MM-DD`. Default `null`. An open dimension past its target date counts toward the card's "need attention" count |
+
+**Response** — `200 OK`, the full card, with the plan in `dimension_plans`.
+
+| Status | When |
+|---|---|
+| `400` | `owner_id` is not an assignable member; `next_action` over 200 characters or containing a NUL character; `target_date` is not a date |
+| `403` | Viewer or collaborator, or a member planning another user's card |
+| `404` | The card is not on this board or is archived, or `field_id` is not a dimension field on this board |
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/blocks/`
 

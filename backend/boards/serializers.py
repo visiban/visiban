@@ -55,7 +55,7 @@ from .permissions import (
 from .models import (
     Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardPresetId, BoardTemplate, Column, Swimlane, Label, Card,
     CardMovement, CardParentLink, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
-    CardRelation, CustomFieldDefinition, CustomFieldSet, CustomFieldValue, SavedFilter,
+    CardRelation, CardDimensionPlan, CustomFieldDefinition, CustomFieldSet, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
     CardGateTransition, StageTrack, SubColumn, SwimlaneTrackException,
     validate_external_ref_ref, validate_external_ref_url,
@@ -1302,6 +1302,7 @@ def assert_definition_caps(
     pin_attr="show_on_card",
     pin_surface="the card face",
     field_noun="custom fields",
+    is_dimension=False,
 ):
     """Enforce the two per-board custom field caps, or raise ``ValidationError``.
 
@@ -1335,7 +1336,23 @@ def assert_definition_caps(
                 )
             })
     if show_on_card:
-        pinned = siblings.filter(**{pin_attr: True}).count()
+        pinned_qs = siblings.filter(**{pin_attr: True})
+        dimension_cap = getattr(definition_model, "MAX_PINNED_DIMENSIONS_PER_BOARD", None)
+        if dimension_cap is not None:
+            # Dimensions pin from their own pool (#1922): a pinned dimension is
+            # a state chip, not one of the generic value chips, so each pool
+            # counts only its own kind.
+            pinned_qs = pinned_qs.filter(is_dimension=is_dimension)
+            if is_dimension:
+                if pinned_qs.count() >= dimension_cap:
+                    raise serializers.ValidationError({
+                        pin_attr: (
+                            f"Up to {dimension_cap} dimensions show on the card. "
+                            "Unpin one to pin another."
+                        )
+                    })
+                return
+        pinned = pinned_qs.count()
         if pinned >= definition_model.MAX_PINNED_PER_BOARD:
             raise serializers.ValidationError({
                 pin_attr: (
@@ -2045,6 +2062,10 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
                 show_on_card=attrs.get(
                     "show_on_card",
                     instance.show_on_card if instance else False,
+                ),
+                is_dimension=attrs.get(
+                    "is_dimension",
+                    instance.is_dimension if instance else False,
                 ),
             )
         return attrs
@@ -3569,6 +3590,7 @@ _PARKED_CHECKLIST_ITEMS = "_prefetched_checklist_items"
 _PARKED_MOVEMENTS = "_prefetched_movements"
 _PARKED_CUSTOM_FIELD_VALUES = "_prefetched_custom_field_values"
 _PARKED_LABELS = "_prefetched_labels"
+_PARKED_DIMENSION_PLANS = "_prefetched_dimension_plans"
 #: Swimlane's own parked attr (#1223) — distinct name from the card one above
 #: even though both are "custom field values", because SwimlaneSerializer and
 #: CardSerializer are read through completely different call paths and a
@@ -3583,6 +3605,10 @@ def _parked_or_manager(card, to_attr, relation):
     if parked is not None:
         return parked
     return getattr(card, relation).all()
+
+
+def _card_dimension_plans(card):
+    return _parked_or_manager(card, _PARKED_DIMENSION_PLANS, "dimension_plans")
 
 
 def _card_attachments(card):
@@ -3730,6 +3756,60 @@ class ParkedCustomFieldValueListSerializer(serializers.ListSerializer):
         return _card_custom_field_values(instance)
 
 
+class CardDimensionPlanSerializer(serializers.ModelSerializer):
+    """One dimension's plan on a card (#1922): owner, next action, target date.
+
+    Read-only here; written through ``PUT .../cards/{id}/dimension-plans/{field_id}/``
+    (:class:`DimensionPlanWriteSerializer`), which broadcasts ``card.updated``.
+    """
+
+    field_id = serializers.IntegerField(source="field_definition_id", read_only=True)
+    owner = BoardUserSerializer(read_only=True, allow_null=True)
+
+    class Meta:
+        model = CardDimensionPlan
+        fields = ["field_id", "owner", "next_action", "target_date", "updated_at"]
+        read_only_fields = fields
+
+
+class ParkedDimensionPlanListSerializer(serializers.ListSerializer):
+    """Reads the parked ``dimension_plans`` prefetch (#1922, pattern of #1212)."""
+
+    def get_attribute(self, instance):
+        return _card_dimension_plans(instance)
+
+
+class DimensionPlanWriteSerializer(serializers.Serializer):
+    """Body of ``PUT .../cards/{id}/dimension-plans/{field_id}/`` (#1922).
+
+    A full replace of the plan: an omitted key is cleared. All three empty
+    deletes the row. ``owner_id`` is scoped to the board's assignable members
+    (viewers excluded) and is ``none()`` until ``__init__`` sees a board, so a
+    caller that forgets the context accepts no user at all (#1075, IDOR).
+    """
+
+    owner_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.none(), required=False, allow_null=True, source="owner",
+    )
+    next_action = serializers.CharField(
+        required=False, allow_blank=True, default="", trim_whitespace=True,
+        max_length=CardDimensionPlan.NEXT_ACTION_MAX_LENGTH,
+    )
+    target_date = serializers.DateField(required=False, allow_null=True, default=None)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        board = self.context.get("board")
+        if board is not None:
+            from .utils import _get_assignable_member_ids
+            self.fields["owner_id"].queryset = User.objects.filter(
+                pk__in=_get_assignable_member_ids(board), is_active=True,
+            )
+
+    def validate_next_action(self, value):
+        return reject_nul_byte(value, field_label="Next action")
+
+
 class ParkedLabelListSerializer(serializers.ListSerializer):
     """``many=True`` list of :class:`LabelSerializer` rows that reads the
     parked ``labels`` prefetch (#1223, same pattern as
@@ -3821,6 +3901,15 @@ def _card_queryset(qs, stale_cutoff=None):
             # the board payload, so there is deliberately no
             # `outgoing_relations` prefetch here.
             _active_blockers_prefetch(),
+            # Dimension plans (#1922): one query for the page, owner joined.
+            # Rows exist only for planned dimensions, so this is usually tiny.
+            Prefetch(
+                "dimension_plans",
+                queryset=CardDimensionPlan.objects.select_related("owner").order_by(
+                    "field_definition_id"
+                ),
+                to_attr=_PARKED_DIMENSION_PLANS,
+            ),
         )
     )
     # The planned clock (#2371) is annotated on every card read, not only with
@@ -4379,6 +4468,11 @@ class CardSerializer(serializers.ModelSerializer):
     column_entered_at = serializers.SerializerMethodField()
     # Read-and-write, same shape both ways — see CustomFieldValuesField (#371).
     custom_field_values = CustomFieldValuesField()
+    # #1922: per-dimension owner / next action / target date. Read-only;
+    # written through the dimension-plans action, which records who changed it.
+    dimension_plans = ParkedDimensionPlanListSerializer(
+        child=CardDimensionPlanSerializer(read_only=True), read_only=True,
+    )
     # MR/PR link (#352). Omitted = untouched, null = cleared, object = full
     # replace. Stored in its own table (CardExternalRef) and applied after the
     # row exists — see _apply_external_ref.
@@ -4456,6 +4550,8 @@ class CardSerializer(serializers.ModelSerializer):
             "attachment_count", "checklist_total", "checklist_done",
             "checklist_open_due_dates", "checklist_open_assignee_ids",
             "is_stale", "archived_at", "version", "custom_field_values",
+            # #1922: additive, read-only.
+            "dimension_plans",
             "blocker_count", "external_ref", "notify_assignee",
             # Who set the current assignee (#1923). Read-only; null when
             # unassigned, imported, or the assigner was deleted.

@@ -137,6 +137,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             assert_definition_caps(
                 board,
                 show_on_card=serializer.validated_data.get("show_on_card", False),
+                is_dimension=serializer.validated_data.get("is_dimension", False),
             )
             _max = board.custom_field_definitions.aggregate(m=Max("position"))["m"]
             next_position = 0 if _max is None else _max + 1
@@ -179,6 +180,9 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
                 instance=serializer.instance,
                 show_on_card=serializer.validated_data.get(
                     "show_on_card", serializer.instance.show_on_card
+                ),
+                is_dimension=serializer.validated_data.get(
+                    "is_dimension", serializer.instance.is_dimension
                 ),
             )
             definition = serializer.save()

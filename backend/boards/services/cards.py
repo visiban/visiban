@@ -65,8 +65,8 @@ from django.utils import timezone
 from .. import broadcast as _broadcast
 from .. import hooks
 from ..models import (
-    Board, BoardMembership, Card, CardActivity, CardBlock, CardGateTransition, CardMovement,
-    CardOverride, CardRelation, Column, Notification, SubColumn, Swimlane,
+    Board, BoardMembership, Card, CardActivity, CardBlock, CardDimensionPlan, CardGateTransition,
+    CardMovement, CardOverride, CardRelation, Column, Notification, SubColumn, Swimlane,
 )
 from ..permissions import SITE_ADMIN, can_modify_others_content, get_board_role
 from ..serializers import _card_labels
@@ -2932,6 +2932,47 @@ def unblock_card(*, actor, board, card_id, render, resolution="", role=None):
         # Blocked is a rollup state on the parent (#2210): ping its board, ids only.
         from .card_links import announce_children_changed
         announce_children_changed([card.pk], board=board, actor_id=actor.id)
+        _fire_hooks("card.updated", card.id, board_id, actor.id)
+    return CardMutationResult(card=card, payload=payload)
+
+
+def set_dimension_plan(*, actor, board, card_id, field, owner, next_action, target_date, render, role=None):
+    """Replace a card's plan for one dimension (#1922).
+
+    Same role and ownership gate as editing the card (a member may plan only
+    cards they created), since owner, next action and target date are card
+    content. ``field`` is already resolved by the caller as a dimension on
+    ``board``. A plan with no owner, no next action and no target date
+    deletes the row, so "no plan" has one representation. Bumps the card's
+    version and broadcasts ``card.updated`` after commit, exactly like the
+    other card writes, so every open board replaces the card in place.
+    """
+    role = _resolve_role(actor, board, role)
+    _require_mutation_role(role)
+    card = _fetch_for_block(card_id, board)
+    _require_own_content(
+        board, role, actor, card, denial="You can only edit cards you created.",
+    )
+    board_id = card.board_id
+    with transaction.atomic():
+        locked = lock_card_for_write(card.pk)
+        _adopt_locked_state(card, locked)
+        if card.archived_at is not None:
+            raise CardNotFound()
+        if owner is None and not next_action and target_date is None:
+            CardDimensionPlan.objects.filter(card=card, field_definition=field).delete()
+        else:
+            CardDimensionPlan.objects.update_or_create(
+                card=card, field_definition=field,
+                defaults={
+                    "owner": owner, "next_action": next_action,
+                    "target_date": target_date, "updated_by": actor,
+                },
+            )
+        card.save(update_fields=["updated_at"])
+        _bump_version(card)
+        payload = render(card)
+        _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UPDATED, payload, actor.id)
         _fire_hooks("card.updated", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload)
 

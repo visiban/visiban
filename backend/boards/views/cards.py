@@ -43,11 +43,11 @@ from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
     CardChecklist, CardComment, CardGateTransition, CardMovement, CardParentLink, CardRelation, Label,
-    Notification,
+    CustomFieldDefinition, Notification,
 )
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
 from ..serializers import (
-    BlockCardSerializer, CardBlockSerializer, UnblockCardSerializer,
+    BlockCardSerializer, CardBlockSerializer, DimensionPlanWriteSerializer, UnblockCardSerializer,
     CardSerializer, CardMovementSerializer, CardGateTransitionSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
     CardRelationCreateSerializer, CardRelationSerializer,
@@ -1275,6 +1275,42 @@ class CardViewSet(viewsets.ModelViewSet):
         result = card_services.unblock_card(
             actor=request.user, board=board, role=role, card_id=pk,
             resolution=body.validated_data["resolution"],
+            render=self._refetch_card_data,
+        )
+        return Response(result.payload)
+
+    @extend_schema(
+        summary="Set a card's plan for one dimension",
+        description=(
+            "Replaces the owner, next action and optional target date of one "
+            "dimension field (`is_dimension`) on the card (#1922). An omitted key "
+            "is cleared; all three empty removes the plan. `owner_id` must be an "
+            "assignable board member. Bumps `version` and broadcasts `card.updated`. "
+            "Member+ role; a member may plan only cards they created (the edit rule)."
+        ),
+        request=DimensionPlanWriteSerializer,
+        responses={
+            200: CardSerializer,
+            400: OpenApiResponse(description="`owner_id` is not an assignable member, `next_action` is over 200 characters, or `target_date` is not a date."),
+            403: OpenApiResponse(description="Viewer or collaborator, or a member editing another user's card."),
+            404: OpenApiResponse(description="Card not found on this board or archived, or the field is not a dimension on this board."),
+        },
+    )
+    @action(detail=True, methods=["put"], url_path=r"dimension-plans/(?P<field_pk>[0-9]+)")
+    def dimension_plan(self, request, board_pk=None, pk=None, field_pk=None):
+        """Replace the card's plan for one dimension (#1922)."""
+        board, role = self._board_and_role()
+        role = card_services.require_mutation_role(actor=request.user, board=board, role=role)
+        field = get_object_or_404(
+            CustomFieldDefinition, pk=field_pk, board=board, is_dimension=True,
+        )
+        body = DimensionPlanWriteSerializer(data=request.data, context={"board": board})
+        body.is_valid(raise_exception=True)
+        result = card_services.set_dimension_plan(
+            actor=request.user, board=board, role=role, card_id=pk, field=field,
+            owner=body.validated_data.get("owner"),
+            next_action=body.validated_data.get("next_action", ""),
+            target_date=body.validated_data.get("target_date"),
             render=self._refetch_card_data,
         )
         return Response(result.payload)
