@@ -154,6 +154,15 @@ It creates, alongside the normal demo board:
     - **Reset:** it is part of the same board list the hourly reset seeds (`seed_demo_data --force --wipe --demo-site --reset-database`), so it is recreated on every reset. Its columns follow the Simple Kanban [template](../getting-started/board-setup.md) without the Review column.
     - **Members:** the demo accounts are seated as on the other showcase boards, the visitor as a plain member.
 
+    **1.3 board structure** ([#2597](https://gitlab.com/visiban/visiban/-/issues/2597)). The six hand-built showcase boards (Software Team, Property Management, Construction, Sales Territory, Content Moderation, Logistics Exceptions) each carry structure in their own vocabulary, defined in the `_STRUCTURE` table at the end of the boards list in `backend/boards/management/commands/_demo_site_data.py`:
+
+    - **Volume:** 60 to 110 cards per board (generated deterministically, same age and due rules as the hand-written cards), so WIP limits and card aging have something to show. Simple Kanban stays at ten.
+    - **Limits:** WIP and weight limits on the busy columns. Some columns are over their limit on purpose, so the visitor sees the over-limit state; the seed writes the cards directly, so no limit blocks it.
+    - **Stages in columns:** one stage per board is split into sub-columns, for example Content Moderation's In Review into Triage, Policy check and Decision, with each card sitting in one and the gates it passed recorded.
+    - **Tracks and field sets:** a dimension field (for example QA sign-off, Tenant notified) shown as a track on a stage, and the board's custom fields grouped into named field sets.
+    - **Health:** a board health status with a note and a history entry.
+    - **Not seeded yet:** column entry requirements and held cards (waiting on #1923 and #2571) and a board time zone (#2051).
+
     Not on the hosted demo, by design: an MCP connection. The demo mints no tokens, so [ask your own agent](../features/mcp-demo-walkthrough.md) on a local instance instead.
 
     **Excluded: an Issue Board Lens board** ([#1908](https://gitlab.com/visiban/visiban/-/issues/1908)). The Lens derives its Backlog / To Do / Doing / Review / Done columns from the branches and merge requests of a live public repository, so it needs `GIT_LENS_ENABLED` and a live public repo on the demo deployment: a deployment-config decision outside the seed. The seed creates none.

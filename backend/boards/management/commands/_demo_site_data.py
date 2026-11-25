@@ -946,6 +946,252 @@ BOARDS = [
     },
 ]
 
+# --- 1.3 board structure (#2597) -------------------------------------------
+# Appended after the hand-written boards so the roster above (and the URLs its
+# order fixes) stay untouched, and so a later seed issue's edits to BOARDS merge
+# without touching this block. Two things happen per showcase board:
+#   1. ``_FILLER`` extends ``cards`` with deterministic, generated cards so the
+#      larger boards read like a busy board (WIP limits and aging only mean
+#      something with volume). They follow the same tuple layout and the same
+#      age/due rules as the hand-written cards.
+#   2. a ``structure`` entry is added: WIP and weight limits, stages split into
+#      sub-columns (#1102), dimension fields shown as tracks (#1920), field
+#      sets (#2570) and a board health status (#1133). The seeder reads it in
+#      ``_add_demo_site_structure``.
+# Not seeded, because the feature is not on main: column entry requirements and
+# held cards (#1923, #2571) and a board time zone (#2051).
+
+_FILLER_AGES = (0, 1, 2, 4, 5, 6, 1, 2, 9, 0, 5, 1, 2, 4)
+_FILLER_DUES = (None, 2, None, 5, None, -2, 0, None, 9, None, 1, None, -1, 4)
+_FILLER_PRIORITIES = ("medium", "low", "high", "medium", "urgent", "low", "medium")
+_FILLER_ASSIGNEES = ("maya", "jordan", "admin", None, "jordan", "maya", None, "admin")
+
+
+def _filler_cards(spec, count, subjects, places, column_cycle, label_names):
+    """``count`` deterministic cards: a subject at a place, spread by ``column_cycle``.
+
+    ``column_cycle`` is a tuple of column indexes repeated down the list, so
+    its shape decides which columns run over their WIP limit. A Done card is
+    never overdue and moved in the last two days, the same rule the
+    hand-written cards follow (``test_every_card_has_an_explicit_age_and_due_offset``).
+    """
+    done = {i for i, (_n, _c, is_done) in enumerate(spec["columns"]) if is_done}
+    taken = {card[0] for card in spec["cards"]}
+    lanes = len(spec["swimlanes"])
+    out = []
+    # Every (subject, place) pair once, diagonals first so neighbors differ.
+    pairs = [
+        (subjects[s], places[(s + p) % len(places)])
+        for p in range(len(places)) for s in range(len(subjects))
+    ]
+    for subject, place in pairs:
+        if len(out) >= count:
+            break
+        title = f"{subject}: {place}"
+        if title in taken:
+            continue
+        taken.add(title)
+        n = len(out)
+        col_i = column_cycle[n % len(column_cycle)]
+        if col_i in done:
+            age, due = n % 3, None
+        else:
+            age, due = _FILLER_AGES[n % len(_FILLER_AGES)], _FILLER_DUES[n % len(_FILLER_DUES)]
+        out.append((
+            title, f"{subject} at {place}.", col_i, n % lanes,
+            _FILLER_PRIORITIES[n % len(_FILLER_PRIORITIES)], _FILLER_ASSIGNEES[n % len(_FILLER_ASSIGNEES)],
+            (label_names[n % len(label_names)],), [], age, due,
+        ))
+    assert len(out) == count, f"{spec['name']}: only {len(out)} unique filler titles"
+    return out
+
+
+def _filler_value(field, title, n):
+    """A deterministic value of the field's type for generated card ``n``."""
+    name, field_type, choices = field[0], field[1], field[2]
+    if field_type == "number":
+        return str(1 + (n * 3) % 9) if "points" in name.lower() else str(100 + (n * 70) % 900)
+    if field_type == "dropdown":
+        return choices[n % len(choices)]
+    if field_type == "multi_select":
+        return [choices[n % len(choices)]]
+    if field_type == "url":
+        return f"https://example.com/records/{1000 + n}"
+    if field_type == "date":
+        return days_from_today(1 + n % 12)
+    return title.split(": ", 1)[-1] if n % 2 else f"{name} {1 + n % 40}"
+
+
+def _resolutions(**by_choice):
+    return {"is_dimension": True, "choice_resolutions": dict(by_choice)}
+
+
+_STRUCTURE = {
+    "Software Team": {
+        "filler": (
+            70,
+            ("Fix flaky test", "Add API docs", "Refactor serializer", "Cache board summary", "Handle empty state",
+             "Tighten validation", "Improve error copy", "Profile slow query", "Add audit log entry", "Update dependency"),
+            ("card detail", "board header", "search", "saved filters", "notifications", "import", "export",
+             "webhooks", "attachments", "swimlane settings", "analytics", "keyboard shortcuts"),
+            (0, 0, 0, 1, 1, 1, 2, 2, 3, 0, 1, 2, 3, 1),
+            ("Bug", "Feature", "Tech debt"),
+        ),
+        "wip": {"In Progress": (8, 30), "Review": (24, 80)},
+        "sub_columns": {"Review": ["Code review", "QA", "Ready to merge"]},
+        "dimensions": [(
+            "QA sign-off", ["Not needed", "Pending", "Passed"], "Has QA signed off on this change?",
+            _resolutions(**{"Not needed": "not_applicable", "Pending": "open", "Passed": "satisfied"}),
+        )],
+        "tracks": {"Review": ["QA sign-off"]},
+        "field_sets": [
+            ("Planning", "Sizing and release target", ["Story points", "Target release"]),
+            ("Quality", "Sign-offs before a change ships", ["QA sign-off"]),
+        ],
+        "health": ("on_track", "Release 1.4 is on schedule; review is the busiest stage."),
+    },
+    "Property Management": {
+        "filler": (
+            55,
+            ("Replace smoke detector battery", "Repair garbage disposal", "Fix hallway light", "Patch drywall",
+             "Service water heater", "Unclog bathroom drain", "Reseal window", "Replace door lock", "Clean dryer vent"),
+            ("unit 1A", "unit 2B", "unit 3C", "unit 4D", "unit 5A", "unit 6B", "unit 7C", "lobby", "laundry room",
+             "parking garage", "roof", "courtyard"),
+            (0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 0, 1, 2),
+            ("Plumbing", "Electrical", "HVAC", "Pest", "Appliance", "Turnover"),
+        ),
+        "wip": {"Scheduled": (30, None), "In Progress": (7, None)},
+        "sub_columns": {"In Progress": ["On site", "Awaiting parts", "Final walkthrough"]},
+        "dimensions": [(
+            "Tenant notified", ["Yes", "No", "Not needed"], "Has the tenant been told when the crew arrives?",
+            _resolutions(Yes="satisfied", No="open", **{"Not needed": "not_applicable"}),
+        )],
+        "tracks": {"Scheduled": ["Tenant notified"]},
+        "field_sets": [
+            ("Work order", "Where the work is and who does it", ["Unit", "Vendor"]),
+            ("Cost", "What the repair is expected to cost", ["Cost estimate"]),
+            ("Tenant", "Access and notice", ["Tenant notified"]),
+        ],
+        "health": ("at_risk", "Two properties have repairs waiting on parts."),
+    },
+    "Construction": {
+        "filler": (
+            60,
+            ("Pour footing", "Frame partition wall", "Install conduit", "Hang drywall", "Pressure test piping",
+             "Set rebar", "Mount fixtures", "Seal envelope", "Install ductwork", "Paint and finish"),
+            ("level 1", "level 2", "level 3", "stairwell A", "mechanical room", "north elevation", "south elevation",
+             "lobby", "roof deck", "loading dock"),
+            (0, 0, 1, 1, 2, 2, 2, 3, 3, 0, 1, 2),
+            ("Permit", "Inspection", "Change order", "Weather risk", "Safety"),
+        ),
+        "wip": {"Waiting": (30, None), "In Progress": (10, 40)},
+        "sub_columns": {"In Progress": ["Rough-in", "Inspection", "Punch list"]},
+        "dimensions": [(
+            "Inspection status", ["Not required", "Scheduled", "Passed"], "Where the inspector sign-off stands.",
+            _resolutions(**{"Not required": "not_applicable", "Scheduled": "open", "Passed": "satisfied"}),
+        )],
+        "tracks": {"In Progress": ["Inspection status"]},
+        "field_sets": [
+            ("Permitting", "Permit and inspection record", ["Permit #", "Permit portal", "Inspection status"]),
+            ("Trade", "Who does the work", ["Subcontractor"]),
+        ],
+        "health": ("off_track", "Elm Street is behind: framing waits on a revised permit."),
+    },
+    "Sales Territory": {
+        "filler": (
+            50,
+            ("Intro call", "Send case study", "Schedule demo", "Review contract redlines", "Quarterly business review",
+             "Prepare proposal", "Follow up on trial", "Map the buying committee", "Renewal outreach"),
+            ("security team", "finance lead", "regional office", "new hire onboarding", "pilot group", "VP sponsor",
+             "procurement", "support team", "data team"),
+            (0, 0, 1, 1, 1, 2, 2, 3, 3, 0, 1, 2),
+            ("New logo", "Expansion", "Renewal", "At risk"),
+        ),
+        "wip": {"In Progress": (9, None), "Waiting on Customer": (30, None)},
+        "sub_columns": {"In Progress": ["Outreach", "Meeting held", "Proposal out"]},
+        "dimensions": [(
+            "Next step booked", ["Yes", "No"], "Is the next meeting on the calendar?",
+            _resolutions(Yes="satisfied", No="open"),
+        )],
+        "tracks": {"Waiting on Customer": ["Next step booked"]},
+        "field_sets": [
+            ("Opportunity", "What the deal is worth and where it stands", ["Deal value", "CRM record", "Stage"]),
+            ("Follow-up", "Keeping the account warm", ["Next step booked"]),
+        ],
+        "health": ("at_risk", "Pinecrest has had no contact in two weeks."),
+    },
+    "Content Moderation": {
+        "filler": (
+            85,
+            ("Spam wave", "Harassment report", "Impersonation claim", "Counterfeit listing", "Graphic content flag",
+             "Scam link", "Repeat offender review", "Appeal", "Misleading claim", "Coordinated posting"),
+            ("reply thread", "product listing", "live chat", "profile bio", "stream title", "review section",
+             "group post", "direct message report", "video comment", "seller storefront"),
+            (0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 0, 1, 2, 3),
+            ("Appeal", "Repeat account", "Legal hold", "Coordinated"),
+        ),
+        "wip": {"In Review": (12, None), "Escalated": (30, None)},
+        "sub_columns": {"In Review": ["Triage", "Policy check", "Decision"]},
+        "dimensions": [(
+            "Legal review", ["Not needed", "Pending", "Cleared"], "Does legal need to look before an action?",
+            _resolutions(**{"Not needed": "not_applicable", "Pending": "open", "Cleared": "satisfied"}),
+        )],
+        "tracks": {"Escalated": ["Legal review"]},
+        "field_sets": [
+            ("Report", "What was reported and how often", ["Report reason", "Reporter count"]),
+            ("Legal", "Counsel sign-off", ["Legal review"]),
+        ],
+        "health": ("on_track", "The review queue is inside its target; escalations are the thing to watch."),
+    },
+    "Logistics Exceptions": {
+        "filler": (
+            50,
+            ("Delayed at hub", "Damaged pallet", "Customs documents missing", "Wrong delivery address",
+             "Cold chain alert", "Missed pickup", "Refused delivery", "Carrier rerouted", "Short shipment"),
+            ("Chicago hub", "port of Savannah", "Denver depot", "Dallas cross-dock", "Reno warehouse",
+             "Atlanta hub", "Seattle terminal", "Memphis hub", "Newark port"),
+            (0, 0, 1, 1, 1, 2, 2, 3, 3, 0, 1, 2),
+            ("Expedite", "Temperature-controlled", "Hazmat", "Claim filed"),
+        ),
+        "wip": {"Investigating": (8, None), "Awaiting Carrier": (30, None)},
+        "sub_columns": {"Investigating": ["Locate shipment", "Contact carrier", "Decide remedy"]},
+        "dimensions": [(
+            "Customer notified", ["Yes", "No", "Not needed"], "Has the customer been told about the exception?",
+            _resolutions(Yes="satisfied", No="open", **{"Not needed": "not_applicable"}),
+        )],
+        "tracks": {"Investigating": ["Customer notified"], "Awaiting Carrier": ["Customer notified"]},
+        "field_sets": [
+            ("Exception", "What went wrong and when it lands", ["Exception type", "ETA"]),
+            ("Tracking", "Where to follow it", ["Tracking link"]),
+            ("Customer", "Communication with the customer", ["Customer notified"]),
+        ],
+        "health": ("at_risk", "A temperature-controlled shipment is waiting on the carrier."),
+    },
+}
+
+
+def _apply_structure():
+    by_name = {spec["name"]: spec for spec in BOARDS}
+    for name, structure in _STRUCTURE.items():
+        spec = by_name[name]
+        count, subjects, places, cycle, labels = structure["filler"]
+        spec["cards"] = list(spec["cards"]) + _filler_cards(spec, count, subjects, places, cycle, labels)
+        for dim_name, choices, help_text, display in structure["dimensions"]:
+            spec["card_fields"] = list(spec["card_fields"]) + [(dim_name, "dropdown", choices, False, help_text, display)]
+        # Give each generated card a value for every plain field, so the
+        # board's fields do not go empty past the hand-written cards.
+        plain = [f for f in spec["card_fields"] if not (len(f) > 5 and f[5].get("is_dimension"))]
+        for n, card in enumerate(spec["cards"][-count:]):
+            values = spec["card_field_values"].setdefault(card[0], {})
+            for field in plain:
+                values.setdefault(field[0], _filler_value(field, card[0], n))
+        spec["structure"] = {k: v for k, v in structure.items() if k not in ("filler", "dimensions")}
+        spec["structure"]["dimensions"] = [d[0] for d in structure["dimensions"]]
+        spec["structure"]["dimension_choices"] = {d[0]: d[1] for d in structure["dimensions"]}
+
+
+_apply_structure()
+
 #: The published visitor's saved filters (#1889): (board_name, filter name,
 #: state). ``labels`` are label names, resolved to ids at seed time; the rest
 #: is the SPA's FilterState as SavedFilter.state_json stores it.
