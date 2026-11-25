@@ -743,7 +743,7 @@ class JsonImportValueValidationTests(TestCase):
         self.assertEqual(new.swimlanes.get().contact_email, "lane@example.com")
         self.assertEqual(new.cards.count(), 2)
         new_card = new.cards.get(title="T")
-        self.assertEqual((new_card.weight, new_card.position), (5, 2))
+        self.assertEqual((new_card.weight, new_card.position), (5, 0))
         self.assertEqual(list(new_card.labels.values_list("name", flat=True)), ["bug"])
         self.assertEqual(CardChecklist.objects.get(card=new_card).text, "step")
         self.assertEqual(CardMovement.objects.get(card=new_card).notes, "moved")

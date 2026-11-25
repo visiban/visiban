@@ -799,7 +799,8 @@ class ImportJsonDefaultsTests(ImportBase):
                 card.weight,
                 card.position,
             ),
-            ("D", "urgent", datetime.date(2026, 12, 31), 5, 3),
+            # A lone card is renumbered to slot 0 on import (#2577).
+            ("D", "urgent", datetime.date(2026, 12, 31), 5, 0),
         )
         self.assertEqual(card.archived_at.isoformat(), "2026-01-02T03:04:05+00:00")
 
