@@ -1,6 +1,6 @@
 """Group member removal evicts board sockets from a fresh, batched, chunked read (#2624).
 
-Three properties of ``groups.views._evict_lost_board_access``:
+Properties of ``groups.views._evict_lost_board_access``:
 
 1. A board placed under the group's subtree between the pre-transaction read
    and the commit is still evicted. The interleaving is simulated
@@ -14,7 +14,10 @@ Three properties of ``groups.views._evict_lost_board_access``:
 4. The group-channel ``member.removed`` also reaches a subgroup created
    between the pre-transaction read and the commit.
 5. Both post-commit callbacks are robust: an eviction failure still answers
-   204 and still sends the group-channel frame.
+   204 and still sends the group-channel frame, and a failing group publish
+   still answers 204.
+6. A failing post-commit subtree re-read still sends the group-channel frame,
+   falling back to the pre-transaction subtree.
 """
 from unittest.mock import patch
 
@@ -255,4 +258,39 @@ class EvictionFailureIsContainedTests(_Base):
         self.assertEqual(self.group_frames, [self.group.pk])
         self.assertFalse(
             GroupMembership.objects.filter(group=self.group, user=self.target).exists()
+        )
+
+    def test_group_publish_failure_still_answers_204(self):
+        with patch(
+            "groups.broadcast.broadcast_member_removed", side_effect=RuntimeError("boom")
+        ) as publish, self.assertLogs("django", level="ERROR") as logs:
+            self._remove()  # asserts 204
+        publish.assert_called_once()
+        self.assertIn("_broadcast_group_member_removed", logs.output[0])
+
+    def test_subtree_reread_failure_still_sends_group_frame(self):
+        child = Group.objects.create(name="child", owner=self.admin, parent=self.group)
+        real_subtree = group_views._subtree_group_ids
+        calls = []
+
+        def fail_on_group_broadcast_read(group_pk):
+            # Reads in order: pre-transaction, board eviction, group broadcast.
+            calls.append(group_pk)
+            if len(calls) == 3:
+                raise RuntimeError("secret detail")
+            return real_subtree(group_pk)
+
+        with patch.object(
+            group_views, "_subtree_group_ids", side_effect=fail_on_group_broadcast_read
+        ), self.assertLogs("groups.views", level="WARNING") as logs:
+            self._remove()
+        self.assertEqual(len(calls), 3)
+        # The group and the pre-read subgroup are both still told.
+        self.assertCountEqual(self.group_frames, [self.group.pk, child.pk])
+        self.assertEqual(
+            [r.getMessage() for r in logs.records],
+            [
+                "group member.removed subtree re-read failed: "
+                f"group_id={self.group.pk} error=RuntimeError"
+            ],
         )

@@ -374,7 +374,8 @@ def _evict_lost_board_access(user_id, group_pk, pre_read_board_ids):
     the subgroup fan-out caps itself at ``INHERITED_ROW_FANOUT_MAX``. The frame
     is the fast eviction path, not the only one: on a board past the cap the
     removed user's sockets close at the consumer's periodic access re-check
-    (within about 7 seconds on a board with traffic, 30 to 40 on a quiet one),
+    (within about 7 seconds on a board with traffic, within about 30 seconds
+    on a quiet one),
     which runs whether or not any frame is sent. The skip is logged with the
     group id and the counts only. Within the cap, at most
     ``_EVICTION_CHUNK_SIZE`` feed rows are written per transaction. Each feed
@@ -1276,11 +1277,22 @@ class GroupViewSet(viewsets.ModelViewSet):
                     # removed naming so one frontend socket layer handles both.
                     # A subgroup that keeps the user through a farther ancestor
                     # gets member.updated with its new inherited row (#2175).
-                    descendants = sub_ids | _subtree_group_ids(gid)
+                    # The group's own frame must go out even if the fresh read
+                    # fails (broadcast_member_removed's contract), so fall back
+                    # to the pre-transaction subtree.
+                    try:
+                        descendants = sub_ids | _subtree_group_ids(gid)
+                    except Exception as exc:  # noqa: BLE001 — best-effort re-read
+                        descendants = sub_ids
+                        logger.warning(
+                            "group member.removed subtree re-read failed: group_id=%s error=%s",
+                            gid,
+                            type(exc).__name__,
+                        )
                     broadcast_member_removed(gid, uid, descendants, removed_role=role)
 
-                # robust for the same reason as the eviction above: the fresh
-                # subtree read runs after the removal committed.
+                # robust for the same reason as the eviction above: the
+                # publish runs after the removal committed.
                 transaction.on_commit(_broadcast_group_member_removed, robust=True)
 
             return Response(status=status.HTTP_204_NO_CONTENT)
