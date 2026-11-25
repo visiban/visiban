@@ -190,6 +190,23 @@ class CardListQueryCountTests(TestCase):
             "were added — N+1 regression detected.",
         )
 
+    def test_card_list_budget_scales_with_labels_per_card(self):
+        """More labels on every card must not increase the query count (#1730)."""
+        def grow():
+            labels = [
+                Label.objects.create(board=self.board, name=f"extra{i}", color="#111")
+                for i in range(4)
+            ]
+            for card in Card.objects.filter(board=self.board):
+                card.labels.add(*labels)
+
+        def check(a, b):
+            self.assertEqual(len(a), 50)
+            self.assertEqual({len(c["labels"]) for c in a}, {1})
+            self.assertEqual({len(c["labels"]) for c in b}, {5})
+
+        _assert_flat(self, self._get_cards, grow, "cards/ (labels per card)", check)
+
 
 class BoardFullQueryCountTests(TestCase):
     """GET /api/boards/{id}/full/ must not issue per-card queries."""
