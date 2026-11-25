@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AxiosError } from 'axios'
 import CardPeekSheet, { dwellKey } from '../components/Card/CardPeekSheet'
@@ -444,6 +444,18 @@ describe('CardPeekSheet', () => {
       await userEvent.selectOptions(screen.getByLabelText('Column'), '3')
       await userEvent.click(screen.getByRole('button', { name: 'Move card' }))
       await expectMoveFocused()
+    })
+
+    it('leaves focus where the user went while the move was in flight', async () => {
+      let answer: (r: { ok: true }) => void = () => {}
+      setup({ onMoveCard: vi.fn(() => new Promise<{ ok: true }>((resolve) => { answer = resolve })) })
+      await open()
+      await userEvent.selectOptions(screen.getByLabelText('Column'), '3')
+      await userEvent.click(screen.getByRole('button', { name: 'Move card' }))
+      screen.getByRole('button', { name: 'Open card' }).focus()
+      await act(async () => { answer({ ok: true }) })
+      expect(screen.queryByTestId('card-peek-move-form')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Open card' })).toHaveFocus()
     })
 
     it('hands focus to Move after a same-place no-op, Cancel and Escape', async () => {

@@ -332,12 +332,23 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     if (!moveOpen) setReasonOpen(false);
   }, [moveOpen]);
 
+  // After an await, focus moves only if it is still in the form or was lost: never from where the user went
+  // meanwhile (Open card, Escape, a toast).
+  const moveFormRef = useRef<HTMLDivElement>(null);
+  const focusStayed = () => {
+    const active = document.activeElement;
+    return !active || active === document.body || !!moveFormRef.current?.contains(active);
+  };
+  const closeMoveFormAfterWrite = () => {
+    if (focusStayed()) closeMoveForm();
+    else setMoveOpen(false);
+  };
   // Counts forced-move failures that remove the focused control: a hard refusal (the override link or the reason
   // form's submit), and any non-limit failure from the link. That commit also re-enables "Move card", which takes
   // focus in it, as CardDetail's Move does (#2608, #2611).
   const moveSubmitRef = useRef<HTMLButtonElement>(null);
   const [submitFocusRequests, setSubmitFocusRequests] = useState(0);
-  const focusMoveSubmit = () => setSubmitFocusRequests((n) => n + 1);
+  const focusMoveSubmit = () => { if (focusStayed()) setSubmitFocusRequests((n) => n + 1); };
   useLayoutEffect(() => {
     if (submitFocusRequests > 0) moveSubmitRef.current?.focus();
   }, [submitFocusRequests]);
@@ -362,7 +373,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       }
       setMoveError(null);
       setMoveRefusal(null);
-      closeMoveForm();
+      closeMoveFormAfterWrite();
     } catch (err) {
       const refusal = limitRefusal(err);
       setMoveError(moveFailureMessage(err));
@@ -393,7 +404,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         setMoveRefusal(limitRefusal(result.error));
         return;
       }
-      closeMoveForm();
+      closeMoveFormAfterWrite();
     } catch (err) {
       setMoveError(moveFailureMessage(err));
       setMoveRefusal(limitRefusal(err));
@@ -666,7 +677,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
 
       <div className="border-t border-line px-4 py-3">
         {moveOpen && (
-          <div className="mb-3 space-y-2" data-testid="card-peek-move-form">
+          <div ref={moveFormRef} className="mb-3 space-y-2" data-testid="card-peek-move-form">
             <label className="block text-xs text-fg-secondary">
               Column
               <select className={selectClass} value={targetKey} onChange={(e) => { setTargetKey(e.target.value); setMoveError(null); setMoveRefusal(null); setReasonOpen(false); }}>

@@ -280,7 +280,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
   }, [data, q]);
 
   return (
-    <div ref={rootRef} className="flex-1 flex flex-col min-h-0 focus:outline-none">
+    <div ref={rootRef} className="flex-1 flex flex-col min-h-0 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis">
       {/* Filter row — toggled by the Filters button on the shared Row 2; shown
           above the banners (inputs then status). */}
       {data && showFilters && (

@@ -990,6 +990,18 @@ describe('Move and Undo child focus (#2611)', () => {
     }
   })
 
+  it('holds focus on the tab when the re-read no longer has the moved child', async () => {
+    vi.mocked(moveCard).mockResolvedValue({ card: {} as never })
+    const { rerender } = render(tab(state({ data: read(kids) })))
+    await moveToDone()
+    await waitFor(() => expect(link()).toHaveFocus())
+    rerender(tab(state({ data: read(kids.slice(1)) })))
+    expect(screen.getByTestId('card-children-tab')).toHaveFocus()
+    // The tabindex is only lent, so a later click on blank space does not ring the tab.
+    screen.getByTestId('card-children-tab').blur()
+    expect(screen.getByTestId('card-children-tab')).not.toHaveAttribute('tabindex')
+  })
+
   async function undoFromToast(remaining: CardChildRow[]) {
     vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
     const view = render(<ToastProvider>{tab(state({ data: read(kids.slice(0, 1)) }))}</ToastProvider>)

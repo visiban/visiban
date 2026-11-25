@@ -310,6 +310,12 @@ describe('ShareBoardPage on the shared look (#2480)', () => {
     // The retried view's landmark takes the focus the button had (#2575).
     expect(screen.getByRole('main')).toHaveFocus()
   })
+  it('announces a retry that fails again', async () => {
+    mockGetPublicBoard.mockRejectedValue(new Error('500'))
+    renderSharePage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText("The board still didn't load.")).toHaveAttribute('role', 'status')
+  })
   it('keeps Try again mounted and inert while the retry is in flight (#2575)', async () => {
     mockGetPublicBoard.mockRejectedValueOnce(new Error('500'))
     renderSharePage()

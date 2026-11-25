@@ -306,6 +306,8 @@ export default function ShareBoardPage() {
     return (
       <div className="min-h-screen bg-page flex flex-col" data-testid="share-load-error">
         <main className="flex-1 flex items-center justify-center">
+          {/* The view stays through a retry, so a repeat failure needs saying. */}
+          <p className="sr-only" role="status">{retrying ? "Retrying…" : attempt > 0 ? "The board still didn't load." : ""}</p>
           <EmptyState
             headingLevel="h1"
             title="The board didn't load"

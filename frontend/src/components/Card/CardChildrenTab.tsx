@@ -1,3 +1,4 @@
+import { focusSurvivor } from "../../utils/focusSurvivor";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import HelpLink from "../Common/HelpLink";
 import { Link, useInRouterContext } from "react-router-dom";
@@ -127,7 +128,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   const beginWrite = () => { localWrite.current = true; };
   const reloadAfterWrite = () => { localWrite.current = true; reload(); };
   // "Try again" goes with the error (at once, or when the re-read answers): the tab takes focus first (#2575).
-  const retryRead = () => { rootRef.current?.focus(); reload(); };
+  const retryRead = () => { focusSurvivor(rootRef.current); reload(); };
   const tgt = wide ? "" : "min-h-11";
 
   useLayoutEffect(() => {
@@ -247,7 +248,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   // focus on it moves to the tab itself first. A closed sheet has no ref: the toast region restores focus then.
   const parkToastFocus = () => {
     const active = document.activeElement;
-    if (!active || active === document.body || active.closest("[data-toast-id]")) rootRef.current?.focus();
+    if (!active || active === document.body || active.closest('[data-testid="unlink-child-toast"]')) focusSurvivor(rootRef.current);
   };
 
   const move = async (child: CardChildRow, col: CardChildrenColumn, reason?: string) => {
@@ -339,10 +340,16 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   // row to another column, drops the focused node, and focus must land in that commit (#2611).
   useLayoutEffect(() => {
     const write = writeFocus.current;
-    if (!write || moving || !data?.visible) return;
-    const row = data.results.find((c) => c.id === write.id);
-    if (!row) return;
+    if (!write || moving || !data) return;
+    const row = data.visible ? data.results.find((c) => c.id === write.id) : undefined;
     const active = document.activeElement;
+    if (!row) {
+      // A newer read without the child (unlinked elsewhere, access lost): its card is gone, so the tab holds focus.
+      if (data === write.since) return;
+      writeFocus.current = null;
+      if (!active || active === document.body) focusSurvivor(rootRef.current);
+      return;
+    }
     const card = gridRef.current?.querySelector<HTMLElement>(`[data-child-id="${row.id}"]`);
     // Only recover lost or parked focus: never pull the user back from where they went meanwhile.
     if (!active || active === document.body || active === rootRef.current || active === card) {
@@ -376,6 +383,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     e.preventDefault();
     const i = columns.findIndex((c) => c.id === shownColumn?.id);
     const next = columns[(i + (e.key === "ArrowRight" ? 1 : columns.length - 1)) % columns.length];
+    writeFocus.current = null; // The user chose a column: do not switch it back.
     setShownColumnId(next.id);
     queueMicrotask(() => rootRef.current?.querySelector<HTMLElement>(`[data-column-button="${next.id}"]`)?.focus());
   };
@@ -495,7 +503,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
                 data-column-button={c.id}
                 aria-pressed={c.id === shownColumn?.id}
                 tabIndex={c.id === shownColumn?.id ? 0 : -1}
-                onClick={() => setShownColumnId(c.id)}
+                onClick={() => { writeFocus.current = null; setShownColumnId(c.id); }}
                 className={`min-h-11 inline-flex items-center gap-1.5 px-3 text-sm rounded border focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${c.id === shownColumn?.id ? "border-info text-fg" : "border-line text-fg-secondary"}`}
               >
                 <span aria-hidden="true" className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
@@ -599,7 +607,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   })();
 
   return (
-    <div ref={rootRef} tabIndex={-1} className="flex flex-col gap-4 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis" data-testid="card-children-tab">
+    <div ref={rootRef} className="flex flex-col gap-4 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis" data-testid="card-children-tab">
       {body}
       {error && data && (
         <div role="alert" className="flex items-center gap-2 text-xs text-danger">
