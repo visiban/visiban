@@ -3050,8 +3050,9 @@ class CardViewSet(viewsets.ModelViewSet):
         methods=["GET"],
         parameters=[OFFSET_QUERY_PARAMETER],
         responses={200: OpenApiResponse(response=CardChildrenReadSerializer, description=(
-            "`{count, visible, offset, limit, results}`. When the caller cannot "
-            "open the child board, `visible` is false and only `count` is given."
+            "`{count, visible, offset, limit, results, board}`. When the caller cannot "
+            "open the child board, `visible` is false, `results` is empty and `board` is "
+            "omitted. `board` is sent only on a visible read of a card that has children."
         ))},
         description=(
             "This card's children, computed for the caller. Minimum role: any "
@@ -3181,14 +3182,17 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         responses={200: OpenApiResponse(response=ChildBoardOptionsSerializer, description=(
-            "`{fixed_board, default, boards, can_set_default, boards_total, disabled_reason}`, computed for the caller. "
+            "`{fixed_board, default, boards, can_set_default, boards_total, disabled_reason, default_team}`, "
+            "computed for the caller. "
             "`fixed_board` is the board this card's children are already on "
             "(`{hidden: true}` when the caller cannot open it; otherwise with `can_add`, "
             "false when the caller may not add a child there), `default` the board's "
             "default child board when the caller can add cards there, `boards` every "
             "board the caller may add the child to (at most 100, by name; `boards_total` counts "
             "them all, #2449), each with `can_set_default`. `disabled_reason` is `parent_archived` "
-            "when this card is archived (#2447), else null."
+            "when this card is archived (#2447), else null. `default_team` is the parent card's "
+            "lane team as `{swimlane, member_ids}`, or null; when it is not null, each `boards` "
+            "entry and a visible `fixed_board` also carry `default_assignee_id`."
         ))},
         description=(
             "The Add child chooser's options for this card (#2208, since 1.3). Minimum "
