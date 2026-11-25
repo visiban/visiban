@@ -600,3 +600,97 @@ Why A over B:
 - **B:** a separate implementation MR, after an `enterprise-check`, with the new parameter on `export` and its OpenAPI entry; the column contract in `docs/api/boards.md`; importer behavior for the file (a named `400` rather than the generic missing-headers message); the `BoardExportLog` format value; formula sanitization of every free-text cell; tests for the absent and present parameter, an empty history, `export_min_role`, and the importer's refusal; an `added` fragment in `changelog.d/`; and the docs lines above reworded for B. Gates: `architect`, `security-review`, `rbac-check`, `perf-check`, `regression-check`, `api-docs`.
 
 **Aside, true under either option:** `docs/administration/card-history-retention.md:44` said board exports were downloaded "before the card was deleted". Since #1796 a JSON export made after the delete also carries the deleted card's history, so the true wording is "before a purge". That docs-only fix is already on this branch.
+
+---
+
+<a id="archived-card-annotations"></a>
+
+## Writes to an archived card's comments, attachments, checklist and relations
+
+**Status:** Proposed, owner decision pending (#1957). This record proposes and decides nothing. Until the owner rules, the endpoints keep today's behavior, described below. The ruling is recorded as a dated note under this record, never as a silent rewrite.
+
+**The question:** editing, deleting and blocking an archived card are refused, but adding and changing its comments, attachments, checklist items and relations still work. Is that the rule, or a gap?
+
+**Where the question came from:** the `/pre-release full` audit of 2026-10-26 (`rbac-check`), not a user report. The audit rated it a decision, not a vulnerability: no role gets more than it has on an active card.
+
+### What the code does today
+
+Measured on SQLite with a throwaway API test (not committed) on a board with one archived card, as owner (admin), member, collaborator and viewer; "not run" cells were read from code only. Line numbers are at `main` of 2026-11-25.
+
+| Write on an archived card | Admin and member | Collaborator | Viewer | Where |
+|---|---|---|---|---|
+| Edit fields (`PATCH`) | 404 | 403 | 403 | `get_queryset` filters `archived_at__isnull=True` (`backend/boards/views/cards.py:936`); `update_card` guard (`backend/boards/services/cards.py:1289`) |
+| Delete | 404 (code read, not run) | not run | not run | `delete_card` guard (`services/cards.py:2957`, rechecked under the lock at `:2984`) |
+| Block (unblock read from code) | 404 | 403 | 403 | `services/cards.py:2796` and `:2850`, `:2909` |
+| Move | **200** | 403 | 403 | deliberate exemption, `services/cards.py:1573–1579`, pinned by `test_archived_cards_can_still_be_moved` (`backend/boards/tests/test_card_services.py:1223`) |
+| Add a child | 400 `parent_archived` (code read, not run) | not run | not run | `backend/boards/services/card_links.py:591` (#2447) |
+| New relation **to** an archived card | 400 `archived_card` | 403 | 403 | `CardRelationCreateSerializer.validate` (`backend/boards/serializers.py:3185`), pinned at `test_card_relations.py:327` |
+| Add a comment; delete your own | **201; 204** | **201; 204** | 403 | no archived check: `views/cards.py:2120`, `:2234` |
+| Upload an attachment; delete your own | **201; 204** | **201; 204** | 403 | no archived check: `views/cards.py:2305`, `:2398` |
+| Add, edit, reorder, delete a checklist item | **201, 200, 200, 204** | **201, 200, 200, 204** | 403 | no archived check: `views/cards.py:2450`, `:2525`, `:2623` |
+| New relation **from** an archived card; delete a relation through it | **201; 204** | 403 | 403 | no archived check on the URL card: `views/cards.py:2744`, `:2878` |
+
+Each of the unguarded handlers looks the card up with `get_object_or_404(Card, pk=pk, board=board)`, which has no `archived_at` filter. The card row lock the comment, attachment and checklist writes take before writing (`lock_card_for_write`, `services/cards.py:2149`) checks only that the row exists.
+
+Two details of #1957's body have changed since it was filed: the line numbers above replace the ones it gives, and a new relation can no longer **target** an archived card (refused since 773bd75fa, 2026-11-20). A relation can still be drawn **from** one.
+
+**What the app shows.** Nothing in the web app reaches these writes. Every path that opens the card detail panel takes the card from `board.cards`, which holds only unarchived cards, and an open panel closes when its card is archived (`frontend/src/components/Board/BoardView.tsx:1812–1843`). The Archived tab offers only **Unarchive** (`ArchivedCardsPanel.tsx`), and a `?card=` link to an archived card says "This card has been archived." (`BoardView.tsx:1484–1489`). The MCP server writes no comments, attachments, checklist items or relations. These writes are therefore reachable only by a direct API client.
+
+**Side effects of such a write.** A comment on an archived card records and broadcasts `card.updated` with the card's payload (`views/cards.py:2150–2152`) and sends @mention notifications. Web clients ignore the frame because the card is not in their `board.cards` (`replaceCardUnlessStale`, `frontend/src/hooks/useBoard.ts:232–234`), so the card does not reappear on anyone's board. An attachment counts against the per-card quotas (`ATTACHMENT_MAX_PER_CARD`, `ATTACHMENT_MAX_BYTES_PER_CARD`, `views/cards.py:181`), the same as on an active card.
+
+**Getting back in costs more than it looks.** Restoring needs Member and the edit ownership rule, and it is refused with `409` when the column's hard WIP limit is full (`docs/api/cards.md` § Unarchive). A collaborator cannot restore a card at all.
+
+**Not verified:** behavior on PostgreSQL (the run was on SQLite, where the row lock is a no-op; the guards above do not depend on it); webhook delivery for a write to an archived card; and whether any enterprise code or outside API client relies on these writes. The owner ruled on 2026-11-14 that there are no users yet (see [Default card density](#default-card-density)).
+
+### Options
+
+**A. Keep today's behavior and document it.** Archived means "off the board", not "frozen". Add a test that pins each 2xx in the table and a sentence in the docs.
+- *For:* no behavior change. Matches the move exemption's reasoning ("tidying archived history is a legitimate operation").
+- *Against:* the rule is hard to state: you cannot fix a typo in an archived card's title, but you can add a comment, a checklist item or a 10 MB file to it, and draw a relation from it that no one can draw to it. Writes no one on the board can see still broadcast, notify and count against quotas.
+- *Backward compatibility:* none affected.
+
+**B. Refuse every write listed above on an archived card with `404`**, as `update_card`, `delete_card` and block do. Removals included.
+- *For:* one rule, "archived is read-only except move and restore". Same answer as the other card writes.
+- *Against:* removing anything from an archived card means restoring it first. A collaborator who attached the wrong file cannot remove it at all, and a member cannot when the column's hard WIP limit is full. That matters most for a file that should not have been uploaded. A relation through an archived card can still be removed from its active end, which `docs/api/cards.md` already describes.
+- *Backward compatibility:* calls that succeed today (201/200/204) start answering 404. No field or endpoint is removed, so it is not a breaking change under the REST rules in `CLAUDE.md`, but it changes behavior for API clients. It needs a `changed` changelog fragment and an upgrade note. Tightening is the direction that cannot be quietly undone later (the reasoning in the relations view, `views/cards.py:2765–2770`), so the cheapest time to do it is before 1.3 ships.
+
+**C. Refuse additions and changes, keep removals.** `404` for adding a comment, uploading an attachment, adding, editing or reordering a checklist item, and drawing a new relation from an archived card. Deleting a comment, an attachment, a checklist item or a relation stays allowed, under the ownership rules it has today.
+- *For:* an archived card takes no new content, which is what the existing guards already say about edits, blocks, children and relation targets. Removal stays possible without a restore, which is the case B breaks: a collaborator removing their own file, or an admin removing one from a card the WIP limit will not take back. Matches the relation rule already in the docs ("kept and flagged so they can be removed").
+- *Against:* two rules instead of one. Deleting a comment from an archived card still changes its history, as it does on an active card today.
+- *Backward compatibility:* as B, for the additions and changes only. Every removal that works today keeps working.
+
+**D. Answer `400` or `409` with `code: "card_archived"` instead of `404`** (a variant of B or C). It tells a client "archived" from "gone", which `404` does not, and matches `parent_archived` and `archived_card`. Against: the other archived-card writes (edit, delete, block) answer `404`, and changing those is out of scope. Not recommended unless the owner wants to move all of them in one release.
+
+### Recommendation
+
+> **RECOMMENDATION (implementer proposal, not a decision): option C**, with `404`, in 1.3.
+
+Why C:
+
+1. It extends the rule the code already follows: no new edits, blocks, children or relation targets on an archived card. Today's exceptions are the inconsistency the audit found.
+2. It keeps removal possible without a restore, which B takes away from collaborators entirely and from members whenever a hard WIP limit is full.
+3. The behavior change lands only on calls the web app never makes, and before 1.3 ships, while there are no users to rely on them. After 1.3 the same tightening costs a release of notice.
+4. `404` matches the other archived-card writes, so clients have one answer to handle. D is better as a separate decision covering all of them.
+
+*What would change this to A:* a real report of a team commenting on, or attaching to, archived cards as part of its workflow (for example, a post-incident note on a closed card). *To B:* the owner preferring one rule over removal without a restore.
+
+### If the owner approves
+
+- **Any option:** add a dated note under this record ("Decided <date>: option X; see #1957") and change **Status** to Accepted. Close #1957 from the implementation MR.
+- **A:** a test that pins every 2xx in the table above, and the A sentence below in `docs/features/card-archiving.md`. No changelog fragment.
+- **C (and B, removals included):** one implementation MR with:
+  - The guard in each handler, checked on the row `lock_card_for_write` returns, not the earlier lookup, so an archive that commits between the lookup and the lock is still refused (the pattern `delete_card` uses at `services/cards.py:2984`). The guard denies when it cannot read the card (#1075): a missing row stays `404`.
+  - A test per endpoint and role (the table above as the test plan), next to the active-card case, and one that a removal still works (C).
+  - The text below in `docs/features/card-archiving.md` and `docs/api/cards.md`: the four POST and PATCH sections under Comments, Attachments, Checklist and Relations, plus the reorder section.
+  - A `changed` fragment in `changelog.d/` and a 1.3 note in `docs/administration/upgrade.md`.
+  - Gates: `regression-check`, `rbac-check`, `security-review`, `api-docs`.
+
+**Docs text pending the ruling (option C).** Not published; true only once the implementation MR lands. For `docs/features/card-archiving.md`, after the **Permission** line:
+
+> **An archived card takes no new content.** You cannot add comments, attachments, checklist items or relations to an archived card, or edit its checklist; restore it first. You can still remove them: delete a comment, an attachment, a checklist item or a relation, with the same permissions as on an active card. *Changed in 1.3 (#1957).*
+
+For each refused endpoint in `docs/api/cards.md`, after its role line:
+
+> Returns `404 Not Found` if the card is archived (*since 1.3*, #1957); nothing is saved.
+
+Under A, the `card-archiving.md` sentence would instead read: "Comments, attachments, checklist items and relations on an archived card can still be added and changed over the API; the web app does not offer it."
