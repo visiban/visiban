@@ -300,10 +300,48 @@ describe('CardPeekSheet', () => {
     expect(p.onMoveCard).toHaveBeenLastCalledWith(9, 2, 5, 8)
   })
 
-  it('disables Move earlier on the first card and Move later on the last', () => {
-    setup({ cellOrder: { index: 0, count: 2, earlier: null, later: 2 } })
-    expect(screen.getByRole('button', { name: 'Move earlier' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Move later' })).toBeEnabled()
+  it('marks Move earlier unavailable on the first card, focusable and inert', async () => {
+    const p = setup({ cellOrder: { index: 0, count: 2, earlier: null, later: 2 } })
+    const earlier = screen.getByRole('button', { name: 'Move earlier' })
+    expect(earlier).toHaveAttribute('aria-disabled', 'true')
+    expect(earlier).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Move later' })).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(earlier)
+    expect(p.onMoveCard).not.toHaveBeenCalled()
+  })
+
+  // jsdom does not blur a disabled button, so the attributes are what is asserted (#2611).
+  it('keeps both steps focusable while a step is pending, and sends only one', async () => {
+    let answer!: (r: { ok: true }) => void
+    const p = setup({ cellOrder: { index: 1, count: 3, earlier: 4, later: 8 }, onMoveCard: vi.fn().mockReturnValue(new Promise((resolve) => { answer = resolve })) })
+    const earlier = screen.getByRole('button', { name: 'Move earlier' })
+    const later = screen.getByRole('button', { name: 'Move later' })
+    await userEvent.click(earlier)
+    for (const step of [earlier, later]) {
+      expect(step).toHaveAttribute('aria-disabled', 'true')
+      expect(step).not.toBeDisabled()
+    }
+    await userEvent.click(earlier)
+    await userEvent.click(later)
+    expect(p.onMoveCard).toHaveBeenCalledTimes(1)
+    await act(async () => answer({ ok: true }))
+    expect(earlier).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('keeps focus on Move card through a pending move that fails, and sends only one (#2611)', async () => {
+    let answer!: (r: { ok: false; error: unknown }) => void
+    const p = setup({ onMoveCard: vi.fn().mockReturnValue(new Promise((resolve) => { answer = resolve })) })
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+    await userEvent.selectOptions(screen.getByLabelText('Column'), '3')
+    await userEvent.click(screen.getByRole('button', { name: 'Move card' }))
+    const submit = screen.getByRole('button', { name: 'Moving...' })
+    expect(submit).toHaveAttribute('aria-disabled', 'true')
+    expect(submit).not.toBeDisabled()
+    await userEvent.click(submit)
+    expect(p.onMoveCard).toHaveBeenCalledTimes(1)
+    await act(async () => answer({ ok: false, error: new Error('nope') }))
+    expect(submit).toHaveFocus()
+    expect(submit).not.toHaveAttribute('aria-disabled')
   })
 
   it('offline: a Move form already open closes, returns focus to Move, and sends nothing (#2325)', async () => {
@@ -312,8 +350,13 @@ describe('CardPeekSheet', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Move' }))
     expect(screen.getByTestId('card-peek-move-form')).toBeInTheDocument()
     rerender(<CardPeekSheet {...props} movesPaused />)
-    expect(screen.queryByTestId('card-peek-move-form')).not.toBeInTheDocument()
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Move' })).toHaveFocus())
+    // Focus is read inside the callback: it moves in the commit that remounts Move (#2611).
+    let focused: Element | null = null
+    await waitFor(() => {
+      expect(screen.queryByTestId('card-peek-move-form')).not.toBeInTheDocument()
+      focused = document.activeElement
+    })
+    expect(focused).toBe(screen.getByRole('button', { name: 'Move' }))
     expect(props.onMoveCard).not.toHaveBeenCalled()
   })
 
