@@ -9,6 +9,7 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useTheme } from "../../context/ThemeContext";
 import type { ThemePreference } from "../../context/ThemeContext";
+import { docsUrl } from "../../help/docsUrl";
 import { openShortcutsHelp } from "./shellNavModel";
 import { ExternalIcon, GearIcon, HelpIcon, KeyboardIcon, MonitorIcon, MoonIcon, ShieldIcon, SignOutIcon, SunIcon } from "./shellIcons";
 
@@ -169,7 +170,7 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
 
           <a
             {...item(IDX.help)}
-            href="https://docs.visiban.com"
+            href={docsUrl("home")}
             target="_blank"
             rel="noopener noreferrer"
             role="menuitem"

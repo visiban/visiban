@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { docsUrl } from '../help/docsUrl'
 import { useEffect, useState } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -245,7 +246,7 @@ describe('UserMenu', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
     const link = await screen.findByRole('menuitem', { name: /Help & docs/ })
-    expect(link).toHaveAttribute('href', 'https://docs.visiban.com')
+    expect(link).toHaveAttribute('href', docsUrl('home'))
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
   })

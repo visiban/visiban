@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { BOTTLENECK_DOCS_URL } from "../../utils/intakeColumn";
+import HelpLink from "../Common/HelpLink";
 
 /** Shared by the Edit callout and the Add take-over note so the two cannot drift. */
 export function IntakeNoteIcon({ className = "w-5 h-5" }: { className?: string }) {
@@ -63,14 +63,7 @@ export default function IntakeColumnCallout({ idPrefix }: { idPrefix: string }) 
         <MoreDisclosure bodyId={bodyId}>
           <p>New work arrives here, so a growing queue is demand, not a hold-up. This column still appears in the cumulative flow, WIP, WIP age, dwell, and cycle-time charts.</p>
           <p>The role follows position. If you move this column, or add a new not-done column to its left, the first not-done column becomes the intake column.</p>
-          <a
-            href={BOTTLENECK_DOCS_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="self-start inline-flex items-center min-h-6 text-info underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            How bottleneck detection works<span className="sr-only"> (opens in a new tab)</span>
-          </a>
+          <HelpLink topic="analytics.bottleneck" variant="text" className="self-start" />
         </MoreDisclosure>
       </div>
     </div>
