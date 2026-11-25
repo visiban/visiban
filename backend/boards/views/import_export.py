@@ -1992,6 +1992,27 @@ def _aware_timestamp(value):
     return parsed
 
 
+def _assign_cell_positions(cards):
+    """Renumber imported cards to 0..n-1 inside each (column, swimlane) cell (#2577).
+
+    Every importer must hand ``Card.position`` out as a dense, unique,
+    per-cell sequence: ``create_card`` appends at max(position)+1 (#2562), so
+    duplicate positions leave a cell with an undefined order, and a stored
+    position near 2**31-1 would overflow that append. Sorting by the position
+    the card arrived with (CSV rows carry none, so they keep row order) and
+    then file order keeps a JSON export's order stable. Positions are not
+    validated against the card count, because a board with holes exports such
+    positions legitimately; renumbering closes them instead of rejecting.
+    """
+    cells = {}
+    for index, card in enumerate(cards):
+        cells.setdefault((card.column.pk, card.swimlane.pk), []).append((card.position, index, card))
+    for members in cells.values():
+        members.sort(key=lambda m: (m[0], m[1]))
+        for slot, (_, _, card) in enumerate(members):
+            card.position = slot
+
+
 def _imported_card_created_at(card_data, history_on, now):
     """The exported ``created_at`` to give an imported card, or None for "now" (#1906).
 
@@ -2891,6 +2912,7 @@ class BoardImportExportMixin:
 
             # Single INSERT for all cards.  PostgreSQL returns PKs in insertion
             # order, so cards_to_create[i].pk aligns with cards_raw[i] after this.
+            _assign_cell_positions(cards_to_create)
             Card.objects.bulk_create(cards_to_create)
 
             # created_at is auto_now_add, which overwrites any value set before
@@ -3859,6 +3881,7 @@ class BoardImportExportMixin:
                 ))
                 valid_rows.append(row)
 
+            _assign_cell_positions(cards_to_create)  # rows carry no position: row order (#2577)
             created_cards = Card.objects.bulk_create(cards_to_create)
 
             # Card custom field values, stored as written (#1449). Bulk-created,
