@@ -1,5 +1,7 @@
 import type { CardTrackState } from "../../utils/stages";
 import { trackStateLabel } from "../../utils/stages";
+import { attentionText } from "../../utils/dimensionChips";
+import UrgencyGlyph from "./UrgencyGlyph";
 
 /**
  * Track chips (#1920, spec § Sub-columns and tracks): one chip per track on
@@ -43,7 +45,7 @@ export default function TrackChips({ tracks, spelledOut = false }: { tracks: Car
   );
 }
 
-function TrackIcon({ state }: { state: CardTrackState["state"] }) {
+export function TrackIcon({ state }: { state: CardTrackState["state"] }) {
   if (state === "done") {
     return (
       <svg aria-hidden="true" viewBox="0 0 12 12" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -62,6 +64,54 @@ function TrackIcon({ state }: { state: CardTrackState["state"] }) {
     <svg aria-hidden="true" viewBox="0 0 12 12" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.75">
       <path d="M3 6h6" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/**
+ * Pinned dimension chips (#1922): the track-chip language (icon AND fill,
+ * spelled-out state for screen readers and the tooltip), then the
+ * "N need attention" count, which carries a flag glyph and words so it never
+ * rests on color. Not controls, like track chips (#2542).
+ */
+export function DimensionChips({ dimensions, attention, spelledOut = false }: { dimensions: CardTrackState[]; attention: string[]; spelledOut?: boolean }) {
+  if (dimensions.length === 0 && attention.length === 0) return null;
+  const count = attentionText(attention.length);
+  return (
+    <>
+    {dimensions.length > 0 && <span className="sr-only">Dimensions, set in the card's Custom fields.</span>}
+    <ul data-testid="card-dimension-chips" className="mt-1 flex flex-wrap items-center gap-1">
+      {dimensions.map((t) => {
+        const words = `${t.name}: ${trackStateLabel(t.state)}`;
+        const tone = t.state === "done"
+          ? "bg-success/20 text-success-on-tint border-transparent"
+          : t.state === "open"
+            ? "bg-transparent text-fg-secondary border-line-boundary"
+            : "bg-surface-hover text-fg-secondary border-transparent";
+        return (
+          <li
+            key={t.id}
+            data-dimension-state={t.state}
+            title={`${words}. Set in the card's Custom fields.`}
+            className={`inline-flex min-w-0 max-w-[10rem] items-center gap-1 overflow-hidden rounded border px-1.5 py-px text-xs font-semibold leading-4 ${tone}`}
+          >
+            <TrackIcon state={t.state} />
+            <span className="sr-only">{words}</span>
+            <span aria-hidden="true" className="truncate">{spelledOut ? words : t.name}</span>
+          </li>
+        );
+      })}
+      {count && (
+        <li
+          data-testid="card-dimension-attention"
+          title={`Open dimensions past their target date: ${attention.join(", ")}`}
+          className="inline-flex items-center gap-1 text-xs font-semibold leading-4 text-danger-on-tint"
+        >
+          <UrgencyGlyph kind="overdue" />
+          <span>{count}</span>
+        </li>
+      )}
+    </ul>
+    </>
   );
 }
 

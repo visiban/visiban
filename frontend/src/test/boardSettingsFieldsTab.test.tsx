@@ -1240,40 +1240,41 @@ describe("BoardSettingsFieldsTab — track (dimension) fields (#2278)", () => {
     ...overrides,
   });
 
-  it("an unpinned track is not pinnable and says why", () => {
-    render(<BoardSettingsFieldsTab board={makeBoard([track()])} isAdmin onFieldsUpdated={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /Pin Approval|Pinned, unpin Approval/ })).not.toBeInTheDocument();
-    expect(screen.getByText("Tracks show as chips, not pinned fields")).toHaveAttribute("id", "track-pin-reason-7");
+  it("a dimension pins from its own pool and never counts against the 2 generic pins (#1922)", async () => {
+    const user = userEvent.setup();
+    const def = track();
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue({ ...def, show_on_card: true });
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Pin Approval to card face" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, { show_on_card: true }));
     expect(screen.getByText(/0 of 2 pinned/)).toBeInTheDocument();
   });
 
-  it("a track the server holds pinned counts against the cap and can be unpinned (assert_definition_caps counts it)", async () => {
+  it("a pinned dimension can be unpinned", async () => {
     const user = userEvent.setup();
-    const defs = [
-      makeDefinition({ id: 1, name: "Sprint", show_on_card: true }),
-      track({ show_on_card: true }),
-    ];
-    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue({ ...defs[1], show_on_card: false });
-    render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />);
-    expect(screen.getByText(/2 of 2 pinned/)).toBeInTheDocument();
-    expect(screen.queryByText("Tracks show as chips, not pinned fields")).not.toBeInTheDocument();
+    const def = track({ show_on_card: true });
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue({ ...def, show_on_card: false });
+    render(<BoardSettingsFieldsTab board={makeBoard([makeDefinition({ id: 1, name: "Sprint", show_on_card: true }), def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    expect(screen.getByText(/1 of 2 pinned/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Pinned, unpin Approval from card face" }));
     await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, { show_on_card: false }));
-    await waitFor(() => expect(screen.getByText(/1 of 2 pinned/)).toBeInTheDocument());
-    expect(screen.getByText("Tracks show as chips, not pinned fields")).toBeInTheDocument();
   });
 
-  it("a pinned track in the swap list is offered as a replacement when pinning at the cap", async () => {
+  it("at 3 pinned dimensions the next Pin is disabled with a visible, described reason (#1922)", async () => {
     const user = userEvent.setup();
     const defs = [
-      makeDefinition({ id: 1, name: "Sprint", show_on_card: true }),
-      track({ show_on_card: true }),
-      makeDefinition({ id: 3, name: "Owner" }),
+      track({ id: 7, name: "Approval", show_on_card: true, position: 0 }),
+      track({ id: 8, name: "Budget", show_on_card: true, position: 1 }),
+      track({ id: 9, name: "Legal", show_on_card: true, position: 2 }),
+      track({ id: 10, name: "Tech", position: 3 }),
     ];
     render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: "Pin Owner to card face" }));
-    expect(screen.getByText("The card face holds 2 fields.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Approval Replace/ })).toBeInTheDocument();
+    const pin = screen.getByRole("button", { name: "Pin Tech to card face" });
+    expect(pin).toHaveAttribute("aria-disabled", "true");
+    expect(pin).toHaveAttribute("aria-describedby", "dimension-pin-reason-10");
+    expect(document.getElementById("dimension-pin-reason-10")).toHaveTextContent("Up to 3 dimensions show on the card. Unpin one to pin another.");
+    await user.click(pin);
+    expect(boardsApi.updateCustomFieldDefinition).not.toHaveBeenCalled();
   });
 
   it("a track in the editor has its pin switch disabled with a described reason", async () => {
@@ -1283,7 +1284,7 @@ describe("BoardSettingsFieldsTab — track (dimension) fields (#2278)", () => {
     const pin = screen.getByRole("switch", { name: "Pin to card face" });
     expect(pin).toHaveAttribute("aria-disabled", "true");
     expect(pin).toHaveAttribute("aria-describedby", "track-pin-reason-edit");
-    expect(document.getElementById("track-pin-reason-edit")).toHaveTextContent("Tracks show as chips, not pinned fields");
+    expect(document.getElementById("track-pin-reason-edit")).toHaveTextContent("Pin a dimension with Pin on its row");
   });
 
   it("an already-pinned track's editor switch is live so the pin can be cleared", async () => {

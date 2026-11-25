@@ -7,6 +7,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import type { BoardFull, CustomFieldDefinition, CustomFieldType, DimensionResolution } from "../../types";
 import { isDimensionField } from "../../utils/stages";
+import { DIMENSION_PIN_CAP } from "../../utils/dimensionChips";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
@@ -99,7 +100,9 @@ function formFromDefinition(d: CustomFieldDefinition): FormState {
 }
 
 const TYPE_LOCKED_MESSAGE = typeLockedMessage("cards");
-const TRACK_PIN_REASON = "Tracks show as chips, not pinned fields";
+const TRACK_PIN_REASON = "Pin a dimension with Pin on its row";
+/** #1922: shown, and tied by aria-describedby, on a dimension's Pin control at the cap. */
+const DIMENSION_PIN_CAP_REASON = `Up to ${DIMENSION_PIN_CAP} dimensions show on the card. Unpin one to pin another.`;
 
 /**
  * The map sent on save. Resolutions are keyed by each row's ORIGINAL name and carried onto its trimmed
@@ -160,7 +163,9 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   // The server's cap (assert_definition_caps) counts every show_on_card field, tracks included, and an API-created
   // track can be pinned. A track never renders pinned (CardItem) and cannot be newly pinned here, but one that is
   // already pinned still counts and gets an Unpin control so the user can clear it.
-  const pinnedCount = fields.filter((f) => f.show_on_card).length;
+  // #1922: dimensions pin from their own pool (the server counts each kind separately).
+  const pinnedCount = fields.filter((f) => f.show_on_card && !isDimensionField(f)).length;
+  const dimensionPinnedCount = fields.filter((f) => f.show_on_card && isDimensionField(f)).length;
 
   const commit = (next: CustomFieldDefinition[]) => {
     const sorted = [...next].sort((a, b) => a.position - b.position);
@@ -242,8 +247,12 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   };
 
   const handlePin = (def: CustomFieldDefinition) => {
-    if (isDimensionField(def) && !def.show_on_card) return;
     setSwapError(null);
+    if (isDimensionField(def)) {
+      if (def.show_on_card) void savePin(def, false);
+      else if (dimensionPinnedCount < DIMENSION_PIN_CAP) void savePin(def, true);
+      return;
+    }
     if (def.show_on_card) {
       void savePin(def, false);
       return;
@@ -545,7 +554,8 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
                 onDelete={() => setDeleteTarget(def)}
                 onPin={() => handlePin(def)}
                 swapPromptOpen={swapPromptId === def.id}
-                pinnedFields={fields.filter((f) => f.show_on_card)}
+                pinnedFields={fields.filter((f) => f.show_on_card && !isDimensionField(f))}
+                dimensionPinnedCount={dimensionPinnedCount}
                 onSwap={(replaceId) => void swapPin(replaceId, def.id)}
                 onCancelSwap={() => setSwapPromptId(null)}
               >
@@ -710,12 +720,15 @@ interface FieldRowProps {
   onPin: () => void;
   swapPromptOpen: boolean;
   pinnedFields: CustomFieldDefinition[];
+  /** #1922: pinned dimensions, a separate pool capped at DIMENSION_PIN_CAP. */
+  dimensionPinnedCount?: number;
   onSwap: (replaceId: number) => void;
   onCancelSwap: () => void;
   children?: React.ReactNode;
 }
 
-function FieldRow({ def, setName, editing, dragDisabled, onEdit, onDelete, onPin, swapPromptOpen, pinnedFields, onSwap, onCancelSwap, children }: FieldRowProps) {
+function FieldRow({ def, setName, editing, dragDisabled, onEdit, onDelete, onPin, swapPromptOpen, pinnedFields, dimensionPinnedCount = 0, onSwap, onCancelSwap, children }: FieldRowProps) {
+  const dimensionAtCap = dimensionPinnedCount >= DIMENSION_PIN_CAP;
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: def.id, disabled: dragDisabled });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -747,8 +760,26 @@ function FieldRow({ def, setName, editing, dragDisabled, onEdit, onDelete, onPin
         <span className="flex-1 min-w-0 truncate text-sm text-fg" title={def.name}>{def.name}</span>
         <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[def.field_type]}</span>
         <FieldSetChip name={setName} />
-        {isDimensionField(def) && !def.show_on_card ? (
-          <span id={`track-pin-reason-${def.id}`} className="text-xs text-fg-muted whitespace-nowrap shrink-0">{TRACK_PIN_REASON}</span>
+        {isDimensionField(def) ? (
+          <span className="flex items-center gap-2 shrink-0">
+            {!def.show_on_card && dimensionAtCap && (
+              <span id={`dimension-pin-reason-${def.id}`} className="text-xs text-fg-muted whitespace-nowrap">{DIMENSION_PIN_CAP_REASON}</span>
+            )}
+            <button
+              type="button"
+              onClick={dimensionAtCap && !def.show_on_card ? undefined : onPin}
+              aria-disabled={dimensionAtCap && !def.show_on_card ? true : undefined}
+              aria-describedby={dimensionAtCap && !def.show_on_card ? `dimension-pin-reason-${def.id}` : undefined}
+              aria-label={def.show_on_card ? `Pinned, unpin ${def.name} from card face` : `Pin ${def.name} to card face`}
+              className={`text-xs rounded px-2 py-0.5 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                def.show_on_card
+                  ? "text-info-on-tint bg-primary-emphasis/10 border border-primary-emphasis/25 font-medium"
+                  : dimensionAtCap ? "text-fg-muted cursor-not-allowed" : "text-fg-muted hover:text-fg-secondary"
+              }`}
+            >
+              {def.show_on_card ? "Pinned" : `Pin (${dimensionPinnedCount} of ${DIMENSION_PIN_CAP})`}
+            </button>
+          </span>
         ) : (
         <button
           onClick={onPin}
