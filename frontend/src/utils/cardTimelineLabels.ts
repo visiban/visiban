@@ -24,6 +24,24 @@ function cappedName(name: string): string {
   return name.length > ITEM_TEXT_IN_LABEL_MAX ? `${name.slice(0, ITEM_TEXT_IN_LABEL_MAX - 1)}\u2026` : name;
 }
 
+/**
+ * The " · Assigned by {name}" tail of an assignee override row (#2594), or ""
+ * with no assigner (admin basis, older or imported row, deleted account).
+ * Exposed so the History row can render it apart from the truncating text.
+ * `capName` shortens the name for the non-shrinking row span (backend allows
+ * 150 chars); the uncapped default keeps `activityLabel` and the tooltip full.
+ */
+export function overrideAssignerSuffix(
+  event_type: string,
+  data: Record<string, unknown>,
+  capName = false
+): string {
+  const d = data as unknown as CardActivity;
+  return event_type === "override_used" && d.from_value === "assignee" && d.assigned_by
+    ? ` · Assigned by ${capName ? cappedName(userDisplayName(d.assigned_by)) : userDisplayName(d.assigned_by)}`
+    : "";
+}
+
 /** One-line description of a timeline activity entry (the History tab's row text). */
 export function activityLabel(
   event_type: string,
@@ -111,14 +129,18 @@ export function activityLabel(
     case "needed_changed":
       if (d.to_value === "now") return d.from_value === "column_deleted" ? "Needed: Now (its column was deleted)" : "Needed: Now";
       return d.from_value === "created" ? "Created planned for a later stage" : "Needed column changed";
-    // #1923: from_value is the actor basis, to_value the kinds, item_text the reason.
+    // #1923: from_value is the actor basis, to_value the kinds, item_text the
+    // reason. #2594: an assignee override names who assigned the card; with no
+    // assigner (admin basis, older or imported row, deleted account) the row
+    // names no one rather than guessing.
     case "override_used": {
       const list = (d.to_value ?? "").split(",").filter(Boolean).map((k) => (k === "wip" ? "WIP" : k));
       const kinds = list.join(" and ");
       const noun = list.length > 1 ? "limits" : "limit";
       const basis = d.from_value === "assignee" ? "assignee override" : "admin override";
       const head = `${kinds ? `${kinds.charAt(0).toUpperCase()}${kinds.slice(1)}` : "Card"} ${noun} overridden (${basis})`;
-      return d.item_text ? `${head}. Reason: ${d.item_text}` : head;
+      const withReason = d.item_text ? `${head}. Reason: ${d.item_text}` : head;
+      return `${withReason}${overrideAssignerSuffix(event_type, data)}`;
     }
     case "archived":
       return "Card archived";

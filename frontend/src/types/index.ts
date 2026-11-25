@@ -1446,6 +1446,13 @@ export interface CardActivity {
    * recorded before 1.3. Optional so fixtures from older servers still type.
    */
   item_text?: string | null;
+  /**
+   * Who assigned the card, on an `override_used` row with the `assignee`
+   * basis (#2594); null on every other row, on admin overrides, on imported
+   * rows and once that account is deleted. On the timeline it is sent only in
+   * `override_used` entries' `data`. Optional so older fixtures still type.
+   */
+  assigned_by?: BoardUser | null;
 }
 
 export interface CardTimelineEntry {

@@ -21,6 +21,7 @@ from drf_spectacular.utils import (
 from django.conf import settings as django_settings
 from accounts.models import User, get_uploads_enabled
 from accounts.permissions import TokenHasScope
+from accounts.serializers import BoardUserSerializer
 from visiban.exceptions import INVALID_QUERY_PARAM, INVALID_QUERY_PARAM_SCHEMA, CodedValidationError
 from visiban.request_shape import (
     MAX_OFFSET, OFFSET_QUERY_PARAMETER, parse_offset, query_text, require_json_object,
@@ -1710,7 +1711,7 @@ class CardViewSet(viewsets.ModelViewSet):
         """Return the field-change activity log for a card (opt-in paging, #1963)."""
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
-        qs = card.activities.select_related("actor").order_by("-created_at", "-pk")
+        qs = card.activities.select_related("actor", "assigned_by").order_by("-created_at", "-pk")
         return _card_history_response(
             request, qs, lambda rows: CardActivitySerializer(rows, many=True).data,
         )
@@ -1931,7 +1932,8 @@ class CardViewSet(viewsets.ModelViewSet):
         if activity_event_types:
             activities_qs = (
                 CardActivity.objects.filter(card=card, event_type__in=activity_event_types)
-                .select_related("actor")
+                # assigned_by (#2594) is joined, not fetched per row.
+                .select_related("actor", "assigned_by")
                 .order_by("-created_at", "-id")
             )
             capped_activities, activity_count = fetch_page_and_total(activities_qs, 0, fetch_cap)
@@ -2032,6 +2034,15 @@ class CardViewSet(viewsets.ModelViewSet):
                 # due-date entries and custom_field_changed (#1921, the field
                 # name); null on rows written before 1.3.
                 data["item_text"] = a.item_text
+            if a.event_type == CardActivity.EventType.OVERRIDE_USED:
+                # Additive key (#2594), present only on override_used entries:
+                # who assigned the card on an assignee override, in the slim
+                # shape ``actor`` uses. Null on admin overrides, on rows
+                # written before it existed, on imported rows and once the
+                # assigner's account is deleted; History then names no one.
+                data["assigned_by"] = (
+                    BoardUserSerializer(a.assigned_by).data if a.assigned_by_id and a.assigned_by else None
+                )
             if a.event_type == CardActivity.EventType.UNBLOCKED:
                 # Additive key (#1149), present only on unblocked entries;
                 # null when no closed block matches (e.g. an imported entry

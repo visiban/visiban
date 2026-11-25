@@ -18,6 +18,8 @@ Open a card and click **History** in its detail panel. The timeline lists moveme
 - who made the change
 - when it happened (relative time, for example "3 days ago")
 
+*Since 1.3 (#1923, #2594).* A card placed past a WIP or weight limit with an override shows an entry such as "WIP limit overridden (assignee override). Reason: Customer escalation · Assigned by Avery Admin". The " · Assigned by" part appears only on an assignee override, and names the person who had assigned the card at that moment, even if the card is reassigned later. It is left out on admin overrides, on entries recorded before it existed, on entries brought in by an import, and once that person's account is deleted.
+
 *Since 1.3 (#2365).* On a board with gated stages, History also lists a card's moves between the sub-columns of a stage, for example "Moved to Review in Build" or "Moved back to Doing in Build". A move that only changes the sub-column is not a column move, so it has no "Spent … here" line. When a stage's settings change and a card's sub-column is removed, the entry that puts the card in another sub-column reads "Now in Review in Build (stage edited)", because a settings change, not a person, moved it. A move into a stage that starts the card past its first sub-column shows that on the column move entry ("entered at sub-column 3"), not as separate entries. The [card peek sheet](board.md#card-peek-sheet) lists the same sub-column moves in its History section.
 
 Movement entries keep the full column and swimlane names even after those are renamed or deleted. A deleted column's name shows in italic red with a **Deleted —** prefix and a hover tooltip, so you can tell live columns from removed ones at a glance.
