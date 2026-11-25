@@ -38,7 +38,7 @@ Seven types are available:
 !!! note "Tab renamed in 1.2"
     This tab was named **Fields** before 1.2. It was renamed to **Card fields** when [swimlane fields](#swimlane-row-custom-fields) shipped, so the two tabs read unambiguously side by side.
 
-Open **Board Settings** and select **Card fields** in the sidebar's **Fields** group, next to **Swimlane fields** (since 1.2). Since 1.3 the sidebar groups the sections under Board, Fields, Access, Integrations and Data. Only board admins can create, edit, reorder, pin, or delete fields. A track (a [dimension field](#dimension-fields-13)) cannot be newly pinned to the card face: it shows as a chip, and its row says so. A track that was already pinned (for example through the API) still counts toward the 2-pin limit and shows an **Unpin** control.
+Open **Board Settings** and select **Card fields** in the sidebar's **Fields** group, next to **Swimlane fields** (since 1.2). Since 1.3 the sidebar groups the sections under Board, Fields, Access, Integrations and Data. Only board admins can create, edit, reorder, pin, or delete fields. Since 1.3 (#1922) a [dimension field](#dimension-fields-13), tracks included, pins with **Pin** on its row from a separate pool of 3 that never counts toward the 2-pin limit; see [Dimension chips on the card face](#dimension-chips-on-the-card-face). The **Pin to card face** switch in the field editor stays off for an unpinned dimension.
 
 The tab lists every field in display order with its type glyph, name, type label, and pin state. Hover a row for **✎ Edit** and **✕ Delete**. Drag the `⋮⋮` handle to reorder, or use the keyboard: Tab to the handle, press Space to pick the field up, press the arrow keys to move it past its neighbors, and press Space to drop it (Escape cancels). That order is the order in the card detail panel and, for pinned fields, on the card face.
 
@@ -71,6 +71,8 @@ The tab header shows a running count, for example `12 of 30 · 1 of 2 pinned`.
 ### Pinned fields on the card face
 
 Up to **2 fields per board** can be pinned so their values show on the card face without opening the card. Toggle **Pin to card face** in the field editor, or click **Pin** on a field's row.
+
+Dimension fields pin from their own pool of 3 and never take one of these 2 slots; see [Dimension chips on the card face](#dimension-chips-on-the-card-face).
 
 Pinning a third field opens a swap prompt naming the 2 pinned fields; pick which to replace. Unpinning doesn't delete data: unpinned values stay visible in the card detail panel and in the [hover peek](#hover-peek).
 
@@ -424,8 +426,19 @@ The backend also exposes a `CUSTOM_FIELD_VALIDATORS` extension point that lets a
 
 A **dimension** is a dropdown field whose choices each carry a resolution: `open`, `satisfied` (shown as "done") or `not_applicable`. Set `is_dimension: true` and `choice_resolutions` (a map from choice to resolution) on a dropdown field; a choice without an entry, and a card with no value, count as open. Only dropdown fields can be dimensions. A value can move between any two choices in any order.
 
-Dimensions are what a stage's **tracks** are: a board admin binds dimension fields to a column as its tracks, and can mark a dimension not applicable for a whole swimlane. A lane's not-applicable mark overrides each card's own value for display, and the card's value is kept. Tracks count toward the 30-fields-per-board limit.
+Dimensions are what a stage's **tracks** are: a board admin binds dimension fields to a column as its tracks, and can mark a dimension not applicable for a whole swimlane. A lane's not-applicable mark overrides each card's own value for display, and the card's value is kept. Tracks count toward the 30-fields-per-board limit. Turning **dimension** off on a field (allowed only when it is not a track) deletes every [dimension plan](#dimension-plans-owner-next-action-target-date) stored for that field, the same as deleting the field; the card values are kept.
 
 **Renaming or removing a choice.** Renaming a choice keeps its done/open setting for the choice itself, but stored card values are not rewritten, so cards that already hold the old name read as open until their value is updated. Removing a choice drops its setting.
 
 Every change to any custom field value, dimension or not, appears in the card's history with the old value, the new value and who made it.
+
+### Dimension chips on the card face
+
+*Added in 1.3* (#1922). A board admin can pin up to **3 dimensions** with **Pin** on the field's row in Board Settings → Card fields. This pool is separate from the 2 pinned fields. A pinned dimension shows as a chip under the card title at Comfortable and Standard density: the dimension's name with an icon for its state (a check for done, a hollow circle for open, a dash for not applicable). The state is spelled out for screen readers and in the chip's tooltip ("Security: open"), so it never depends on color. A dimension that is already a track of the card's column shows once, as a track chip.
+
+A dimension **needs attention** when it is still open and its plan's target date has passed. When any dimension on the card needs attention, the row ends with **N need attention** in amber words (no icon: the red flag stays for an overdue card); its tooltip names the dimensions. Dimensions with no target date never count, so a card nobody has planned shows nothing. In this release plans are written only through the API (the card panel's plan editor is #2617), so the count can appear only on a board where target dates have been set that way; until then every card shows chips without it. At Dense density, and in the compact layout, the chips and the count are not drawn; screen readers still read them from text on the card.
+
+### Dimension plans: owner, next action, target date
+
+*Added in 1.3* (#1922). Each dimension on a card can carry an owner (an assignable board member), a next action (up to 200 characters) and an optional target date. The plan is kept apart from the dimension's value: a dimension can be planned before it has a value, and clearing its value keeps the plan. For now, plans are set through the API only (`PUT /api/v1/boards/{board_id}/cards/{id}/dimension-plans/{field_id}/`, see [Cards API](../api/cards.md#dimension-plans-since-13)); the card detail panel has no plan editor yet (tracked in #2617). Every open board updates live when a plan changes. Plan changes do not appear in the card's history, and board export does not carry plans yet.
+

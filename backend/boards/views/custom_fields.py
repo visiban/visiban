@@ -35,8 +35,8 @@ from visiban.request_shape import id_in_db_range, require_json_object
 from ..services.swimlane_team import team_prefetch
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardMembership, Column, CustomFieldDefinition, StageTrack, Swimlane,
-    SwimlaneTrackException,
+    Board, BoardMembership, CardDimensionPlan, Column, CustomFieldDefinition, StageTrack,
+    Swimlane, SwimlaneTrackException,
 )
 from ..permissions import SITE_ADMIN
 from ..serializers import (
@@ -137,6 +137,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             assert_definition_caps(
                 board,
                 show_on_card=serializer.validated_data.get("show_on_card", False),
+                is_dimension=serializer.validated_data.get("is_dimension", False),
             )
             _max = board.custom_field_definitions.aggregate(m=Max("position"))["m"]
             next_position = 0 if _max is None else _max + 1
@@ -180,8 +181,21 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
                 show_on_card=serializer.validated_data.get(
                     "show_on_card", serializer.instance.show_on_card
                 ),
+                is_dimension=serializer.validated_data.get(
+                    "is_dimension", serializer.instance.is_dimension
+                ),
             )
+            was_dimension = serializer.instance.is_dimension
             definition = serializer.save()
+            if was_dimension and not definition.is_dimension:
+                # A plan belongs to a dimension (#1922): "one entry per planned
+                # dimension" is the documented shape of ``dimension_plans``,
+                # and ``set_dimension_plan`` refuses to write one for a field
+                # that is not a dimension. Dropping the rows here, under the
+                # same lock as the flip, keeps the two paths consistent and
+                # stops a stale plan from reappearing if the flag is turned
+                # back on. The cascade on field delete covers the other exit.
+                CardDimensionPlan.objects.filter(field_definition=definition).delete()
             payload = CustomFieldDefinitionSerializer(definition).data
             board_id = definition.board_id
             # record_board_event, not a bare on_commit broadcast: it persists a

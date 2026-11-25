@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import CardItem from '../components/Card/CardItem'
-import type { Card } from '../types'
+import type { Card, CustomFieldDefinition } from '../types'
 import type { CardTrackState } from '../utils/stages'
 
 // #2278: the memo comparator must not swallow track or sub-column changes.
@@ -54,5 +54,34 @@ describe('CardItem memo and stage props (#2278)', () => {
     expect(container.querySelector('[data-track-state="open"] [aria-hidden="true"]:last-child')?.textContent).toBe('Technical')
     rerender(<CardItem card={card} trackStates={[...open]} trackStatesSpelledOut />)
     expect(container.querySelector('[data-track-state="open"] [aria-hidden="true"]:last-child')?.textContent).toBe('Technical: open')
+  })
+})
+
+// #1922: "N need attention" reads dimension_plans; the memo comparator must
+// repaint when another client changes a plan, even if updated_at is unchanged.
+describe('CardItem memo and dimension plans (#1922)', () => {
+  const security = {
+    id: 7, uid: 'cfuid0000007', name: 'Security', field_type: 'dropdown', choices: ['Pending', 'Approved'],
+    position: 0, is_dimension: true, show_on_card: true, choice_resolutions: { Approved: 'satisfied' },
+  } as unknown as CustomFieldDefinition
+  const plan = (target_date: string | null, updated_at: string) =>
+    ({ field_id: 7, owner: null, next_action: '', target_date, updated_at })
+  // One array across rerenders: a new definitions array would itself defeat the memo.
+  const defs = [security]
+
+  it('repaints the attention count when a plan changes with the same updated_at', () => {
+    const before = makeCard({ dimension_plans: [plan('2099-01-01', '2026-11-01T00:00:00Z')] })
+    const { rerender } = render(<CardItem card={before} customFieldDefinitions={defs} />)
+    expect(screen.queryByTestId('card-dimension-attention')).not.toBeInTheDocument()
+    // Same card updated_at and version: only the plan moved into the past.
+    rerender(<CardItem card={makeCard({ dimension_plans: [plan('2000-01-01', '2026-11-02T00:00:00Z')] })} customFieldDefinitions={defs} />)
+    expect(screen.getByTestId('card-dimension-attention')).toHaveTextContent('1 needs attention')
+  })
+
+  it('repaints when a plan is added', () => {
+    const { rerender } = render(<CardItem card={makeCard()} customFieldDefinitions={defs} />)
+    expect(screen.queryByTestId('card-dimension-attention')).not.toBeInTheDocument()
+    rerender(<CardItem card={makeCard({ dimension_plans: [plan('2000-01-01', '2026-11-02T00:00:00Z')] })} customFieldDefinitions={defs} />)
+    expect(screen.getByTestId('card-dimension-attention')).toHaveTextContent('1 needs attention')
   })
 })

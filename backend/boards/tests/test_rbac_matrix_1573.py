@@ -47,6 +47,7 @@ from boards.models import (
     Board,
     BoardInviteLink,
     BoardMembership,
+    CardDimensionPlan,
     Column,
     CustomFieldDefinition,
     CustomFieldSet,
@@ -71,13 +72,14 @@ from boards.tests.rbac_matrix import (
 # card-family models ``_denied_write_counts`` already audits.
 _EXTRA_AUDITED = (
     Board, BoardMembership, BoardInviteLink, Column, CustomFieldDefinition, CustomFieldSet,
-    Label, SavedFilter, Swimlane,
+    Label, SavedFilter, Swimlane, CardDimensionPlan,
 )
 
 # Request bodies for routes whose handler validates a field before it checks the
 # role. Everything else is sent ``{}``.
 BODIES = {
     ("POST", "/api/v1/boards/{board_pk}/cards/{id}/needed/"): {"needed_at_column": None},
+    ("PUT", "/api/v1/boards/{board_pk}/cards/{id}/dimension-plans/{field_pk}/"): {"next_action": "ship it"},
 }
 
 # (method, path template) -> policy name from ``rbac_matrix.POLICIES``,
@@ -98,6 +100,7 @@ EXPECTED = {
     ("POST", "/api/v1/boards/{board_pk}/cards/{id}/attachments/"): "annotate",
     ("DELETE", "/api/v1/boards/{board_pk}/cards/{id}/attachments/{attachment_pk}/"): "skip:no path-parameter fixture yet",
     ("POST", "/api/v1/boards/{board_pk}/cards/{id}/block/"): "mutate",
+    ("PUT", "/api/v1/boards/{board_pk}/cards/{id}/dimension-plans/{field_pk}/"): "mutate",
     ("POST", "/api/v1/boards/{board_pk}/cards/{id}/checklist/"): "annotate",
     ("POST", "/api/v1/boards/{board_pk}/cards/{id}/checklist/reorder/"): "annotate",
     ("DELETE", "/api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/"): "annotate",

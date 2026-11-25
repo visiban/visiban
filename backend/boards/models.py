@@ -2466,6 +2466,10 @@ class CustomFieldDefinition(models.Model):
     MAX_PER_BOARD = 30
     # Card-face real estate. The card is a summary, not a record view.
     MAX_PINNED_PER_BOARD = 2
+    # Dimension fields (#1922) pin from their own pool: they render as state
+    # chips under the title, not as value chips in the metadata row, so they
+    # never take one of the two generic pin slots.
+    MAX_PINNED_DIMENSIONS_PER_BOARD = 3
     # Cap on a stored value, enforced in the serializer. It is not cosmetic: the
     # (field_definition, value) index below is a btree, and PostgreSQL rejects an
     # index tuple larger than ~2704 bytes at INSERT time. 500 characters cannot
@@ -2635,6 +2639,57 @@ class CustomFieldValue(models.Model):
             # building it later on a populated table is not.
             models.Index(
                 fields=["field_definition", "value"], name="cfv_definition_value_idx"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.card_id} / {self.field_definition_id}"
+
+
+class CardDimensionPlan(models.Model):
+    """Who owns a card's dimension and what happens next (#1922).
+
+    One optional row per (card, dimension field). It is separate from
+    :class:`CustomFieldValue` on purpose: clearing a dimension's value deletes
+    its value row ("unset" has one representation), and an owner and a next
+    action are most useful exactly while the dimension is still open and may
+    have no value yet. A row with no owner, no next action and no target date
+    is deleted rather than kept, so "no plan" also has one representation.
+
+    ``target_date`` drives the card face's "N need attention" count: an open
+    dimension past its target date needs attention. A card nobody has planned
+    therefore never reads as needing attention.
+    """
+
+    NEXT_ACTION_MAX_LENGTH = 200
+
+    card = models.ForeignKey(
+        Card, on_delete=models.CASCADE, related_name="dimension_plans"
+    )
+    field_definition = models.ForeignKey(
+        CustomFieldDefinition, on_delete=models.CASCADE, related_name="dimension_plans"
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    next_action = models.CharField(
+        max_length=NEXT_ACTION_MAX_LENGTH, blank=True, default="", db_default="",
+    )
+    target_date = models.DateField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        db_table = "card_dimension_plans"
+        # Built with the new, empty table (CreateModel), so no lock on a
+        # populated table; see docs/development/database-migrations.md.
+        constraints = [
+            models.UniqueConstraint(
+                fields=["card", "field_definition"], name="card_dimension_plan_uniq",
             ),
         ]
 

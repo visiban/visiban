@@ -899,3 +899,33 @@ describe("CardItem — threshold marks (#1122)", () => {
     expect(screen.getByText("10")).toHaveClass("text-fg-secondary");
   });
 });
+
+describe("CardItem — pinned dimension chips (#1922)", () => {
+  const dim = makeDefinition({
+    id: 9, name: "Security", field_type: "dropdown", choices: ["Pending", "Approved"],
+    is_dimension: true, show_on_card: true, choice_resolutions: { Approved: "satisfied" },
+  });
+  const planned = makeCard({
+    custom_field_values: [{ field_definition: 9, value: "Pending" }],
+    dimension_plans: [{ field_id: 9, owner: null, next_action: "", target_date: "2000-01-01", updated_at: "" }],
+  });
+
+  it("draws the chip and the attention count at Comfortable, not as a pinned value chip", () => {
+    render(<CardItem card={planned} customFieldDefinitions={[dim]} />);
+    expect(screen.getByTestId("card-dimension-chips")).toBeInTheDocument();
+    expect(screen.getByText("Security: open")).toHaveClass("sr-only");
+    expect(screen.getByTestId("card-dimension-attention")).toHaveTextContent("1 needs attention");
+    expect(screen.queryByTitle("Security: Pending")).not.toBeInTheDocument();
+  });
+
+  it("keeps the words in sr-only text at Dense", () => {
+    render(<CardItem card={planned} customFieldDefinitions={[dim]} density="dense" />);
+    expect(screen.queryByTestId("card-dimension-chips")).not.toBeInTheDocument();
+    expect(screen.getByTestId("card-dimension-sr")).toHaveTextContent("Security: open. 1 needs attention: Security.");
+  });
+
+  it("does not draw a dimension twice when it is a track of the card's column", () => {
+    render(<CardItem card={planned} customFieldDefinitions={[dim]} trackStates={[{ id: 9, name: "Security", state: "open", fromLane: false }]} />);
+    expect(screen.queryAllByText("Security: open")).toHaveLength(1);
+  });
+});

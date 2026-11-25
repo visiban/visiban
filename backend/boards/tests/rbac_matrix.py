@@ -25,6 +25,7 @@ from boards.models import (
     CardChecklist,
     CardComment,
     Column,
+    CustomFieldDefinition,
     CustomFieldSet,
     Label,
     SavedFilter,
@@ -110,6 +111,7 @@ class MatrixWorld:
         "saved-filters": "saved_filter",
         "invite-links": "invite_link",
         "members": "member_user",
+        "dimension-plans": "dimension_field",
     }
 
     def __init__(self):
@@ -125,6 +127,9 @@ class MatrixWorld:
         self.swimlane = Swimlane.objects.create(board=self.board, name="Lane", position=0)
         self.label = Label.objects.create(board=self.board, name="bug", color="#112233")
         self.field_set = CustomFieldSet.objects.create(board=self.board, name="Set", position=0)
+        self.dimension_field = CustomFieldDefinition.objects.create(
+            board=self.board, name="Track", field_type="text", position=0, is_dimension=True,
+        )
         self.card = Card.objects.create(
             board=self.board, column=self.column, swimlane=self.swimlane,
             title="Fixture card", created_by=self.owner, position=0,
@@ -175,6 +180,7 @@ class MatrixWorld:
             "saved_filter": self.saved_filter.pk,
             "invite_link": self.invite_link.pk,
             "member_user": self.owner.pk,
+            "dimension_field": self.dimension_field.pk,
         }.get(resource)
 
     def resolve_url(self, path):

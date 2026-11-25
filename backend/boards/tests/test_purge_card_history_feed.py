@@ -901,7 +901,7 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
     """
 
     # Nulled by _redact_card with their own rules, not by _CARD_CONTENT_KEYS.
-    CARD_NESTED_CONTENT = {"custom_field_values", "external_ref"}
+    CARD_NESTED_CONTENT = {"custom_field_values", "external_ref", "dimension_plans"}
     CARD_STRUCTURE = {
         "id", "uid", "column", "swimlane", "priority", "assignee", "assignee_id", "assigned_by",
         "labels", "label_ids", "due_date", "weight", "position", "created_by",
@@ -1010,6 +1010,20 @@ class RedactPayloadUnitTests(TestCase):
             ),
             {"card": {"uid": "u", "title": None}, "sibling_positions": siblings},
         )
+
+    def test_dimension_plan_next_action_is_nulled_and_the_rest_kept(self):
+        # #1922: next_action is user text; field, owner and date are structure.
+        plan = {
+            "field_id": 7, "owner": {"id": 2}, "next_action": "secret",
+            "target_date": "2026-11-30", "updated_at": "2026-11-01T00:00:00Z",
+        }
+        card = {"uid": "u", "dimension_plans": [plan, "junk", {"field_id": 8}]}
+        self.assertEqual(
+            redact_card_event_payload("card.updated", card),
+            {"uid": "u", "dimension_plans": [{**plan, "next_action": None}, None, {"field_id": 8}]},
+        )
+        # The input is not mutated.
+        self.assertEqual(plan["next_action"], "secret")
 
     def test_flat_legacy_card_moved_is_redacted_as_a_card(self):
         # The MCP tools' create-at-position card.moved (1.2 pre-releases).

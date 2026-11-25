@@ -84,7 +84,7 @@ import {
 } from "../../utils/cardActions";
 import { ToastRegionSlot } from "../../contexts/ToastContext";
 import { useToast } from "../../contexts/useToast";
-import { cardMovedActivity, cardSubColumnIndex, isGatedStage, notifyLeaveWarning, stageSubColumns, subColumnNeighbors } from "../../utils/stages";
+import { cardMovedActivity, cardSubColumnIndex, isGatedStage, isPinnedValueField, notifyLeaveWarning, stageSubColumns, subColumnNeighbors } from "../../utils/stages";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import OnboardingTour from "./OnboardingTour";
 import LensView from "./Lens/LensView";
@@ -1560,7 +1560,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   const { filters: persistedFilters, setFilters: setPersistedFilters } = usePersistedFilters(
     board.id,
-    board.custom_field_definitions.filter((d) => d.show_on_card).map((d) => d.id),
+    board.custom_field_definitions.filter(isPinnedValueField).map((d) => d.id),
   );
 
   // Parse filter state from URL params on mount; URL params override localStorage when present.
@@ -3414,7 +3414,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 onToggleArchived={() => setShowArchived((v) => !v)}
                 showSubColumns={showSubColumns}
                 onShowSubColumnsChange={board.columns.some((element) => isGatedStage(element)) ? setShowSubColumns : undefined}
-                cardFieldNames={board.custom_field_definitions.filter((d) => d.show_on_card).map((d) => d.name)}
+                cardFieldNames={board.custom_field_definitions.filter(isPinnedValueField).map((d) => d.name)}
                 onChangeCardFields={isAdmin ? openCardFields : undefined}
               />
             </span>

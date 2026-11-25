@@ -852,6 +852,16 @@ export interface CardExternalRef {
   url: string;
 }
 
+/** #1922 — mirrors `CardDimensionPlanSerializer`. */
+export interface CardDimensionPlan {
+  field_id: number;
+  owner: BoardUser | null;
+  next_action: string;
+  /** `YYYY-MM-DD`, or `null` when no target date is set. */
+  target_date: string | null;
+  updated_at: string;
+}
+
 export interface Card {
   id: number;
   uid: string;
@@ -891,6 +901,13 @@ export interface Card {
   archived_at: string | null;
   version: number;
   custom_field_values: CustomFieldValue[];
+  /**
+   * #1922 — per-dimension plan (owner, next action, optional target date), one
+   * entry per planned dimension. Read-only; written through
+   * `PUT .../cards/{id}/dimension-plans/{field_id}/`. Optional because a
+   * payload from a server before 1.3 does not carry it.
+   */
+  dimension_plans?: CardDimensionPlan[];
   /**
    * Number of active (non-archived) cards blocking this one (#449). Drives the
    * card-face blocked indicator. Only the `blocks` relation type counts, and
