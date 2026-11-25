@@ -7,14 +7,17 @@ the help links at an internal docs mirror, which the build-time
 through ``GET /api/v1/auth/site-config/``, where it ends up in an ``href``. So
 the validator is the security boundary: http(s) only, no embedded credentials.
 """
+from django.contrib.admin.sites import site
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from accounts.admin import SiteSettingAdmin
 from accounts.admin_views import SiteSettingSerializer
 from accounts.models import (
     DOCS_BASE_URL_MAX_LENGTH,
+    AdminActionLog,
     SiteSetting,
     User,
     validate_docs_base_url,
@@ -223,3 +226,52 @@ class SiteConfigPayloadTests(TestCase):
         setting.save()
         anonymous, _ = self.bodies()
         self.assertIsNone(anonymous["docs_base_url"])
+
+
+class ActionLogTests(TestCase):
+    """``docs_base_url`` is audited like every other SiteSetting field."""
+
+    def setUp(self):
+        self.admin = make_admin()
+
+    def rows(self):
+        return [
+            (row.action, row.source, row.actor_id, row.metadata)
+            for row in AdminActionLog.objects.order_by("created_at", "id")
+        ]
+
+    def api_patch(self, value):
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        res = client.patch(SETTINGS, {"docs_base_url": value}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def admin_save(self, value):
+        setting = SiteSetting.get()
+        setting.docs_base_url = value
+        model_admin = SiteSettingAdmin(SiteSetting, site)
+        request = RequestFactory().post("/")
+        request.user = self.admin
+        # The version and unchanged-field checks need a bound form and have
+        # their own tests; only the audit diff is under test here.
+        model_admin.save_model(request, setting, form=None, change=False)
+
+    def assert_transitions(self, write, source):
+        write(MIRROR)
+        write(MIRROR)  # unchanged: no row
+        write(None)
+        write(None)  # still unset: no row
+        self.assertEqual(
+            self.rows(),
+            [
+                ("docs_base_url.changed", source, self.admin.pk, {"from": None, "to": MIRROR}),
+                ("docs_base_url.changed", source, self.admin.pk, {"from": MIRROR, "to": None}),
+            ],
+        )
+
+    def test_admin_api_records_set_and_clear_only(self):
+        SiteSetting.get()
+        self.assert_transitions(self.api_patch, AdminActionLog.Source.ADMIN_API)
+
+    def test_django_admin_records_set_and_clear_only(self):
+        self.assert_transitions(self.admin_save, AdminActionLog.Source.DJANGO_ADMIN)

@@ -1001,16 +1001,19 @@ class InviteLinkRedemption(models.Model):
 
 # The SiteSetting fields captured by snapshot_site_setting(), so the three write
 # paths (admin API, management command, Django admin) all diff the same set.
+# A new operator-set SiteSetting field belongs here AND needs its own branch in
+# record_site_setting_changes() below.
 #
 # This tuple is consumed ONLY by snapshot_site_setting(). record_site_setting_changes()
-# below does NOT loop over it — it is a hand-written branch per field, and that
+# does NOT loop over it — it is a hand-written branch per field, and that
 # is deliberate: each field needs its own decision about what is safe to persist
 # into an append-only, queryable table, and about which action name describes it.
-# Do not "simplify" those branches into a loop over this tuple. Today every
-# SiteSetting field is an enum, a boolean or the admin's own notice text; the
-# day one of them holds an SMTP password or an OIDC client secret, a generic
-# loop would copy that value verbatim into the audit log, and the rows are never
-# rewritten.
+# Do not "simplify" those branches into a loop over this tuple. The values
+# persisted today are enums, booleans, small integers, the admin's own notice
+# text and the public docs address (served to anonymous visitors, and refused
+# with embedded credentials by validate_docs_base_url); the day a field holds an
+# SMTP password or an OIDC client secret, a generic loop would copy that value
+# verbatim into the audit log, and the rows are never rewritten.
 AUDITED_SITE_SETTING_FIELDS = (
     "maintenance_mode",
     "maintenance_message",
@@ -1018,6 +1021,7 @@ AUDITED_SITE_SETTING_FIELDS = (
     "uploads_enabled",
     "pat_max_lifetime_days",
     "pat_default_lifetime_days",
+    "docs_base_url",
 )
 
 
@@ -1123,6 +1127,9 @@ class AdminActionLog(models.Model):
         # {"from": days|null, "to": days|null}; null means unset.
         PAT_MAX_LIFETIME_CHANGED = "pat_max_lifetime.changed", "Token maximum lifetime changed"
         PAT_DEFAULT_LIFETIME_CHANGED = "pat_default_lifetime.changed", "Token default expiry changed"
+        # Runtime docs base URL for the in-app help links (#2604). Metadata is
+        # {"from": url|null, "to": url|null}; null means unset.
+        DOCS_BASE_URL_CHANGED = "docs_base_url.changed", "Docs address changed"
         # Outbound email configuration (#306). Host, port and the TLS flags are
         # not secrets and carry from/to so a retrospective can read the actual
         # transition. The username and password deliberately do NOT: SMTP
@@ -1349,6 +1356,15 @@ def record_site_setting_changes(*, before: dict, after, actor, source) -> list:
         pending.append((
             Action.PAT_DEFAULT_LIFETIME_CHANGED,
             {"from": before["pat_default_lifetime_days"], "to": after.pat_default_lifetime_days},
+        ))
+
+    # A public address, so safe to persist. Blank and null both mean unset.
+    docs_before = before["docs_base_url"] or None
+    docs_after = after.docs_base_url or None
+    if docs_before != docs_after:
+        pending.append((
+            Action.DOCS_BASE_URL_CHANGED,
+            {"from": docs_before, "to": docs_after},
         ))
 
     return [

@@ -70,8 +70,8 @@ A `PATCH` that sends `null` for `pat_max_lifetime_days`, `pat_default_lifetime_d
 Out-of-range values (below 1, above 365) return `400` keyed by the field.
 
 Every change to `registration_mode`, `uploads_enabled`, `maintenance_mode`,
-`maintenance_message`, `pat_max_lifetime_days` and `pat_default_lifetime_days` is recorded in the [action log](#action-log). Submitting a field with
-the value it already holds is not a change and records nothing. Changes to `docs_base_url` are not recorded.
+`maintenance_message`, `pat_max_lifetime_days`, `pat_default_lifetime_days` and `docs_base_url` is recorded in the [action log](#action-log). Submitting a field with
+the value it already holds is not a change and records nothing.
 
 ---
 
@@ -143,6 +143,7 @@ and an audit log an admin can edit is not evidence of anything.
 | `uploads_enabled.disabled` | `{}` |
 | `pat_max_lifetime.changed` | `{"from": null, "to": 90}` *(1.3+; days, `null` means unset)* |
 | `pat_default_lifetime.changed` | `{"from": 30, "to": null}` *(1.3+; days, `null` means unset)* |
+| `docs_base_url.changed` | `{"from": null, "to": "https://docs.example.internal/visiban"}` *(1.3+; `null` means unset)* |
 | `email_settings.source_changed` | `{"from": "env", "to": "database"}` |
 | `email_settings.server_changed` | `{"from": "old.example.org:587 (starttls)", "to": "smtp.example.org:465 (ssl)"}` |
 | `email_settings.from_email_changed` | `{"from": "...", "to": "..."}` |

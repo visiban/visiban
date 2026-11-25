@@ -26,6 +26,7 @@ PINNED_ACTIONS = {
     "uploads_enabled.disabled",
     "pat_max_lifetime.changed",
     "pat_default_lifetime.changed",
+    "docs_base_url.changed",
     "email_settings.source_changed",
     "email_settings.server_changed",
     "email_settings.from_email_changed",

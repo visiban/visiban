@@ -93,7 +93,7 @@ Choose where the app's "?" and "Learn more" links open. By default they open `do
 
 - Anyone who can reach the instance can read this address, signed in or not: it is in every help link and in the public [site configuration](../api/authentication.md#site-configuration). So it can't contain a user name or password, and it can't have a `?` or `#` part.
 - Open tabs pick up a change the next time they reload site settings: on a page reload, after signing in, or when someone returns to the tab.
-- Changes to this field are not recorded in [Change history](#change-history).
+- Changes to this field are recorded in [Change history](#change-history) (`docs_base_url.changed`).
 
 See [In-app help links](configuration.md#in-app-help-links) for the build-time alternative.
 
@@ -101,7 +101,7 @@ See [In-app help links](configuration.md#in-app-help-links) for the build-time a
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Changes to the toggles in General (registration mode, file uploads, and maintenance mode) are recorded with the admin who made them and when.
+Changes to the toggles in General (registration mode, file uploads, and maintenance mode) and, *(1.3+)*, to the docs address are recorded with the admin who made them and when.
 
 **Yes, but:** there is no UI for this yet. Read the trail from [`GET /api/v1/admin/action-log/`](../api/admin.md#action-log). See [Who turned it on?](maintenance-mode.md#who-turned-it-on-the-action-log) for the incident-retro walkthrough.
 
