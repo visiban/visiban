@@ -474,7 +474,7 @@ Measured with Playwright and Chromium at 1440×900 on the seeded redesign sample
 
 The 569px is the space below the board chrome in the first lane on a 900px window (the first card's top edge is at 331px). 8 of the 29 cards carry an extra block (+48px at Comfortable and Standard, +26px at Dense). They are left out of the typical figure because they are taller at every tier.
 
-**Method.** Chromium via Playwright at 1440×900, on the seeded redesign sample board (`e2e/fixtures/redesign-board.ts`): 29 cards across 8 leaf columns, every card 158px wide. One run per tier (`comfortable`, `standard`, `dense`) with that density set on the board, so the board value, not the preset or a personal override, decided the face. Each run read `getBoundingClientRect` for every card, and a second pass read the row heights inside a sample card. The script was throwaway: it was a temporary spec, it is not committed, and the numbers are reproducible only by repeating the setup above.
+**Method.** Chromium via Playwright at 1440×900, on the seeded redesign sample board (`e2e/fixtures/redesign-board.ts`): 29 cards across 8 leaf columns, every card 158px wide. One run per tier (`comfortable`, `standard`, `dense`); how each tier was forced was not recorded. Each run read `getBoundingClientRect` for every card, and a second pass read the row heights inside a sample card. The script was throwaway: it was a temporary spec, it is not committed, and the numbers are reproducible only by repeating the setup above.
 
 The persona panel estimated "about 5-6 cards per column" at Comfortable. That was an estimate from Tailwind classes, and the measured figure of about 4 in the table above supersedes it.
 
