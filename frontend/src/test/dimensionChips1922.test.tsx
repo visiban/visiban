@@ -58,7 +58,8 @@ describe("DimensionChips (#1922)", () => {
   it("shows the attention count with words and names the dimensions in its tooltip", () => {
     render(<DimensionChips dimensions={[]} attention={["Security", "Budget"]} spelledOut />);
     const item = screen.getByTestId("card-dimension-attention");
-    expect(item).toHaveTextContent("2 need attention");
+    expect(item).toHaveTextContent("2 need attention: Security, Budget");
+    expect(item).toHaveClass("text-warning-on-tint");
     expect(item).toHaveAttribute("title", "Open dimensions past their target date: Security, Budget");
   });
   it("renders nothing with no pinned dimension and no attention", () => {

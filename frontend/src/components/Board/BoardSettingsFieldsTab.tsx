@@ -100,7 +100,7 @@ function formFromDefinition(d: CustomFieldDefinition): FormState {
 }
 
 const TYPE_LOCKED_MESSAGE = typeLockedMessage("cards");
-const TRACK_PIN_REASON = "Pin a dimension with Pin on its row";
+const DIMENSION_EDITOR_PIN_REASON = "Save, then use Pin on this field's row";
 /** #1922: shown, and tied by aria-describedby, on a dimension's Pin control at the cap. */
 const DIMENSION_PIN_CAP_REASON = `Up to ${DIMENSION_PIN_CAP} dimensions show on the card. Unpin one to pin another.`;
 
@@ -160,10 +160,8 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const dragSensors = useDragSensors({ keyboard: true, sortable: true });
   const fieldDrag = useSortableFieldDrag(fields);
 
-  // The server's cap (assert_definition_caps) counts every show_on_card field, tracks included, and an API-created
-  // track can be pinned. A track never renders pinned (CardItem) and cannot be newly pinned here, but one that is
-  // already pinned still counts and gets an Unpin control so the user can clear it.
-  // #1922: dimensions pin from their own pool (the server counts each kind separately).
+  // #1922: dimensions (tracks included) pin from their own pool of DIMENSION_PIN_CAP, counted separately by the
+  // server (assert_definition_caps), and render as state chips (CardItem), never as pinned value chips.
   const pinnedCount = fields.filter((f) => f.show_on_card && !isDimensionField(f)).length;
   const dimensionPinnedCount = fields.filter((f) => f.show_on_card && isDimensionField(f)).length;
 
@@ -528,6 +526,10 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
         <span className={`text-xs ${fields.length >= FIELD_CAP - 2 ? "text-warning" : "text-fg-muted"}`}>
           {fields.length} of {FIELD_CAP} · {pinnedCount} of {PIN_CAP} pinned
         </span>
+        <p className="text-xs text-fg-secondary">
+          {dimensionPinnedCount} of {DIMENSION_PIN_CAP} dimensions pinned to the card.
+          {dimensionPinnedCount >= DIMENSION_PIN_CAP && <span id="dimension-pin-cap-reason"> {DIMENSION_PIN_CAP_REASON}</span>}
+        </p>
       </div>
 
       {swapError && <p role="alert" className="text-xs text-danger mb-2">{swapError}</p>}
@@ -762,16 +764,13 @@ function FieldRow({ def, setName, editing, dragDisabled, onEdit, onDelete, onPin
         <FieldSetChip name={setName} />
         {isDimensionField(def) ? (
           <span className="flex items-center gap-2 shrink-0">
-            {!def.show_on_card && dimensionAtCap && (
-              <span id={`dimension-pin-reason-${def.id}`} className="text-xs text-fg-muted whitespace-nowrap">{DIMENSION_PIN_CAP_REASON}</span>
-            )}
             <button
               type="button"
               onClick={dimensionAtCap && !def.show_on_card ? undefined : onPin}
               aria-disabled={dimensionAtCap && !def.show_on_card ? true : undefined}
-              aria-describedby={dimensionAtCap && !def.show_on_card ? `dimension-pin-reason-${def.id}` : undefined}
+              aria-describedby={dimensionAtCap && !def.show_on_card ? "dimension-pin-cap-reason" : undefined}
               aria-label={def.show_on_card ? `Pinned, unpin ${def.name} from card face` : `Pin ${def.name} to card face`}
-              className={`text-xs rounded px-2 py-0.5 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+              className={`text-xs rounded px-2 py-0.5 max-sm:min-h-11 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 def.show_on_card
                   ? "text-info-on-tint bg-primary-emphasis/10 border border-primary-emphasis/25 font-medium"
                   : dimensionAtCap ? "text-fg-muted cursor-not-allowed" : "text-fg-muted hover:text-fg-secondary"
@@ -1015,7 +1014,7 @@ function FieldEditPanel({
       <div className="flex items-center gap-2 mb-1 pt-2 border-t border-line">
         <Toggle checked={form.show_on_card} ariaDisabled={trackCannotPin} onChange={(v) => setForm((f) => ({ ...f, show_on_card: v }))} aria-label="Pin to card face" aria-describedby={trackCannotPin ? "track-pin-reason-edit" : undefined} />
         <span className="text-xs text-fg-secondary">Pin to card face</span>
-        {trackCannotPin && <span id="track-pin-reason-edit" className="text-xs text-fg-muted ml-1">{TRACK_PIN_REASON}</span>}
+        {trackCannotPin && <span id="track-pin-reason-edit" className="text-xs text-fg-muted ml-1">{DIMENSION_EDITOR_PIN_REASON}</span>}
         {atPinCap && !form.is_dimension && <span className="text-xs text-fg-muted ml-1">2 of 2 pinned — you'll pick a swap.</span>}
       </div>
 

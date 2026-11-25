@@ -12,7 +12,7 @@ import {
   blockedElapsedMs, blockedIndicatorLabel, formatBlockedDuration, isCardBlocked, isManuallyBlocked,
 } from "../../utils/blockedState";
 import Avatar from "../Common/Avatar";
-import { browserTimezone, formatDueDate, todayInTimezone } from "../../utils/date";
+import { formatDueDate, todayInTimezone } from "../../utils/date";
 import { agingReference, agingTint, formatAgingTooltip, staleBadgeToneClass, urgencyBadgeToneClass } from "../../utils/agingTint";
 import AgingCue from "./AgingCue";
 import UrgencyGlyph from "./UrgencyGlyph";
@@ -254,17 +254,17 @@ function sameGateProgress(a: Props["gateProgress"], b: Props["gateProgress"]): b
 const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock"]);
 
 const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", currentUserId, userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions: allFieldDefinitions = EMPTY_DEFS, boardId, canEdit = false, dimmed = false, onExpandChange, onCardUpdated, onOpenMenu, contextTarget = false, trackStates, trackStatesSpelledOut = false, gateProgress = null }: Props) {
-  // Dimension fields (#1921) are tracks, shown as chips; they never pin to the card face.
+  // Dimension fields (#1921) never render as pinned value chips; pinned ones are state chips (#1922, DimensionChips).
   const customFieldDefinitions = useMemo(() => allFieldDefinitions.filter((d) => !isDimensionField(d)), [allFieldDefinitions]);
   const pinnedDimensions = useMemo(() => pinnedDimensionStates(card, allFieldDefinitions, trackStates), [card, allFieldDefinitions, trackStates]);
   const dimensionAttention = useMemo(
-    () => dimensionsNeedingAttention(card, allFieldDefinitions, todayInTimezone(userTimezone || browserTimezone())),
-    [card, allFieldDefinitions, userTimezone],
+    () => dimensionsNeedingAttention(card, allFieldDefinitions, todayInTimezone(instanceTimezone())),
+    [card, allFieldDefinitions],
   );
   const dimensionChipsVisible = !compact && density !== "dense";
   const dimensionSrText = [
     ...pinnedDimensions.map((d) => `${d.name}: ${trackStateLabel(d.state)}.`),
-    dimensionAttention.length > 0 ? `${attentionText(dimensionAttention.length)}.` : "",
+    dimensionAttention.length > 0 ? `${attentionText(dimensionAttention.length)}: ${dimensionAttention.join(", ")}.` : "",
   ].filter(Boolean).join(" ");
   // Per-density visibility booleans (#961, #2272). The decision tree:
   //   comfortable → status line, one label, checklist, assignee

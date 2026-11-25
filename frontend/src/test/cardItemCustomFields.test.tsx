@@ -921,7 +921,7 @@ describe("CardItem — pinned dimension chips (#1922)", () => {
   it("keeps the words in sr-only text at Dense", () => {
     render(<CardItem card={planned} customFieldDefinitions={[dim]} density="dense" />);
     expect(screen.queryByTestId("card-dimension-chips")).not.toBeInTheDocument();
-    expect(screen.getByTestId("card-dimension-sr")).toHaveTextContent("Security: open. 1 needs attention.");
+    expect(screen.getByTestId("card-dimension-sr")).toHaveTextContent("Security: open. 1 needs attention: Security.");
   });
 
   it("does not draw a dimension twice when it is a track of the card's column", () => {

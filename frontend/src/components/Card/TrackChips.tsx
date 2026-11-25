@@ -1,7 +1,6 @@
 import type { CardTrackState } from "../../utils/stages";
 import { trackStateLabel } from "../../utils/stages";
-import { attentionText } from "../../utils/dimensionChips";
-import UrgencyGlyph from "./UrgencyGlyph";
+import { attentionText, trackToneClass } from "../../utils/dimensionChips";
 
 /**
  * Track chips (#1920, spec § Sub-columns and tracks): one chip per track on
@@ -22,11 +21,7 @@ export default function TrackChips({ tracks, spelledOut = false }: { tracks: Car
       {tracks.map((t) => {
         // A lane-derived state says so in words, not only in a tooltip (#2278 N1).
         const words = `${t.name}: ${trackStateLabel(t.state)}${t.fromLane ? " for this swimlane" : ""}`;
-        const tone = t.state === "done"
-          ? "bg-success/20 text-success-on-tint border-transparent"
-          : t.state === "open"
-            ? "bg-transparent text-fg-secondary border-line-boundary"
-            : "bg-surface-hover text-fg-secondary border-transparent";
+        const tone = trackToneClass(t.state);
         return (
           <li
             key={t.id}
@@ -82,21 +77,18 @@ export function DimensionChips({ dimensions, attention, spelledOut = false }: { 
     <ul data-testid="card-dimension-chips" className="mt-1 flex flex-wrap items-center gap-1">
       {dimensions.map((t) => {
         const words = `${t.name}: ${trackStateLabel(t.state)}`;
-        const tone = t.state === "done"
-          ? "bg-success/20 text-success-on-tint border-transparent"
-          : t.state === "open"
-            ? "bg-transparent text-fg-secondary border-line-boundary"
-            : "bg-surface-hover text-fg-secondary border-transparent";
+        const tone = trackToneClass(t.state);
         return (
           <li
             key={t.id}
             data-dimension-state={t.state}
             title={`${words}. Set in the card's Custom fields.`}
-            className={`inline-flex min-w-0 max-w-[10rem] items-center gap-1 overflow-hidden rounded border px-1.5 py-px text-xs font-semibold leading-4 ${tone}`}
+            className={`inline-flex min-w-0 ${spelledOut ? "" : "max-w-[10rem] "}items-center gap-1 overflow-hidden rounded border px-1.5 py-px text-xs font-semibold leading-4 ${tone}`}
           >
             <TrackIcon state={t.state} />
             <span className="sr-only">{words}</span>
-            <span aria-hidden="true" className="truncate">{spelledOut ? words : t.name}</span>
+            {/* Phone width spells the state out, so it is never cut. */}
+            <span aria-hidden="true" className={spelledOut ? "min-w-0" : "min-w-0 truncate"}>{spelledOut ? words : t.name}</span>
           </li>
         );
       })}
@@ -104,10 +96,11 @@ export function DimensionChips({ dimensions, attention, spelledOut = false }: { 
         <li
           data-testid="card-dimension-attention"
           title={`Open dimensions past their target date: ${attention.join(", ")}`}
-          className="inline-flex items-center gap-1 text-xs font-semibold leading-4 text-danger-on-tint"
+          className="inline-flex items-center text-xs font-semibold leading-4 text-warning-on-tint"
         >
-          <UrgencyGlyph kind="overdue" />
-          <span>{count}</span>
+          {/* Words carry the meaning; amber, not the overdue red or flag (red stays for an overdue card). */}
+          <span aria-hidden="true">{count}</span>
+          <span className="sr-only">{`${count}: ${attention.join(", ")}`}</span>
         </li>
       )}
     </ul>

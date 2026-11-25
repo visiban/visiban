@@ -1271,8 +1271,9 @@ describe("BoardSettingsFieldsTab — track (dimension) fields (#2278)", () => {
     render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />);
     const pin = screen.getByRole("button", { name: "Pin Tech to card face" });
     expect(pin).toHaveAttribute("aria-disabled", "true");
-    expect(pin).toHaveAttribute("aria-describedby", "dimension-pin-reason-10");
-    expect(document.getElementById("dimension-pin-reason-10")).toHaveTextContent("Up to 3 dimensions show on the card. Unpin one to pin another.");
+    expect(pin).toHaveAttribute("aria-describedby", "dimension-pin-cap-reason");
+    expect(document.getElementById("dimension-pin-cap-reason")).toHaveTextContent("Up to 3 dimensions show on the card. Unpin one to pin another.");
+    expect(screen.getByText(/3 of 3 dimensions pinned to the card/)).toBeInTheDocument();
     await user.click(pin);
     expect(boardsApi.updateCustomFieldDefinition).not.toHaveBeenCalled();
   });
@@ -1284,7 +1285,7 @@ describe("BoardSettingsFieldsTab — track (dimension) fields (#2278)", () => {
     const pin = screen.getByRole("switch", { name: "Pin to card face" });
     expect(pin).toHaveAttribute("aria-disabled", "true");
     expect(pin).toHaveAttribute("aria-describedby", "track-pin-reason-edit");
-    expect(document.getElementById("track-pin-reason-edit")).toHaveTextContent("Pin a dimension with Pin on its row");
+    expect(document.getElementById("track-pin-reason-edit")).toHaveTextContent("Save, then use Pin on this field's row");
   });
 
   it("an already-pinned track's editor switch is live so the pin can be cleared", async () => {

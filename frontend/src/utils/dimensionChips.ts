@@ -56,3 +56,12 @@ export function attentionText(count: number): string {
   if (count <= 0) return "";
   return count === 1 ? "1 needs attention" : `${count} need attention`;
 }
+
+/** Fill and border per state, shared by track and dimension chips so they never drift. */
+export function trackToneClass(state: TrackState): string {
+  return state === "done"
+    ? "bg-success/20 text-success-on-tint border-transparent"
+    : state === "open"
+      ? "bg-transparent text-fg-secondary border-line-boundary"
+      : "bg-surface-hover text-fg-secondary border-transparent";
+}
