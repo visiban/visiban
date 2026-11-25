@@ -142,6 +142,7 @@ nav:
     - Backend Dependency Lock: development/dependency-lock.md
     - CI Gate Self-Tests: development/ci-gates.md
     - Serializer ↔ TypeScript Parity: development/serializer-ts-parity.md
+    - Help Link Anchor Check: development/help-link-anchors.md
     - API Compatibility Gate: development/api-compat-gate.md
     - RBAC & Broadcast Gates: development/rbac-and-broadcast-gates.md
     - Suppression Markers: development/suppressions.md
