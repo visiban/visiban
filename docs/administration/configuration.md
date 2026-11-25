@@ -234,7 +234,7 @@ The Helm defaults fit a small team, not a large board with long history. Opening
 
 **Why it matters:** The chart sets `backend.resources` to `requests: 100m / 256Mi` and `limits: 500m / 512Mi`. One Analytics overview on a 12k-card board peaked at 551 MB of process memory, and on a 2.4k-card board with three years of history it peaked at 1.1 GB. Idle, the backend uses about 115 MB.
 
-**The headline:** A 512 MB backend limit is too small for a board with about three years of history and 12k active cards. On such a board, one cumulative-flow day drill-down (`?date=`) peaked at 678-720 MB of process memory. Until that is fixed, give the backend more than 512 MB; the tiers below suggest `2Gi` for a board of that size and age.
+**The headline:** A 512 MB backend limit is too small for a board with about three years of history and 12k active cards. On such a board, one cumulative-flow day drill-down (`?date=`) peaked at 678-720 MB of process memory. Until that is fixed ([#2559](https://gitlab.com/visiban/visiban/-/issues/2559)), give the backend more than 512 MB; the tiers below suggest `2Gi` for a board of that size and age.
 
 **Measured since:** The 1.3 beta-exit stress run ([#2588](https://gitlab.com/visiban/visiban/-/issues/2588), [#2595](https://gitlab.com/visiban/visiban/-/issues/2595)) measured the current code (results reported 2026-11-25):
 
@@ -280,7 +280,7 @@ backend:
       memory: 2Gi
 ```
 
-The latencies above are from a laptop on a full core. The default `cpu: 500m` limit roughly doubles the wall time of a heavy request. Raise `limits.cpu` if Analytics on a large board feels slow. If you enable `backendAutoscaling`, keep `requests.cpu` set, because the autoscaler needs it.
+The 2026-11-20 latencies above are from a laptop on a full core. The default `cpu: 500m` limit roughly doubles the wall time of a heavy request. Raise `limits.cpu` if Analytics on a large board feels slow. If you enable `backendAutoscaling`, keep `requests.cpu` set, because the autoscaler needs it.
 
 **Yes, but:** `daphne` keeps its high-water mark. After a burst of Analytics requests the process does not give the memory back: it sat at 703 MB before the next burst after a 1,128 MB peak, and at 1,407 MB after a 1,956 MB peak. A pod that survived one heavy open starts the next one closer to its limit. This is CPython allocator behavior (arenas and fragmentation), not a leak in Visiban code, and it was not proven to grow without bound. Leave headroom above the peak, not just above idle.
 
@@ -462,8 +462,12 @@ there is effectively the process-wide one.
 
 One Analytics request's memory grows with the movement rows it holds, so the
 size limit is what bounds it. Rows a pass reads one card at a time and drops
-cost CPU time, not memory; they are bounded by the fixed ceiling of four times
-`ANALYTICS_MAX_MOVEMENTS`, so even a runaway pass ends. Rows are counted as
+are not held, and are meant to cost CPU time rather than memory; they are
+bounded by the fixed ceiling of four times `ANALYTICS_MAX_MOVEMENTS`, so even a
+runaway pass ends. Do not read that as a guarantee that such a pass uses little
+memory: on a board with years of history, the cumulative-flow `?date=`
+drill-down, a streamed pass, peaked far above the estimate below
+([#2559](https://gitlab.com/visiban/visiban/-/issues/2559)). Rows are counted as
 they are read: a request over a limit is refused once it has read up to that
 limit, and holds its slot until then. Size a pod so that:
 

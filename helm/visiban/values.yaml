@@ -152,6 +152,8 @@ backend:
     # switch. Size memory as: baseline + analyticsMaxConcurrent x one request's
     # peak at analyticsMaxMovements < resources.limits.memory
     # (docs/administration/configuration.md#sizing-analytics-for-your-pod).
+    # That formula can understate a board with years of history: the streamed
+    # cumulative-flow ?date= drill-down peaked at 678-720 MB there (#2559).
     analyticsMaxConcurrent: 1
     analyticsMaxMovements: 150000
     attachmentUploadRate: ""
