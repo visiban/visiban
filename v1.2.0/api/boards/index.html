@@ -9712,8 +9712,15 @@ same rule as checklist-item reorder, #1292.)</em></p>
 <h2 id="custom-fields-since-12">Custom fields (since 1.2)<a class="headerlink" href="#custom-fields-since-12" title="Permanent link">&para;</a></h2>
 <p>Typed, per-board metadata fields that cards can carry: a label is an untyped tag, a custom field is a named key with a type. A board's definitions also come back on <code>GET /api/v1/boards/{id}/full/</code> as <code>custom_field_definitions</code>, so a client has the schema on board load. Card <strong>values</strong> are read and written through the <a href="../cards/">card endpoints</a>, not here.</p>
 <p>Definition objects include a <code>uid</code> field — stable across renames, read-only.</p>
-<p><strong>Limits:</strong> at most <strong>30</strong> definitions per board, and at most <strong>2</strong> with
-<code>show_on_card: true</code>.</p>
+<p><strong>Limits:</strong> at most <strong>30</strong> definitions per board. Pins come from two separate pools
+<em>(changed in 1.3, #1922)</em>: at most <strong>2</strong> non-dimension fields with <code>show_on_card: true</code>,
+and at most <strong>3</strong> <a href="../../features/custom-fields/#dimension-fields-13">dimension</a> fields (<code>is_dimension: true</code>) with
+<code>show_on_card: true</code>. A pinned dimension never takes one of the 2 generic slots. A write
+past either cap is a <code>400</code> on <code>show_on_card</code>: <code>"At most 2 custom fields can be shown on the
+card face."</code> for the generic pool, <code>"Up to 3 dimensions show on the card. Unpin one to pin
+another."</code> for the dimension pool. Turning <code>is_dimension</code> on for a pinned field moves it
+into the dimension pool and is refused the same way when that pool is full. A JSON board
+import counts the two pools the same way.</p>
 <table>
 <thead>
 <tr>
@@ -9764,7 +9771,7 @@ same rule as checklist-item reorder, #1292.)</em></p>
 <td><code>show_on_card</code></td>
 <td>boolean</td>
 <td>no</td>
-<td>Pin the value to the card face. Max 2 per board</td>
+<td>Pin the field to the card face. Max 2 non-dimension fields per board, plus a separate max of 3 dimensions (<em>1.3+</em>, #1922); see <strong>Limits</strong> above</td>
 </tr>
 <tr>
 <td><code>is_required</code></td>
@@ -10169,7 +10176,8 @@ errors below.</p>
   non-number type supplies a <a href="#number-formatting">number format</a> option, a number format
   option is out of range, <code>choice_colors</code> is malformed or set on a type without choices
   (see <a href="#choice-colors">Choice colors</a>), the board already has 30 definitions, or a
-  third field is pinned with <code>show_on_card</code>.</p>
+  pin with <code>show_on_card</code> would exceed its pool (a third non-dimension field or a
+  fourth dimension; see <strong>Limits</strong> under <a href="#custom-fields-since-12">Custom fields</a>).</p>
 <h3 id="patch-apiv1boardsidcustom-fieldsfield_id-put-apiv1boardsidcustom-fieldsfield_id"><code>PATCH /api/v1/boards/{id}/custom-fields/{field_id}/</code> / <code>PUT /api/v1/boards/{id}/custom-fields/{field_id}/</code><a class="headerlink" href="#patch-apiv1boardsidcustom-fieldsfield_id-put-apiv1boardsidcustom-fieldsfield_id" title="Permanent link">&para;</a></h3>
 <p>Update a definition. Requires board admin. <em>(1.3+, #2009)</em> A caller below admin gets <code>403</code> before the body is validated, so an invalid body no longer answers <code>400</code> with the field errors for them; a caller with no access to the board still gets <code>404</code>.</p>
 <p><strong>Writable fields:</strong> <code>name</code>, <code>field_type</code>, <code>choices</code>, <code>show_on_card</code>, <code>is_required</code>, <code>help_text</code>, <code>number_prefix</code>, <code>number_suffix</code>, <code>number_decimals</code>, <code>choice_colors</code></p>

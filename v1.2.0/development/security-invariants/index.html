@@ -5395,6 +5395,11 @@ the status filter and the uniform response, not scope.</p>
 <td>Same <code>_get_assignable_member_ids</code> pool as the card assignee, and fails closed (empty queryset) when the serializer has no board in context. Pinned by <code>boards/tests/test_checklist_assign_due_445.py</code></td>
 </tr>
 <tr>
+<td>Dimension plan owner (REST)</td>
+<td><code>boards/serializers.py</code> <code>DimensionPlanWriteSerializer.__init__</code> (<code>owner_id</code> queryset), <code>boards/views/cards.py</code> <code>CardViewSet.dimension_plan</code></td>
+<td>Same <code>_get_assignable_member_ids</code> pool as the card assignee, further filtered to <code>is_active=True</code>, and fails closed (<code>none()</code> queryset) when the serializer has no board in context (#1075). A stored owner is kept when the user later loses assignability, as an assignee is; unlike card and checklist assignees, plan owners are not cleared by <code>clear_viewer_assignees</code> on a viewer demotion (the command reads <code>Card.assignee</code> and <code>CardChecklist.assignee</code> only), so a demoted owner stays until the plan is rewritten. Pinned by <code>boards/tests/test_dimension_plans_1922.py</code> (<code>DimensionPlanWriteTests</code>)</td>
+</tr>
+<tr>
 <td>Card assignee (MCP)</td>
 <td><code>mcp_server/tools.py</code> <code>create_card</code>, <code>update_card</code></td>
 <td>One lookup shared by both tools: username matched case-insensitively within <code>_get_assignable_member_ids</code>; anything outside it gets the uniform assignee error. Pinned through <code>update_card</code> by <code>mcp_server/tests/test_mcp_crud.py</code></td>
