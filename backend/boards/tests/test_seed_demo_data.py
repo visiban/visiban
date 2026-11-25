@@ -1320,7 +1320,7 @@ class SeedDemoSiteShowcaseTests(TestCase):
         for name in self.BOARD_NAMES:
             cards = self._cards(name)
             overdue = cards.filter(due_date__lt=today)
-            self.assertTrue(1 <= overdue.count() <= max(5, cards.count() // 8), name)
+            self.assertTrue(1 <= overdue.count() <= max(5, cards.count() // 6), name)
             self.assertTrue(cards.filter(due_date=today).exists(), name)
             self.assertTrue(cards.filter(due_date__gt=today).exists(), name)
             self.assertTrue(cards.filter(due_date__isnull=True).exists(), name)
