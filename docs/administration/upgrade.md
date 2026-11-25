@@ -376,6 +376,13 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! note "The board CSV export is now streamed: check a custom reverse proxy"
+    Since 1.3 the board CSV export is sent a chunk of cards at a time (#2585). The file is unchanged, and the JSON export is not streamed.
+
+    - **Custom reverse proxy.** It must speak HTTP/1.1 to the backend, or a download cut off by a server restart can look complete. nginx older than 1.29.7 needs `proxy_http_version 1.1`; the bundled nginx needs no change.
+    - **No `Content-Length`.** Scripts and monitors that read the header from this response no longer find it.
+    - **A failure partway is not a `500`.** The `200` is already sent, so the download stays unfinished until it times out and fails. Treat an unfinished download as incomplete, and look for `CSV export of board <id> failed after the response started` in the server log. See [Export and import](../api/boards.md#export-import).
+
 !!! note "Turn on the assignee override only after the rollout completes"
     Since 1.3 a board admin can [let a card's assignee move it past a Block limit](../features/board.md#letting-a-cards-assignee-move-it-anyway-since-13) (off by default). It is refused when the assignee assigned the card to themselves, which the server knows from who set the assignee. Only 1.3 records that.
 
