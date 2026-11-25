@@ -29,7 +29,7 @@ from rest_framework.test import APIClient
 from accounts.models import User, get_maintenance_state
 from boards.models import (
     Board, BoardMembership, Card, CardAttachment, CardChecklist, CardParentLink,
-    CardMovement, Column, CustomFieldDefinition, Label, Swimlane,
+    CardMovement, Column, CustomFieldDefinition, CustomFieldSet, Label, Swimlane,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
 )
 
@@ -204,7 +204,7 @@ class BoardFullQueryCountTests(TestCase):
     # second time anywhere in this serialization. The budget here cannot
     # detect a regression of that prefetch being removed; BoardForUserPrefetchTests
     # below asserts the prefetch cache directly for that reason.
-    BUDGET = 22  # +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    BUDGET = 23  # +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u2", password="x")
@@ -261,6 +261,27 @@ class BoardFullQueryCountTests(TestCase):
             f"full/ used {len(ctx)} queries — budget is {self.BUDGET}.",
         )
 
+    def test_full_query_count_is_flat_in_the_field_set_count(self):
+        """#2570: sets, their fields and lanes each ride one prefetch."""
+        def add_set(n):
+            fs = CustomFieldSet.objects.create(board=self.board, name=f"set{n}", position=n, scope="swimlanes")
+            fs.swimlanes.set(self.lanes[:2])
+            for i in range(2):
+                CustomFieldDefinition.objects.create(
+                    board=self.board, name=f"s{n}f{i}", field_type="text", position=10 + n * 2 + i, field_set=fs,
+                )
+
+        add_set(0)
+        with CaptureQueriesContext(connection) as one:
+            self.assertEqual(self._get_full().status_code, 200)
+        for n in range(1, 4):
+            add_set(n)
+        with CaptureQueriesContext(connection) as many:
+            r = self._get_full()
+        self.assertEqual(len(r.data["custom_field_sets"]), 4)
+        self.assertEqual(len(many), len(one))
+        self.assertLessEqual(len(many), self.BUDGET + 2)
+
     def test_full_query_count_is_flat_in_the_swimlane_field_count(self):
         """#2438: the cap went from 15 to 30; every lane x field value still
         rides one prefetch, so the count must not move with the field count."""
@@ -293,7 +314,7 @@ class BoardFullQueryCountTests(TestCase):
     # measured count, not 2x: the regression it guards is one constant extra
     # query, get_members() re-reading the all-content user list that
     # get_cards() already loaded.
-    SITE_ADMIN_READER_QUERIES = 22  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    SITE_ADMIN_READER_QUERIES = 23  # +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def test_full_site_admin_reader_reuses_all_content_list(self):
         reader = User.objects.create_user(
@@ -481,7 +502,7 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
     # 21 measured with one board-level + one swimlane-level custom field
     # definition in the fixture (#1334); 23 is generous headroom for
     # middleware and the group-inherited membership walk.
-    BUDGET = 25  # +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    BUDGET = 26  # +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         from groups.models import Group, GroupMembership
@@ -827,7 +848,7 @@ class ParkedPrefetchQueryCountTests(TestCase):
     query, raise it deliberately with a note.
     """
 
-    FULL_QUERIES = 22  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    FULL_QUERIES = 23  # +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         from boards.models import CustomFieldDefinition
@@ -1212,7 +1233,7 @@ class IsStaleAnnotationQueryCountTests(TestCase):
     the full/ query count does not grow when is_stale-affecting cards are added.
     """
 
-    BUDGET = 22  # +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    BUDGET = 23  # +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u_stale", password="x")

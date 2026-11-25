@@ -334,6 +334,56 @@ Swimlane field values are set in the **Edit Swimlane modal**, which gains a **Fi
 
 ---
 
+## Field sets (1.3)
+
+A **field set** groups some of a board's card fields into a named block on the card detail,
+so a board with many fields (a qualification framework such as MEDDIC, say) shows which group
+is complete at a glance. Sets only change how fields are displayed: they hold no values, do not
+count toward the 30-field limit, and do not block a card from moving.
+
+### Managing field sets (Board Settings → Field sets)
+
+Board admins create, rename, reorder and delete sets; other roles see the list read-only. Each
+set has a **name**, an optional **description** (up to 120 characters, shown under the name on
+the card), a **default size** (Collapsed, Summary or All fields), **Shows on** (every card, or
+only cards in chosen swimlanes), and its **fields**. A field is in at most one set; adding a
+field that is in another set moves it. Pick fields in the **+ Add field** menu (listed as **Not in
+a set** or **In another set**) and click **Done**; choose swimlanes in the **Swimlanes** menu. Drag
+the handle to reorder sets, or the fields inside a set (on a phone, use the arrow buttons). Set order
+saves at once; field order saves with **Save field set**, and is the board's field order, so the
+**Card fields** tab shows the same fields in their new order. A board
+can have up to **10** sets. Leaving the section or closing Board settings with unsaved changes asks
+before discarding them. The **Card fields** tab shows each field's set. Admins can also open this
+section from a card with **Manage field sets**.
+
+**Deleting a set** moves its fields to **Other fields**. No field and no value is deleted.
+
+**Copy from another board** opens **Copy a field set**, which copies a set from any board you can read. Each of its fields
+either reuses this board's field of the same name and type (when that field is in no set) or is
+created, named "{name} (copied)" if the name is taken. The copy has no link to the source:
+later changes on either board do not carry over. Values are never copied.
+
+### Field sets on the card
+
+When a board has at least one set, the card detail's Custom fields section becomes **Field
+sets**: one block per set in order, with fields in no set under **Other fields** last. A board
+with no sets looks exactly as before. Each block shows its progress (filled of total; checkbox
+and dimension fields are not counted, so "missing" never means "No") and a size control:
+
+- **Collapsed** shows the header only.
+- **Summary** shows one line of chips, missing fields first, then "+N" for the rest.
+- **All fields** shows every field.
+- **Maximize** fills the card sheet with one set. Previous / Next step through the sets;
+  **Restore** or Escape returns you to where you were.
+
+Your sizes are saved per card in this browser and are yours alone. **Collapse all** and
+**Reset** (back to each set's default) act on the current card. A set limited to other
+swimlanes is hidden, unless one of its fields holds a value on this card: then it shows
+collapsed with "Not used in {swimlane}", so a stored value is never hidden.
+
+Field sets travel with JSON export and import. See [Field sets](../api/boards.md#field-sets-since-13)
+for the API.
+
 ## API and real-time events
 
 This page covers the UI. For the wire format:
@@ -341,6 +391,7 @@ This page covers the UI. For the wire format:
 - Field definition CRUD and reordering — [`/api/v1/boards/{id}/custom-fields/`](../api/boards.md#custom-fields-since-12)
 - Card values — the `custom_field_values` field on the card payload — [Cards API](../api/cards.md)
 - Real-time updates — `custom_field.created`, `custom_field.updated`, `custom_field.deleted`, and `custom_field.reordered` WebSocket events — [WebSockets](../api/websockets.md)
+- Field sets — [`/api/v1/boards/{id}/field-sets/`](../api/boards.md#field-sets-since-13) and the `field_set.*` events — [WebSockets](../api/websockets.md#field-set-events-since-13)
 - Swimlane field definition CRUD and reordering — [`/api/v1/boards/{id}/swimlane-custom-fields/`](../api/boards.md#swimlane-custom-fields-since-12)
 - Swimlane values — the `custom_field_values` field on the swimlane payload — [Boards API](../api/boards.md#swimlanes)
 - Swimlane real-time updates — schema changes arrive as `swimlane_custom_field.created`, `swimlane_custom_field.updated`, `swimlane_custom_field.deleted`, and `swimlane_custom_field.reordered`; value changes arrive on the existing `swimlane.updated` event — [WebSockets](../api/websockets.md#swimlane-field-events-since-12)

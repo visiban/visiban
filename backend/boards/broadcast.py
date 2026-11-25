@@ -63,6 +63,11 @@ EVT_CUSTOM_FIELD_CREATED = "custom_field.created"
 EVT_CUSTOM_FIELD_UPDATED = "custom_field.updated"
 EVT_CUSTOM_FIELD_DELETED = "custom_field.deleted"
 EVT_CUSTOM_FIELD_REORDERED = "custom_field.reordered"
+# Field sets (#2570): display grouping of the card fields above.
+EVT_FIELD_SET_CREATED = "field_set.created"
+EVT_FIELD_SET_UPDATED = "field_set.updated"
+EVT_FIELD_SET_DELETED = "field_set.deleted"
+EVT_FIELD_SET_REORDERED = "field_set.reordered"
 
 EVT_SWIMLANE_CUSTOM_FIELD_CREATED = "swimlane_custom_field.created"
 EVT_SWIMLANE_CUSTOM_FIELD_UPDATED = "swimlane_custom_field.updated"
@@ -165,6 +170,10 @@ BOARD_CHANNEL_EVENTS: frozenset[str] = frozenset({
     EVT_CUSTOM_FIELD_UPDATED,
     EVT_CUSTOM_FIELD_DELETED,
     EVT_CUSTOM_FIELD_REORDERED,
+    EVT_FIELD_SET_CREATED,
+    EVT_FIELD_SET_UPDATED,
+    EVT_FIELD_SET_DELETED,
+    EVT_FIELD_SET_REORDERED,
     EVT_SWIMLANE_CUSTOM_FIELD_CREATED,
     EVT_SWIMLANE_CUSTOM_FIELD_UPDATED,
     EVT_SWIMLANE_CUSTOM_FIELD_DELETED,

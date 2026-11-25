@@ -1,6 +1,6 @@
 import client from "./client";
 import { safeJoinToken, safeShareToken } from "./joinToken";
-import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary, ChildrenSettingBlockers, BoardDeleteImpact, DefaultChildBoardOptions, SwimlaneDefaultTeamAccess } from "../types";
+import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldSet, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary, ChildrenSettingBlockers, BoardDeleteImpact, DefaultChildBoardOptions, SwimlaneDefaultTeamAccess } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -93,6 +93,17 @@ export const joinBoard = async (token: string) =>
 
 export const listBoards = () =>
   client.get<{ results: Board[] }>("/api/v1/boards/").then((r) => r.data.results);
+
+/** Every board the caller can see, walking all pages; for pickers that must not stop at page one (#2570). */
+export const listAllBoards = async () => {
+  const boards: Board[] = [];
+  for (let offset = 0; ; ) {
+    const { data } = await client.get<{ count: number; results: Board[] }>("/api/v1/boards/", { params: { offset, page_size: 200 } });
+    boards.push(...data.results);
+    offset += data.results.length;
+    if (data.results.length === 0 || offset >= data.count) return boards;
+  }
+};
 
 export const listBoardTemplates = () =>
   client.get<BoardTemplate[]>("/api/v1/boards/templates/").then((r) => r.data);
@@ -241,6 +252,21 @@ export const listLabels = (boardId: number) =>
 
 export const createLabel = (boardId: number, data: { name: string; color?: string }) =>
   client.post<Label>(`/api/v1/boards/${boardId}/labels/`, data).then((r) => r.data);
+
+// Field sets (#2570)
+export type FieldSetWrite = Partial<Pick<CustomFieldSet, "name" | "description" | "default_size" | "scope" | "swimlanes" | "field_ids">>;
+export const listFieldSets = (boardId: number) =>
+  client.get<CustomFieldSet[]>(`/api/v1/boards/${boardId}/field-sets/`).then((r) => r.data);
+export const createFieldSet = (boardId: number, data: FieldSetWrite) =>
+  client.post<CustomFieldSet>(`/api/v1/boards/${boardId}/field-sets/`, data).then((r) => r.data);
+export const updateFieldSet = (boardId: number, setId: number, data: FieldSetWrite) =>
+  client.patch<CustomFieldSet>(`/api/v1/boards/${boardId}/field-sets/${setId}/`, data).then((r) => r.data);
+export const deleteFieldSet = (boardId: number, setId: number) =>
+  client.delete(`/api/v1/boards/${boardId}/field-sets/${setId}/`);
+export const reorderFieldSets = (boardId: number, order: number[]) =>
+  client.post<CustomFieldSet[]>(`/api/v1/boards/${boardId}/field-sets/reorder/`, { order }).then((r) => r.data);
+export const copyFieldSet = (boardId: number, data: { source_board: number; source_set: number; name?: string }) =>
+  client.post<CustomFieldSet>(`/api/v1/boards/${boardId}/field-sets/copy/`, data).then((r) => r.data);
 
 // Custom fields (#371)
 export const listCustomFieldDefinitions = (boardId: number) =>

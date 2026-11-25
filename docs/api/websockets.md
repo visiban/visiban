@@ -228,6 +228,18 @@ payload carries the card's `custom_field_values`.
 | `custom_field.deleted` | Definition deleted (and every card value with it). When it was the board's `swimlane_rollup_field`, a `board.updated` with `swimlane_rollup_field: null` follows it (since 1.3, #2275) | `{ "custom_field_uid": <string> }` |
 | `custom_field.reordered` | Definition order changed | `{ "custom_fields": [<CustomFieldDefinitionSerializer>, ...] }` — all definitions in new order |
 
+### Field set events (since 1.3)
+
+A [field set](boards.md#field-sets-since-13) groups card custom fields for display (#2570).
+Every set write is broadcast after its transaction commits.
+
+| Event | When | Payload |
+|---|---|---|
+| `field_set.created` | Set created, including by a copy from another board (the copy's new fields arrive first as `custom_field.created`) | Full `CustomFieldSetSerializer` object |
+| `field_set.updated` | Set renamed, re-described, resized, re-scoped or its fields changed. When a write moves a field out of another set, that set's `field_set.updated` follows | Full `CustomFieldSetSerializer` object |
+| `field_set.deleted` | Set deleted; its fields are ungrouped, never deleted | `{ "field_set_uid": <string> }` |
+| `field_set.reordered` | Set order changed | `{ "field_sets": [<CustomFieldSetSerializer>, ...] }` — all sets in new order |
+
 ### Swimlane field events (since 1.2)
 
 Schema changes only, and a separate set from the card-level events above — swimlane

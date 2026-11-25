@@ -24,6 +24,7 @@ import {
   resolveBoardJoinToken,
   joinBoard,
   listBoards,
+  listAllBoards,
   createBoard,
   getBoard,
   getBoardFull,
@@ -82,6 +83,23 @@ describe('Board API wrappers', () => {
     const result = await listBoards()
     expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/')
     expect(result).toEqual([{ id: 1 }])
+  })
+
+  it('listAllBoards walks every page (#2570)', async () => {
+    mockClient.get
+      .mockResolvedValueOnce({ data: { count: 3, results: [{ id: 1 }, { id: 2 }] } })
+      .mockResolvedValueOnce({ data: { count: 3, results: [{ id: 3 }] } })
+    expect(await listAllBoards()).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }])
+    expect(mockClient.get.mock.calls).toEqual([
+      ['/api/v1/boards/', { params: { offset: 0, page_size: 200 } }],
+      ['/api/v1/boards/', { params: { offset: 2, page_size: 200 } }],
+    ])
+  })
+
+  it('listAllBoards stops on an empty page even if count says more', async () => {
+    mockClient.get.mockResolvedValue({ data: { count: 5, results: [] } })
+    expect(await listAllBoards()).toEqual([])
+    expect(mockClient.get).toHaveBeenCalledTimes(1)
   })
 
   it('getBoard calls GET /api/boards/:id/', async () => {

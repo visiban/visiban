@@ -48,6 +48,8 @@ from boards.models import (
     BoardInviteLink,
     BoardMembership,
     Column,
+    CustomFieldDefinition,
+    CustomFieldSet,
     Label,
     SavedFilter,
     Swimlane,
@@ -67,7 +69,10 @@ from boards.tests.rbac_matrix import (
 
 # Models whose row counts must not move when a request is denied, on top of the
 # card-family models ``_denied_write_counts`` already audits.
-_EXTRA_AUDITED = (Board, BoardMembership, BoardInviteLink, Column, Label, SavedFilter, Swimlane)
+_EXTRA_AUDITED = (
+    Board, BoardMembership, BoardInviteLink, Column, CustomFieldDefinition, CustomFieldSet,
+    Label, SavedFilter, Swimlane,
+)
 
 # Request bodies for routes whose handler validates a field before it checks the
 # role. Everything else is sent ``{}``.
@@ -120,6 +125,12 @@ EXPECTED = {
     ("DELETE", "/api/v1/boards/{board_pk}/custom-fields/{id}/"): "skip:no path-parameter fixture yet",
     ("PATCH", "/api/v1/boards/{board_pk}/custom-fields/{id}/"): "skip:no path-parameter fixture yet",
     ("PUT", "/api/v1/boards/{board_pk}/custom-fields/{id}/"): "skip:no path-parameter fixture yet",
+    ("POST", "/api/v1/boards/{board_pk}/field-sets/"): "admin",
+    ("POST", "/api/v1/boards/{board_pk}/field-sets/copy/"): "admin",
+    ("POST", "/api/v1/boards/{board_pk}/field-sets/reorder/"): "admin",
+    ("DELETE", "/api/v1/boards/{board_pk}/field-sets/{id}/"): "admin",
+    ("PATCH", "/api/v1/boards/{board_pk}/field-sets/{id}/"): "admin",
+    ("PUT", "/api/v1/boards/{board_pk}/field-sets/{id}/"): "admin",
     ("POST", "/api/v1/boards/{board_pk}/labels/"): "admin",
     ("DELETE", "/api/v1/boards/{board_pk}/labels/{id}/"): "admin",
     ("PATCH", "/api/v1/boards/{board_pk}/labels/{id}/"): "admin",

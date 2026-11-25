@@ -238,4 +238,20 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     await expect(search).toBeFocused()
     await walkClearOfFades(page, 'ArrowDown', 14, '[role="listbox"]', true)
   })
+
+  test('Field set Maximize region: tabbing down the fields (#2570)', async ({ page }) => {
+    const defs = Array.from({ length: 12 }, (_, i) => ({ ...dropdownField(i + 1), field_type: 'text', choices: [], threshold_direction: '', threshold_warn: null, threshold_alert: null, threshold_warn_days: null, threshold_alert_days: null, show_on_card: false }))
+    const set = { id: 1, uid: 'fsuid000001', name: 'MEDDIC', description: null, position: 0, default_size: 'summary', scope: 'all', swimlanes: [], field_ids: defs.map((d) => d.id), created_at: '2026-01-01T00:00:00Z' }
+    const board = { ...BOARD_FULL, custom_field_definitions: defs, custom_field_sets: [set] }
+    await routeAuth(page)
+    await routeBoard(page, board as unknown as typeof BOARD_FULL)
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/**`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(route.request().url().endsWith(`/cards/${CARD.id}/`) ? CARD : route.request().url().includes('/timeline/') ? { count: 0, next: null, previous: null, results: [] } : []) }),
+    )
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.getByText(CARD.title).first().click()
+    await page.getByRole('button', { name: 'Maximize MEDDIC' }).click()
+    await page.getByRole('region', { name: 'MEDDIC fields' }).focus()
+    await walkClearOfFades(page, 'Tab', 12, '[data-testid="field-set-maximized"]')
+  })
 })

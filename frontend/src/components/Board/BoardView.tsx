@@ -30,7 +30,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardMembership, Card, CardMovedEventPayload, CardParent, Column, CustomFieldDefinition, Label, ShareLinkUpdatedPayload, Swimlane, SwimlaneCustomFieldDefinition, User, WebhookChangedPayload } from "../../types";
+import type { BoardMembership, Card, CardMovedEventPayload, CardParent, Column, CustomFieldDefinition, CustomFieldSet, Label, ShareLinkUpdatedPayload, Swimlane, SwimlaneCustomFieldDefinition, User, WebhookChangedPayload } from "../../types";
 import { userDisplayName } from "../../types";
 import { mergeSwimlaneFromBroadcast } from "../../utils/swimlaneMerge";
 import { placementVerdict, trippedLimitSentence } from "../../utils/placementLimits";
@@ -406,6 +406,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     updateLabel: onLabelUpdated,
     removeLabel: onLabelDeleted,
     applyCustomFieldDefinitions: onCustomFieldDefinitionsApplied,
+    applyFieldSets: onFieldSetsApplied,
     applySwimlaneFieldDefinitions: onSwimlaneFieldDefinitionsApplied,
     addMember: onMemberAdded,
     updateMember: onMemberUpdated,
@@ -1038,6 +1039,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       onCustomFieldDefinitionsApplied((prev) => prev.filter((f) => f.uid !== custom_field_uid));
     } else if (event.event === "custom_field.reordered") {
       onCustomFieldDefinitionsApplied((d as { custom_fields: CustomFieldDefinition[] }).custom_fields);
+    } else if (event.event === "field_set.created" || event.event === "field_set.updated") {
+      // #2570: an upsert by id, so a replay over a `/full/` snapshot is idempotent.
+      const fs = d as unknown as CustomFieldSet;
+      onFieldSetsApplied((prev) => (
+        prev.some((s) => s.id === fs.id) ? prev.map((s) => (s.id === fs.id ? fs : s)) : [...prev, fs]
+      ));
+    } else if (event.event === "field_set.deleted") {
+      const { field_set_uid } = d as { field_set_uid: string };
+      onFieldSetsApplied((prev) => prev.filter((s) => s.uid !== field_set_uid));
+    } else if (event.event === "field_set.reordered") {
+      onFieldSetsApplied((d as { field_sets: CustomFieldSet[] }).field_sets);
     } else if (event.event === "swimlane_custom_field.created") {
       // An upsert, like custom_field.created above (#2130).
       const created = d as unknown as SwimlaneCustomFieldDefinition;
@@ -1143,7 +1155,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [refetchCardParents, refetchSiblingParents, refetchChildrenRollup, refetchRollupIfParentTier, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [refetchCardParents, refetchSiblingParents, refetchChildrenRollup, refetchRollupIfParentTier, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, onFieldSetsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.
@@ -1488,7 +1500,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // "Change field order" link (#1458), the lane menu's "Change field order…", and the tiered details' manage link
   // (#2439); every other opener
   // leaves it undefined so Board settings opens on Members as before.
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | "rules" | undefined>(undefined);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | "field-sets" | "rules" | undefined>(undefined);
   // #863: set only by the ?settings=webhooks deep link from a webhook_disabled notification.
   const [webhookDeepLink, setWebhookDeepLink] = useState(false);
   const closeSettings = useCallback(() => {
@@ -4098,6 +4110,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             key={selectedCard.id}
             card={liveSelectedCard ?? selectedCard}
             board={board}
+            onOpenBoardSettings={isAdmin ? () => { setSettingsInitialTab("field-sets"); setShowSettings(true); } : undefined}
             onClose={() => setSelectedCard(null)}
             onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
             onUpdated={onCardUpdated}
@@ -4147,6 +4160,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <BoardSettingsModal
           board={board}
           isAdmin={isAdmin}
+          onFieldSetsUpdated={onFieldSetsApplied}
           onClose={closeSettings}
           initialTab={settingsInitialTab}
           focusFirstStoppedWebhook={webhookDeepLink}

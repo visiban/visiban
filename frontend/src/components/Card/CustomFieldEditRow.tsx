@@ -5,6 +5,7 @@ import CustomFieldValueDisplay from "./CustomFieldValueDisplay";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
 import { thresholdLevel, thresholdPhrase, urlErrorFromServer } from "../../utils/customFieldValue";
+import { isValueFilled } from "../../utils/fieldSets";
 import ThresholdMark from "./ThresholdMark";
 
 const CARD_DETAIL_FIELD_ESCAPE_PRIORITY = 41;
@@ -18,6 +19,8 @@ interface Props {
   userDateFormat?: string;
   /** The viewer's timezone, for "today" in date thresholds (#1122); blank = the browser's. */
   userTimezone?: string;
+  /** Inside a field set block (#2570): an empty value is dashed, or reads "Not set" when read-only. */
+  fieldSetCell?: boolean;
 }
 
 /**
@@ -29,7 +32,7 @@ interface Props {
  * "extract a component so the hook isn't called in a loop" shape as
  * `CardDetail`'s single Weight field, just repeated per row here.
  */
-export default function CustomFieldEditRow({ definition, value, disabled, onSave, userDateFormat, userTimezone = "" }: Props) {
+export default function CustomFieldEditRow({ definition, value, disabled, onSave, userDateFormat, userTimezone = "", fieldSetCell = false }: Props) {
   const { status, fadingOut, runSave } = useAutosaveStatus();
   // #1390: a URL the server refused (400) gets the editor's inline copy next
   // to the input, not just the row's generic "Failed to save".
@@ -62,10 +65,14 @@ export default function CustomFieldEditRow({ definition, value, disabled, onSave
 
   return (
     <div>
-      {!isCheckbox && (
+      {/* A read-only checkbox has no ToggleField to name it; in a set block it keeps its label. */}
+      {(!isCheckbox || (disabled && fieldSetCell)) && (
         <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">{definition.name}</p>
       )}
-      {disabled ? (
+      {/* Never for a checkbox: a missing one must not read as "No" or as unfilled. */}
+      {disabled && fieldSetCell && !isCheckbox && !isValueFilled(definition, value) ? (
+        <p className="text-sm text-fg-muted">Not set</p>
+      ) : disabled ? (
         <CustomFieldValueDisplay definition={definition} value={value} variant="detail" userDateFormat={userDateFormat} />
       ) : (
         <CustomFieldValueInput
@@ -73,6 +80,7 @@ export default function CustomFieldEditRow({ definition, value, disabled, onSave
           value={value}
           disabled={disabled}
           onCommit={commit}
+          dashedWhenEmpty={fieldSetCell}
           userDateFormat={userDateFormat}
           // Above CardDetail's panel close (30) and ModalWrapper's (40), so Escape on an
           // open dropdown menu closes only the menu (#1478).

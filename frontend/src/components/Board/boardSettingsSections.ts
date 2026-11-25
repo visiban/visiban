@@ -7,6 +7,7 @@ export type SettingsSection =
   | "display"
   | "rules"
   | "fields"
+  | "field-sets"
   | "swimlane-fields"
   | "sharing"
   | "webhooks"
@@ -23,7 +24,7 @@ export function resolveInitialSection(t: SettingsInitialSection | undefined): Se
 
 export const SECTION_GROUPS: { label: string; sections: SettingsSection[] }[] = [
   { label: "Board", sections: ["display", "rules"] },
-  { label: "Fields", sections: ["fields", "swimlane-fields"] },
+  { label: "Fields", sections: ["fields", "field-sets", "swimlane-fields"] },
   { label: "Access", sections: ["members", "sharing"] },
   { label: "Integrations", sections: ["webhooks", "lens"] },
   { label: "Data", sections: ["export", "danger"] },
@@ -33,6 +34,7 @@ export const SECTION_LABELS: Record<SettingsSection, string> = {
   display: "Display",
   rules: "Rules & limits",
   fields: "Card fields",
+  "field-sets": "Field sets",
   "swimlane-fields": "Swimlane fields",
   members: "Members",
   sharing: "Sharing",
@@ -84,6 +86,9 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { section: "rules", label: "Review status every", keywords: "health review reminder days", target: "Review status every" },
   { section: "fields", label: "Card fields", keywords: "custom field definitions add edit", target: undefined },
   { section: "fields", label: "Add card field", keywords: "new custom field create", target: "+ Add field" },
+  { section: "field-sets", label: "Field sets", keywords: "group custom fields blocks meddic", target: "Field sets" },
+  { section: "field-sets", label: "New field set", keywords: "add create group of fields", target: "New field set" },
+  { section: "field-sets", label: "Copy a field set from another board", keywords: "copy import field set", target: "Copy from another board" },
   { section: "swimlane-fields", label: "Swimlane fields", keywords: "lane custom field definitions", target: undefined },
   { section: "swimlane-fields", label: "Add swimlane field", keywords: "new lane custom field create", target: "+ Add field" },
   { section: "swimlane-fields", label: "Show field names on row chips", keywords: "lane chips names", target: "Show field names on row chips" },

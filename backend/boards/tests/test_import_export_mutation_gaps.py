@@ -1753,6 +1753,7 @@ class ExportJsonShapeTests(ExportBase):
                 "labels",
                 "custom_fields",
                 "swimlane_custom_fields",
+                "field_sets",  # Additive (#2570), before "cards".
                 "cards",
                 # Additive (#1796), after "cards".
                 "deleted_card_history",

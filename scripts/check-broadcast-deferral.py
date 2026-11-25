@@ -207,6 +207,16 @@ NO_BROADCAST_BY_DESIGN: dict[str, str] = {
 # Fan-outs that legitimately call an emit function inside a loop, because the
 # loop iterates over *channels* rather than over rows on one channel.
 LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
+    "backend/boards/views/field_sets.py::CustomFieldSetViewSet._broadcast_affected": (
+        "One field_set.updated per other set a membership write took fields from "
+        "(#2570). All frames go to the one board channel with that set's own "
+        "payload. Bounded by SET_CAP (10)."
+    ),
+    "backend/boards/views/field_sets.py::CustomFieldSetViewSet.copy": (
+        "One custom_field.created per definition a field set copy creates "
+        "(#2570), each with its own payload, to the one board channel. Bounded "
+        "by MAX_PER_BOARD (30)."
+    ),
     "backend/boards/services/lane_field_tiers.py::materialize": (
         "One swimlane_custom_field.updated per definition whose NULL "
         "band_visibility was just given an explicit tier (#2439), at most "

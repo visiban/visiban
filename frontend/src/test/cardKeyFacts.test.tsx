@@ -45,7 +45,7 @@ vi.mock('../components/Card/RichTextEditor', () => ({
   default: ({ value }: { value: string }) => <textarea data-testid="rich-text-editor" defaultValue={value} />,
 }))
 
-import { getCardAttachments, deleteCardAttachment, getCardComments } from '../api/cards'
+import { getCardAttachments, deleteCardAttachment, getCardComments, updateCard } from '../api/cards'
 
 const alex: User = {
   id: 7, username: 'alex', email: 'a@example.com', first_name: 'Alex', last_name: 'Brown', avatar_url: '',
@@ -458,5 +458,41 @@ describe('CardDetail section counts (#1916)', () => {
     expect(screen.queryByTestId('card-tab-count-comments')).not.toBeInTheDocument()
     await act(async () => { resolve([]) })
     expect(await screen.findByTestId('card-tab-count-comments')).toHaveTextContent('0')
+  })
+})
+
+describe('CardDetail field set branch (#2570)', () => {
+  const fieldSet = { id: 1, uid: 'fsuid1', name: 'Deal', description: null, position: 0, default_size: 'expanded' as const, scope: 'all' as const, swimlanes: [], field_ids: [55], created_at: '' }
+  const other: CustomFieldDefinition = { ...dealField, id: 56, uid: 'cfuid000056', name: 'Notes', position: 1 }
+
+  it('renders the flat Custom fields section when the board has no sets', () => {
+    render(<CardDetail {...baseProps()} board={makeBoard({ custom_field_definitions: [dealField], custom_field_sets: [] })} />)
+    expect(screen.getByRole('button', { name: /Custom fields/ })).toBeInTheDocument()
+    expect(screen.queryByTestId('field-set-blocks')).toBeNull()
+  })
+
+  it('renders field set blocks for one set, and saving a field sends the card values', async () => {
+    vi.mocked(updateCard).mockResolvedValue(makeCard())
+    render(<CardDetail {...baseProps()} board={makeBoard({ custom_field_definitions: [dealField, other], custom_field_sets: [fieldSet] })} />)
+    expect(screen.getByTestId('field-set-blocks')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Custom fields/ })).toBeNull()
+    const input = within(screen.getByTestId('field-set-fsuid1')).getByRole('textbox')
+    await userEvent.type(input, 'big')
+    fireEvent.blur(input)
+    await waitFor(() => expect(updateCard).toHaveBeenCalled())
+    expect(vi.mocked(updateCard).mock.calls[0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ custom_field_values: [{ field_definition: 55, value: 'big' }] }),
+    ]))
+  })
+
+  it('keeps focus inside the field when a viewer jumps to a field in a set', async () => {
+    Element.prototype.scrollIntoView = vi.fn() as unknown as typeof Element.prototype.scrollIntoView
+    render(<CardDetail {...baseProps()} card={makeCard({ custom_field_values: [{ field_definition: 55, value: '$40k' }] })}
+      board={makeBoard({ custom_field_definitions: [dealField, other], custom_field_sets: [fieldSet], current_user_role: 'viewer' })} />)
+    await userEvent.click(within(screen.getByRole('list', { name: 'Key facts' })).getByRole('button', { name: /Go to Deal value/ }))
+    await waitFor(() => {
+      const section = document.querySelector<HTMLElement>('[data-fact-section="field:55"]')
+      expect(section?.contains(document.activeElement)).toBe(true)
+    })
   })
 })

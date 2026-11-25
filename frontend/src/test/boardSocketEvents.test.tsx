@@ -227,6 +227,7 @@ function makeContext(overrides: Partial<BoardContextType> = {}): BoardContextTyp
     updateLabel: vi.fn(),
     removeLabel: vi.fn(),
     applyCustomFieldDefinitions: vi.fn(),
+    applyFieldSets: vi.fn(),
     applySwimlaneFieldDefinitions: vi.fn(),
     addMember: vi.fn(),
     updateMember: vi.fn(),
@@ -388,6 +389,36 @@ describe('BoardView socket event routing — new event types', () => {
       state = arg(state)
     }
     expect(state.map((f) => (f as { name: string }).name)).toEqual(['A', 'B2'])
+  })
+
+  describe('field_set frames (#2570)', () => {
+    const set = (id: number, name: string) => ({ id, uid: `s${id}`, name })
+    const apply = async (event: string, data: unknown) => {
+      const ctx = makeContext()
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      act(() => { getOnEvent.dispatch({ event, data: data as Record<string, unknown> }) })
+      return (ctx.applyFieldSets as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    }
+    const prev = [set(1, 'A'), set(2, 'B')]
+
+    it('field_set.created appends, and replaying it does not duplicate', async () => {
+      const updater = await apply('field_set.created', set(3, 'C'))
+      expect(updater(prev)).toEqual([...prev, set(3, 'C')])
+      expect(updater(updater(prev))).toHaveLength(3)
+    })
+    it('field_set.updated replaces by id', async () => {
+      const updater = await apply('field_set.updated', set(2, 'B2'))
+      expect(updater(prev)).toEqual([set(1, 'A'), set(2, 'B2')])
+    })
+    it('field_set.deleted removes by uid', async () => {
+      const updater = await apply('field_set.deleted', { field_set_uid: 's1' })
+      expect(updater(prev)).toEqual([set(2, 'B')])
+    })
+    it('field_set.reordered applies the new list', async () => {
+      expect(await apply('field_set.reordered', { field_sets: [set(2, 'B'), set(1, 'A')] })).toEqual([set(2, 'B'), set(1, 'A')])
+    })
   })
 
   // useBoard replays these updaters over a /full/ snapshot that may already

@@ -34,6 +34,15 @@ export interface MultiSelectDropdownProps {
   renderValue?: (selected: string[]) => ReactNode;
   /** Trigger text when nothing is selected. */
   placeholder?: string;
+  /** Headed groups of `options`; `options` must list them in the same order. */
+  groups?: { label: string; options: string[] }[];
+  /** A second line under an option, part of its accessible name. */
+  optionHint?: (option: string) => string | undefined;
+  /**
+   * An "add" menu: picks are handed to `onCommit` and forgotten, so the
+   * trigger keeps reading `placeholder` and is named by `label` alone.
+   */
+  addOnly?: boolean;
 }
 
 const FOCUSABLE =
@@ -98,6 +107,7 @@ export default function MultiSelectDropdown({
   saveErrorMessage = "Couldn't save. Try again.",
   renderValue,
   placeholder = "— No value —",
+  groups, optionHint, addOnly = false,
 }: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string[]>([]);
@@ -151,7 +161,7 @@ export default function MultiSelectDropdown({
     setOpen(false);
     setAnchor(null);
     if (sameSet(draft, current)) return;
-    setPending(draft);
+    if (!addOnly) setPending(draft);
     const result = onCommit(draft);
     if (result && typeof (result as Promise<void>).catch === "function") {
       (result as Promise<void>).catch(() => {
@@ -262,7 +272,10 @@ export default function MultiSelectDropdown({
           aria-hidden="true"
           className="rounded accent-primary pointer-events-none shrink-0"
         />
-        <span className="truncate" title={entry}>{entry}</span>
+        <span className="min-w-0">
+          <span className="block truncate" title={entry}>{entry}</span>
+          {optionHint?.(entry) && <span className="block text-xs text-fg-muted">{optionHint(entry)}</span>}
+        </span>
       </div>
     );
   };
@@ -313,7 +326,12 @@ export default function MultiSelectDropdown({
         onScroll={onScroll}
         className="py-1 min-h-0 overflow-y-auto scroll-pb-8"
       >
-        {visibleOptions.map((entry, i) => renderOption(entry, i, false))}
+        {groups ? groups.map((group) => group.options.some((o) => matches(o)) && (
+          <div key={group.label} role="group" aria-label={group.label}>
+            <div role="presentation" className="px-3 pt-1.5 pb-1 text-xs text-fg-muted">{group.label}</div>
+            {group.options.filter((o) => matches(o)).map((entry) => renderOption(entry, visibleOptions.indexOf(entry), false))}
+          </div>
+        )) : visibleOptions.map((entry, i) => renderOption(entry, i, false))}
         {visibleOrphans.length > 0 && (
           <div role="group" aria-label={orphanLabel}>
             <div role="presentation" className="mx-3 mt-1 pt-1.5 pb-1 border-t border-line text-xs text-fg-muted">
@@ -356,7 +374,7 @@ export default function MultiSelectDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
-        aria-label={`${label}: ${current.length > 0 ? current.join(", ") : "No value"}`}
+        aria-label={addOnly ? placeholder : `${label}: ${current.length > 0 ? current.join(", ") : "No value"}`}
         className={`max-sm:min-h-11 bg-surface border rounded px-2 py-1 text-sm w-full flex items-center justify-between gap-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 ${
           open ? "border-primary-soft" : "border-line-strong hover:border-line-emphasis"
         }`}

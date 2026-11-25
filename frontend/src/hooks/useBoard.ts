@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { pruneSetFields, pruneSetLane } from "../utils/fieldSets";
 import { useParams } from "react-router-dom";
 import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard, getArchivedCards } from "../api/cards";
@@ -7,7 +8,7 @@ import { placementVerdict, pruneLaneLimitColumn, trippedLimitSentence } from "..
 import { dropUnknownLabels } from "../utils/cardLabels";
 import { isStaleCard } from "../utils/cardVersion";
 import { swimlaneForRole } from "../utils/swimlaneMerge";
-import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, CustomFieldSet, SwimlaneCustomFieldDefinition } from "../types";
 import { pickPlannedFields, type CardPlannedFields } from "../utils/plannedFields";
 
 /** Result of useBoard.moveCard: it never rejects, so callers must check `ok`. */
@@ -492,6 +493,18 @@ function withoutSwimlane(b: BoardFull, swimlaneId: number): BoardFull {
     ...b,
     swimlanes: b.swimlanes.filter((s) => s.id !== swimlaneId),
     cards: b.cards.filter((c) => c.swimlane !== swimlaneId),
+    ...(b.custom_field_sets ? { custom_field_sets: pruneSetLane(b.custom_field_sets, swimlaneId) } : {}),
+  };
+}
+
+/** `b` with new card field definitions; deleted ids also leave every field set (#2570). */
+export function withCardDefinitions(b: BoardFull, definitions: CustomFieldDefinition[]): BoardFull {
+  const kept = new Set(definitions.map((d) => d.id));
+  const removed = new Set(b.custom_field_definitions.filter((d) => !kept.has(d.id)).map((d) => d.id));
+  return {
+    ...b,
+    custom_field_definitions: definitions,
+    ...(b.custom_field_sets ? { custom_field_sets: pruneSetFields(b.custom_field_sets, removed) } : {}),
   };
 }
 
@@ -1423,12 +1436,25 @@ export function useBoard() {
     // tab, `custom_field.reordered`) is replayed as what it changed
     // (listChange), so it cannot erase a definition the snapshot holds.
     if (typeof definitions === 'function') {
-      writeBoard((b) => ({ ...b, custom_field_definitions: definitions(b.custom_field_definitions) }));
+      writeBoard((b) => withCardDefinitions(b, definitions(b.custom_field_definitions)));
       return;
     }
     writeBoardFrom((live) => {
       const change = listChange(live.custom_field_definitions, definitions);
-      return (b) => ({ ...b, custom_field_definitions: change(b.custom_field_definitions) });
+      return (b) => withCardDefinitions(b, change(b.custom_field_definitions));
+    });
+  }, [writeBoard, writeBoardFrom]);
+
+  // Field sets (#2570) — same two forms as the definitions setter above: an
+  // updater for socket frames, or a whole list replayed as what it changed.
+  const applyFieldSets = useCallback((sets: CustomFieldSet[] | ((prev: CustomFieldSet[]) => CustomFieldSet[])) => {
+    if (typeof sets === 'function') {
+      writeBoard((b) => ({ ...b, custom_field_sets: sets(b.custom_field_sets ?? []) }));
+      return;
+    }
+    writeBoardFrom((live) => {
+      const change = listChange(live.custom_field_sets ?? [], sets);
+      return (b) => ({ ...b, custom_field_sets: change(b.custom_field_sets ?? []) });
     });
   }, [writeBoard, writeBoardFrom]);
 
@@ -1701,5 +1727,5 @@ export function useBoard() {
     }
   }, [boardId, load, writeBoard]);
 
-  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, ...({ pendingMoveCardId: pendingMove?.cardId } as { pendingMoveCardId?: number | null }), clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
+  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, ...({ pendingMoveCardId: pendingMove?.cardId } as { pendingMoveCardId?: number | null }), clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applyFieldSets, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
 }

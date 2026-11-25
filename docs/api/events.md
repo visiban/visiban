@@ -186,6 +186,8 @@ New cursor-paginated endpoints should name the response key `next_cursor` but do
 
 Every event type the WebSocket emits on the board channel is persisted:
 `board.*`, `column.*`, `swimlane.*`, `label.*`, `custom_field.*`,
+*(1.3+)* `field_set.*` (`field_set.created`, `field_set.updated`,
+`field_set.deleted`, `field_set.reordered`),
 `swimlane_custom_field.*`, `card.*`, `member.*`, `saved_filter.*`,
 `lens_connection.*`, and *(1.2+)* `invite_link.*` (payload `{ "id" }` only,
 readable by every board member like the socket frame). The [WebSocket event

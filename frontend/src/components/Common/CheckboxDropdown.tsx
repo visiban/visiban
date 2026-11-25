@@ -43,10 +43,12 @@ export interface CheckboxDropdownProps<T extends string | number> {
    * `selected` genuinely represents the filter's own value.
    */
   hideSelectionSummary?: boolean;
+  /** Escape priority; default 25. Inside a modal pass one above 40 (frontend/CLAUDE.md). */
+  escapePriority?: number;
 }
 
 function CheckboxDropdownInner<T extends string | number>(
-  { label, options, selected, onChange, onOpenChange, badge, hideSelectionSummary }: CheckboxDropdownProps<T>,
+  { label, options, selected, onChange, onOpenChange, badge, hideSelectionSummary, escapePriority }: CheckboxDropdownProps<T>,
   forwardedRef: React.Ref<HTMLButtonElement>,
 ) {
   const [open, setOpenState] = useState(false);
@@ -77,7 +79,7 @@ function CheckboxDropdownInner<T extends string | number>(
     [onOpenChange],
   );
 
-  useDropdownEscape(open, () => setOpen(false), triggerRef);
+  useDropdownEscape(open, () => setOpen(false), triggerRef, escapePriority);
 
   useEffect(() => {
     if (!open) return;
@@ -120,6 +122,7 @@ function CheckboxDropdownInner<T extends string | number>(
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         ref={triggerRef}
         onClick={() => {
           if (!open) setAnchor(captureMenuAnchor(triggerRef.current));

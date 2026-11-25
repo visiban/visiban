@@ -195,7 +195,7 @@ function context(board: BoardFull): BoardContextType {
     moveCard: fn(), forceMoveCard: fn(), forceMoveCardTo: fn(), moveError: null, clearMoveError: fn(),
     addCard: fn(), removeCard: fn(), archiveCard: fn(), archiveCardByUid: fn(), unarchiveCard: fn(),
     addColumn: fn(), removeColumn: fn(), addSwimlane: fn(), updateCard: fn(), updateColumn: fn(),
-    addLabel: fn(), updateLabel: fn(), removeLabel: fn(), applyCustomFieldDefinitions: fn(),
+    addLabel: fn(), updateLabel: fn(), removeLabel: fn(), applyCustomFieldDefinitions: fn(), applyFieldSets: fn(),
     applySwimlaneFieldDefinitions: fn(), addMember: fn(), updateMember: fn(), removeMember: fn(),
     applyColumnOrder: fn(), applySwimlaneOrder: fn(), reorderColumns: fn(), reorderSwimlanes: fn(),
     updateSwimlane: fn(), removeSwimlane: fn(), updateBoardSettings: fn(), evictColumn: fn(),

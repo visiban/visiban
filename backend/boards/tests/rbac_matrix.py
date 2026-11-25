@@ -25,6 +25,7 @@ from boards.models import (
     CardChecklist,
     CardComment,
     Column,
+    CustomFieldSet,
     Label,
     SavedFilter,
     Swimlane,
@@ -103,6 +104,7 @@ class MatrixWorld:
         "columns": "column",
         "swimlanes": "swimlane",
         "labels": "label",
+        "field-sets": "field_set",
         "comments": "comment",
         "checklist": "checklist_item",
         "saved-filters": "saved_filter",
@@ -122,6 +124,7 @@ class MatrixWorld:
         self.column2 = Column.objects.create(board=self.board, name="Done", position=1)
         self.swimlane = Swimlane.objects.create(board=self.board, name="Lane", position=0)
         self.label = Label.objects.create(board=self.board, name="bug", color="#112233")
+        self.field_set = CustomFieldSet.objects.create(board=self.board, name="Set", position=0)
         self.card = Card.objects.create(
             board=self.board, column=self.column, swimlane=self.swimlane,
             title="Fixture card", created_by=self.owner, position=0,
@@ -166,6 +169,7 @@ class MatrixWorld:
             "column": self.column.pk,
             "swimlane": self.swimlane.pk,
             "label": self.label.pk,
+            "field_set": self.field_set.pk,
             "comment": self.comment.pk,
             "checklist_item": self.checklist_item.pk,
             "saved_filter": self.saved_filter.pk,

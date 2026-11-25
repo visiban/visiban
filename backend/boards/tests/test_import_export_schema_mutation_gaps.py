@@ -24,7 +24,7 @@ _EXPORT = "/api/v1/boards/{id}/export/"
 _EXPORT_KEYS = [
     "schema_version", "name", "description", "lane_details_cap",
     "parent_name_singular", "parent_name_plural", "cards_can_have_children", "columns", "swimlanes", "labels",
-    "custom_fields", "swimlane_custom_fields", "cards", "deleted_card_history", "relations",
+    "custom_fields", "swimlane_custom_fields", "field_sets", "cards", "deleted_card_history", "relations",
 ]
 
 
