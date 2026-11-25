@@ -645,7 +645,7 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
 
         The user delete sets those references to NULL (``Card.assignee`` and
         ``created_by``, and the author, actor, uploader or creator on a card's
-        movements, comments, activity, checklists (creator and assignee), attachments, relations,
+        movements, comments, activity (actor and, #2594, assigner), checklists (creator and assignee), attachments, relations,
         notifications and manual blocks, #1149), which updates the card's rows. Locking the cards
         first keeps the order card, then user, the order a card writer uses.
         """
@@ -666,7 +666,9 @@ class VisibanUserAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, UserAdm
             | Q(assignee__in=pks)
             | Q(pk__in=CardMovement.objects.filter(moved_by__in=pks).values("card_id"))
             | Q(pk__in=CardComment.objects.filter(author__in=pks).values("card_id"))
-            | Q(pk__in=CardActivity.objects.filter(actor__in=pks).values("card_id"))
+            # Activity actor and, since #2594, the assigner on an assignee
+            # override_used row (SET_NULL).
+            | Q(pk__in=CardActivity.objects.filter(Q(actor__in=pks) | Q(assigned_by__in=pks)).values("card_id"))
             # Checklist creator and, since #445, checklist assignee (SET_NULL).
             | Q(pk__in=CardChecklist.objects.filter(Q(created_by__in=pks) | Q(assignee__in=pks)).values("card_id"))
             | Q(pk__in=CardAttachment.objects.filter(uploaded_by__in=pks).values("card_id"))

@@ -16,6 +16,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from accounts.admin import VisibanUserAdmin
 from accounts.models import User
 from boards.models import (
     Board, BoardMembership, Card, CardActivity, CardOverride, Column, Swimlane,
@@ -124,6 +125,18 @@ class OverrideAssignedByTests(TestCase):
         self.assertIsNone(act.assigned_by_id)
         self.assertIsNone(self._timeline_override(self.member)["data"]["assigned_by"])
         self.assertIsNone(_serialize_activity(act)["assigned_by"])
+
+    def test_assigner_reference_puts_card_in_user_delete_lock_set(self, _):
+        # The user delete SET_NULLs assigned_by on the card's activity row, so
+        # the card must be locked first (card, then user lock order).
+        self._move(self.member, reason="escalation")
+        # Drop every other reference the admin has to this card.
+        Card.objects.filter(pk=self.card.pk).update(created_by=self.member, assigned_by=None)
+        CardActivity.objects.filter(card=self.card, actor=self.admin).delete()
+        self.board.owner = self.member
+        self.board.save(update_fields=["owner"])
+        locked = set(VisibanUserAdmin._cards_to_lock([self.admin.pk]).values_list("pk", flat=True))
+        self.assertIn(self.card.pk, locked)
 
     def test_activities_endpoint_and_mcp_expose_the_assigner(self, _):
         self._move(self.member, reason="escalation")
