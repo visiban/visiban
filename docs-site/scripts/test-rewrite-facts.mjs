@@ -60,9 +60,18 @@ t('"Five roles" -> "Several roles" is reported (counts)', () => {
 
 const badge = (v) => `<span class="vb-version" title="Added in ${v}">${v}+</span>`
 
-t('the original *(1.2)* notes are satisfied by 1.2+ badges in the rewrite (versions)', () => {
+t('the original 1.2+ badges are satisfied by 1.2+ badges in the rewrite (versions)', () => {
+  assert.ok(old.includes(badge('1.2')))
   assert.ok(neu.includes(badge('1.2')))
   assert.deepEqual(run(old, neu).versions, [])
+})
+
+// A synthetic original: docs/index.md carries badges now, so this form is no
+// longer exercised by the real page.
+t('a "*(1.2)*" bullet note may become a badge, but not vanish (versions)', () => {
+  const o = '# P\n\n- **Fields** *(1.2)*. Typed.\n'
+  assert.deepEqual(run(o, `# P\n\n- **Fields ${badge('1.2')}.** Typed.\n`, 'x/p.md').versions, [])
+  assert.equal(run(o, '# P\n\n- **Fields.** Typed.\n', 'x/p.md').versions.length, 1)
 })
 
 t('removing one 1.2+ badge is reported (versions)', () => {
@@ -115,9 +124,11 @@ t('a prose note can not be replaced by a badge (versions)', () => {
   assert.deepEqual(lost.badges, [])
 })
 
+// Links are compared as a set, so the row dropped here must be the page's only
+// link to its target (Analytics is also linked from the intro).
 t('dropping a Quick links row is reported (internal)', () => {
-  const lost = run(old, without(neu, /^\| \[Analytics\].*\n/m))
-  assert.ok(lost.internal.includes('features/analytics'), JSON.stringify(lost.internal))
+  const lost = run(old, without(neu, /^\| \[Notifications\].*\n/m))
+  assert.ok(lost.internal.includes('features/notifications'), JSON.stringify(lost.internal))
 })
 
 t('flattening a warning into prose is reported (callouts)', () => {

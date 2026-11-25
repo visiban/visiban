@@ -1,7 +1,7 @@
 # Visiban Helm chart
 
-An open-source Kanban board where every row is an entity and every move is
-on the record. This chart deploys the Django/daphne backend, the React SPA behind nginx,
+An open-source Kanban board with a swimlane for every customer, project or
+workstream, and every move on record. This chart deploys the Django/daphne backend, the React SPA behind nginx,
 and — optionally — an in-cluster PostgreSQL and Valkey.
 
 `helm show readme` renders this file, which is why it lives here rather than

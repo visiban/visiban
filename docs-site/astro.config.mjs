@@ -28,7 +28,7 @@ export default defineConfig({
     starlight({
       title: 'Visiban',
       description:
-        'Open-source Kanban board where every row is an entity and every move is on the record.',
+        'Open-source Kanban board with a swimlane for every customer, project or workstream, and every move on record.',
       social: [{ icon: 'gitlab', label: 'GitLab', href: 'https://gitlab.com/visiban/visiban' }],
       editLink: { baseUrl: 'https://gitlab.com/visiban/visiban/-/edit/main/docs-site/' },
       // .vb-version: the inline "added in" badge (a plain <span>, so pages can

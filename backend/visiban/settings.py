@@ -988,7 +988,7 @@ MCP_THROTTLE_PREAUTH_RATE = env("MCP_THROTTLE_PREAUTH_RATE", default="30/min")
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Visiban API",
-    "DESCRIPTION": "REST API for Visiban, an open-source Kanban board where every row is an entity and every move is on the record. Full OpenAPI 3.0 spec.",
+    "DESCRIPTION": "REST API for Visiban, an open-source Kanban board with a swimlane for every customer, project or workstream, and every move on record. Full OpenAPI 3.0 spec.",
     "VERSION": "dev",  # overwritten from APP_VERSION below (#1977)
     "LICENSE": {"name": "Apache 2.0", "url": "https://www.apache.org/licenses/LICENSE-2.0"},
     "CONTACT": {"name": "Visiban", "url": "https://visiban.com"},

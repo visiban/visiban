@@ -141,6 +141,8 @@ Archive a card instead of deleting it: it leaves the active board view, but its 
 
 ## Analytics & visibility
 
+Analytics is in beta.
+
 Three views are available from the board toolbar:
 
 | View | Best for |

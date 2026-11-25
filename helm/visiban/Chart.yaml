@@ -1,6 +1,6 @@
 apiVersion: v2
 name: visiban
-description: Open-source Kanban board where every row is an entity and every move is on the record
+description: Open-source Kanban board with a swimlane for every customer, project or workstream, and every move on record
 type: application
 version: 0.8.0
 appVersion: "1.2.0"

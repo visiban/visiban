@@ -9,11 +9,13 @@ sidebar:
 
 <a id="the-one-sentence-answer"></a>
 
-Visiban is an open-source, self-hosted Kanban board. Every row is an entity, such as a customer, project, or team. Every card movement is permanently recorded. Any AI agent you already run can query and update the board through your own API token.
+**See how work flows. Know what needs attention.**
+
+Visiban is a Kanban board with a swimlane for every customer, project or workstream. We call this entity-centric Kanban: every row is an entity, the thing the work is about. Every card movement is permanently recorded. It is open source, self-hosted, and Apache 2.0. Any AI agent you already run can query and update the board through your own API token.
 
 **Why it matters:** Picking the wrong tool is expensive for a team. So this page names the four things only Visiban does, and says plainly where other tools are better.
 
-**In short:** Kill the spreadsheet, see how work actually moves, and query it with your own AI. Every move is on the record.
+**In short:** See how work actually moves, on a board whose rows are your customers or projects, where every move is on the record.
 
 **For your manager:** *"It's the board, but each row is one client, it keeps a full audit trail of what moved when, and it runs on our own infrastructure with our own SSO."*
 
