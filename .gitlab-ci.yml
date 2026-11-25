@@ -4520,8 +4520,9 @@ frontend-dep-scan:
     paths:
       - npm-audit-report.json
 
-# License compliance — block GPL, AGPL, SSPL, BUSL and proprietary dependencies, which are
-# incompatible with the project's Apache 2.0 license (LGPL and MPL are allowed).
+# License compliance — block GPL, AGPL, SSPL and BUSL dependencies, which are
+# incompatible with the project's Apache 2.0 license (LGPL and MPL are allowed),
+# plus "proprietary" and empty or unknown values. A blocklist: other strings pass.
 # Blocking, on MRs and main (#1755). The matching rules live in
 # scripts/license-gate.py.
 .rules-license-check:

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Fail on a dependency whose license is incompatible with Apache 2.0 (#1755).
 
-Blocked: GPL, AGPL, SSPL, BUSL and proprietary, in SPDX or classifier spelling.
-LGPL and MPL are allowed. A missing or unidentified license is blocked too: an
-answer the gate cannot read is not a pass.
+Blocked: GPL, AGPL, SSPL and BUSL, in SPDX or classifier spelling, any license
+containing the word "proprietary", and an empty or unknown value. LGPL and MPL
+are allowed. This is a blocklist: any other lone string passes, including one the
+gate does not recognize (such as "Commercial" or "CC-BY-NC-4.0").
 
 An SPDX ``OR`` offers a choice, so one acceptable side is enough, but that side
 must be a license the gate recognizes: "GPL-3.0 OR Commercial" is no way out. ``AND``, a
@@ -26,6 +27,8 @@ import re
 import sys
 import tempfile
 from contextlib import redirect_stderr, redirect_stdout
+
+from _paths import cli_roots, resolve_within
 
 BLOCKED = (
     ("AGPL", re.compile(r"agpl|affero", re.IGNORECASE)),
@@ -157,7 +160,8 @@ def violations(packages: list[tuple[str, str]]) -> list[str]:
 
 def check(path: str, parse) -> int:
     try:
-        with open(path, encoding="utf-8") as handle:
+        # PathEscapeError is a ValueError, so a rejected path fails below too.
+        with open(resolve_within(cli_roots(), path), encoding="utf-8") as handle:
             packages = parse(json.load(handle))
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         print(f"license-gate: cannot read report {path}: {exc!r}", file=sys.stderr)
@@ -265,9 +269,16 @@ def self_test() -> int:
             if result != expected:
                 failures.append(f"{label}: check() returned {result}")
 
+    # A path outside the allowed roots is refused before it is opened.
+    quiet = io.StringIO()
+    with redirect_stdout(quiet), redirect_stderr(quiet):
+        result = check("/etc/passwd", packages_from_pip)
+    if result != 1 or "PathEscapeError" not in quiet.getvalue():
+        failures.append(f"outside-roots report: not refused ({result})")
+
     for failure in failures:
         print(f"FAIL: {failure}", file=sys.stderr)
-    total = len(blocked) + len(allowed) + 2 + len(reports)
+    total = len(blocked) + len(allowed) + 2 + len(reports) + 1
     print(f"license-gate --self-test: {total} case(s), {len(failures)} failure(s)")
     return 1 if failures else 0
 

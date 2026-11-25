@@ -1,6 +1,6 @@
 # Know which CI scanner blocks your merge
 
-Eleven CI security jobs, in nine table rows, can fail a pipeline, and their triggers differ. Accept a finding with an expiring suppression, never by turning the scanner off.
+The table below lists eleven CI security jobs, in nine rows, that can fail a pipeline. They are not the only ones: the two license checks and the dependency scans can too. Triggers differ. Accept a finding with an expiring suppression, never by turning the scanner off.
 
 **Why it matters:** A scanner you think blocks but does not gives false safety, and one you disable to get green hides a real leak. The table below says which is which.
 

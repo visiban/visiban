@@ -463,7 +463,8 @@ Optional follow-up, out of scope for this page:
 
 - `check_migration_concurrency` could flag an `AddField` that adds a `ForeignKey` with
   `db_constraint` left at its default (`True`) on an existing table. Today it flags that
-  field's index, not the constraint's validation.
+  field's index, not the constraint's validation. Tracked as
+  [#2620](https://gitlab.com/visiban/visiban/-/issues/2620).
 - `check_migration_constraint_safety`'s adjacent-migration exemption can't tell a genuine
   data-repair `RunPython` from a schema-only one like the `NOT VALID` step above — both
   satisfy `has_top_level_repair()` by name alone. Narrowing that exemption would need the
@@ -472,7 +473,7 @@ Optional follow-up, out of scope for this page:
   not verify a repair step touches the *right* rows" above) — so this is a real trade-off to
   work out, not a one-line fix.
 
-No issue is currently filed for either; file one before picking either up rather than
+No issue is currently filed for the second; file one before picking it up rather than
 inferring scope from this paragraph.
 
 ### Changing an existing foreign key's nullability
