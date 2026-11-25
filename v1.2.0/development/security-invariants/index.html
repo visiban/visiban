@@ -6000,7 +6000,7 @@ fails closed.</p>
 <tr>
 <td>Override reason (#1923)</td>
 <td><code>boards/services/cards.py</code> <code>record_overrides</code> (the additive <code>override</code> object on <code>card.moved</code>, <code>card.created</code>, <code>card.unarchived</code> and the move/restore REST bodies); <code>CardActivity</code> <code>override_used</code> <code>item_text</code></td>
-<td>Same exposure as <code>Card.blocked_reason</code>: every board reader, the change feed and outbound webhooks see it; never on <code>PublicCardSerializer</code> (a whitelist). <code>purge_card_history</code> deletes <code>CardOverride</code> rows with the card's history and nulls <code>override.reason</code> in feed payloads</td>
+<td>Same exposure as <code>Card.blocked_reason</code>: every board reader, the change feed and outbound webhooks see it; never on <code>PublicCardSerializer</code> (a whitelist). <code>purge_card_history</code> deletes <code>CardOverride</code> rows with the card's history and nulls <code>override.reason</code> in feed payloads. The assigner on an assignee override (<code>CardActivity.assigned_by</code>, #2594) is exposed to the same readers in the <code>BoardUserSerializer</code> shape <code>actor</code> uses (MCP: <code>{username, display_name}</code>), leaves with the activity row on purge, is <code>SET_NULL</code> when the account is deleted, and is never set from an import file</td>
 </tr>
 </tbody>
 </table>

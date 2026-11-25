@@ -6531,6 +6531,11 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <td>string | <code>null</code></td>
 <td><em>Since 1.3 (#2199).</em> On <code>checklist_item_assigned</code> and <code>checklist_item_due_changed</code> entries, the checklist item's text when the change was made, kept after the item is renamed or deleted. On <code>custom_field_changed</code> entries, the custom field's name when the value changed, kept after the field is renamed or deleted (#1921). <code>null</code> on every other event type and on entries recorded before 1.3. Read-only</td>
 </tr>
+<tr>
+<td><code>assigned_by</code></td>
+<td>object | <code>null</code></td>
+<td><em>Since 1.3 (#2594).</em> On an <code>override_used</code> entry whose <code>from_value</code> is <code>assignee</code>, the user who assigned the card when the override was made, in the same shape as <code>actor</code>; a snapshot, so a later reassignment does not change it. <code>null</code> on every other entry, on admin overrides, on imported entries and once that user is deleted. Read-only</td>
+</tr>
 </tbody>
 </table>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">[</span>
@@ -6542,9 +6547,10 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">    </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"jordan"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Jordan Lee"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
 <a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-20T14:03:11Z"</span><span class="p">,</span>
 <a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="w">    </span><span class="nt">"imported_from_username"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="w">    </span><span class="nt">"item_text"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="p">]</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="w">    </span><span class="nt">"item_text"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="w">    </span><span class="nt">"assigned_by"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="p">]</span>
 </code></pre></div>
 <hr />
 <h2 id="timeline">Timeline<a class="headerlink" href="#timeline" title="Permanent link">&para;</a></h2>
@@ -6774,7 +6780,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <tr>
 <td><code>data</code></td>
 <td>object</td>
-<td>Raw fields from the underlying record. Shape differs by <code>kind</code> — see examples above. <code>move</code> entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (<code>from_gates_passed</code>, <code>from_gates_open</code>, <code>to_gates_passed</code>). <code>gate</code> entries carry the gate transition's REST shape (see <a href="#timeline-gate-entries">Gate entries</a>). <code>activity</code> entries include <code>event_type</code>, <code>from_value</code>, and <code>to_value</code>; since 1.3, <code>checklist_item_assigned</code>, <code>checklist_item_due_changed</code> and <code>custom_field_changed</code> entries also carry <code>item_text</code> (the activity's <code>item_text</code>: the field's name on <code>custom_field_changed</code>, #1921; <code>null</code> on entries recorded before 1.3).</td>
+<td>Raw fields from the underlying record. Shape differs by <code>kind</code> — see examples above. <code>move</code> entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (<code>from_gates_passed</code>, <code>from_gates_open</code>, <code>to_gates_passed</code>). <code>gate</code> entries carry the gate transition's REST shape (see <a href="#timeline-gate-entries">Gate entries</a>). <code>activity</code> entries include <code>event_type</code>, <code>from_value</code>, and <code>to_value</code>; since 1.3, <code>checklist_item_assigned</code>, <code>checklist_item_due_changed</code> and <code>custom_field_changed</code> entries also carry <code>item_text</code> (the activity's <code>item_text</code>: the field's name on <code>custom_field_changed</code>, #1921; <code>null</code> on entries recorded before 1.3), and since 1.3 <code>override_used</code> entries carry <code>item_text</code> (the reason) and <code>assigned_by</code> (#2594: the activity's <code>assigned_by</code> user object, <code>null</code> when there is none).</td>
 </tr>
 </tbody>
 </table>
@@ -7801,7 +7807,7 @@ affects the card's own due date, urgency or staleness.</p>
 <li><strong>403 body</strong> gains <code>code</code> (additive): <code>{"detail": "Only board admins can override a WIP limit.", "code": "force_not_permitted"}</code>. On a board with the switch on, <code>detail</code> reads <code>"Only board admins, or the card's assignee when someone else assigned it to them, can override a WIP limit."</code> (or <code>weight</code>). A self-assigned assignee on a board with the switch on gets <code>{"detail": "You assigned this card to yourself, so a board admin needs to move it anyway.", "code": "force_not_permitted", "reason": "self_assigned"}</code>.</li>
 <li><strong>Response/broadcast:</strong> when a limit was overridden, the create (<code>201</code>), move and restore bodies and the <code>card.moved</code> / <code>card.created</code> / <code>card.unarchived</code> frames carry an additive <code>override: {kinds: ["wip"|"weight", ...], actor_basis: "admin"|"site_admin"|"assignee", actor: {id, username}, reason}</code>. Absent otherwise.</li>
 <li><strong>Card field <code>assigned_by</code></strong> (read-only, user id or <code>null</code>): who set the current assignee. <code>null</code> when unassigned, imported, or the assigner was deleted; a <code>null</code> value is never eligible for the assignee basis.</li>
-<li><strong>History:</strong> each override writes one <code>CardOverride</code> row per kind and an <code>override_used</code> activity (<code>from_value</code> = basis, <code>to_value</code> = kinds, <code>item_text</code> = reason).</li>
+<li><strong>History:</strong> each override writes one <code>CardOverride</code> row per kind and an <code>override_used</code> activity (<code>from_value</code> = basis, <code>to_value</code> = kinds, <code>item_text</code> = reason, <code>assigned_by</code> = who assigned the card on an <code>assignee</code> basis, #2594). The card's History reads "… (assignee override). Reason: … · Assigned by {name}"; with no assigner on the row it names no one.</li>
 <li>MCP tools take no <code>force</code>: a Block limit acts as Hard over MCP.</li>
 </ul>
 

@@ -5805,7 +5805,7 @@
 <tr>
 <td><code>activities</code></td>
 <td>array</td>
-<td><code>{id, event_type, from_value, to_value, actor, created_at, imported_from_username, item_text}</code> objects, newest first. <code>imported_from_username</code> works as on <code>movements</code>. <code>item_text</code> (since 1.3) is the checklist item's text on <code>checklist_item_assigned</code> and <code>checklist_item_due_changed</code> entries and the custom field's name on <code>custom_field_changed</code> entries (#1921), and <code>null</code> on other entries and on entries recorded before 1.3. Since 1.3, at most the 200 newest.</td>
+<td><code>{id, event_type, from_value, to_value, actor, created_at, imported_from_username, item_text, assigned_by}</code> objects, newest first. <code>imported_from_username</code> works as on <code>movements</code>. <code>item_text</code> (since 1.3) is the checklist item's text on <code>checklist_item_assigned</code> and <code>checklist_item_due_changed</code> entries and the custom field's name on <code>custom_field_changed</code> entries (#1921), and <code>null</code> on other entries and on entries recorded before 1.3. <code>assigned_by</code> (since 1.3, #2594) is <code>{username, display_name}</code> of who assigned the card on an assignee <code>override_used</code> entry, <code>null</code> otherwise. Since 1.3, at most the 200 newest.</td>
 </tr>
 <tr>
 <td><code>activities_truncated</code></td>
