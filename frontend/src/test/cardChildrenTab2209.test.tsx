@@ -87,6 +87,23 @@ describe('CardChildrenTab states (#2209)', () => {
     expect(screen.getByTestId('children-empty')).toBeInTheDocument()
   })
 
+  it('the empty state carries one child-cards help link (#2592)', () => {
+    renderTab(state({ data: { count: 0, visible: true, offset: 0, limit: 50, results: [] } }))
+    const links = screen.getAllByRole('link', { name: 'Learn more about child cards, opens docs' })
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute('href', expect.stringContaining('/features/board/#child-cards'))
+  })
+
+  it('the populated heading carries one child-cards help link, also with children turned off (#2592)', () => {
+    const { rerender } = renderTab(state({ data: read(kids) }))
+    const heading = screen.getByRole('heading', { level: 4 })
+    const link = screen.getByRole('link', { name: 'Learn more about child cards, opens docs' })
+    expect(link).toHaveAttribute('href', expect.stringContaining('/features/board/#child-cards'))
+    expect(heading.parentElement).toContainElement(link)
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" canHaveChildren={false} state={state({ data: read(kids) })} onExitToTabs={vi.fn()} />)
+    expect(screen.getAllByRole('link', { name: 'Learn more about child cards, opens docs' })).toHaveLength(1)
+  })
+
   it('empty: offers Add child and Link existing to a member, nothing to a viewer', () => {
     const empty = { count: 0, visible: true, offset: 0, limit: 50, results: [] }
     const { rerender } = renderTab(state({ data: empty }))

@@ -185,6 +185,12 @@ const board = {
 } as unknown as BoardFull;
 
 describe("BoardSettingsFieldSetsSection", () => {
+  it("has one Field sets help link beside the heading, for admins and non-admins (#2592)", () => {
+    render(<BoardSettingsFieldSetsSection board={board} isAdmin={false} onFieldSetsUpdated={vi.fn()} onFieldsUpdated={vi.fn()} />);
+    const link = screen.getByRole("link", { name: "Learn more about field sets, opens docs" });
+    expect(link).toHaveAttribute("href", expect.stringContaining("/features/custom-fields/#field-sets"));
+  });
+
   beforeEach(() => vi.clearAllMocks());
 
   it("is read-only for non-admins", () => {

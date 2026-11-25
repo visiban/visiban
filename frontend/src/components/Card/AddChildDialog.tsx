@@ -9,6 +9,7 @@ import { linkErrorCopy } from "./cardParent";
 import { boardsCapLine } from "./childBoardOptionsCap";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
+import HelpLink from "../Common/HelpLink";
 
 interface Props {
   /** The parent card and the board it is on. */
@@ -250,6 +251,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
             <p className="text-xs text-fg-muted">A board admin can set one so this step is skipped.</p>
           )))}
 
+          {/* #2592: one child-cards link for the whole dialog, so it also shows when the board is fixed or children are off. */}
+          {!parentArchived && <HelpLink topic="child-cards" variant="text" className="self-start" />}
+
           {!fixedHidden && !fixedBlocked && !parentArchived && (
             <div className="flex flex-col gap-1">
               <label htmlFor={titleFieldId} className="text-sm text-fg-secondary">Title</label>
@@ -265,6 +269,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               />
               {/* #2542: static hint at the point of choice between a child card and a checklist item. */}
               <p id={titleHintId} className="text-xs text-fg-muted" data-testid="child-title-hint">A child card has its own workflow on another board. For a simple to-do, use the checklist.</p>
+              <HelpLink topic="work-breakdown" variant="text" className="self-start" />
             </div>
           )}
 
@@ -283,6 +288,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
                 ]}
               />
               <p id={neededHelpId} className="text-xs text-fg-muted">Options: Now, then each later column on {boardName}.</p>
+              <HelpLink topic="planned-children" variant="text" className="self-start" />
               {needed !== "now" && (
                 <p id={neededHintId} className="text-xs text-fg-muted" data-testid="needed-lead-time-hint">Lead time without dates: split the work.</p>
               )}

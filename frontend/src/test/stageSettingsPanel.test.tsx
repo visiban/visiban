@@ -47,6 +47,27 @@ beforeEach(() => {
   mockCounts.mockRejectedValue(new Error('offline'))
 })
 
+describe('StageSettingsPanel help links (#2592)', () => {
+  it('has one help link in each of the Sub-columns and Tracks sections', () => {
+    renderPanel()
+    const sub = screen.getByRole('link', { name: 'Learn more about sub-columns, opens docs' })
+    const tr = screen.getByRole('link', { name: 'Learn more about tracks, opens docs' })
+    expect(sub).toHaveAttribute('href', expect.stringContaining('/features/board/#sub-columns-and-tracks'))
+    expect(tr).toHaveAttribute('href', expect.stringContaining('/features/board/#sub-columns-and-tracks'))
+    expect(screen.getByRole('region', { name: 'Sub-columns, in order' })).toContainElement(sub)
+    expect(screen.getByRole('region', { name: 'Tracks, any order' })).toContainElement(tr)
+  })
+
+  it('offers a Which tool? link at the Sub-columns and Tracks hints', () => {
+    renderPanel()
+    const links = screen.getAllByRole('link', { name: /Which tool\? about choosing between a checklist, a track and a child card/ })
+    expect(links).toHaveLength(2)
+    links.forEach((l) => expect(l).toHaveAttribute('href', expect.stringContaining('/features/breaking-work-down/#which-tool')))
+    expect(screen.getByRole('region', { name: 'Sub-columns, in order' })).toContainElement(links[0])
+    expect(screen.getByRole('region', { name: 'Tracks, any order' })).toContainElement(links[1])
+  })
+})
+
 describe('StageSettingsPanel (#2278)', () => {
   it('defines "stage" once and describes each section with a hint that it applies to every card (#2543, #2542)', () => {
     renderPanel()

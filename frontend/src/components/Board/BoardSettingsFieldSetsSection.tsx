@@ -23,6 +23,7 @@ import {
   FIELD_SET_CONFIRM_ESCAPE_PRIORITY, FIELD_SET_MENU_ESCAPE_PRIORITY, SET_CAP, apiErrorMessage, deleteSetPrompt, fieldOrderWith, sortByPosition,
 } from "../../utils/fieldSetSettings";
 import CheckboxDropdown from "../Common/CheckboxDropdown";
+import HelpLink from "../Common/HelpLink";
 import CopyFieldSetDialog from "./CopyFieldSetDialog";
 import FieldSetFieldList from "./FieldSetFieldList";
 import SortableRow from "./SortableRow";
@@ -229,7 +230,10 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
   return (
     <div className="flex flex-col gap-4" data-testid="field-sets-section">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-fg focus:outline-none">Field sets</h3>
+        <div className="inline-flex items-center gap-1.5">
+          <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-fg focus:outline-none">Field sets</h3>
+          <HelpLink topic="field-sets" />
+        </div>
         {isAdmin && (
           <div className="flex items-center gap-2 flex-wrap">
             <button ref={copyButtonRef} type="button" className={BTN_SECONDARY} aria-disabled={atCap}
