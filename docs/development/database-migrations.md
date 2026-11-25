@@ -58,7 +58,9 @@ The same check fails on two foreign-key shapes that name no index at all (#1798)
 | `AddField` of a `OneToOneField` | yes, even with `db_index=False` | its unique index can't be turned off; add a `ForeignKey` and build the unique index separately |
 | `AlterField` that turns a `ForeignKey` index from `db_index=False` back on | yes | keep `db_index=False` |
 | `AlterField` that changes `null` on a `ForeignKey` / `OneToOneField`, in either direction | yes | see [Changing an existing foreign key's nullability](#changing-an-existing-foreign-keys-nullability) |
-| the same `AlterField` with `db_constraint=False` before or after | **no** | nothing to re-validate |
+| `AlterField` that turns another column into a foreign key | yes, unless it sets `db_constraint=False` and builds no index | see [A foreign key on a column that already holds data](#a-foreign-key-on-a-column-that-already-holds-data) |
+| `AlterField` that turns a field into a `OneToOneField` | yes | build the unique index separately |
+| a `null` change with `db_constraint=False` before or after | **no** | nothing to re-validate |
 | any of the above on a table created earlier in the same migration | **no** | the table is empty |
 | any of the above under `SeparateDatabaseAndState(state_operations=...)` | **no** | state only, emits no DDL |
 

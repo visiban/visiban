@@ -675,6 +675,35 @@ class ForeignKeyScannerTests(SimpleTestCase):
         operation = self._op("AlterField", "null=True, related_name='+'")
         self.assertEqual(self._keys(operation, self._history("null=True")), [])
 
+    def _integer_history(self):
+        history = {}
+        record_fields(
+            self._migration(
+                "migrations.AddField(model_name='card', name='owner', "
+                "field=models.IntegerField()),"
+            ),
+            history,
+        )
+        return history
+
+    def test_flags_a_column_turned_into_a_foreign_key(self):
+        history = self._integer_history()
+        self.assertEqual(
+            self._keys(self._op("AlterField"), history), ["fk-convert"]
+        )
+        inert = self._op("AlterField", "db_index=False, db_constraint=False")
+        self.assertEqual(self._keys(inert, history), [])
+
+    def test_flags_a_field_turned_into_a_one_to_one(self):
+        operation = self._op("AlterField", kind="OneToOneField")
+        for prior in (
+            self._history(),
+            self._history("db_index=False"),
+            self._integer_history(),
+        ):
+            with self.subTest(prior=prior):
+                self.assertEqual(self._keys(operation, prior), ["o2o-index"])
+
     def test_accepts_null_change_on_a_non_foreign_key(self):
         history = {}
         record_fields(

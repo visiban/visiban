@@ -141,7 +141,7 @@ Run in parallel:
 2. **migration-check** — Full migration history audit. Check for destructive operations, missing migrations, NOT NULL columns without a database default (`db_default`), and any pattern that would break a zero-downtime deploy.
 
 ### `deps`
-1. **dependency** — Full dependency audit across all pip and npm packages. Check licenses (block GPL-2.0/3.0), known CVEs, and whether any dependency has been superseded by a safer or lighter alternative.
+1. **dependency** — Full dependency audit across all pip and npm packages. Check licenses (block GPL, AGPL, SSPL, BUSL), known CVEs, and whether any dependency has been superseded by a safer or lighter alternative.
 
 ### `enterprise`
 1. **enterprise-check** — Full OSS/enterprise boundary audit. Verify the OSS core is fully functional without the enterprise repo. Check that all extension points (settings includes, URL patterns, signal hooks) are stable and that no enterprise logic has leaked into OSS files.

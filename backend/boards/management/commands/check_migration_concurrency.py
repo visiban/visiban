@@ -36,8 +36,10 @@ Two foreign-key shapes do the same damage without naming an index anywhere
    ``db_index=False`` foreign key's index back on is the same build.
 7. ``AlterField`` that changes ``null`` on a ``ForeignKey`` / ``OneToOneField``.
    Django drops and re-adds the constraint, which revalidates every row.
+8. ``AlterField`` that turns another column into a foreign key, or a foreign key
+   into a ``OneToOneField``.
 
-An ``AlterField`` only states the field's new definition, so rule 7 replays each
+An ``AlterField`` only states the field's new definition, so rules 6 to 8 replay each
 app's earlier migrations, in filename order, to learn the old one. When the old
 definition cannot be found the operation is flagged: unknown is not "unchanged".
 
@@ -145,7 +147,7 @@ GRANDFATHERED_FOREIGN_KEY = frozenset(
     }
 )
 
-FOREIGN_KEY_KEYS = frozenset({"fk-index", "o2o-index", "fk-null"})
+FOREIGN_KEY_KEYS = frozenset({"fk-index", "o2o-index", "fk-null", "fk-convert"})
 
 _ATOMIC_HINT = "and set `atomic = False` on the Migration class"
 
@@ -203,6 +205,11 @@ GUIDANCE = {
         f"does not stop it. Add a ForeignKey with db_index=False and build the "
         f"unique index separately with SeparateDatabaseAndState plus a "
         f"vendor-guarded CREATE UNIQUE INDEX CONCURRENTLY {_ATOMIC_HINT}"
+    ),
+    "fk-convert": (
+        "turning a column into a foreign key builds its index and validates the new "
+        "constraint inline. Declare db_constraint=False and db_index=False, then add "
+        "the constraint NOT VALID, validate it and build the index concurrently"
     ),
     "fk-null": (
         "changing null on a foreign key makes Django drop and re-add the constraint, "
@@ -535,10 +542,16 @@ def _foreign_key_risks(
     old = history.get((model, field_name)) if model and field_name else None
     if old is None:
         return [(f"AlterField({new.kind}) with no known earlier definition", "fk-null")]
+    becomes_one_to_one = (
+        new.kind == "OneToOneField" and old.kind != "OneToOneField"
+    )
+    risks = [("AlterField(OneToOneField)", "o2o-index")] if becomes_one_to_one else []
     if old.kind not in FOREIGN_KEY_FIELDS:
-        return []
+        builds_index = new.kind == "ForeignKey" and new.db_index is not False
+        if not becomes_one_to_one and (new.db_constraint is not False or builds_index):
+            risks.append((f"AlterField to {new.kind}", "fk-convert"))
+        return risks
 
-    risks = []
     # With no database constraint on either side there is nothing to re-validate.
     constrained = old.db_constraint is not False and new.db_constraint is not False
     if constrained and (old.null is None or new.null is None or old.null != new.null):
