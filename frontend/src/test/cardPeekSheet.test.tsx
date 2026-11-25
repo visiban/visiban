@@ -138,11 +138,19 @@ describe('CardPeekSheet', () => {
 
   it('handles empty and failed history', async () => {
     getCardMovements.mockResolvedValueOnce([])
-    const { unmount } = (() => { setup(); return { unmount: () => {} } })()
-    expect(await screen.findByText('Qualified')).toBeInTheDocument()
+    setup()
+    // Wait for the empty history itself, not for "Qualified": the status strip shows that from the
+    // first render, so waiting for it waited on nothing and the next lines raced the fetch (#2608).
+    expect(await screen.findByText('No history yet.')).toBeInTheDocument()
     expect(screen.getAllByTestId('card-peek-segment')).toHaveLength(1)
-    expect(screen.getByText('No history yet.')).toBeInTheDocument()
-    unmount()
+  })
+
+  // #2608: the history fetches can land a task later than the first render on a loaded runner.
+  it('waits for a history that resolves after the first render', async () => {
+    getCardMovements.mockImplementationOnce(() => new Promise((r) => setTimeout(() => r([]), 5)))
+    setup()
+    expect(await screen.findByText('No history yet.')).toBeInTheDocument()
+    expect(screen.getAllByTestId('card-peek-segment')).toHaveLength(1)
   })
 
   it('reports a history load failure', async () => {

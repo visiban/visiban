@@ -182,6 +182,30 @@ describe("CardParentSection (#1104)", () => {
     window.removeEventListener(CARD_PARENT_REFETCH_EVENT, onRefetch);
   });
 
+  // #2608: focus moved in a passive effect left a window between the commit that removes Unlink
+  // (focus falls to <body>) and the effect. A test resuming from findByRole on a slow runner, or a
+  // screen reader in a browser, saw <body>. The check reads focus from inside the waitFor callback,
+  // which a MutationObserver runs right after that commit and before any passive effect.
+  it.each([
+    ["Link a parent", visibleParent, () => screen.queryByRole("button", { name: "Link a parent" }), undefined],
+    ["the card panel", visibleParent, () => (screen.queryByTestId("card-parent-section") ? null : screen.getByTestId("panel")), []],
+  ] as const)("focus is on %s in the same commit that removes Unlink (#2608)", async (_where, parent, target, boardsOverride) => {
+    if (boardsOverride) vi.mocked(cardsApi.getParentBoards).mockResolvedValue([...boardsOverride]);
+    render(
+      <div role="dialog" aria-label="Card" tabIndex={-1} data-testid="panel">
+        <CardParentSection board={childBoard} card={makeCard({ parent })} canEdit />
+      </div>,
+    );
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Unlink parent Initech: security review" }));
+    const seen = await waitFor(() => {
+      const el = target();
+      if (!el) throw new Error("not yet");
+      return { el, focused: document.activeElement };
+    });
+    expect(seen.focused).toBe(seen.el);
+  });
+
   it("treats a 404 unlink as already unlinked", async () => {
     vi.mocked(cardsApi.unlinkCardParent).mockRejectedValue({ response: { status: 404 } });
     render(<CardParentSection board={childBoard} card={makeCard({ parent: { hidden: true } })} canEdit />);
@@ -222,6 +246,23 @@ describe("CardParentSection (#1104)", () => {
     expect(onRefetch).toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).toBeNull();
     window.removeEventListener(CARD_PARENT_REFETCH_EVENT, onRefetch);
+  });
+
+  // #2608: the heading took focus a frame after the commit that removed the picker; read focus
+  // from inside the waitFor callback, which runs right after that commit.
+  it("focus is on the Parent heading in the same commit that shows the linked parent (#2608)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(cardsApi.getParentCandidates).mockResolvedValue([candidate()]);
+    render(<CardParentSection board={childBoard} card={makeCard({ parent: null })} canEdit />);
+    await user.click(await screen.findByRole("button", { name: "Link a parent" }));
+    await user.type(screen.getByRole("combobox", { name: "Card" }), "Ini");
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Initech: security review/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Link to Initech: security review" }));
+    const seen = await waitFor(() => {
+      screen.getByRole("link", { name: "Initech: security review" });
+      return { focused: document.activeElement };
+    });
+    expect(seen.focused).toBe(screen.getByRole("heading", { name: "Parent" }));
   });
 
   it("Cancel closes the picker and returns focus to Link a parent", async () => {

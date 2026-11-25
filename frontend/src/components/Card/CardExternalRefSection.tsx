@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { CardExternalRef, ExternalRefProvider } from "../../types";
 import {
@@ -70,7 +70,9 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
     // eslint-disable-next-line react-hooks/exhaustive-deps -- focus once when the editor opens; `current` is read at that moment only
   }, [editing]);
 
-  useEffect(() => {
+  // A layout effect (#2608): the commit that closes the editor removes the focused Save or Cancel,
+  // so focus is on <body> until this runs; a passive effect left that window open past paint.
+  useLayoutEffect(() => {
     const target = pendingFocus.current;
     if (!target) return;
     pendingFocus.current = null;

@@ -102,12 +102,16 @@ function serveCreate(username: string) {
   })
 }
 
+// Queries here are scoped to the modal's form or to one row, never the whole page (#2608): a
+// page-wide getByLabelText or getByRole walks every element of a 50-row list, about 70% of a
+// 51-account test's time, and on a loaded CI runner that alone passed the 5s test timeout.
 async function addUser(username: string) {
   fireEvent.click(screen.getByText('Add user'))
-  fireEvent.change(screen.getByLabelText(/username/i), { target: { value: username } })
-  fireEvent.change(screen.getByLabelText(/email/i), { target: { value: `${username}@example.com` } })
-  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
-  fireEvent.click(screen.getByText('Create user'))
+  const form = within(screen.getByText('Create user').closest('form')!)
+  fireEvent.change(form.getByLabelText(/username/i), { target: { value: username } })
+  fireEvent.change(form.getByLabelText(/email/i), { target: { value: `${username}@example.com` } })
+  fireEvent.change(form.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
+  fireEvent.click(form.getByText('Create user'))
   await waitFor(() => expect(api.createAdminUser).toHaveBeenCalled())
   await waitFor(() => expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument())
 }
@@ -115,9 +119,13 @@ async function addUser(username: string) {
 /** 51 active accounts: page 1 holds 50 of them, page 2 holds "User 50" alone. */
 const manyActive = () => Array.from({ length: 51 }, (_, i) => row({ id: 100 + i, username: `user${i}`, email: `user${i}@example.com`, display_name: `User ${i}` }))
 
+/** The list row showing `name`: its actions and its inline confirm live inside it. */
+const rowOf = (name: string) => within(screen.getByText(name).closest('li')!)
+
 async function deactivate(name: string) {
-  fireEvent.click(screen.getByRole('button', { name: `Deactivate ${name}` }))
-  fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }))
+  const r = rowOf(name)
+  fireEvent.click(r.getByRole('button', { name: `Deactivate ${name}` }))
+  fireEvent.click(await r.findByRole('button', { name: 'Deactivate' }))
 }
 
 async function renderUsers() {
@@ -423,12 +431,7 @@ describe('Users filter pills (#2501)', () => {
     fireEvent.change(screen.getByLabelText('Search users'), { target: { value: 'al' } })
     await waitFor(() => expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument())
     expect(pill('All')).toHaveTextContent('1')
-    fireEvent.click(screen.getByText('Add user'))
-    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'bob' } })
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'bob@example.com' } })
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
-    fireEvent.click(screen.getByText('Create user'))
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument())
+    await addUser('bob')
     await waitFor(() => expect(lastCall()).toMatchObject({ search: 'al' }))
     await waitFor(() => expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument())
     expect(pill('All')).toHaveTextContent('1')
