@@ -168,6 +168,16 @@ def _redact_card(card):
             {**entry, "value": None} if isinstance(entry, dict) else None
             for entry in values
         ]
+    plans = out.get("dimension_plans")
+    if isinstance(plans, list):
+        # Same shape rule as the field values: each entry keeps its field,
+        # owner and target date (structure, like assignee and due date) and
+        # loses only the free-text next action (#1922).
+        out["dimension_plans"] = [
+            ({**entry, "next_action": None} if "next_action" in entry else entry)
+            if isinstance(entry, dict) else None
+            for entry in plans
+        ]
     return out
 
 
