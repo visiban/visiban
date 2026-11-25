@@ -495,7 +495,12 @@ export default function ActivityTabPanel({
             const assignerSuffix = timelineEntry.kind === "gate"
               ? ""
               : overrideAssignerSuffix(timelineEntry.event_type, timelineEntry.data);
+            // The row shows a capped name (a 150-char name cannot shrink or wrap);
+            // the tooltip keeps the full description.
             const descriptionMain = assignerSuffix ? description.slice(0, -assignerSuffix.length) : description;
+            const rowSuffix = assignerSuffix
+              ? overrideAssignerSuffix(timelineEntry.event_type, timelineEntry.data, true)
+              : "";
             return (
               <li key={`${timelineEntry.kind}-${timelineEntry.id}`} tabIndex={-1} className="relative mb-3 ml-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-line-subtle shadow ${dot}`} />
@@ -504,7 +509,7 @@ export default function ActivityTabPanel({
                     {assignerSuffix ? (
                       <span className="flex min-w-0 items-baseline text-sm text-fg-secondary" title={description}>
                         <span className="truncate">{descriptionMain}</span>
-                        <span className="shrink-0 whitespace-pre">{assignerSuffix}</span>
+                        <span className="shrink-0 whitespace-pre">{rowSuffix}</span>
                       </span>
                     ) : (
                       <span className="text-sm text-fg-secondary truncate" title={description}>

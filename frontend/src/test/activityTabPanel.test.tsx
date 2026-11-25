@@ -119,6 +119,31 @@ describe("ActivityTabPanel", () => {
     expect(suffix.parentElement).toHaveAttribute("title", expect.stringContaining(reason));
   });
 
+  it("caps a 150-character assigner name in the row and keeps it whole in the tooltip (#2594)", async () => {
+    const longName = "N".repeat(150);
+    mockGetTimeline.mockResolvedValue(
+      makeTimelinePage([
+        makeEntry({
+          id: 8,
+          event_type: "override_used",
+          data: {
+            event_type: "override_used",
+            from_value: "assignee",
+            to_value: "wip",
+            item_text: "short reason",
+            assigned_by: { id: 3, username: "bo", display_name: longName, avatar_url: "" },
+          },
+        }),
+      ])
+    );
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    const suffix = await screen.findByText(/Assigned by N/);
+    expect(suffix).toHaveClass("shrink-0");
+    expect(suffix.textContent).toBe(` \u00b7 Assigned by ${"N".repeat(39)}\u2026`);
+    expect(suffix.textContent).not.toContain(longName);
+    expect(suffix.parentElement).toHaveAttribute("title", expect.stringContaining(`Assigned by ${longName}`));
+  });
+
   it('shows "Load more" button when hasMore is true', async () => {
     mockGetTimeline.mockResolvedValue(
       makeTimelinePage(

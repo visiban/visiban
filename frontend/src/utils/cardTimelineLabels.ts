@@ -28,11 +28,17 @@ function cappedName(name: string): string {
  * The " · Assigned by {name}" tail of an assignee override row (#2594), or ""
  * with no assigner (admin basis, older or imported row, deleted account).
  * Exposed so the History row can render it apart from the truncating text.
+ * `capName` shortens the name for the non-shrinking row span (backend allows
+ * 150 chars); the uncapped default keeps `activityLabel` and the tooltip full.
  */
-export function overrideAssignerSuffix(event_type: string, data: Record<string, unknown>): string {
+export function overrideAssignerSuffix(
+  event_type: string,
+  data: Record<string, unknown>,
+  capName = false
+): string {
   const d = data as unknown as CardActivity;
   return event_type === "override_used" && d.from_value === "assignee" && d.assigned_by
-    ? ` · Assigned by ${userDisplayName(d.assigned_by)}`
+    ? ` · Assigned by ${capName ? cappedName(userDisplayName(d.assigned_by)) : userDisplayName(d.assigned_by)}`
     : "";
 }
 
