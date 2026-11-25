@@ -3387,6 +3387,67 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#board-channel-frames-for-a-group-join-or-group-role-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board-channel frames for a group join or group role change
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Board-channel frames for a group join or group role change">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-code-does-today_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the code does today
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#options_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommendation_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#if-the-owner-approves_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        If the owner approves
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5974,6 +6035,72 @@
 <p>Returns <code>404 Not Found</code> if the card is archived (<em>since 1.3</em>, #1957); nothing is saved.</p>
 </blockquote>
 <p>Under A, the <code>card-archiving.md</code> sentence would instead read: "Comments, attachments, checklist items and relations on an archived card can still be added and changed over the API; the web app does not offer it."</p>
+<hr />
+<p><a id="group-membership-board-frames"></a></p>
+<h2 id="board-channel-frames-for-a-group-join-or-group-role-change">Board-channel frames for a group join or group role change<a class="headerlink" href="#board-channel-frames-for-a-group-join-or-group-role-change" title="Permanent link">&para;</a></h2>
+<p><strong>Status:</strong> Proposed, owner decision pending (#1743). This record proposes and decides nothing. Until the owner rules, a group join and a group role change send no frame on the board channel, as described below. The ruling is recorded as a dated note under this record, never as a silent rewrite.</p>
+<p><strong>The question:</strong> removing a user from a group sends <code>member.removed</code> on the board channel of every board where they lost access. Joining a group, or a role change on one, sends nothing on the board channel, only on the group channel. Should a join and a role change also reach the board channel, or is that a documented limitation?</p>
+<p><strong>Where the question came from:</strong> the 1.2 <code>/pre-release</code> audit (<code>broadcast-check</code>, wave 2), not a user report. The audit said it might be a design decision. No persona panel was run for this record.</p>
+<h3 id="what-the-code-does-today_3">What the code does today<a class="headerlink" href="#what-the-code-does-today_3" title="Permanent link">&para;</a></h3>
+<p>Read in the code at <code>main</code> of 2026-11-25 (<code>d81ef031b</code>). Nothing was run for this record. The line numbers in #1743's body are approximate; the ones below replace them. Line numbers in <code>docs/api/websockets.md</code> are on this branch, which adds one note to it.</p>
+<ul>
+<li><strong>Group removal fans out to boards.</strong> <code>update_member</code>'s <code>DELETE</code> branch (<code>backend/groups/views.py:1053–1196</code>) walks the group's subtree (<code>:1073–1084</code>), drops the boards where the user has a direct <code>BoardMembership</code> (<code>:1088–1092</code>), and keeps the rest as <code>candidate_board_ids</code> (<code>:1093–1097</code>). After commit, <code>_evict_stale_ws</code> (<code>:1125–1169</code>) loads those boards in one query, re-checks <code>get_board_role</code> on each, and calls <code>record_board_event(bid, "member.removed", {"user_id": uid})</code> for each board where the role is now <code>None</code> (<code>:1159–1169</code>). The group channel gets its own <code>member.removed</code> (<code>:1183–1194</code>).</li>
+<li><strong>A role change does not.</strong> The <code>PATCH</code> branch (<code>:1197–1257</code>) locks and writes the role (<code>:1226–1234</code>), then sends group-channel <code>member.updated</code> and the subgroups' inherited rows (<code>:1247–1256</code>). No board-channel <code>member.*</code> frame.</li>
+<li><strong>A join does not.</strong> <code>JoinGroupView</code> (<code>views.py:2482</code>) creates the membership with <code>get_or_create</code> (<code>:2730</code>) and, on a fresh join, sends group-channel <code>member.added</code> plus the subgroups' inherited rows (<code>:2758–2765</code>). Registration with an invite takes the same path through <code>_grant_membership</code> (<code>backend/groups/invite_registration.py:277–308</code>). No board-channel <code>member.*</code> frame on either (a join that lowers a role can still send board-channel <code>board.updated</code> and <code>share_link.updated</code>, below).</li>
+<li><strong>Board-channel frames that do go out.</strong> A demotion, or a join that lowers a role below admin, calls <code>revoke_lapsed_share_links</code> (<code>backend/groups/views.py:1236–1240</code>, <code>:2740–2745</code>; <code>backend/groups/invite_registration.py:285–292</code>). For each public share link the user enabled through the lapsed admin role, it sends board-channel <code>board.updated</code> and <code>share_link.updated</code> (<code>backend/boards/services/share_links.py:98–126</code>, <code>:226–227</code>). Those frames report the link, not the roster, so they do not answer the question.</li>
+<li><strong>An ownership transfer does not either.</strong> <code>transfer_group_ownership</code> (<code>backend/groups/services.py:184</code>) can promote the new owner to admin (<code>:249–251</code>) and keeps the previous owner as admin (<code>:253–257</code>). Only the group channel is told (<code>docs/api/websockets.md:678</code>).</li>
+<li><strong>The board roster includes group members.</strong> <code>/full/</code>'s <code>members</code> is the effective roster: direct rows, then group-inherited members from the nearest ancestor group, then the owner and site admins (<code>BoardFullSerializer.get_members</code>, <code>backend/boards/serializers.py:5912</code>). An inherited row has <code>id: null</code>, because it has no <code>BoardMembership</code> row (<code>EffectiveBoardMemberSerializer</code>, <code>:5576–5596</code>). A direct membership outranks any group role (<code>get_board_role</code>, <code>backend/boards/permissions.py:407</code>).</li>
+<li><strong>Board-channel <code>member.added</code> and <code>member.updated</code> carry a real membership row.</strong> The members endpoint sends a <code>BoardMembershipSerializer</code> row (<code>backend/boards/views/boards.py:1852–1868</code>), board invite redemption sends the same row plus <code>invite</code> (<code>backend/boards/invites.py:258–264</code>), and the docs promise exactly that (<code>docs/api/websockets.md:502–503</code>). Every such row is a real <code>BoardMembership</code>, so its <code>id</code> is never <code>null</code>.</li>
+<li><strong>What the web app does with these frames.</strong> <code>member.added</code> and <code>member.updated</code> upsert the row by <code>user.id</code>, not by <code>id</code> (<code>frontend/src/hooks/useBoard.ts:1484–1495</code>). A <code>member.updated</code> about the viewer also sets <code>current_user_role</code> and refetches <code>/full/</code> (<code>frontend/src/components/Board/BoardView.tsx:1079–1097</code>); the comment there says that without the frame the viewer "retains the wrong UI affordances until they reload the page". <code>member.added</code> also adds a "joined the board" entry to the live activity panel (<code>BoardView.tsx:1186–1195</code>).</li>
+<li><strong>Access and field filtering do not depend on these frames.</strong> Before forwarding any frame, the board consumer re-checks the subscriber's role from the database, cached for 5 seconds plus 0 to 2 seconds (<code>backend/boards/consumers.py:54</code>, <code>:65</code>, <code>:309–320</code>; #1477). A <code>member.added</code> or <code>member.updated</code> about the subscriber skips the cache (<code>:309–310</code>, <code>MODERATOR_BEARING_EVENTS</code> at <code>permissions.py:40</code>). REST enforces the role on every write. <code>docs/api/websockets.md:513</code> and <code>:719</code> already say that a group role change publishes no board-channel frame and takes effect at the re-check.</li>
+</ul>
+<p><strong>What goes stale, then.</strong> On every open board in the group's subtree, other viewers' rosters do not show a user who joined, or show their old role after a change: the members panel, the assignee picker and @mention autocomplete. The user's own open board keeps its old <code>current_user_role</code>, so it shows editing controls they lost, or hides ones they gained, until a refetch. Their server-side access and the fields the socket sends them follow the new role within about 7 seconds. The web app refetches <code>/full/</code> on reconnect, on tab focus (at most every 30 seconds) and on <strong>Refresh board</strong> (<code>docs/api/websockets.md:762–767</code>), so the staleness lasts until the viewer next does one of those. API clients that follow the board channel or the change feed get nothing and keep the old roster until they re-read <code>/full/</code>.</p>
+<p><strong>The same class, out of scope here:</strong> a board moved to another group, a group moved under another parent, and a group delete (boards' <code>group</code> is <code>SET_NULL</code>, <code>backend/boards/models.py:86–88</code>) also change who can open a board without a board-channel <code>member.*</code> frame. <code>docs/api/websockets.md:513</code> names the board move only. Tracked as #2625, open; this record does not decide it.</p>
+<p><strong>The race named in #1743.</strong> <code>candidate_board_ids</code> is read before <code>transaction.atomic()</code> and before the lock at <code>views.py:1106–1108</code>. The code comment at <code>views.py:1059–1061</code> says the IDs are collected "inside the transaction", but <code>ATOMIC_REQUESTS</code> is not set (Django's default is <code>False</code>), so the read happens before any transaction opens; #2624 corrects the comment (no code is edited on this branch). Moving the read inside the block would not close the race by itself: the removal locks the group row <code>FOR NO KEY UPDATE</code> (<code>services.py:314</code>, step 2), and placing a board in a group takes only <code>FOR KEY SHARE</code> on the destination group (<code>lock_group_for_board_placement</code>, <code>services.py:96</code>), which does not conflict with it. A board moved into the subtree after the snapshot and before the delete commits is not in the list, so its <code>member.removed</code> is not sent. The consumer's re-check still closes the removed user's socket there within the window above. Other viewers' rosters on that board keep the user until a refetch. Reading the subtree's boards again in the <code>on_commit</code> callback, and evicting from the union of both reads, would close it.</p>
+<p><strong>The fan-out cost.</strong> Each evicted board costs one change-feed <code>INSERT</code> in its own short transaction and one channel-layer publish (<code>record_board_event</code>, <code>backend/boards/broadcast.py:465</code>), run one after another in the request that made the change. The role check before it is <code>get_board_role</code> in a loop (<code>views.py:1159–1163</code>), the N+1 that <code>get_board_roles</code> (<code>permissions.py:469</code>, a fixed two queries) exists to replace. Unlike the subgroup fan-out (500 subgroups at most, <code>websockets.md:678</code>), the board fan-out has no cap. A join or role change mirrored the same way would cost the same per board, and on every join rather than only on removal.</p>
+<p><strong>Not verified:</strong> behavior on PostgreSQL, the cost of the fan-out on a group with many boards, and whether any API client or enterprise code reads board-channel <code>member.*</code> frames and relies on <code>id</code> being a number. The enterprise repository is not checked out here: it may also write group memberships (SCIM or directory sync) and read <code>member.*</code> frames. Whoever implements option C or A must check those writers and readers too.</p>
+<h3 id="options_3">Options<a class="headerlink" href="#options_3" title="Permanent link">&para;</a></h3>
+<p><strong>A. Mirror the removal pattern: send board-channel <code>member.added</code> / <code>member.updated</code> on a join or role change.</strong> After commit, resolve the user's effective role on each board in the subtree that has no direct membership for them, and send <code>member.added</code> where they had no access before, <code>member.updated</code> where the role changed, and nothing where it did not (a nearer group, or another path, can leave it unchanged).
+- <em>For:</em> the web app needs no change: it upserts by <code>user.id</code> and already handles the self-role case (<code>BoardView.tsx:1079–1097</code>), and the consumer already re-checks the subject's role on these two events. Rosters and the viewer's own controls update live.
+- <em>Against:</em>
+  - The payload. No <code>BoardMembership</code> row exists, so the row would be the effective one, with <code>id: null</code>. Board-channel <code>member.added</code> and <code>member.updated</code> are documented as a <code>BoardMembershipSerializer</code> object and have always had an integer <code>id</code>. A client that splices rows by <code>id</code> breaks. <code>CLAUDE.md</code> § Backward compatibility reserves a change of a field's type for a major version; its example is nullable to required, and this is the reverse. Whether the reverse counts is the owner's call, but a client that splices by <code>id</code> breaks either way. The group channel already did the same thing on a shipped event: group-channel <code>member.updated</code> has been in GA since 1.1, documented as a full <code>GroupMembershipSerializer</code> object (<code>git show v1.2.0:docs/api/websockets.md</code>, emitted at <code>v1.2.0:backend/groups/views.py:923</code>), and 1.3's #2235 now sends it with <code>id: null</code> for inherited rows (<code>backend/groups/broadcast.py:254–263</code>, <code>websockets.md:678</code>). That change is not released yet, but it is the same integer-to-nullable change on a GA event that A would make on the board channel. So the project has already made, and not yet shipped, the choice A asks the owner to make; it is a precedent for A, not a reason to rule A out. Whether #2235's own change is acceptable under <code>CLAUDE.md</code> § Backward compatibility is an open question the owner may want to rule on (an observation here, not a new decision).
+  - The "before" role. A join needs it to choose <code>member.added</code> over <code>member.updated</code> or nothing, so it has to be resolved before the write, for every board in the subtree, in the request.
+  - The cost above, on every join, without a cap.
+  - The live activity panel would show "joined the board" on every board in the subtree.
+- <em>Backward compatibility:</em> breaking for any consumer that relies on a non-null <code>id</code> (above), by the strict reading of <code>CLAUDE.md</code>. #2235 already made the same change on the group channel's GA <code>member.updated</code>, so A is consistent with that precedent; if the owner accepts #2235, A's compatibility cost is the same one already accepted, and if not, both need revisiting together. Sending existing event types in more cases is otherwise allowed.</p>
+<p><strong>B. Keep today's behavior and document it.</strong> No code change. Say in <code>docs/api/websockets.md</code> that a join and a role change on a group send nothing on the board channel, what goes stale, and how a client recovers.
+- <em>For:</em> no cost and no contract change. Access and field filtering already follow the new role within about 7 seconds, and REST enforces it, so nothing here is a security gap. Half of it is already documented (<code>websockets.md:513</code>, <code>:719</code>).
+- <em>Against:</em> a board open all day keeps the old roster, and the user's own tab keeps the old controls, until a refetch. API clients have no signal at all.
+- <em>Backward compatibility:</em> none affected.</p>
+<p><strong>C. A new board-channel event for effective-roster changes.</strong> For example <code>member.access_changed</code>, sent on a group join, a group role change and an ownership transfer, to each board where the user's effective role changed. Payload: the row exactly as <code>/full/</code> <code>members</code> lists it (<code>id: null</code> for an inherited row), filtered per subscriber like <code>member.updated</code> (<code>is_moderator</code>, <code>is_site_admin</code>).
+- <em>For:</em> additive. New event types are allowed (<code>CLAUDE.md</code> § WebSocket event schema), clients must already ignore unknown ones (<code>websockets.md:179</code>), and the <code>member.added</code> and <code>member.updated</code> contract keeps its integer <code>id</code>. The web app can reuse its upsert and self-role handling. The same event can later cover the out-of-scope cases (board moved, group re-parented).
+- <em>Against:</em> the cost and the "before" role are the same as A. One more event type to keep stable. It must be added to the emitted-event registry in <code>boards/broadcast.py</code>, the docs and a frontend handler, or the <code>ws-event-reachability</code> CI job fails (<code>.gitlab-ci.yml:3936</code>), and to <code>MODERATOR_BEARING_EVENTS</code> so the subscriber filter and the forced self re-check apply. An API client gains nothing until it handles the new event.
+- <em>Backward compatibility:</em> none affected.</p>
+<p><strong>D. A refetch signal only.</strong> A new board-channel event such as <code>roster.changed</code> with <code>{}</code> or <code>{"user_id": &lt;int&gt;}</code>, on which clients refetch <code>/full/</code>. Not recommended: the board's only roster read is <code>/full/</code>, so every open tab on every board in the subtree would refetch the whole board on every join. <code>/boards/{id}/members/</code> lists direct rows only and cannot replace it.</p>
+<h3 id="recommendation_3">Recommendation<a class="headerlink" href="#recommendation_3" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>RECOMMENDATION (implementer proposal, not a decision; moderate strength): option B for 1.3, with C (or A, if the owner accepts the <code>id: null</code> precedent from #2235) as the route if a real need shows up.</strong> Document the limitation now. The case against A rests mainly on cost and absence of a report, not on contract compatibility.</p>
+</blockquote>
+<p>Why:</p>
+<ol>
+<li>Nothing here is a security gap. The socket's access and the fields it sends follow the new role within about 7 seconds (#1477), and REST enforces it. What goes stale is the roster and the viewer's own controls, until the next reconnect, tab focus or refresh.</li>
+<li>A changes a shipped payload contract (<code>id: null</code> on board-channel <code>member.added</code> and <code>member.updated</code>). That is arguable in a minor release, and it is less decisive than it first looks: #2235 made the same change on the GA group-channel <code>member.updated</code> (see A), so the compatibility argument does not separate A from what 1.3 already does. It still favors C slightly, which gets the same result additively and keeps the board channel's integer <code>id</code>, but this reason is weak and this recommendation rests on reasons 1, 3 and 4. If the owner accepts #2235's change and wants live rosters, A is a defensible choice at the cost in reason 3.</li>
+<li>C costs a per-board fan-out with no cap on every join, plus a "before" role read for every board in the subtree in the request. Nobody has reported the stale roster. That is a lot to add to a <code>release::stretch</code> slot without a report.</li>
+<li>B is half written already (<code>websockets.md:513</code>, <code>:719</code>) and closes the gap in the docs: today they do not say that a join sends nothing on the board channel, or that other viewers' rosters go stale.</li>
+</ol>
+<p><strong>Under either option:</strong> the removal path's race and its N+1 (above) are worth fixing on their own: read the subtree's boards again in the <code>on_commit</code> callback and evict from the union, and resolve roles with <code>get_board_roles</code>. That is a runtime change, so it is not on this branch. It is tracked as #2624, together with the per-board <code>get_board_role</code> N+1, the uncapped fan-out and the misleading comment. A per-change cap on the board fan-out, like the subgroup one, belongs in the same change.</p>
+<p><em>What would change this to C:</em> a real report of a team working from a stale roster (an assignee who cannot be picked, or a promoted member who cannot edit until a reload), or an API client that needs to follow the effective roster live.</p>
+<h3 id="if-the-owner-approves_3">If the owner approves<a class="headerlink" href="#if-the-owner-approves_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Any option:</strong> add a dated note under this record ("Decided <date>: option X; see #1743") and change <strong>Status</strong> to Accepted. Replace the "Open for the owner" note in <code>docs/api/websockets.md</code> § Member events with the outcome.</li>
+<li><strong>B:</strong> a docs-only MR with the text below in <code>docs/api/websockets.md</code>. No changelog fragment. The race and N+1 fix above is #2624, a separate runtime change; the same-class cases are #2625. Then close #1743.</li>
+<li><strong>C:</strong> an <code>architect</code> pass first (the "before" role read, the cap, the event name), then one implementation MR with: the emit in the join, registration, role change and ownership transfer paths, after commit (pending check: the enterprise repository's SCIM or directory-sync code may write group memberships too, and it is not checked out here, so its writers need the same emit); the new name in the <code>boards/broadcast.py</code> registry and <code>MODERATOR_BEARING_EVENTS</code>; a handler in <code>BoardView.tsx</code> that reuses the upsert and self-role code; the row in <code>websockets.md</code> § Member events, and <code>:513</code>, <code>:719</code> updated; tests for a join, a promotion, a demotion, a change that leaves the effective role unchanged (a nearer group, a direct membership), the subscriber filter, and the cap; an <code>added</code> fragment in <code>changelog.d/</code>. Gates: <code>architect</code>, <code>broadcast-check</code>, <code>perf-check</code>, <code>security-review</code>, <code>regression-check</code>, <code>api-docs</code>.</li>
+</ul>
+<p><strong>Docs text pending the ruling (option B).</strong> Not published; it states as decided what is today only undecided. For <code>docs/api/websockets.md</code> § Member events, after the table:</p>
+<blockquote>
+<p><strong>Watch out:</strong> a change to a user's <strong>group</strong> membership sends no <code>member.*</code> frame on the board channel except removal. Joining a group, by invite link or at registration, a role change on a group, and a group ownership transfer are sent only on the <a href="#group-channel-since-11">group channel</a>. Every board in that group and its subgroups lists the user, with a role taken from the nearest group they belong to, but no <code>member.added</code> or <code>member.updated</code> frame announces it. Until a client re-reads <code>GET /api/v1/boards/{id}/full/</code>, its roster lacks a user who joined, or shows their old role. A user whose own role changed this way keeps the old <code>current_user_role</code> until that re-read, although the server enforces the new role at once and the socket applies it within the <a href="#access-re-check-and-eviction">access re-check</a> window. The Visiban web app re-reads on reconnect, on tab focus and on <strong>Refresh board</strong> (see <a href="#missed-frames">Missed frames</a>). This is by decision (#1743; see <a href="./#group-membership-board-frames">Technology Decisions</a>): it is not a security gap, because access is re-checked within about 7 seconds; sending these frames would add a per-board fan-out on every group join; and no one has reported a stale roster. The payload shape is a secondary consideration: <code>member.added</code> and <code>member.updated</code> carry a board membership row with a numeric <code>id</code>, and a group-inherited member has no such row.</p>
+</blockquote>
+<p>And in <code>:513</code> and <code>:719</code>, the list of changes that publish no board-channel frame becomes "joining a group, a group-membership role change or ownership transfer, a board moved to another group, or a change to the user's all-content access".</p>
 
 
 
