@@ -265,6 +265,24 @@ describe("CardParentSection (#1104)", () => {
     expect(seen.focused).toBe(screen.getByRole("heading", { name: "Parent" }));
   });
 
+  it("lands on the Parent heading when the store shows the new parent before the link answers (#2608)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(cardsApi.getParentCandidates).mockResolvedValue([candidate()]);
+    let answer!: (v: { parent_id: number; child_id: number }) => void;
+    vi.mocked(cardsApi.linkCardParent).mockImplementationOnce(() => new Promise((r) => { answer = r; }));
+    const { rerender } = render(<CardParentSection board={childBoard} card={makeCard({ parent: null })} canEdit />);
+    await user.click(await screen.findByRole("button", { name: "Link a parent" }));
+    await user.type(screen.getByRole("combobox", { name: "Card" }), "Ini");
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Initech: security review/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Link to Initech: security review" }));
+    await waitFor(() => expect(cardsApi.linkCardParent).toHaveBeenCalled());
+    // The board's re-read (another tab's echo) lands first, so `parent` is already the new one.
+    rerender(<CardParentSection board={childBoard} card={makeCard({ parent: visibleParent })} canEdit />);
+    await act(async () => { answer({ parent_id: 41, child_id: 51 }); });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("heading", { name: "Parent" })).toHaveFocus();
+  });
+
   it("Cancel closes the picker and returns focus to Link a parent", async () => {
     const user = userEvent.setup();
     render(<CardParentSection board={childBoard} card={makeCard({ parent: null })} canEdit />);

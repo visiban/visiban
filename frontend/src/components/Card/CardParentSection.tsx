@@ -90,12 +90,14 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
     if (focusAfterUnlink.current && parent === null) {
       focusAfterUnlink.current = false;
       (linkButtonRef.current ?? headingRef.current ?? focusFallback.current)?.focus();
-    } else if (focusAfterLink.current && parent) {
-      // The Link button unmounts with the empty row; land on the heading.
+    } else if (focusAfterLink.current && !pickerOpen && parent) {
+      // The Link button unmounts with the empty row; land on the heading. Keyed on the picker
+      // closing too: a store re-read can show the new parent before the link's response, and
+      // then `parent` does not change in the commit that removes the picker.
       focusAfterLink.current = false;
       headingRef.current?.focus();
     }
-  }, [parent]);
+  }, [parent, pickerOpen]);
 
   if (!childBoard || parent === undefined) return null;
   const offerLink = parent === null && canWrite && parentBoards.length > 0;
