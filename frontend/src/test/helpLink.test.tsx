@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import HelpLink from '../components/Common/HelpLink'
 import { DEFAULT_DOCS_BASE_URL, docsUrl, docsVersionSegment } from '../help/docsUrl'
 import { HELP_TOPICS, type HelpTopicKey } from '../help/topics'
@@ -59,6 +59,22 @@ describe('HelpLink', () => {
   it('renders nothing for an unknown topic at runtime', () => {
     const { container } = render(<HelpLink topic={'nope' as HelpTopicKey} />)
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe('docsUrl build-time VITE_DOCS_BASE_URL', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+  it('uses the env base verbatim with no version segment', () => {
+    vi.stubEnv('VITE_DOCS_BASE_URL', 'https://docs.example.test')
+    expect(docsUrl('webhooks')).toBe('https://docs.example.test/features/webhooks/')
+  })
+  it('falls back to the default host for an unsafe env value', () => {
+    vi.stubEnv('VITE_DOCS_BASE_URL', 'javascript:alert(1)')
+    const url = docsUrl('webhooks')
+    expect(url.startsWith(`${DEFAULT_DOCS_BASE_URL}/`)).toBe(true)
+    expect(url.endsWith('/features/webhooks/')).toBe(true)
   })
 })
 

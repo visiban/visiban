@@ -10,7 +10,7 @@ Find every secret, credential, and environment variable Visiban needs in local d
 
 ## In-app help links
 
-*(new in 1.3)* The "?" and "Learn more" links in the app open the Visiban docs in a new tab, matched to the version you run: a 1.3.x install links to `docs.visiban.com/1.3/...`, a prerelease build to `/next/`, and a development build to `/latest/`.
+*(new in 1.3)* The "?" and "Learn more" links in the app open the Visiban docs in a new tab, matched to the version you run: a 1.3.x install links to `docs.visiban.com/1.3/...`, a prerelease build to `/next/`, and a build whose version is missing or not a release number to `/latest/`. A build from `main` reports the last released version, so its links point at that version's docs until a 1.3 prerelease is cut.
 
 To point them at your own documentation mirror (for example on an air-gapped network), set the `VITE_DOCS_BASE_URL` build argument when you build the frontend image:
 
@@ -22,7 +22,7 @@ docker build --build-arg VITE_DOCS_BASE_URL=https://docs.example.internal/visiba
 |---|---|---|
 | `VITE_DOCS_BASE_URL` | Docs base URL, `http://` or `https://` only. Used exactly as given (a trailing slash is ignored) with no version segment added, so the mirror should serve one doc set at that address. Anything else is ignored. | empty (`https://docs.visiban.com`, version-matched) |
 
-**Watch out:** this is a build-time setting baked into the JavaScript bundle, so it can't be changed on a prebuilt release image. A runtime setting is not part of this release.
+**Watch out:** this is a build-time setting baked into the JavaScript bundle, so it can't be changed on a prebuilt release image. A runtime setting is not part of this release (tracked in #2604), so until then prebuilt images cannot be overridden.
 
 ---
 
