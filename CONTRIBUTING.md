@@ -112,9 +112,9 @@ Every push triggers a GitLab CI pipeline that builds and validates the project. 
 | **security** | `secret-detection` | detect-secrets scan for accidentally committed credentials (MR only) |
 | **security** | `semgrep-sast` | Semgrep static analysis for Python and TypeScript (MR only) |
 
-Lint and test jobs run on every pipeline (branches and MRs). Security, build verification, and license checks run only on MR pipelines.
+Lint and test jobs run on every pipeline (branches and MRs). Security and build verification jobs are tied to MR pipelines, with some also running on `main` or a schedule; license checks run on MR pipelines, on `main`, and on scheduled `main` pipelines other than the Sonar one.
 
-The pipeline must pass before an MR can be merged. Security and license jobs are non-blocking (`allow_failure: true`) — they surface warnings but do not prevent merges.
+The pipeline must pass before an MR can be merged. License checks are blocking. Whether a security job blocks varies by job; the [CI pipeline table](docs/architecture/overview.md) lists each one.
 
 **Running the pipeline on your own fork:** the main repo's CI pulls Docker Hub base images through the GitLab Dependency Proxy (`DOCKERHUB_MIRROR`, defaulting to `${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}`) to avoid Docker Hub's anonymous-pull rate limit — see [`docs/maintainers/ci-runners.md`](docs/maintainers/ci-runners.md#dependency-proxy). The Dependency Proxy is a **group-level-only** GitLab feature, so it does not exist for a personal-namespace fork. If your fork's pipeline fails with an image pull error like `/python:3.12-slim: not found` or similar, set a project CI/CD variable `DOCKERHUB_MIRROR=docker.io` (Settings → CI/CD → Variables) to pull directly from Docker Hub instead.
 

@@ -1,7 +1,7 @@
 ---
 name: dependency
 model: sonnet
-description: Use proactively before adding any new pip or npm package. Checks license (blocks GPL-2.0/3.0), looks up known CVEs, evaluates justification vs existing stack, and assesses transitive dependency and bundle size impact.
+description: Use proactively before adding any new pip or npm package. Checks license (blocks GPL/AGPL/SSPL/BUSL), looks up known CVEs, evaluates justification vs existing stack, and assesses transitive dependency and bundle size impact.
 tools: Bash, Read, WebSearch, WebFetch
 ---
 
@@ -21,12 +21,12 @@ Given the package name(s) in the current task or argument provided:
 
 ### 2. License check
 
-The CI blocks these licenses: `GPL-2.0`, `GPL-3.0`, and their variants.
+The CI blocks these licenses: GPL, AGPL, SSPL, BUSL, their variants, and unidentified licenses (`scripts/license-gate.py`).
 
 Classify the package license:
 - ✅ **Permissive** — MIT, Apache 2.0, BSD, ISC, CC0, Unlicense → safe to add
 - ⚠️ **Weak copyleft** — LGPL, MPL → generally safe for application use (not library distribution); flag for awareness
-- 🔴 **Strong copyleft** — GPL-2.0, GPL-3.0, AGPL → **blocked by CI license check; do not add**
+- 🔴 **Strong copyleft or source-available** — GPL, AGPL, SSPL, BUSL → **blocked by CI license check; do not add**
 - ❓ **Unknown / proprietary** — escalate; do not add without legal sign-off
 
 ### 3. Security check

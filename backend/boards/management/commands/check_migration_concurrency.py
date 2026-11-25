@@ -27,7 +27,27 @@ are already used in this repo's history, by migrations that never mention
 5. Raw ``CREATE INDEX`` SQL inside ``RunSQL`` / ``RunPython``
    (``0030_card_trigram_search_indexes``).
 
-The rule, the exemption, and the grandfathered set are all documented in
+Two foreign-key shapes do the same damage without naming an index anywhere
+(#1798):
+
+6. ``AddField`` of a ``ForeignKey`` that leaves ``db_index`` at its default, or of
+   any ``OneToOneField`` (its unique index cannot be turned off), on an existing
+   table. Django builds the column's index inline. An ``AlterField`` that turns a
+   ``db_index=False`` foreign key's index back on is the same build.
+7. ``AlterField`` that changes anything Django counts as a database change on a
+   constrained ``ForeignKey`` / ``OneToOneField`` (``null``, ``db_index``, ``to``,
+   ``default``, ``db_default``, the column name, the field class, and so on).
+   Django drops and re-adds the constraint, which revalidates every row.
+8. ``AlterField`` that turns another column into a foreign key, a foreign key
+   into a ``OneToOneField``, or ``db_constraint=False`` back on. A ``OneToOneField``
+   (or ``unique=True`` key) turned into a plain indexed ``ForeignKey`` builds a new
+   index, so it falls under rule 6.
+
+An ``AlterField`` only states the field's new definition, so rules 6 to 8 replay each
+app's earlier migrations, in filename order, to learn the old one. When the old
+definition cannot be found the operation is flagged: unknown is not "unchanged".
+
+The rule, the exemption, and the grandfathered sets are all documented in
 ``docs/development/database-migrations.md``. Keep the three in sync.
 
 The scan is deliberately syntactic (``ast`` + ``tokenize``) rather than importing
@@ -40,7 +60,7 @@ from __future__ import annotations
 import ast
 import re
 import tokenize
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
@@ -117,6 +137,54 @@ GRANDFATHERED = frozenset(
     }
 )
 
+FOREIGN_KEY_FIELDS = frozenset({"ForeignKey", "OneToOneField"})
+
+# Migrations that predate the two foreign-key rules (#1798). Unlike GRANDFATHERED,
+# an entry here is skipped by those two rules only; every older rule still applies.
+GRANDFATHERED_FOREIGN_KEY = frozenset(
+    {
+        # AddField(ForeignKey) with the implicit index, all applied history
+        "accounts/migrations/0011_user_default_board.py",
+        "boards/migrations/0009_board_group.py",
+        "boards/migrations/0017_notification_actor_action_type.py",
+        "boards/migrations/0044_cardchecklist_created_by.py",
+    }
+)
+
+FOREIGN_KEY_KEYS = frozenset(
+    {"fk-index", "o2o-index", "fk-null", "fk-convert", "fk-constraint", "fk-readd"}
+)
+
+# Field kwargs Django ignores when it decides whether to drop and re-add a foreign
+# key: Field.non_db_attrs, plus db_comment (ignored by that one comparison).
+# db_column is compared separately, as the column name it produces.
+NON_DB_FIELD_KWARGS = frozenset(
+    {
+        "blank",
+        "choices",
+        "db_column",
+        "db_comment",
+        "editable",
+        "error_messages",
+        "help_text",
+        "limit_choices_to",
+        "on_delete",
+        "related_name",
+        "related_query_name",
+        "validators",
+        "verbose_name",
+    }
+)
+
+# Spelling one of these out is the same definition as leaving it off.
+FIELD_KWARG_DEFAULTS = {
+    "null": False,
+    "db_index": True,
+    "db_constraint": True,
+    "unique": False,
+    "primary_key": False,
+}
+
 _ATOMIC_HINT = "and set `atomic = False` on the Migration class"
 
 GUIDANCE = {
@@ -161,7 +229,63 @@ GUIDANCE = {
         f"add CONCURRENTLY to the statement {_ATOMIC_HINT}; keep the "
         f"schema_editor.connection.vendor guard so the migration still runs on SQLite"
     ),
+    "fk-index": (
+        f"Django builds the foreign key's index inline, holding its lock for the "
+        f"whole build. Set db_index=False on the field, declare the index in the "
+        f"model's Meta.indexes, and add it with "
+        f"visiban.db_operations.AddIndexConcurrently in its own migration "
+        f"{_ATOMIC_HINT}"
+    ),
+    "o2o-index": (
+        f"a OneToOneField always builds a unique index inline, and db_index=False "
+        f"does not stop it. Add a ForeignKey with db_index=False and build the "
+        f"unique index separately with SeparateDatabaseAndState plus a "
+        f"vendor-guarded CREATE UNIQUE INDEX CONCURRENTLY {_ATOMIC_HINT}"
+    ),
+    "fk-convert": (
+        "turning a column into a foreign key builds its index and validates the new "
+        "constraint inline. Declare db_constraint=False and db_index=False, then add "
+        "the constraint NOT VALID, validate it and build the index concurrently"
+    ),
+    "fk-constraint": (
+        "turning db_constraint on makes Django create the constraint and validate "
+        "every row inline. Keep db_constraint=False in the database operations and "
+        "add the constraint NOT VALID, then validate it"
+    ),
+    "fk-readd": (
+        "Django drops and re-adds the foreign key constraint for this change, "
+        "revalidating every row under ACCESS EXCLUSIVE on this table and SHARE ROW "
+        "EXCLUSIVE on the referenced one. Change the database by hand and record the "
+        "new definition with SeparateDatabaseAndState state_operations"
+    ),
+    "fk-null": (
+        "changing null on a foreign key makes Django drop and re-add the constraint, "
+        "revalidating every row under ACCESS EXCLUSIVE on this table and SHARE ROW "
+        "EXCLUSIVE on the referenced one. Change only the column's nullability, as "
+        "boards/0079_cardmovement_card_nullable does"
+    ),
 }
+
+
+@dataclass(frozen=True)
+class FieldState:
+    """The parts of a field definition the foreign-key rules compare.
+
+    ``None`` for a boolean means the source does not spell it as a literal.
+    """
+
+    kind: str
+    null: bool | None
+    db_index: bool | None
+    db_constraint: bool | None
+    unique: bool | None
+    db_column: str | None
+    # (name, source dump) of every other kwarg that affects the database.
+    db_attrs: frozenset[tuple[str, str]]
+
+
+# (model_name, field_name) -> the field's definition so far, for one app.
+FieldHistory = dict[tuple[str, str], FieldState]
 
 
 @dataclass(frozen=True)
@@ -174,6 +298,12 @@ class Violation:
     def render(self) -> str:
         if self.guidance_key == "atomic":
             return f"{self.path}:{self.line}: {GUIDANCE['atomic']}."
+        if self.guidance_key in FOREIGN_KEY_KEYS:
+            return (
+                f"{self.path}:{self.line}: {self.operation}: "
+                f"{GUIDANCE[self.guidance_key]}. If the lock is genuinely harmless, add "
+                f"an inline `# {EXEMPT_MARKER} <reason>` comment."
+            )
         return (
             f"{self.path}:{self.line}: {self.operation} takes ACCESS EXCLUSIVE on the "
             f"table for the whole build — {GUIDANCE[self.guidance_key]}. If the lock is "
@@ -199,6 +329,14 @@ def _keyword(node: ast.Call, name: str) -> ast.expr | None:
     return None
 
 
+def _field_argument(node: ast.Call) -> ast.expr | None:
+    """The ``field`` argument of AddField/AlterField, by keyword or position."""
+    value = _keyword(node, "field")
+    if value is None and len(node.args) > 2:
+        value = node.args[2]
+    return value
+
+
 def _constraint_kind(node: ast.Call) -> str:
     """Classify an AddConstraint by its constraint argument.
 
@@ -221,7 +359,7 @@ def _indexing_kwarg(node: ast.Call) -> str | None:
     index — and both are invisible to a checker that only looks at operation names.
     ``0018_add_stable_uids`` used ``unique=True`` five times, once on ``cards``.
     """
-    field = _keyword(node, "field")
+    field = _field_argument(node)
     if not isinstance(field, ast.Call):
         return None
     for kwarg in INDEXING_FIELD_KWARGS:
@@ -323,8 +461,270 @@ def _apply_exemptions(
     return remaining
 
 
-def scan_source(source: str, rel_path: str) -> list[Violation]:
-    """Return every non-concurrent index/constraint operation in one migration."""
+def _argument(node: ast.Call, name: str, position: int) -> str | None:
+    """A literal string argument given by keyword or position, lowercased."""
+    value = _keyword(node, name)
+    if value is None and len(node.args) > position:
+        value = node.args[position]
+    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+        return value.value.lower()
+    return None
+
+
+def _bool_kwarg(field: ast.Call, name: str, default: bool) -> bool | None:
+    value = _keyword(field, name)
+    if value is None:
+        return default
+    if isinstance(value, ast.Constant) and isinstance(value.value, bool):
+        return value.value
+    return None
+
+
+def _field_state(field: ast.expr | None) -> FieldState | None:
+    if not isinstance(field, ast.Call):
+        return None
+    attrs = {kw.arg: kw.value for kw in field.keywords if kw.arg}
+    if field.args:
+        # ForeignKey("app.model", on_delete): `to` may be positional.
+        attrs.setdefault("to", field.args[0])
+    db_attrs = set()
+    for key, value in attrs.items():
+        if key in NON_DB_FIELD_KWARGS:
+            continue
+        literal = value.value if isinstance(value, ast.Constant) else None
+        if key in FIELD_KWARG_DEFAULTS and literal is FIELD_KWARG_DEFAULTS[key]:
+            continue
+        if key == "to" and isinstance(literal, str):
+            db_attrs.add((key, literal.lower()))
+        else:
+            db_attrs.add((key, ast.dump(value)))
+    column = attrs.get("db_column")
+    return FieldState(
+        kind=_callable_name(field) or "",
+        null=_bool_kwarg(field, "null", False),
+        db_index=_bool_kwarg(field, "db_index", True),
+        db_constraint=_bool_kwarg(field, "db_constraint", True),
+        unique=_bool_kwarg(field, "unique", False),
+        db_column=(
+            str(column.value)
+            if isinstance(column, ast.Constant)
+            else ast.dump(column) if column is not None else None
+        ),
+        db_attrs=frozenset(db_attrs),
+    )
+
+
+def _ordered_operations(tree: ast.AST) -> list[ast.Call]:
+    """The migration's operation calls in the order they apply.
+
+    ``SeparateDatabaseAndState`` is unpacked with ``database_operations`` first,
+    whatever order the keywords are written in: they run against the old state, so
+    they must be compared before ``state_operations`` records the new one.
+    """
+    ordered: list[ast.Call] = []
+
+    def visit(node: ast.expr) -> None:
+        if not isinstance(node, ast.Call):
+            return
+        if _callable_name(node) == "SeparateDatabaseAndState":
+            for name in ("database_operations", "state_operations"):
+                value = _keyword(node, name)
+                if isinstance(value, (ast.List, ast.Tuple)):
+                    for child in value.elts:
+                        visit(child)
+            return
+        ordered.append(node)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "operations" for t in node.targets
+        ):
+            if isinstance(node.value, (ast.List, ast.Tuple)):
+                for element in node.value.elts:
+                    visit(element)
+
+    # An operations list assembled some other way must not hide a field change.
+    seen = {id(node) for node in ordered}
+    ordered.extend(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and id(node) not in seen
+        and _callable_name(node) in FIELD_OPERATIONS
+    )
+    return ordered
+
+
+def _record(node: ast.Call, history: FieldHistory) -> None:
+    """Apply one operation to ``history``."""
+    name = _callable_name(node)
+
+    if name == "CreateModel":
+        model = _argument(node, "name", 0)
+        fields = _keyword(node, "fields")
+        if fields is None and len(node.args) > 1:
+            fields = node.args[1]
+        if model and isinstance(fields, (ast.List, ast.Tuple)):
+            for pair in fields.elts:
+                if isinstance(pair, ast.Tuple) and len(pair.elts) == 2:
+                    key, field = pair.elts
+                    state = _field_state(field)
+                    if isinstance(key, ast.Constant) and state:
+                        history[(model, str(key.value).lower())] = state
+    elif name == "RenameModel":
+        old = _argument(node, "old_name", 0)
+        new = _argument(node, "new_name", 1)
+        for model, field_name in list(history):
+            if model == old and new:
+                history[(new, field_name)] = history.pop((model, field_name))
+    elif name == "RenameField":
+        model = _argument(node, "model_name", 0)
+        old = _argument(node, "old_name", 1)
+        new = _argument(node, "new_name", 2)
+        if model and old and new and (model, old) in history:
+            history[(model, new)] = history.pop((model, old))
+    else:
+        # AddField, AlterField, and subclasses of them such as 0079's
+        # DropNotNullKeepingForeignKey, which share the same keywords.
+        model = _argument(node, "model_name", 0)
+        field_name = _argument(node, "name", 1)
+        state = _field_state(_field_argument(node))
+        if model and field_name and state:
+            if _drops_default(node):
+                # preserve_default=False: the default is not part of the new state.
+                state = replace(
+                    state,
+                    db_attrs=frozenset(a for a in state.db_attrs if a[0] != "default"),
+                )
+            history[(model, field_name)] = state
+
+
+def _drops_default(node: ast.Call) -> bool:
+    value = _keyword(node, "preserve_default")
+    if value is None and len(node.args) > 3:
+        value = node.args[3]
+    return isinstance(value, ast.Constant) and value.value is False
+
+
+def _changed_attributes(
+    old: FieldState, new: FieldState, field_name: str
+) -> list[str]:
+    """Names of the differences that make Django re-create a foreign key."""
+    changed = {key for key, _ in old.db_attrs ^ new.db_attrs}
+    if old.kind != new.kind:
+        changed.add("field class")
+    default_column = f"{field_name}_id"
+    if (old.db_column or default_column) != (new.db_column or default_column):
+        changed.add("db_column")
+    return sorted(changed)
+
+
+def record_fields(source: str, history: FieldHistory) -> None:
+    """Replay one migration's field definitions into ``history``."""
+    for node in _ordered_operations(ast.parse(source)):
+        _record(node, history)
+
+
+def _foreign_key_risks(
+    node: ast.Call, history: FieldHistory
+) -> list[tuple[str, str]]:
+    """``(operation, guidance_key)`` for each foreign-key rule ``node`` breaks."""
+    name = _callable_name(node)
+    new = _field_state(_field_argument(node))
+    if name not in FIELD_OPERATIONS or new is None or new.kind not in FOREIGN_KEY_FIELDS:
+        return []
+    # An explicit db_index=True / unique=True is already reported by the older rule.
+    explicit_index = _indexing_kwarg(node) is not None
+
+    if name == "AddField":
+        if explicit_index:
+            return []
+        if new.kind == "OneToOneField":
+            return [("AddField(OneToOneField)", "o2o-index")]
+        if new.db_index is not False:
+            return [("AddField(ForeignKey) without db_index=False", "fk-index")]
+        return []
+
+    model = _argument(node, "model_name", 0)
+    field_name = _argument(node, "name", 1)
+    old = history.get((model, field_name)) if model and field_name else None
+    if old is None:
+        return [(f"AlterField({new.kind}) with no known earlier definition", "fk-null")]
+    becomes_one_to_one = (
+        new.kind == "OneToOneField" and old.kind != "OneToOneField"
+    )
+    risks = [("AlterField(OneToOneField)", "o2o-index")] if becomes_one_to_one else []
+    if old.kind not in FOREIGN_KEY_FIELDS:
+        builds_index = new.kind == "ForeignKey" and new.db_index is not False
+        if not becomes_one_to_one and (new.db_constraint is not False or builds_index):
+            risks.append((f"AlterField to {new.kind}", "fk-convert"))
+        return risks
+
+    # Django (BaseDatabaseSchemaEditor._alter_field) drops the old constraint on any
+    # database-relevant change and creates the new one whenever it dropped one or
+    # there was none. So a constraint that is off afterwards costs no validation.
+    constrained = new.db_constraint is not False
+    if constrained and old.db_constraint is False:
+        risks.append((f"AlterField({new.kind}) turning db_constraint on", "fk-constraint"))
+    kept = constrained and old.db_constraint is not False
+    if kept and (old.null is None or new.null is None or old.null != new.null):
+        risks.append((f"AlterField({new.kind}) changing null", "fk-null"))
+    # A unique key has no plain index, so dropping uniqueness builds one.
+    had_plain_index = (
+        old.db_index is not False
+        and old.kind != "OneToOneField"
+        and old.unique is False
+    )
+    if (
+        not explicit_index
+        and new.kind == "ForeignKey"
+        and not had_plain_index
+        and new.db_index is not False
+        and new.unique is False
+    ):
+        risks.append(("AlterField(ForeignKey) turning the index on", "fk-index"))
+    # Reported only when nothing above already stops this operation.
+    changed = _changed_attributes(old, new, field_name)
+    if kept and changed and not risks and not explicit_index:
+        risks.append(
+            (f"AlterField({new.kind}) changing {', '.join(changed)}", "fk-readd")
+        )
+    return risks
+
+
+def _scan_foreign_keys(
+    tree: ast.AST, rel_path: str, prior_fields: FieldHistory | None
+) -> list[Violation]:
+    state_only = _state_only_nodes(tree)
+    history = dict(prior_fields or {})
+    created: set[str] = set()
+    violations: list[Violation] = []
+
+    for node in _ordered_operations(tree):
+        if id(node) not in state_only:
+            if _callable_name(node) == "CreateModel":
+                model = _argument(node, "name", 0)
+                if model:
+                    created.add(model)
+            # A table created in this migration has no rows and no readers.
+            elif _argument(node, "model_name", 0) not in created:
+                violations.extend(
+                    Violation(rel_path, node.lineno, operation, key)
+                    for operation, key in _foreign_key_risks(node, history)
+                )
+        _record(node, history)
+
+    return violations
+
+
+def scan_source(
+    source: str, rel_path: str, prior_fields: FieldHistory | None = None
+) -> list[Violation]:
+    """Return every non-concurrent index/constraint operation in one migration.
+
+    ``prior_fields`` is the app's field history before this migration. Without it,
+    a foreign-key ``AlterField`` on a field this file does not define is flagged.
+    """
     tree = ast.parse(source, filename=rel_path)
     if _is_squashed(tree):
         return []
@@ -363,6 +763,9 @@ def scan_source(source: str, rel_path: str) -> list[Violation]:
             if kwarg is not None:
                 report(node.lineno, f"{name}({kwarg})", kwarg)
 
+    if rel_path not in GRANDFATHERED_FOREIGN_KEY:
+        violations.extend(_scan_foreign_keys(tree, rel_path, prior_fields))
+
     violations = _apply_exemptions(violations, _exemption_lines(source))
 
     if uses_concurrent_op and not _sets_atomic_false(tree):
@@ -384,7 +787,8 @@ def iter_migration_files(backend_root: Path) -> list[Path]:
 class Command(BaseCommand):
     help = (
         "Fail if any migration adds an index or constraint without the "
-        "CONCURRENTLY / NOT VALID pattern (#1081)."
+        "CONCURRENTLY / NOT VALID pattern (#1081), or builds a foreign-key index "
+        "or re-validates a foreign key inline (#1798)."
     )
 
     def add_arguments(self, parser):
@@ -401,7 +805,11 @@ class Command(BaseCommand):
             else Path(__file__).resolve().parents[3]
         )
 
-        stale = sorted(entry for entry in GRANDFATHERED if not (root / entry).exists())
+        stale = sorted(
+            entry
+            for entry in GRANDFATHERED | GRANDFATHERED_FOREIGN_KEY
+            if not (root / entry).exists()
+        )
         for entry in stale:
             # A squash or a deletion removed a grandfathered migration. That is not a
             # failure — but the list must be pruned or it rots into a set of names
@@ -409,18 +817,22 @@ class Command(BaseCommand):
             self.stderr.write(
                 self.style.WARNING(
                     f"grandfathered migration no longer exists, prune it from "
-                    f"GRANDFATHERED: {entry}"
+                    f"its grandfathered set: {entry}"
                 )
             )
 
         violations: list[Violation] = []
         checked = 0
+        histories: dict[str, FieldHistory] = {}
         for path in iter_migration_files(root):
             rel_path = path.relative_to(root).as_posix()
-            if rel_path in GRANDFATHERED:
-                continue
-            checked += 1
-            violations.extend(scan_source(path.read_text(encoding="utf-8"), rel_path))
+            source = path.read_text(encoding="utf-8")
+            history = histories.setdefault(rel_path.split("/", 1)[0], {})
+            if rel_path not in GRANDFATHERED:
+                checked += 1
+                violations.extend(scan_source(source, rel_path, history))
+            # Grandfathered files are not linted but still define fields.
+            record_fields(source, history)
 
         if violations:
             for violation in violations:
@@ -433,7 +845,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"Checked {checked} migration(s) "
-                f"({len(GRANDFATHERED) - len(stale)} grandfathered, skipped): "
+                f"({len(GRANDFATHERED - set(stale))} grandfathered, skipped): "
                 f"no non-concurrent index or constraint operations."
             )
         )

@@ -101,7 +101,7 @@ Verifies that `broadcast_board_event()` is correctly wired for every write opera
 Writes the correct `CHANGELOG.md [Unreleased]` entry for the current branch. Determines entry type (Added / Changed / Fixed / Security), appends to the existing section without creating duplicate headings, and follows the project's Keep a Changelog format. Required before every MR that touches source code.
 
 ### `dependency`
-Reviews a new pip or npm package before it is added. Checks the license (blocks GPL-2.0/3.0), looks up known CVEs, evaluates whether the dependency is justified vs. using existing tools, and assesses transitive dependency and bundle size impact.
+Reviews a new pip or npm package before it is added. Checks the license (blocks GPL, AGPL, SSPL, BUSL), looks up known CVEs, evaluates whether the dependency is justified vs. using existing tools, and assesses transitive dependency and bundle size impact.
 
 ### `docs`
 Guides writing and updating user-facing documentation in `docs/`. Identifies the correct location for new content, applies version callouts (`> **Added in 1.1**`) to net-new features, applies enterprise callouts where required, updates `mkdocs.yml` nav, enforces US English and MkDocs admonition syntax, and verifies the build with `mkdocs build --strict`.
