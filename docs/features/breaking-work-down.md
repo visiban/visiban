@@ -36,3 +36,5 @@ Visiban has five ways to break work down or track progress inside a column. Pick
 **Tracks.** Every card in **Review** needs a Legal sign-off and a Security sign-off, in either order. Add two tracks, "Legal" and "Security", in the **Stage** tab instead of typing them into each card's checklist. Each card shows a chip per track, and its value is set in the card's **Custom fields**. A swimlane where Legal does not apply can mark that track not applicable for all its cards.
 
 **Entry criteria.** Before a card enters **Review**, the mover should confirm "Tests pass" and "Description is complete". Write those as the column policy's entry criteria and choose **Ask the mover to confirm**. Nothing changes on the card; the criteria show on the column header and when a card is dropped in. They are a prompt in the web app, not a rule the server enforces.
+
+For a one-line definition of each term used here and the rest of 1.3's vocabulary, see [Concepts at a glance](concepts.md).

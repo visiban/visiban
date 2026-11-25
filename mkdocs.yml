@@ -75,6 +75,7 @@ nav:
     - features/index.md
     - Board & Cards: features/board.md
     - "Breaking Work Down: Which Tool?": features/breaking-work-down.md
+    - Concepts at a Glance: features/concepts.md
     - Import from Trello: features/trello-import.md
     - Card Archiving: features/card-archiving.md
     - Card Descriptions: features/card-descriptions.md

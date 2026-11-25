@@ -183,6 +183,8 @@ On exit, the swimlane collapse state is restored to exactly what it was before f
 
 ## Child cards setting
 
+<a id="child-cards"></a>
+
 *Added in 1.3 (#2208).* Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board whose cards can have children is a parent board, and the child cards live on another board. A board with that setting off is an ordinary board that can *hold* children; it is a child board only once it holds children, or when another board names it as its default child board. A card is never both a parent and a child, so each card stays within two tiers. To decide between a child card and a checklist item, see [Breaking work down: which tool?](breaking-work-down.md).
 
 A board admin chooses which one in **Board settings → Rules & limits → Child cards** with the **Cards on this board can have children** switch. It is off by default, so every existing board stays an ordinary board and nothing changes until an admin turns it on. Boards that never use hierarchy are never asked to pick a role. Other members see the choice as a read-only line.
@@ -224,6 +226,8 @@ Public share links show no parent line. On a phone the picker opens as a full-sc
 - **Delete confirm:** the confirm for deleting a board that holds children of cards on other boards says how many parents lose them, naming the parent boards you can open and "another board you can't open" for the rest.
 
 ### Planned children
+
+<a id="planned-child"></a>
 
 *Added in 1.3 (#2371).* A child can be work you already know the parent will need at a **later stage**, for example a workshop needed once the parent reaches Proposal. Such a child is a real card in the child board's first column (To do), but it is **planned**: it waits quietly until it is needed.
 
@@ -272,10 +276,12 @@ Click a column header to collapse it to a narrow vertical strip. When collapsed:
 
 ## Columns
 
+<a id="board-columns"></a>
+
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color** — a preset or a [custom color](#custom-colors)
-- **WIP limit** — maximum number of active cards allowed. The column header shows `count / limit` with a meter; when the limit is exceeded the line reads `count / limit over` in warning text and the meter turns warning-colored, so the over-limit state is visible at a distance (#963, #2270). If the board has **Enforce WIP limits** enabled (Board settings → Rules & limits), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a `409` error — board admins (or the card's assignee, when enabled) can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged. See [Hard WIP enforcement](#hard-wip-enforcement) for a stricter mode. Optionally, the **Show at-limit WIP indicator** board setting (off by default) surfaces the *at*-limit case too — see [At-limit WIP indicator](#at-limit-wip-indicator) below.
+- <a id="wip-limit"></a>**WIP limit** — maximum number of active cards allowed. The column header shows `count / limit` with a meter; when the limit is exceeded the line reads `count / limit over` in warning text and the meter turns warning-colored, so the over-limit state is visible at a distance (#963, #2270). If the board has **Enforce WIP limits** enabled (Board settings → Rules & limits), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a `409` error — board admins (or the card's assignee, when enabled) can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged. See [Hard WIP enforcement](#hard-wip-enforcement) for a stricter mode. Optionally, the **Show at-limit WIP indicator** board setting (off by default) surfaces the *at*-limit case too — see [At-limit WIP indicator](#at-limit-wip-indicator) below.
 - **Weight limit** — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the count line adds `Weight weight/limit` in warning text. If the board has **Enforce weight limits** enabled (Board settings → Rules & limits), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a `409` error; board admins (or the card's assignee, when enabled) can override with `?force=true`. Lowering a card's weight is never blocked. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 - **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
@@ -415,6 +421,8 @@ Empty cells show a dashed border to indicate they are valid drop targets even wh
 The open card is marked on the board with the same ring as the detail panel. Click another card (or Shift+click it) to swap the peek to it; click an empty part of the board, press **Escape** or select **Close** to close it, and focus returns to the card. Only one of the peek sheet, the detail panel and the [Activity drawer](#activity-drawer) is open at a time: opening one closes the others. While the detail panel is open, clicking another card switches the panel, and Shift+click does too (it does not open the peek). Opening a card from a link, the command palette or a relation opens the detail panel directly.
 
 ### Card detail panel
+
+<a id="checklist"></a>
 
 Click a card to open its **detail panel** (from the peek sheet, click **Open card**; focus lands on that button when the peek opens). Where it opens depends on the window width. *Changed in 1.2 (#1914): before 1.2 the panel always opened at the right edge of the window, over a dimmed board.*
 
@@ -963,7 +971,7 @@ Open **Settings** in the board toolbar (or press `⌘,` / `Ctrl+,`). Board setti
 | Group | Sections |
 |---|---|
 | Board | Display, Rules & limits |
-| Fields | Card fields, Swimlane fields |
+| Fields | Card fields, Field sets, Swimlane fields |
 | Access | Members, Sharing (admins) |
 | Integrations | Webhooks (admins), Issue lens (admins, when enabled) |
 | Data | Export, Danger zone (admins) |
@@ -1207,6 +1215,8 @@ The public board endpoint is rate-limited to **120 requests per hour per IP addr
 
 ## Sub-columns and tracks (1.3)
 
+<a id="sub-columns-and-tracks"></a>
+
 A column can be split into ordered **sub-columns** (#1102), and it can show **tracks**: checks that can finish in any order (#1920). If the order of the checks matters, use sub-columns. If it doesn't, use tracks. Both apply to every card in the column; for one card's own to-dos, use its checklist. [Breaking work down: which tool?](breaking-work-down.md) compares all five options.
 
 **Sub-columns.** A stage has no sub-columns or 2 to 4 of them. On the board it takes one column's width per sub-column, with one drop area per sub-column and a dashed line between them. An empty sub-column in a populated stage shows its own name, and the sub-column under a dragged card shows its name too. The column header adds one row with a cell per sub-column, lined up with those dashed lines: the name in bold (up to two lines) above its count (screen readers hear "Doing: 5 working"). Working sub-columns show the bare count, and the last shows "N waiting". One WIP limit covers the whole stage. To move a card between sub-columns, drag it, or open the card menu (Menu key or Shift+F10), choose **Move to…** and pick "Move on to <next>" or "Move back to <previous>".
@@ -1220,7 +1230,7 @@ A column can be split into ordered **sub-columns** (#1102), and it can show **tr
 
 **Tracks.** Each track on a card is shown as a chip: a check mark for done, an empty circle for open, or a dash for not applicable. The chip's icon and fill both change, so the state does not rely on color. At phone width, the chip also says the state in words ("Technical: done"). A track's value is set like any other custom field, in the **Custom fields** section of the card detail panel. A chip is not a control you can tick: its tooltip and a line that screen readers read before the chips say "set in the card's Custom fields". Two visible lines say the same: "Set in the card's Custom fields." under the tracks in the card peek, and "Tracks show as chips on the card." at the top of **Custom fields** in the card detail (*since 1.3*, #2542). Tracks don't appear in the peek's field list and can't be pinned to the card face. See [Dimension fields](custom-fields.md#dimension-fields-13).
 
-**Stage settings.** Board admins open them from the column menu: **Stage settings…** (or the **Stage** tab of the column settings). On a phone, the **Column actions** menu has a **Stage settings** button. The tab opens with one line defining the term: "A stage is a column. This tab holds its sub-columns and tracks." Each section's helper line says it applies to every card in the column; the tracks line adds "For one card's to-dos, use its checklist."
+<a id="stage-settings"></a>**Stage settings.** Board admins open them from the column menu: **Stage settings…** (or the **Stage** tab of the column settings). On a phone, the **Column actions** menu has a **Stage settings** button. The tab opens with one line defining the term: "A stage is a column. This tab holds its sub-columns and tracks." Each section's helper line says it applies to every card in the column; the tracks line adds "For one card's to-dos, use its checklist."
 
 - **Sub-columns, in order:** rename, add (up to 4), remove or reorder them. Use the ↑ and ↓ buttons beside a sub-column to move it. Its cards move with it and stay in that sub-column, and the move is not recorded as a card passing or reopening a step. Removing a sub-column moves its cards back to the sub-column before it. Reorder and remove in separate saves: a save that does both is refused, and the arrow buttons are unavailable while a removal is waiting to be saved.
 - **Tracks, any order:** **Add track** creates a dropdown field with the choices "Done" and "Not applicable". You can also add a track field that already exists. Edit a track's name in place to rename it: this renames its field everywhere it is used, and every card's value and swimlane exception for it stay. A track name can't be empty or match another track or field on the board. Removing a track only takes it off this stage; the field and its values stay.
