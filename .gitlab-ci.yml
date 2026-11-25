@@ -50,7 +50,8 @@ include:
 #   clients-typescript-sast  blocks (eslint 'error' rules) — only when clients/typescript/** changed (#1178)
 #   trivy-scan         blocks (#1072)                     — MR when its inputs change + Nightly (#1267)
 #                      dep-scan-osv, pip-audit and the license checks are deliberately
-#                      outside this policy
+#                      outside this list and set their own blocking behavior (the
+#                      license checks block; see .rules-license-check)
 #
 # The secret-detection component cannot fail on a finding either, so
 # secret-detection-gate reads gl-secret-detection-report.json and fails on any
@@ -4519,7 +4520,7 @@ frontend-dep-scan:
     paths:
       - npm-audit-report.json
 
-# License compliance — block GPL, AGPL, SSPL and BUSL dependencies, which are
+# License compliance — block GPL, AGPL, SSPL, BUSL and proprietary dependencies, which are
 # incompatible with the project's Apache 2.0 license (LGPL and MPL are allowed).
 # Blocking, on MRs and main (#1755). The matching rules live in
 # scripts/license-gate.py.

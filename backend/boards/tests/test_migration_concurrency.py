@@ -782,6 +782,77 @@ class ForeignKeyScannerTests(SimpleTestCase):
                 bare = f"# {EXEMPT_MARKER}\n{operation}"
                 self.assertEqual(len(self._keys(bare, prior)), 1)
 
+    def test_flags_db_constraint_turned_back_on(self):
+        prior = self._history("db_constraint=False")
+        for kwargs in ("", "db_constraint=True"):
+            with self.subTest(kwargs=kwargs):
+                self.assertEqual(
+                    self._keys(self._op("AlterField", kwargs), prior),
+                    ["fk-constraint"],
+                )
+
+    def test_accepts_db_constraint_turned_off(self):
+        operation = self._op("AlterField", "db_constraint=False")
+        self.assertEqual(self._keys(operation, self._history()), [])
+
+    def test_flags_changes_that_recreate_the_constraint(self):
+        for old, new in (
+            ("", "db_index=False"),
+            ("", "db_default=1"),
+            ("", "default=1"),
+            ("", "db_column='owner_ref'"),
+            ("", "to_field='uid'"),
+        ):
+            with self.subTest(new=new):
+                operation = self._op("AlterField", new)
+                self.assertEqual(
+                    self._keys(operation, self._history(old)), ["fk-readd"]
+                )
+
+    def test_flags_a_changed_target(self):
+        operation = self._op("AlterField").replace("boards.board", "boards.card")
+        self.assertEqual(self._keys(operation, self._history()), ["fk-readd"])
+
+    def test_accepts_changes_django_does_not_apply_to_the_database(self):
+        operation = self._op(
+            "AlterField",
+            "blank=True, related_name='+', verbose_name='o', help_text='h', "
+            "db_comment='c', db_column='owner_id', null=False, db_constraint=True",
+        ).replace("boards.board", "boards.Board")
+        self.assertEqual(self._keys(operation, self._history()), [])
+
+    def test_a_default_dropped_by_preserve_default_is_not_a_later_change(self):
+        added = (
+            "migrations.AddField(model_name='card', name='owner', "
+            f"field={self._field('default=1, db_index=False')}, "
+            "preserve_default=False),"
+        )
+        history = {}
+        record_fields(self._migration(added), history)
+        operation = self._op("AlterField", "db_index=False")
+        self.assertEqual(self._keys(operation, history), [])
+
+    def test_flags_a_one_to_one_turned_into_an_indexed_foreign_key(self):
+        prior = self._history(kind="OneToOneField")
+        self.assertEqual(self._keys(self._op("AlterField"), prior), ["fk-index"])
+        self.assertEqual(
+            self._keys(self._op("AlterField", "db_index=False"), prior), ["fk-readd"]
+        )
+
+    def test_reads_positional_field_arguments(self):
+        field = "models.ForeignKey('boards.board', models.CASCADE, {})"
+        added = f"migrations.AddField('card', 'owner', {field.format('')}),"
+        self.assertEqual(self._keys(added), ["fk-index"])
+        altered = f"migrations.AlterField('card', 'owner', {field.format('null=True')}),"
+        self.assertEqual(self._keys(altered, self._history()), ["fk-null"])
+        history = {}
+        record_fields(self._migration(added), history)
+        self.assertEqual(self._keys(self._op("AlterField"), history), [])
+        indexed = (
+            "migrations.AddField('card', 'owner', models.IntegerField(db_index=True)),"
+        )
+        self.assertEqual(self._keys(indexed), ["db_index=True"])
+
     def test_finding_explains_the_fix(self):
         rendered = scan_source(
             self._migration(self._op("AlterField", "null=True")),

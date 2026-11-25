@@ -18,7 +18,7 @@ Eleven CI security jobs, in nine table rows, can fail a pipeline, and their trig
 | `clients-typescript-sast` | eslint-plugin-security (same rule set) | Yes, `error` rules | MR + `main` when `clients/typescript/**` changed | `clients/typescript/src` |
 | `trivy-scan` | Trivy (pinned by digest) | Yes, HIGH/CRITICAL vulnerability, misconfiguration and secret findings (#1072) | MR when its inputs change (Dockerfiles, lockfiles, Helm, the scan's own files) + the Nightly schedule (`CVE_SCAN=true`); **not** every `main` push (#1267) | Repo filesystem (lockfiles, Dockerfile IaC, secrets); not built images |
 
-**Yes, but:** `dep-scan-osv`, `pip-audit`, and the license checks are deliberately outside this policy.
+**Yes, but:** `dep-scan-osv`, `pip-audit`, and the license checks are deliberately outside this table and set their own blocking behavior. Outside it doesn't mean non-blocking: the license checks fail the pipeline on MRs, on `main`, and on scheduled `main` pipelines other than the Sonar one.
 
 **Watch out:** The secret scanners that gate are `gitleaks-scan`, `gitleaks-commits`, `gitleaks-history`, and
 `secret-detection-gate`. GitLab's analyzers exit 0 even when they find something, so

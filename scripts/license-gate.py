@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Fail on a dependency whose license is incompatible with Apache 2.0 (#1755).
 
-Blocked: GPL, AGPL, SSPL and BUSL, in SPDX or classifier spelling. LGPL and MPL
-are allowed. A missing or unidentified license is blocked too: an answer the gate
-cannot read is not a pass.
+Blocked: GPL, AGPL, SSPL, BUSL and proprietary, in SPDX or classifier spelling.
+LGPL and MPL are allowed. A missing or unidentified license is blocked too: an
+answer the gate cannot read is not a pass.
 
-An SPDX ``OR`` offers a choice, so one acceptable side is enough. ``AND``, a
+An SPDX ``OR`` offers a choice, so one acceptable side is enough, but that side
+must be a license the gate recognizes: "GPL-3.0 OR Commercial" is no way out. ``AND``, a
 ``;``-joined classifier list (pip-licenses) and a license array (license-checker)
 must be acceptable in every part.
 
@@ -18,9 +19,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import io
 import json
+import os
 import re
 import sys
+import tempfile
+from contextlib import redirect_stderr, redirect_stdout
 
 BLOCKED = (
     ("AGPL", re.compile(r"agpl|affero", re.IGNORECASE)),
@@ -28,13 +33,25 @@ BLOCKED = (
     (
         "GPL",
         re.compile(
-            r"(?<![a-z])gpl|(?<!lesser )(?<!library )general public licen[cs]e",
+            r"(?<![a-z])gpl|(?<!lesser )(?<!library )general public licen[cs]e"
+            r"|gnu public licen[cs]e",
             re.IGNORECASE,
         ),
     ),
     ("SSPL", re.compile(r"sspl|server side public licen[cs]e", re.IGNORECASE)),
     # "BSL-1.0" is the permissive Boost license, so only 1.1 means Business Source.
     ("BUSL", re.compile(r"busl|business source|\bbsl[- ]?1\.1", re.IGNORECASE)),
+    ("proprietary", re.compile(r"proprietary", re.IGNORECASE)),
+)
+
+# Licenses that can satisfy one side of an OR. Not an allowlist for a lone
+# license: that is still judged by BLOCKED and UNIDENTIFIED alone.
+RECOGNIZED = re.compile(
+    r"\b(?:mit|apache|bsd|0bsd|isc|lgpl|(?:lesser|library) general public|mpl|mozilla"
+    r"|psf|python software foundation|python-2|zlib|bsl-1\.0|boost|unlicense|cc0"
+    r"|cc-by|public domain|epl|eclipse|artistic|afl|academic free|hpnd"
+    r"|historical permission|wtfpl|blueoak|ofl|unicode|tcl|zpl|zope)(?:(?=v\d)|(?![a-z]))",
+    re.IGNORECASE,
 )
 
 UNIDENTIFIED = re.compile(
@@ -79,7 +96,9 @@ def blocked_reason(expression: str) -> str | None:
     choices = _split_top_level(expression, "OR")
     if len(choices) > 1:
         reasons = [blocked_reason(choice) for choice in choices]
-        return None if None in reasons else reasons[0]
+        if any(r is None and _recognized(c) for c, r in zip(choices, reasons)):
+            return None
+        return next(filter(None, reasons), "unidentified")
 
     required = _split_top_level(expression, "AND")
     if len(required) > 1:
@@ -90,6 +109,24 @@ def blocked_reason(expression: str) -> str | None:
     if UNIDENTIFIED.search(name):
         return "unidentified"
     return next((label for label, pattern in BLOCKED if pattern.search(name)), None)
+
+
+def _recognized(expression: str) -> bool:
+    """True if every license ``expression`` requires is one the gate knows."""
+    expression = expression.strip()
+    while _wrapped(expression):
+        expression = expression[1:-1].strip()
+    for operator in ("OR", "AND"):
+        parts = _split_top_level(expression, operator)
+        if len(parts) > 1:
+            combine = any if operator == "OR" else all
+            return combine(
+                _recognized(part) and not blocked_reason(part) for part in parts
+            )
+    listed = [part for part in expression.split(";") if part.strip()]
+    if len(listed) > 1:
+        return all(map(_recognized, listed))
+    return bool(RECOGNIZED.search(expression))
 
 
 def packages_from_pip(report: object) -> list[tuple[str, str]]:
@@ -164,6 +201,15 @@ def self_test() -> int:
         "UNLICENSED",
         "Custom: LICENSE.txt",
         "SEE LICENSE IN LICENSE",
+        "AGPL-3.0-only OR Commercial",
+        "AGPL-3.0 OR LicenseRef-Commercial",
+        "GPLv3 OR Proprietary",
+        "GPL-3.0 OR LATER",
+        "GNU GPL v2 OR LATER",
+        "GPL-3.0 OR (MIT AND Commercial)",
+        "GNU Public License v3",
+        "Other/Proprietary License",
+        "Proprietary",
     ]
     allowed = [
         "MIT",
@@ -180,6 +226,10 @@ def self_test() -> int:
         "(MIT OR GPL-3.0)",
         "GPL-2.0 OR BSD-3-Clause",
         "Apache-2.0 AND LGPL-3.0-or-later AND MIT",
+        "GPL-3.0 OR LGPL-3.0",
+        "GPLv3 OR LGPLv3",
+        "GPL-2.0 OR MPL-2.0",
+        "GPL-2.0 OR (MIT AND Apache-2.0)",
     ]
     failures = [f"not blocked: {x!r}" for x in blocked if not blocked_reason(x)]
     failures += [f"wrongly blocked: {x!r}" for x in allowed if blocked_reason(x)]
@@ -193,9 +243,31 @@ def self_test() -> int:
         if len(violations(packages)) != 2:
             failures.append(f"{label} report fixture: expected 2 violations")
 
+    # check() itself: an empty or unreadable report must fail, not pass quietly.
+    reports = (
+        ("clean report", '[{"Name": "a", "License": "MIT"}]', 0),
+        ("blocked report", '[{"Name": "a", "License": "GPL-3.0"}]', 1),
+        ("empty report", "[]", 1),
+        ("unparseable report", "not json", 1),
+        ("wrong-shape report", "[1]", 1),
+        ("missing report", None, 1),
+    )
+    with tempfile.TemporaryDirectory() as directory:
+        for index, (label, content, expected) in enumerate(reports):
+            path = os.path.join(directory, f"{index}.json")
+            if content is not None:
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write(content)
+            # The expected failures print messages that would read as real ones.
+            quiet = io.StringIO()
+            with redirect_stdout(quiet), redirect_stderr(quiet):
+                result = check(path, packages_from_pip)
+            if result != expected:
+                failures.append(f"{label}: check() returned {result}")
+
     for failure in failures:
         print(f"FAIL: {failure}", file=sys.stderr)
-    total = len(blocked) + len(allowed) + 2
+    total = len(blocked) + len(allowed) + 2 + len(reports)
     print(f"license-gate --self-test: {total} case(s), {len(failures)} failure(s)")
     return 1 if failures else 0
 

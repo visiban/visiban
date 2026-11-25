@@ -34,10 +34,14 @@ Two foreign-key shapes do the same damage without naming an index anywhere
    any ``OneToOneField`` (its unique index cannot be turned off), on an existing
    table. Django builds the column's index inline. An ``AlterField`` that turns a
    ``db_index=False`` foreign key's index back on is the same build.
-7. ``AlterField`` that changes ``null`` on a ``ForeignKey`` / ``OneToOneField``.
+7. ``AlterField`` that changes anything Django counts as a database change on a
+   constrained ``ForeignKey`` / ``OneToOneField`` (``null``, ``db_index``, ``to``,
+   ``default``, ``db_default``, the column name, the field class, and so on).
    Django drops and re-adds the constraint, which revalidates every row.
-8. ``AlterField`` that turns another column into a foreign key, or a foreign key
-   into a ``OneToOneField``.
+8. ``AlterField`` that turns another column into a foreign key, a foreign key
+   into a ``OneToOneField``, or ``db_constraint=False`` back on. A ``OneToOneField``
+   (or ``unique=True`` key) turned into a plain indexed ``ForeignKey`` builds a new
+   index, so it falls under rule 6.
 
 An ``AlterField`` only states the field's new definition, so rules 6 to 8 replay each
 app's earlier migrations, in filename order, to learn the old one. When the old
@@ -56,7 +60,7 @@ from __future__ import annotations
 import ast
 import re
 import tokenize
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
@@ -147,7 +151,39 @@ GRANDFATHERED_FOREIGN_KEY = frozenset(
     }
 )
 
-FOREIGN_KEY_KEYS = frozenset({"fk-index", "o2o-index", "fk-null", "fk-convert"})
+FOREIGN_KEY_KEYS = frozenset(
+    {"fk-index", "o2o-index", "fk-null", "fk-convert", "fk-constraint", "fk-readd"}
+)
+
+# Field kwargs Django ignores when it decides whether to drop and re-add a foreign
+# key: Field.non_db_attrs, plus db_comment (ignored by that one comparison).
+# db_column is compared separately, as the column name it produces.
+NON_DB_FIELD_KWARGS = frozenset(
+    {
+        "blank",
+        "choices",
+        "db_column",
+        "db_comment",
+        "editable",
+        "error_messages",
+        "help_text",
+        "limit_choices_to",
+        "on_delete",
+        "related_name",
+        "related_query_name",
+        "validators",
+        "verbose_name",
+    }
+)
+
+# Spelling one of these out is the same definition as leaving it off.
+FIELD_KWARG_DEFAULTS = {
+    "null": False,
+    "db_index": True,
+    "db_constraint": True,
+    "unique": False,
+    "primary_key": False,
+}
 
 _ATOMIC_HINT = "and set `atomic = False` on the Migration class"
 
@@ -211,6 +247,17 @@ GUIDANCE = {
         "constraint inline. Declare db_constraint=False and db_index=False, then add "
         "the constraint NOT VALID, validate it and build the index concurrently"
     ),
+    "fk-constraint": (
+        "turning db_constraint on makes Django create the constraint and validate "
+        "every row inline. Keep db_constraint=False in the database operations and "
+        "add the constraint NOT VALID, then validate it"
+    ),
+    "fk-readd": (
+        "Django drops and re-adds the foreign key constraint for this change, "
+        "revalidating every row under ACCESS EXCLUSIVE on this table and SHARE ROW "
+        "EXCLUSIVE on the referenced one. Change the database by hand and record the "
+        "new definition with SeparateDatabaseAndState state_operations"
+    ),
     "fk-null": (
         "changing null on a foreign key makes Django drop and re-add the constraint, "
         "revalidating every row under ACCESS EXCLUSIVE on this table and SHARE ROW "
@@ -231,6 +278,10 @@ class FieldState:
     null: bool | None
     db_index: bool | None
     db_constraint: bool | None
+    unique: bool | None
+    db_column: str | None
+    # (name, source dump) of every other kwarg that affects the database.
+    db_attrs: frozenset[tuple[str, str]]
 
 
 # (model_name, field_name) -> the field's definition so far, for one app.
@@ -278,6 +329,14 @@ def _keyword(node: ast.Call, name: str) -> ast.expr | None:
     return None
 
 
+def _field_argument(node: ast.Call) -> ast.expr | None:
+    """The ``field`` argument of AddField/AlterField, by keyword or position."""
+    value = _keyword(node, "field")
+    if value is None and len(node.args) > 2:
+        value = node.args[2]
+    return value
+
+
 def _constraint_kind(node: ast.Call) -> str:
     """Classify an AddConstraint by its constraint argument.
 
@@ -300,7 +359,7 @@ def _indexing_kwarg(node: ast.Call) -> str | None:
     index — and both are invisible to a checker that only looks at operation names.
     ``0018_add_stable_uids`` used ``unique=True`` five times, once on ``cards``.
     """
-    field = _keyword(node, "field")
+    field = _field_argument(node)
     if not isinstance(field, ast.Call):
         return None
     for kwarg in INDEXING_FIELD_KWARGS:
@@ -424,11 +483,34 @@ def _bool_kwarg(field: ast.Call, name: str, default: bool) -> bool | None:
 def _field_state(field: ast.expr | None) -> FieldState | None:
     if not isinstance(field, ast.Call):
         return None
+    attrs = {kw.arg: kw.value for kw in field.keywords if kw.arg}
+    if field.args:
+        # ForeignKey("app.model", on_delete): `to` may be positional.
+        attrs.setdefault("to", field.args[0])
+    db_attrs = set()
+    for key, value in attrs.items():
+        if key in NON_DB_FIELD_KWARGS:
+            continue
+        literal = value.value if isinstance(value, ast.Constant) else None
+        if key in FIELD_KWARG_DEFAULTS and literal is FIELD_KWARG_DEFAULTS[key]:
+            continue
+        if key == "to" and isinstance(literal, str):
+            db_attrs.add((key, literal.lower()))
+        else:
+            db_attrs.add((key, ast.dump(value)))
+    column = attrs.get("db_column")
     return FieldState(
         kind=_callable_name(field) or "",
         null=_bool_kwarg(field, "null", False),
         db_index=_bool_kwarg(field, "db_index", True),
         db_constraint=_bool_kwarg(field, "db_constraint", True),
+        unique=_bool_kwarg(field, "unique", False),
+        db_column=(
+            str(column.value)
+            if isinstance(column, ast.Constant)
+            else ast.dump(column) if column is not None else None
+        ),
+        db_attrs=frozenset(db_attrs),
     )
 
 
@@ -506,9 +588,35 @@ def _record(node: ast.Call, history: FieldHistory) -> None:
         # DropNotNullKeepingForeignKey, which share the same keywords.
         model = _argument(node, "model_name", 0)
         field_name = _argument(node, "name", 1)
-        state = _field_state(_keyword(node, "field"))
+        state = _field_state(_field_argument(node))
         if model and field_name and state:
+            if _drops_default(node):
+                # preserve_default=False: the default is not part of the new state.
+                state = replace(
+                    state,
+                    db_attrs=frozenset(a for a in state.db_attrs if a[0] != "default"),
+                )
             history[(model, field_name)] = state
+
+
+def _drops_default(node: ast.Call) -> bool:
+    value = _keyword(node, "preserve_default")
+    if value is None and len(node.args) > 3:
+        value = node.args[3]
+    return isinstance(value, ast.Constant) and value.value is False
+
+
+def _changed_attributes(
+    old: FieldState, new: FieldState, field_name: str
+) -> list[str]:
+    """Names of the differences that make Django re-create a foreign key."""
+    changed = {key for key, _ in old.db_attrs ^ new.db_attrs}
+    if old.kind != new.kind:
+        changed.add("field class")
+    default_column = f"{field_name}_id"
+    if (old.db_column or default_column) != (new.db_column or default_column):
+        changed.add("db_column")
+    return sorted(changed)
 
 
 def record_fields(source: str, history: FieldHistory) -> None:
@@ -522,7 +630,7 @@ def _foreign_key_risks(
 ) -> list[tuple[str, str]]:
     """``(operation, guidance_key)`` for each foreign-key rule ``node`` breaks."""
     name = _callable_name(node)
-    new = _field_state(_keyword(node, "field"))
+    new = _field_state(_field_argument(node))
     if name not in FIELD_OPERATIONS or new is None or new.kind not in FOREIGN_KEY_FIELDS:
         return []
     # An explicit db_index=True / unique=True is already reported by the older rule.
@@ -552,18 +660,35 @@ def _foreign_key_risks(
             risks.append((f"AlterField to {new.kind}", "fk-convert"))
         return risks
 
-    # With no database constraint on either side there is nothing to re-validate.
-    constrained = old.db_constraint is not False and new.db_constraint is not False
-    if constrained and (old.null is None or new.null is None or old.null != new.null):
+    # Django (BaseDatabaseSchemaEditor._alter_field) drops the old constraint on any
+    # database-relevant change and creates the new one whenever it dropped one or
+    # there was none. So a constraint that is off afterwards costs no validation.
+    constrained = new.db_constraint is not False
+    if constrained and old.db_constraint is False:
+        risks.append((f"AlterField({new.kind}) turning db_constraint on", "fk-constraint"))
+    kept = constrained and old.db_constraint is not False
+    if kept and (old.null is None or new.null is None or old.null != new.null):
         risks.append((f"AlterField({new.kind}) changing null", "fk-null"))
+    # A unique key has no plain index, so dropping uniqueness builds one.
+    had_plain_index = (
+        old.db_index is not False
+        and old.kind != "OneToOneField"
+        and old.unique is False
+    )
     if (
         not explicit_index
         and new.kind == "ForeignKey"
-        and old.kind == "ForeignKey"
-        and old.db_index is False
+        and not had_plain_index
         and new.db_index is not False
+        and new.unique is False
     ):
         risks.append(("AlterField(ForeignKey) turning the index on", "fk-index"))
+    # Reported only when nothing above already stops this operation.
+    changed = _changed_attributes(old, new, field_name)
+    if kept and changed and not risks and not explicit_index:
+        risks.append(
+            (f"AlterField({new.kind}) changing {', '.join(changed)}", "fk-readd")
+        )
     return risks
 
 
