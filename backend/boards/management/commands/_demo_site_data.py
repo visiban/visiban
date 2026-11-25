@@ -95,6 +95,9 @@ DEMO_SITE_USERS = {
 #: ``--reset-database`` does not keep them around forever.
 RETIRED_BOARD_NAMES = ("Marketing Campaigns", "Hiring Pipeline")
 
+#: The dead-simple first-run board (#2600); defined last in BOARDS.
+SIMPLE_BOARD_NAME = "Simple Kanban"
+
 BOARDS = [
     {
         "name": "Software Team",
@@ -898,6 +901,48 @@ BOARDS = [
     {
         "name": "Product Roadmap (Trello import)",
         "trello": "trello_export.json",
+    },
+    # The dead-simple first-run board (#2600): one swimlane, the Simple Kanban
+    # template's columns minus Review, ten cards, nothing else. Appended LAST on
+    # purpose, for two reasons that look like they conflict and do not: the
+    # reset restarts the id sequences, so the order here is each board's URL and
+    # appending keeps Sales Territory (Overlay) at /boards/6; and the board list
+    # is ordered by -updated_at, so the board created last is listed first, which
+    # is where a new visitor should land. Empty extras on purpose: no custom
+    # fields, checklists, relations or links, because simple is the feature.
+    {
+        "name": SIMPLE_BOARD_NAME,
+        "description": "The simplest possible board: one swimlane, four columns, a handful of cards.",
+        "columns": [
+            ("Backlog", "#6B7280", False),
+            ("To Do", "#3B82F6", False),
+            ("Doing", "#F59E0B", False),
+            ("Done", "#10B981", True),
+        ],
+        "swimlanes": [("Team", "#3B82F6")],
+        "labels": [("Idea", "#8B5CF6"), ("Task", "#3B82F6"), ("Bug", "#EF4444")],
+        "cards": [
+            ("Plan the team offsite", "Pick a date and a place everyone can get to.", 0, 0, "low", None, ("Idea",), [], 9, None),
+            ("Update the onboarding checklist", "Add the new laptop setup steps.", 0, 0, "low", "maya", ("Task",), [], 1, None),
+            ("Collect feedback from last sprint", "Ask each person for one thing to keep and one to change.", 0, 0, "medium", "jordan", ("Idea",), [], 5, 10),
+            ("Draft the launch announcement", "A short note for the team channel.", 1, 0, "high", "maya", ("Task",),
+             [("jordan", "Happy to review once there is a first draft.")], 1, 2),
+            ("Fix the broken link on the help page", "The getting started link goes to a missing page.", 1, 0, "medium", "jordan", ("Bug",), [], 6, None),
+            ("Review the new logo options", "Pick a favorite from the three shortlisted.", 2, 0, "medium", "admin", ("Task",),
+             [("maya", "I like the second one best."), ("admin", "Agreed, let us go with it.")], 2, 0),
+            ("Write the release notes", "Summarize what changed this month.", 2, 0, "high", "maya", ("Task",), [], 5, -1),
+            ("Set up the shared calendar", "One calendar for time off and deadlines.", 3, 0, "low", "jordan", ("Task",), [], 1, None),
+            ("Book the team lunch", "Table for eight on Friday.", 3, 0, "low", "maya", ("Task",),
+             [("jordan", "Booked for noon.")], 2, None),
+            ("Choose a project name", "Shortlist agreed, final pick made.", 3, 0, "medium", "admin", ("Idea",), [], 0, None),
+        ],
+        "card_fields": [],
+        "card_field_values": {},
+        "swimlane_fields": [],
+        "swimlane_field_values": {},
+        "checklists": {},
+        "relations": [],
+        "external_refs": {},
     },
 ]
 

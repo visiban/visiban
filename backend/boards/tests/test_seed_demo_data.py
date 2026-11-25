@@ -889,7 +889,7 @@ class SeedDemoSiteTests(TestCase):
     def test_seeds_seven_showcase_boards_plus_the_trello_import(self):
         _seed(demo_site=True)
         seeded = set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True))
-        self.assertEqual(seeded, set(self.BOARD_NAMES) | {"Product Roadmap (Trello import)"})
+        self.assertEqual(seeded, set(self.BOARD_NAMES) | {"Product Roadmap (Trello import)", "Simple Kanban"})
         for name in self.BOARD_NAMES:
             board = Board.objects.get(name=name)
             self.assertEqual(board.cards.count(), self.spec_card_count(name), name)
@@ -987,7 +987,7 @@ class SeedDemoSiteTests(TestCase):
         )
         self.assertFalse(Board.objects.filter(owner=visitor).exists())
         boards = Board.objects.all()
-        self.assertEqual(boards.count(), 9)  # the demo board + the eight demo-site boards
+        self.assertEqual(boards.count(), 10)  # the demo board + the nine demo-site boards
         for board in boards:
             membership = BoardMembership.objects.get(board=board, user=visitor)
             self.assertEqual(membership.role, BoardMembership.Role.MEMBER, board.name)
@@ -1101,7 +1101,7 @@ class SeedDemoSiteTests(TestCase):
         _seed(demo_site=True, wipe=True)
         self.assertFalse(Board.objects.filter(name__in=RETIRED_BOARD_NAMES).exists())
         self.assertEqual(
-            set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True)), set(self.BOARD_NAMES) | {"Product Roadmap (Trello import)"}
+            set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True)), set(self.BOARD_NAMES) | {"Product Roadmap (Trello import)", "Simple Kanban"}
         )
 
     def test_without_flag_no_demo_site_content(self):
@@ -1756,7 +1756,7 @@ class DemoSiteHistoryReconciliationTests(TestCase):
         from boards.tests.history_reconciliation import board_history_problems
 
         boards = Board.objects.order_by("id")
-        self.assertEqual(boards.count(), 9)
+        self.assertEqual(boards.count(), 10)
         for board in boards:
             with self.subTest(board.name):
                 self.assertEqual(board_history_problems(board, imported=board.name in (OVERLAY, TRELLO)), {})
@@ -2003,7 +2003,8 @@ class OverlayBoardUrlTests(TransactionTestCase):
     EXPECTED = [
         (1, BOARD_NAME), (2, "Software Team"), (3, "Property Management"), (4, "Construction"),
         (5, "Sales Territory"), (6, OVERLAY), (7, "Content Moderation"), (8, "Logistics Exceptions"),
-        (9, TRELLO),  # appended last (#1908), so the overlay board stays /boards/6
+        (9, TRELLO),  # appended (#1908), so the overlay board stays /boards/6
+        (10, "Simple Kanban"),  # appended last (#2600), same reason
     ]
 
     @pytest.mark.slow
@@ -2013,6 +2014,58 @@ class OverlayBoardUrlTests(TransactionTestCase):
             _seed(demo_site=True, wipe=True, force=True, reset_database=True)
             self.assertEqual(list(Board.objects.order_by("pk").values_list("pk", "name")), self.EXPECTED)
             self.assertEqual(f"/boards/{Board.objects.get(name=OVERLAY).pk}", "/boards/6")
+
+
+@override_settings(**_DEMO_SITE_SETTINGS)
+class DemoSiteSimpleBoardTests(TestCase):
+    """#2600: a dead-simple first-run board: one swimlane, four columns, a few cards."""
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed(demo_site=True)
+        cls.board = Board.objects.get(name="Simple Kanban")
+
+    def test_shape_is_one_swimlane_and_four_columns(self):
+        self.assertEqual(
+            list(self.board.columns.order_by("position").values_list("name", flat=True)),
+            ["Backlog", "To Do", "Doing", "Done"],
+        )
+        self.assertEqual(self.board.swimlanes.count(), 1)
+        self.assertEqual(self.board.cards.count(), 10)
+
+    def test_nothing_beyond_the_basics(self):
+        board = self.board
+        self.assertFalse(CustomFieldDefinition.objects.filter(board=board).exists())
+        self.assertFalse(SwimlaneCustomFieldDefinition.objects.filter(board=board).exists())
+        self.assertFalse(CardRelation.objects.filter(from_card__board=board).exists())
+        self.assertFalse(CardChecklist.objects.filter(card__board=board).exists())
+        self.assertFalse(CardExternalRef.objects.filter(card__board=board).exists())
+        self.assertFalse(board.columns.filter(sub_columns__isnull=False).exists())
+
+    def test_activity_is_not_empty(self):
+        board = self.board
+        self.assertGreaterEqual(CardMovement.objects.filter(card__board=board, movement_type="move").count(), 2)
+        self.assertGreaterEqual(CardComment.objects.filter(card__board=board).count(), 2)
+        self.assertGreaterEqual(board.cards.exclude(assignee=None).values("assignee").distinct().count(), 3)
+        self.assertGreaterEqual(board.labels.count(), 2)
+
+    def test_visitor_can_open_it_as_a_plain_member(self):
+        membership = BoardMembership.objects.get(board=self.board, user__username="visitor")
+        self.assertEqual(membership.role, BoardMembership.Role.MEMBER)
+
+    def test_is_created_last_so_it_lists_first_and_other_urls_hold(self):
+        from boards.management.commands._demo_site_data import BOARDS
+
+        self.assertEqual(BOARDS[-1]["name"], "Simple Kanban")
+        self.assertEqual(Board.objects.order_by("pk").last().name, "Simple Kanban")
+        # The board list is ordered by -updated_at (Board.Meta), so the board
+        # created last is the first a new visitor sees.
+        self.assertEqual(Board.objects.first().name, "Simple Kanban")
+
+    def test_reseeding_with_wipe_recreates_it_once(self):
+        _seed(demo_site=True, wipe=True)
+        self.assertEqual(Board.objects.filter(name="Simple Kanban").count(), 1)
+        self.assertEqual(Board.objects.get(name="Simple Kanban").cards.count(), 10)
 
 
 @override_settings(**_DEMO_SITE_SETTINGS)
@@ -2028,8 +2081,10 @@ class DemoSiteTrelloBoardTests(TestCase):
     def test_the_board_is_last_and_the_overlay_board_did_not_move(self):
         from boards.management.commands._demo_site_data import BOARDS
 
-        self.assertEqual(BOARDS[-1], {"name": TRELLO, "trello": "trello_export.json"})
-        self.assertEqual(Board.objects.latest("pk").name, TRELLO)
+        # The simple board (#2600) is appended after the Trello import, so the
+        # Trello board is second to last and the overlay board is still index 4.
+        self.assertEqual(BOARDS[-2], {"name": TRELLO, "trello": "trello_export.json"})
+        self.assertTrue(Board.objects.filter(name=TRELLO).exists())
         # A TestCase never resets the sequences, so the absolute pk (6) is only
         # provable after reset_database (test_overlay_board_keeps_its_url);
         # here assert the relative order the pk contract rests on.
@@ -2117,7 +2172,7 @@ class SeedWipeChangeFeedTests(TestCase):
         _seed(demo_site=True, wipe=True)
         existing = set(Board.objects.values_list("pk", flat=True))
         gone = before - existing
-        self.assertEqual(len(gone), 9)
+        self.assertEqual(len(gone), 10)
         for board_id in gone:
             self.assertEqual(
                 BoardEvent.objects.filter(board_id=board_id, event="board.deleted").count(), 1, board_id,
