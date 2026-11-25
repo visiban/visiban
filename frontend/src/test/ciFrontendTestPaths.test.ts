@@ -2,7 +2,9 @@
 // runs it when that file changes (#2613). This fails when such a read is not in
 // the `changes:` list of the `frontend-test` job.
 //
-// It sees quoted relative paths ('../../../backend/x'). A path built from
+// It sees quoted relative paths ('../../../backend/x'), resolved both against
+// the file's directory (imports, resolve(__dirname, ...)) and against
+// frontend/, the cwd of a bare readFileSync('../backend/x'). A path built from
 // separate segments (resolve(__dirname, '..', '..', ...)) is not seen, so write
 // out-of-tree reads as one string.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -20,8 +22,14 @@ const walk = (dir: string): string[] =>
 /** Repo-relative paths outside frontend/ that `source` (at `file`) refers to. */
 function outOfTreeReads(file: string, source: string): string[] {
   return [...source.matchAll(/['"`]((?:\.\.\/)+[^'"`$\n]+)['"`]/g)]
-    .map((m) => resolve(dirname(file), m[1]))
-    .filter((target) => relative(FRONTEND, target).startsWith('..') && existsSync(target))
+    .flatMap((m) => [dirname(file), FRONTEND].map((base) => resolve(base, m[1])))
+    .filter(
+      (target) =>
+        relative(FRONTEND, target).startsWith('..') &&
+        // Climbing from frontend/ can leave the repository; that is not a read of it.
+        !relative(REPO, target).startsWith('..') &&
+        existsSync(target),
+    )
     .map((target) => relative(REPO, target).split(sep).join('/') + (statSync(target).isDirectory() ? '/' : ''))
 }
 
@@ -53,6 +61,11 @@ describe('frontend-test changes: list', () => {
     const reads = outOfTreeReads(file, "readFileSync('../../../backend/manage.py')")
     expect(reads).toEqual(['backend/manage.py'])
     expect(covered(reads[0], entries)).toBe(false)
+  })
+
+  it('reports a cwd-relative read from a nested test file', () => {
+    const file = join(FRONTEND, 'src/test/x.test.ts')
+    expect(outOfTreeReads(file, "readFileSync('../backend/manage.py')")).toEqual(['backend/manage.py'])
   })
 
   it('covers nothing when the job or its list is missing', () => {

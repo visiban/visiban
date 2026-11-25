@@ -16,8 +16,18 @@ import { shimIds } from './anchors.mjs'
 
 const old = readFileSync(new URL('../../docs/index.md', import.meta.url), 'utf8')
 const neu = readFileSync(new URL('../src/content/docs/index.md', import.meta.url), 'utf8')
-const run = (o, n, docsPath = 'index.md') =>
-  comparePage({ old: o, neu: n, docsPath, ids: new Set([...anchorsOf(n), ...shimIds(n)]) })
+// scripts/release.sh rewrites the release banner in docs/index.md only, so it
+// is left out of both sides: a release must not read as a lost fact. The titles
+// are the three release.sh writes, in mkdocs and Starlight form.
+const TITLE = '(?:Latest release|Release candidate|Pre-release)'
+const BANNER = new RegExp(
+  `^(?:!!! (?:warning|note) "${TITLE}"\\n(?: {4}.*\\n)+|:::(?:note|caution)\\[${TITLE}\\]\\n(?:(?!:::).*\\n)*:::\\n)`,
+  'm',
+)
+const run = (o, n, docsPath = 'index.md') => {
+  const [a, b] = [o, n].map((text) => text.replace(BANNER, ''))
+  return comparePage({ old: a, neu: b, docsPath, ids: new Set([...anchorsOf(b), ...shimIds(b)]) })
+}
 const count = (lost) => Object.values(lost).reduce((a, v) => a + v.length, 0)
 const without = (text, re) => {
   const out = text.replace(re, '')
@@ -39,6 +49,19 @@ t('a "**" glob inside inline code does not hide later bold terms', () => {
 })
 
 t('baseline: the prototype root page loses nothing', () => assert.equal(count(run(old, neu)), 0, JSON.stringify(run(old, neu))))
+
+t('a release banner bumped in the original only is not a loss', () => {
+  for (const [kind, title, version, link] of [
+    ['note', 'Latest release', '1.3.0', 'https://gitlab.com/visiban/visiban/-/releases/v1.3.0'],
+    ['warning', 'Release candidate', '1.3.0-rc.1', 'https://gitlab.com/visiban/visiban/-/issues'],
+    ['warning', 'Pre-release', '1.3.0-beta.1', 'https://gitlab.com/visiban/visiban/-/issues'],
+  ]) {
+    const banner = `!!! ${kind} "${title}"\n    **${version}** is out. [Read](${link}).\n`
+    const bumped = old.replace(BANNER, banner)
+    assert.ok(bumped.includes(banner), `control did not apply: ${title}`)
+    assert.equal(count(run(bumped, neu)), 0, JSON.stringify(run(bumped, neu)))
+  }
+})
 
 for (const [name, re, kind] of [
   ['the Invite links bullet', /^- \*\*Invite links\.\*\*.*\n/m, 'terms'],

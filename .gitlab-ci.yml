@@ -3665,6 +3665,8 @@ help-link-anchors:
 # prototype root page with docs/index.md, so a docs/-only MR can break them;
 # nothing ran these suites before and main stayed red unnoticed. `changes:`
 # therefore covers both trees. Offline apart from `npm ci`; no site build.
+# Apart from the release banner, which the controls ignore, an edit that adds a
+# fact to docs/index.md must now be mirrored in the prototype's root page.
 docs-site-test:
   stage: test
   needs: []
