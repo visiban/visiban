@@ -99,7 +99,14 @@ def validate_docs_base_url(value):
         return
     text = str(value)
     message = "Enter an http:// or https:// address, such as https://docs.example.internal/visiban."
-    if any(ch.isspace() for ch in text) or any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
+    # A backslash is refused too: browsers read it as "/" in an http(s) URL and
+    # urlsplit does not, so "http://good.example\\.evil.example" would pass with
+    # one host here and open another in the browser.
+    if (
+        "\\" in text
+        or any(ch.isspace() for ch in text)
+        or any(ord(ch) < 32 or ord(ch) == 127 for ch in text)
+    ):
         raise ValidationError(message, code="invalid")
     try:
         parts = urlsplit(text)

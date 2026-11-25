@@ -119,6 +119,10 @@ describe('docsUrl runtime Site settings base (#2604)', () => {
     setRuntimeDocsBase('javascript:alert(1)')
     expect(docsUrl('webhooks', { version: '1.3.0' })).toBe('https://build.example.test/features/webhooks/')
   })
+  it('skips a runtime value with a backslash (browsers read it as a slash)', () => {
+    setRuntimeDocsBase('http://good.example\\.evil.example')
+    expect(docsUrl('webhooks', { version: '1.3.0' })).toBe(`${DEFAULT_DOCS_BASE_URL}/v1.3/features/webhooks/`)
+  })
   it('falls back to the version-matched default when neither is set', () => {
     setRuntimeDocsBase(null)
     expect(docsUrl('webhooks', { version: '1.3.0' })).toBe(`${DEFAULT_DOCS_BASE_URL}/v1.3/features/webhooks/`)

@@ -24,8 +24,9 @@ export function docsVersionSegment(version: string | undefined): string {
 
 function sanitizeBase(base: string | undefined): string | null {
   const trimmed = (base ?? "").trim().replace(/\/+$/, "");
-  // The value ends up in an href: http(s) only, never javascript: or data:.
-  return /^https?:\/\/[^\s]+$/i.test(trimmed) ? trimmed : null;
+  // The value ends up in an href: http(s) only, never javascript: or data:. No backslash either:
+  // browsers read it as "/", which can move the host away from what the server validated.
+  return /^https?:\/\/[^\s\\]+$/i.test(trimmed) ? trimmed : null;
 }
 
 export interface DocsUrlOptions {

@@ -55,6 +55,8 @@ BAD = (
     "https://docs.example.internal/?",
     "https://docs.example.internal:99999",
     "https://docs.example.internal:port",
+    "http://good.example\\.evil.example",
+    "https:\\\\evil.example",
 )
 
 
@@ -182,7 +184,8 @@ class SiteConfigPayloadTests(TestCase):
     def bodies(self):
         anonymous = APIClient().get(SITE_CONFIG)
         client = APIClient()
-        client.force_authenticate(User.objects.create_user(username="reader-2604", password="pw-2604-Abcdef!"))
+        reader, _ = User.objects.get_or_create(username="reader-2604")
+        client.force_authenticate(reader)
         authenticated = client.get(SITE_CONFIG)
         self.assertEqual(anonymous.status_code, status.HTTP_200_OK)
         self.assertEqual(authenticated.status_code, status.HTTP_200_OK)
@@ -201,6 +204,16 @@ class SiteConfigPayloadTests(TestCase):
         anonymous, authenticated = self.bodies()
         self.assertEqual(anonymous["docs_base_url"], MIRROR)
         self.assertEqual(authenticated["docs_base_url"], MIRROR)
+
+    def test_invalid_value_written_outside_the_api_is_served_as_null(self):
+        # An ORM update() skips every validator; the public endpoint re-checks.
+        for bad in ("javascript:alert(1)", f"https://user:secret{_AT}docs.example.internal"):
+            with self.subTest(value=bad):
+                SiteSetting.get()
+                SiteSetting.objects.filter(pk=1).update(docs_base_url=bad)
+                anonymous, authenticated = self.bodies()
+                self.assertIsNone(anonymous["docs_base_url"])
+                self.assertIsNone(authenticated["docs_base_url"])
 
     def test_blank_written_outside_the_api_is_served_as_null(self):
         # A shell or Django admin write can store "" rather than null; the SPA

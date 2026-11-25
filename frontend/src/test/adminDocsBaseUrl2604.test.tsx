@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
 import type { SiteSettings, User } from '../types'
+import { docsUrl, setRuntimeDocsBase } from '../help/docsUrl'
 
 // Site admin → General → Help links (#2604): runtime docs base URL for the in-app help links.
 vi.mock('../hooks/useIsPhoneViewport', () => ({ useIsPhoneViewport: () => false }))
@@ -87,6 +88,21 @@ describe('Help links card (#2604)', () => {
     expect(await screen.findByText('Settings saved.')).toBeInTheDocument()
   })
 
+  it("applies a saved address to this tab's help links at once", async () => {
+    try {
+      const input = await renderGeneral()
+      type(input, MIRROR)
+      await screen.findByText('Settings saved.')
+      expect(docsUrl('webhooks')).toBe(`${MIRROR}/features/webhooks/`)
+    } finally {
+      setRuntimeDocsBase(null)
+    }
+  })
+
+  it('caps the field at the server limit', async () => {
+    expect(await renderGeneral()).toHaveAttribute('maxLength', '500')
+  })
+
   it('blank clears a stored value to null', async () => {
     const input = await renderGeneral({ docs_base_url: MIRROR })
     type(input, '   ')
@@ -103,6 +119,8 @@ describe('Help links card (#2604)', () => {
     ['javascript:alert(1)', 'Enter an http:// or https:// address, such as https://docs.example.internal/visiban.'],
     ['ftp://docs.example.internal', 'Enter an http:// or https:// address, such as https://docs.example.internal/visiban.'],
     ['docs.example.internal', 'Enter an http:// or https:// address, such as https://docs.example.internal/visiban.'],
+    ['https:docs.example.internal', 'Enter an http:// or https:// address, such as https://docs.example.internal/visiban.'],
+    ['http://good.example\\.evil.example', 'Enter an http:// or https:// address, such as https://docs.example.internal/visiban.'],
     ['https://docs.example .internal', 'Enter an http:// or https:// address, such as https://docs.example.internal/visiban.'],
     ['https://user:pw@docs.example.internal', 'Leave the user name and password out of the address: it is shown to everyone.'],
     ['https://docs.example.internal/?v=1', 'Leave out the ? and # parts: help links add their own page and section.'],

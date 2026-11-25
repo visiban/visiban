@@ -47,6 +47,7 @@ import type { AdminInviteLinkPage } from "../api/auth";
 import type { AdminInviteLink, AdminUser, AdminUserStatus, AdminUserStatusCounts, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 import AnchoredMenuPanel from "../components/Common/AnchoredMenuPanel";
+import { setRuntimeDocsBase } from "../help/docsUrl";
 import { captureMenuAnchor, type MenuAnchor } from "../utils/menuAnchor";
 
 interface Props {
@@ -746,6 +747,9 @@ function GeneralSection() {
     try {
       const updated = await patchAdminSettings(patch);
       setSettings(updated);
+      // The admin's own tab follows a new docs address at once (#2604); other tabs pick it up
+      // from site-config on their next refresh.
+      if ("docs_base_url" in patch) setRuntimeDocsBase(updated.docs_base_url);
       setSaved(true);
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
       savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
@@ -1050,6 +1054,9 @@ function TokenPolicyCard({ settings, busy, onSave }: {
   );
 }
 
+/** The server's `docs_base_url` length cap (DOCS_BASE_URL_MAX_LENGTH). */
+const DOCS_BASE_URL_MAX = 500;
+
 /**
  * The rule the server applies to `docs_base_url` (#2604), checked here only for an inline message;
  * the server stays the authority. http(s) with a host, no user:password (the value is public),
@@ -1064,7 +1071,9 @@ function docsBaseUrlError(raw: string): string | null {
   } catch {
     // Not parseable: reported as a bad address below.
   }
-  if (!url || /\s/.test(text) || !/^https?:$/.test(url.protocol) || !url.hostname) {
+  // `https:docs.internal` parses here but has no host on the server, so the "//" is required too;
+  // a backslash is refused because browsers read it as "/" and the server's parser does not.
+  if (!url || /[\s\\]/.test(text) || !/^https?:\/\//i.test(text) || !url.hostname) {
     return "Enter an http:// or https:// address, such as https://docs.example.internal/visiban.";
   }
   if (url.username || url.password) return "Leave the user name and password out of the address: it is shown to everyone.";
@@ -1113,13 +1122,14 @@ function DocsLinkCard({ settings, busy, onSave }: {
     <SettingsCard title="Help links">
       <Field
         label="Docs address"
-        hint="Where the ? and Learn more links open, such as an internal docs mirror. Used as given, with no version added. Anyone can see it without signing in. Blank: the address this image was built with, else docs.visiban.com for your version."
+        hint={'Where the "?", "Learn more" and "Help & docs" links open, such as an internal docs mirror. Used as given, with no version added. Anyone can see it without signing in. Blank: docs.visiban.com for your version, unless your build sets its own address.'}
         error={error}
         type="url"
         inputMode="url"
         autoComplete="off"
         spellCheck={false}
-        placeholder="https://docs.visiban.com"
+        placeholder="https://docs.example.internal/visiban"
+        maxLength={DOCS_BASE_URL_MAX}
         value={text}
         onChange={(e) => {
           setText(e.target.value);
