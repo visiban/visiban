@@ -5729,7 +5729,9 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
         if hasattr(obj, "_card_count"):
             return obj._card_count
         note_fallback(self, "get_card_count")
-        return obj.cards.count()
+        # Live cards only, matching annotate_board_counts and stage_counts, so
+        # card_count == sum(stage_counts) on an unannotated render too (#2483).
+        return obj.cards.filter(archived_at__isnull=True).count()
 
     def get_archived_card_count(self, obj) -> int:
         # Annotated alongside _card_count by every queryset that feeds this

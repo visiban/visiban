@@ -156,6 +156,17 @@ class StageCountsSingleBoardTests(TestCase):
         self.assertEqual(len(ctx), 1)
         self.assertEqual(stages[0]["card_count"], 1)
 
+    def test_unannotated_card_count_matches_stage_counts_sum(self):
+        """A bare board with archived cards: card_count counts live cards only."""
+        board, _ = _board(self.owner, "Sum", [("Todo", 2, 1), ("Done", 1, 2)])
+        serializer = BoardSerializer()
+        self.assertFalse(hasattr(board, "_card_count"))
+        self.assertEqual(serializer.get_card_count(board), 3)
+        self.assertEqual(
+            serializer.get_card_count(board),
+            sum(s["card_count"] for s in serializer.get_stage_counts(board)),
+        )
+
     def test_primed_map_without_this_board_falls_back(self):
         """A primed map that lacks the row is not trusted as 'no columns'."""
         board, _ = _board(self.owner, "Missing", [("Todo", 1, 0)])
