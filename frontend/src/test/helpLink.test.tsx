@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import HelpLink from '../components/Common/HelpLink'
-import { DEFAULT_DOCS_BASE_URL, docsUrl, docsVersionSegment } from '../help/docsUrl'
+import { DEFAULT_DOCS_BASE_URL, docsUrl, docsVersionSegment, setRuntimeDocsBase } from '../help/docsUrl'
 import { HELP_TOPICS, type HelpTopicKey } from '../help/topics'
 
 describe('docsVersionSegment', () => {
@@ -87,6 +87,54 @@ describe('docsUrl build-time VITE_DOCS_BASE_URL', () => {
     const url = docsUrl('webhooks')
     expect(url.startsWith(`${DEFAULT_DOCS_BASE_URL}/`)).toBe(true)
     expect(url.endsWith('/features/webhooks/')).toBe(true)
+  })
+})
+
+// #2604: Site settings value from site-config beats the build-time variable,
+// which beats the version-matched public docs. A candidate that fails the
+// http(s) check is skipped, never used.
+describe('docsUrl runtime Site settings base (#2604)', () => {
+  afterEach(() => {
+    setRuntimeDocsBase(null)
+    vi.unstubAllEnvs()
+  })
+  it('uses the runtime base over the build-time one', () => {
+    vi.stubEnv('VITE_DOCS_BASE_URL', 'https://build.example.test')
+    setRuntimeDocsBase('https://runtime.example.test/visiban/')
+    expect(docsUrl('webhooks', { version: '1.3.0' })).toBe('https://runtime.example.test/visiban/features/webhooks/')
+  })
+  it('uses the runtime base over the default when no build-time base is set', () => {
+    setRuntimeDocsBase('http://docs:8080')
+    expect(docsUrl('home', { version: '1.3.0' })).toBe('http://docs:8080/')
+  })
+  it('falls back to the build-time base when runtime is unset', () => {
+    vi.stubEnv('VITE_DOCS_BASE_URL', 'https://build.example.test')
+    for (const unset of [null, undefined, '']) {
+      setRuntimeDocsBase(unset)
+      expect(docsUrl('webhooks', { version: '1.3.0' })).toBe('https://build.example.test/features/webhooks/')
+    }
+  })
+  it('skips an unsafe runtime value for the build-time base', () => {
+    vi.stubEnv('VITE_DOCS_BASE_URL', 'https://build.example.test')
+    setRuntimeDocsBase('javascript:alert(1)')
+    expect(docsUrl('webhooks', { version: '1.3.0' })).toBe('https://build.example.test/features/webhooks/')
+  })
+  it('skips a runtime value with a backslash (browsers read it as a slash)', () => {
+    setRuntimeDocsBase('http://good.example\\.evil.example')
+    expect(docsUrl('webhooks', { version: '1.3.0' })).toBe(`${DEFAULT_DOCS_BASE_URL}/v1.3/features/webhooks/`)
+  })
+  it('falls back to the version-matched default when neither is set', () => {
+    setRuntimeDocsBase(null)
+    expect(docsUrl('webhooks', { version: '1.3.0' })).toBe(`${DEFAULT_DOCS_BASE_URL}/v1.3/features/webhooks/`)
+  })
+  it('an explicit opts.base still wins over the runtime base', () => {
+    setRuntimeDocsBase('https://runtime.example.test')
+    expect(docsUrl('webhooks', { base: 'https://explicit.example.test' })).toBe('https://explicit.example.test/features/webhooks/')
+  })
+  it('HelpLink renders the runtime base in its href', () => {
+    setRuntimeDocsBase('https://runtime.example.test')
+    render(<HelpLink topic="webhooks" />)
+    expect(screen.getByRole('link', { name: 'Learn more about webhooks, opens docs' })).toHaveAttribute('href', 'https://runtime.example.test/features/webhooks/')
   })
 })
 

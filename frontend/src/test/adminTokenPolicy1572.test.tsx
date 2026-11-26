@@ -34,7 +34,7 @@ const actor = {
 
 const base: SiteSettings = {
   registration_mode: 'open', uploads_enabled: true, maintenance_mode: false, maintenance_message: '',
-  pat_max_lifetime_days: null, pat_default_lifetime_days: null,
+  pat_max_lifetime_days: null, pat_default_lifetime_days: null, docs_base_url: null,
 }
 
 async function renderGeneral(settings: Partial<SiteSettings> = {}) {

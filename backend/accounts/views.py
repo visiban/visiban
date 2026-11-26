@@ -50,6 +50,7 @@ from .models import (
     PersonalAccessToken,
     SiteSetting,
     get_registration_mode,
+    validate_docs_base_url,
 )
 from .instance_flags import instance_flags
 from .invite_utils import InviteTokenError
@@ -1129,6 +1130,14 @@ class SiteConfigView(APIView):
                         "overdue. The browser applies the same rule as the server (#2313)."
                     ),
                 ),
+                "docs_base_url": drf_serializers.CharField(
+                    allow_null=True,
+                    help_text=(
+                        "Site settings docs base URL for the in-app help links, http(s) only, "
+                        "or null when unset (the SPA then uses its build-time value, else "
+                        "docs.visiban.com). Added in 1.3 (#2604)."
+                    ),
+                ),
             },
         ),
     )
@@ -1168,7 +1177,33 @@ class SiteConfigView(APIView):
             # the instance counts from. Anonymous because shared read-only boards
             # render overdue cues before (or without) a sign-in.
             "instance_timezone": settings.INSTANCE_TIMEZONE,
+            # #2604: where the in-app help links point. An instance setting, not
+            # caller dependent, and no secret: every visitor sees it in a help
+            # link's href anyway, and the validator refuses embedded
+            # credentials. Served here because this is the payload the SPA
+            # bootstraps instance config from, signed in or not. Read off the
+            # row this view already loaded: no extra query.
+            "docs_base_url": self._docs_base_url(setting),
         })
+
+    @staticmethod
+    def _docs_base_url(setting):
+        """The stored docs base URL, re-checked before it is published, or None.
+
+        The API and the Django admin both validate it on write, but an ORM
+        ``update()``, a shell session or a data load does not. This endpoint is
+        anonymous and the value lands in an href, so a stored value that fails
+        the rule (a javascript: URL, embedded credentials) is served as null
+        rather than verbatim. A blank also folds into null.
+        """
+        value = setting.docs_base_url
+        if not value:
+            return None
+        try:
+            validate_docs_base_url(value)
+        except ValidationError:
+            return None
+        return value
 
     @staticmethod
     def _demo_login():

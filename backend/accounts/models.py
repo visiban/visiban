@@ -72,6 +72,61 @@ UPLOADS_ENABLED_CACHE_TTL = 60  # seconds
 # validator and the admin serializer so the two can never disagree.
 MAINTENANCE_MESSAGE_MAX_LENGTH = 1000
 
+# Runtime docs base URL for in-app help links (#2604). Shared by the model
+# validator and the admin serializer so the two can never disagree.
+DOCS_BASE_URL_MAX_LENGTH = 500
+
+
+def validate_docs_base_url(value):
+    """Reject anything but a plain http(s) base URL for the in-app help links (#2604).
+
+    Why this is stricter than ``URLValidator``: the value is served on the
+    anonymous site-config endpoint and lands verbatim in an ``href`` on every
+    page, so it is checked for what it is used as, not for "is a URL".
+
+    - http(s) only: ``javascript:``, ``data:`` and the rest would run or render
+      in the app's origin when a help link is clicked.
+    - No user:password: the endpoint is public, so credentials embedded in the
+      URL would be published to every visitor.
+    - No query or fragment: the client appends ``/<page path>#<anchor>``, which
+      a query or fragment in the base would swallow.
+    - Single-label hosts (``http://docs:8080``) are allowed, unlike
+      ``URLValidator``: an air-gapped mirror is exactly where they occur.
+    """
+    from urllib.parse import urlsplit
+
+    if value in (None, ""):
+        return
+    text = str(value)
+    message = "Enter an http:// or https:// address, such as https://docs.example.internal/visiban."
+    # A backslash is refused too: browsers read it as "/" in an http(s) URL and
+    # urlsplit does not, so "http://good.example\\.evil.example" would pass with
+    # one host here and open another in the browser.
+    if (
+        "\\" in text
+        or any(ch.isspace() for ch in text)
+        or any(ord(ch) < 32 or ord(ch) == 127 for ch in text)
+    ):
+        raise ValidationError(message, code="invalid")
+    try:
+        parts = urlsplit(text)
+        # Accessing .port validates it (raises ValueError when out of range or not numeric).
+        parts.port  # noqa: B018
+    except ValueError:
+        raise ValidationError(message, code="invalid")
+    if parts.scheme.lower() not in ("http", "https") or not parts.hostname:
+        raise ValidationError(message, code="invalid")
+    if parts.username is not None or parts.password is not None:
+        raise ValidationError(
+            "Leave the user name and password out of the address: it is shown to everyone.",
+            code="credentials",
+        )
+    if parts.query or parts.fragment or text.endswith(("?", "#")):
+        raise ValidationError(
+            "Leave out the ? and # parts: help links add their own page and section.",
+            code="query",
+        )
+
 MAINTENANCE_CACHE_KEY = "site_setting_maintenance"
 MAINTENANCE_CACHE_TTL = 60  # seconds
 
@@ -280,6 +335,25 @@ class SiteSetting(models.Model):
         ),
     )
 
+    # Runtime docs base URL for the in-app help links (#2604). Null is the
+    # default and today's behavior: the SPA uses its build-time
+    # VITE_DOCS_BASE_URL, else docs.visiban.com. It exists so an air-gapped
+    # operator on the stock release image (where the build arg cannot be set)
+    # can point help at an internal mirror. Nullable, no index: a zero-downtime
+    # AddField. The validator repeats the serializer's for the Django admin
+    # path, as maintenance_message does.
+    docs_base_url = models.CharField(
+        max_length=DOCS_BASE_URL_MAX_LENGTH,
+        null=True,
+        blank=True,
+        validators=[validate_docs_base_url],
+        help_text=(
+            "Base address of the documentation the in-app help links open, http:// or https:// "
+            "only. Used as given, with no version added. Blank uses the build-time setting, "
+            "else docs.visiban.com."
+        ),
+    )
+
     class Meta:
         db_table = "site_settings"
 
@@ -341,13 +415,11 @@ class SiteEmailSetting(models.Model):
 
     Why this is a separate model and not fields on ``SiteSetting``
     -------------------------------------------------------------
-    The reason is already written down in this file. The
-    ``AUDITED_SITE_SETTING_FIELDS`` docstring above says:
-
-        "Today every SiteSetting field is an enum, a boolean or the admin's own
-        notice text; the day one of them holds an SMTP password or an OIDC
-        client secret, a generic loop would copy that value verbatim into the
-        audit log, and the rows are never rewritten."
+    The reason is already written down in this file. The comment on
+    ``AUDITED_SITE_SETTING_FIELDS`` below warns that the day a ``SiteSetting``
+    field holds an SMTP password or an OIDC client secret, a generic loop would
+    copy that value verbatim into the audit log, and the rows are never
+    rewritten.
 
     That day is this model. Keeping the secret in its own table makes "this
     column is never diffed into the audit log" a structural property rather
@@ -927,16 +999,19 @@ class InviteLinkRedemption(models.Model):
 
 # The SiteSetting fields captured by snapshot_site_setting(), so the three write
 # paths (admin API, management command, Django admin) all diff the same set.
+# A new operator-set SiteSetting field belongs here AND needs its own branch in
+# record_site_setting_changes() below.
 #
 # This tuple is consumed ONLY by snapshot_site_setting(). record_site_setting_changes()
-# below does NOT loop over it — it is a hand-written branch per field, and that
+# does NOT loop over it — it is a hand-written branch per field, and that
 # is deliberate: each field needs its own decision about what is safe to persist
 # into an append-only, queryable table, and about which action name describes it.
-# Do not "simplify" those branches into a loop over this tuple. Today every
-# SiteSetting field is an enum, a boolean or the admin's own notice text; the
-# day one of them holds an SMTP password or an OIDC client secret, a generic
-# loop would copy that value verbatim into the audit log, and the rows are never
-# rewritten.
+# Do not "simplify" those branches into a loop over this tuple. The values
+# persisted today are enums, booleans, small integers, the admin's own notice
+# text and the public docs address (served to anonymous visitors, and refused
+# with embedded credentials by validate_docs_base_url); the day a field holds an
+# SMTP password or an OIDC client secret, a generic loop would copy that value
+# verbatim into the audit log, and the rows are never rewritten.
 AUDITED_SITE_SETTING_FIELDS = (
     "maintenance_mode",
     "maintenance_message",
@@ -944,6 +1019,7 @@ AUDITED_SITE_SETTING_FIELDS = (
     "uploads_enabled",
     "pat_max_lifetime_days",
     "pat_default_lifetime_days",
+    "docs_base_url",
 )
 
 
@@ -1049,6 +1125,9 @@ class AdminActionLog(models.Model):
         # {"from": days|null, "to": days|null}; null means unset.
         PAT_MAX_LIFETIME_CHANGED = "pat_max_lifetime.changed", "Token maximum lifetime changed"
         PAT_DEFAULT_LIFETIME_CHANGED = "pat_default_lifetime.changed", "Token default expiry changed"
+        # Runtime docs base URL for the in-app help links (#2604). Metadata is
+        # {"from": url|null, "to": url|null}; null means unset.
+        DOCS_BASE_URL_CHANGED = "docs_base_url.changed", "Docs address changed"
         # Outbound email configuration (#306). Host, port and the TLS flags are
         # not secrets and carry from/to so a retrospective can read the actual
         # transition. The username and password deliberately do NOT: SMTP
@@ -1275,6 +1354,15 @@ def record_site_setting_changes(*, before: dict, after, actor, source) -> list:
         pending.append((
             Action.PAT_DEFAULT_LIFETIME_CHANGED,
             {"from": before["pat_default_lifetime_days"], "to": after.pat_default_lifetime_days},
+        ))
+
+    # A public address, so safe to persist. Blank and null both mean unset.
+    docs_before = before["docs_base_url"] or None
+    docs_after = after.docs_base_url or None
+    if docs_before != docs_after:
+        pending.append((
+            Action.DOCS_BASE_URL_CHANGED,
+            {"from": docs_before, "to": docs_after},
         ))
 
     return [

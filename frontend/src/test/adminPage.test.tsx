@@ -129,6 +129,7 @@ const fakeSettings: SiteSettings = {
   maintenance_message: '',
   pat_max_lifetime_days: null,
   pat_default_lifetime_days: null,
+  docs_base_url: null,
 }
 
 const fakeEmailSettings: SiteEmailSettings = {

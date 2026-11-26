@@ -47,6 +47,7 @@ import type { AdminInviteLinkPage } from "../api/auth";
 import type { AdminInviteLink, AdminUser, AdminUserStatus, AdminUserStatusCounts, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 import AnchoredMenuPanel from "../components/Common/AnchoredMenuPanel";
+import { setRuntimeDocsBase } from "../help/docsUrl";
 import { captureMenuAnchor, type MenuAnchor } from "../utils/menuAnchor";
 
 interface Props {
@@ -746,6 +747,9 @@ function GeneralSection() {
     try {
       const updated = await patchAdminSettings(patch);
       setSettings(updated);
+      // The admin's own tab follows a new docs address at once (#2604); other tabs pick it up
+      // from site-config on their next refresh.
+      if ("docs_base_url" in patch) setRuntimeDocsBase(updated.docs_base_url);
       setSaved(true);
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
       savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
@@ -884,6 +888,14 @@ function GeneralSection() {
 
       {settings && (
         <TokenPolicyCard
+          settings={settings}
+          busy={saving}
+          onSave={(patch, rollback, onRollback) => void saveSetting(patch, rollback, "Failed to save settings.", onRollback)}
+        />
+      )}
+
+      {settings && (
+        <DocsLinkCard
           settings={settings}
           busy={saving}
           onSave={(patch, rollback, onRollback) => void saveSetting(patch, rollback, "Failed to save settings.", onRollback)}
@@ -1038,6 +1050,95 @@ function TokenPolicyCard({ settings, busy, onSave }: {
         {field("pat_max_lifetime_days", "Maximum lifetime (days)", "Every new token must expire within this many days. Blank: no maximum, and tokens may never expire.")}
         {field("pat_default_lifetime_days", "Default expiry (days)", "Pre-filled in the token form, in days from today. Blank: nothing pre-filled.")}
       </div>
+    </SettingsCard>
+  );
+}
+
+/** The server's `docs_base_url` length cap (DOCS_BASE_URL_MAX_LENGTH). */
+const DOCS_BASE_URL_MAX = 500;
+
+/**
+ * The rule the server applies to `docs_base_url` (#2604), checked here only for an inline message;
+ * the server stays the authority. http(s) with a host, no user:password (the value is public),
+ * and no ? or # (help links append their own page and section). Returns the error, or null.
+ */
+function docsBaseUrlError(raw: string): string | null {
+  const text = raw.trim();
+  if (text === "") return null;
+  let url: URL | null = null;
+  try {
+    url = new URL(text);
+  } catch {
+    // Not parseable: reported as a bad address below.
+  }
+  // `https:docs.internal` parses here but has no host on the server, so the "//" is required too;
+  // a backslash is refused because browsers read it as "/" and the server's parser does not.
+  if (!url || /[\s\\]/.test(text) || !/^https?:\/\//i.test(text) || !url.hostname) {
+    return "Enter an http:// or https:// address, such as https://docs.example.internal/visiban.";
+  }
+  if (url.username || url.password) return "Leave the user name and password out of the address: it is shown to everyone.";
+  if (url.search || url.hash || /[?#]$/.test(text)) return "Leave out the ? and # parts: help links add their own page and section.";
+  return null;
+}
+
+/**
+ * Where the in-app help links point (#2604): a runtime override of the build-time
+ * VITE_DOCS_BASE_URL, for an air-gapped install on the stock image. A local buffer saved on
+ * blur, like the token policy fields; blank clears it.
+ */
+function DocsLinkCard({ settings, busy, onSave }: {
+  settings: SiteSettings;
+  busy: boolean;
+  onSave: (patch: Partial<SiteSettings>, rollback: (s: SiteSettings) => SiteSettings, onRollback: () => void) => void;
+}) {
+  // Older servers (and some test fixtures) omit the field; treat that as unset.
+  const stored = settings.docs_base_url ?? null;
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | undefined>(undefined);
+  // Re-seed the buffer when the server value changes, during render (#1319).
+  const [seeded, setSeeded] = useState<string | null | "unseeded">("unseeded");
+  if (seeded !== stored) {
+    setSeeded(stored);
+    setText(stored ?? "");
+  }
+
+  const commit = () => {
+    const problem = docsBaseUrlError(text);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setError(undefined);
+    const next = text.trim() === "" ? null : text.trim();
+    if (next === stored) {
+      setText(next ?? "");
+      return;
+    }
+    const prev = stored;
+    onSave({ docs_base_url: next }, (s) => ({ ...s, docs_base_url: prev }), () => setText(prev ?? ""));
+  };
+
+  return (
+    <SettingsCard title="Help links">
+      <Field
+        label="Docs address"
+        hint={'Where the "?", "Learn more" and "Help & docs" links open, such as an internal docs mirror. Used as given, with no version added. Anyone can see it without signing in. Blank: docs.visiban.com for your version, unless your build sets its own address.'}
+        error={error}
+        type="url"
+        inputMode="url"
+        autoComplete="off"
+        spellCheck={false}
+        placeholder="https://docs.example.internal/visiban"
+        maxLength={DOCS_BASE_URL_MAX}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          // A corrected value must not keep showing the stale error; blur validates again.
+          setError(undefined);
+        }}
+        onBlur={commit}
+        aria-busy={busy}
+      />
     </SettingsCard>
   );
 }

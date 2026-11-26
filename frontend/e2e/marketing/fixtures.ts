@@ -664,6 +664,7 @@ export const SITE_SETTINGS: SiteSettings = {
   maintenance_message: '',
   pat_max_lifetime_days: null,
   pat_default_lifetime_days: null,
+  docs_base_url: null,
 }
 
 export const ADMIN_INVITE_LINKS: AdminInviteLink[] = [
