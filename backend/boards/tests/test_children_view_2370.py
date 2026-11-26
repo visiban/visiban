@@ -124,7 +124,11 @@ class ChildrenViewReadTests(_ViewFixture, TestCase):
         full = self._cards(self.viewer)
         for row in body["rows"]:
             self.assertEqual(set(row), ROW_KEYS)
-            self.assertEqual(row["rollup"], full[row["id"]]["children_rollup"])
+            # The #2551 planned keys (planned, planned_due_dates, needed_not_started)
+            # are on the card rollup only until Children mode counts planned
+            # children itself (#2370); the #2210 keys must agree.
+            card = {k: v for k, v in full[row["id"]]["children_rollup"].items() if k in row["rollup"]}
+            self.assertEqual(row["rollup"], card)
 
     def test_rows_order_blocked_first_then_most_recent_move_folded_last(self):
         # Unblocked parents, created oldest-first: A's child moved 1 day ago, B's

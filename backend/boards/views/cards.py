@@ -76,6 +76,10 @@ _PERM_DENIED = "You do not have permission to perform this action."
 # parent is two pages.
 CHILDREN_PAGE_SIZE = 50
 
+#: Add child's optional ``due_date`` (#2549): the card serializer's own field
+#: shape, so the boundary accepts exactly what a card edit accepts.
+_ADD_CHILD_DUE_DATE = serializers.DateField(required=False, allow_null=True)
+
 
 def _picker_params(request):
     """``(search, board_id)`` for the two link pickers, or the coded 400 (#1104, #2209)."""
@@ -3091,6 +3095,21 @@ class CardViewSet(viewsets.ModelViewSet):
                         "(#2211, since 1.3). Default true; false leaves the child unassigned."
                     ),
                 ),
+                "needed_at_column": serializers.IntegerField(
+                    required=False, allow_null=True,
+                    help_text=(
+                        "Needed (#2371, since 1.3): a later column on this card's board, so the child "
+                        "is planned until this card reaches it. Omitted or null: Needed: Now."
+                    ),
+                ),
+                "due_date": serializers.DateField(
+                    required=False, allow_null=True,
+                    help_text=(
+                        "The child's due date, YYYY-MM-DD (#2549, since 1.3). Omitted or null: none. "
+                        "On a planned child it is stored but inactive (not Overdue, Due soon or "
+                        "Stale) until the child is released."
+                    ),
+                ),
                 "expected_assignee_id": serializers.IntegerField(
                     required=False, allow_null=True,
                     help_text=(
@@ -3160,6 +3179,15 @@ class CardViewSet(viewsets.ModelViewSet):
         expected = body.get("expected_assignee_id")
         if has_expected and expected is not None and (isinstance(expected, bool) or not isinstance(expected, int)):
             raise serializers.ValidationError({"expected_assignee_id": ["Must be an integer or null."]})
+        # #2549: optional stored due date, validated here at the boundary by the
+        # same DRF DateField the card serializer uses (YYYY-MM-DD or null).
+        # Omitted or null stores none, as before. On a planned child it is
+        # inactive until release (``card_signals.not_planned_q``), so it never
+        # sits in Due soon while the work waits.
+        try:
+            due_date = _ADD_CHILD_DUE_DATE.run_validation(body.get("due_date"))
+        except serializers.ValidationError as exc:
+            raise serializers.ValidationError({"due_date": exc.detail}) from exc
 
         def make_card(*, board, role, column, swimlane):
             # Read under create_child's board locks, so a member removed from
@@ -3184,6 +3212,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 save=lambda position: Card.objects.create(
                     board=board, column=column, swimlane=swimlane, title=title,
                     created_by=request.user, position=position, assignee_id=assignee_id,
+                    due_date=due_date,
                 ),
                 render=render,
                 # The lane team's pre-assigned member is told, like any assignment.

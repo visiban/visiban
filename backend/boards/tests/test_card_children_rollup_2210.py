@@ -21,7 +21,10 @@ from boards.services import card_links
 from boards.tests.conftest import _make_card, _make_column, _make_swimlane, _make_user
 from boards.tests.test_card_parent_links import Role, _board_with_card, _LinkFixture
 
-VISIBLE_KEYS = {"visible", "total", "done", "doing", "todo", "blocked", "last_moved_at"}
+VISIBLE_KEYS = {
+    "visible", "total", "done", "doing", "todo", "blocked", "last_moved_at",
+    "planned", "planned_due_dates", "needed_not_started",
+}
 
 
 class _RollupFixture(_LinkFixture):
@@ -64,9 +67,9 @@ class RollupReadTests(_RollupFixture, TestCase):
         r = self._cards(viewer)[self.parent.pk]["children_rollup"]
         self.assertEqual(set(r), VISIBLE_KEYS)
         self.assertEqual(
-            {k: r[k] for k in VISIBLE_KEYS - {"last_moved_at"}},
+            {k: r[k] for k in VISIBLE_KEYS - {"last_moved_at", "planned_due_dates", "needed_not_started"}},
             # Blocked overrides the column (manual and relation); archived is out.
-            {"visible": True, "total": 5, "done": 1, "doing": 1, "todo": 1, "blocked": 2},
+            {"visible": True, "total": 5, "done": 1, "doing": 1, "todo": 1, "blocked": 2, "planned": 0},
         )
 
     def test_last_moved_at_is_the_latest_child_move(self):
@@ -85,6 +88,7 @@ class RollupReadTests(_RollupFixture, TestCase):
         r = self._cards(self.owner)[self.lonely.pk]["children_rollup"]
         self.assertEqual(r, {
             "visible": True, "total": 0, "done": 0, "doing": 0, "todo": 0, "blocked": 0, "last_moved_at": None,
+            "planned": 0, "planned_due_dates": [], "needed_not_started": [],
         })
 
     def test_hidden_child_board_is_the_count_only(self):
@@ -108,7 +112,10 @@ class RollupReadTests(_RollupFixture, TestCase):
         r = cards[self.parent.pk]["children_rollup"]
         self.assertEqual(
             {k: r[k] for k in VISIBLE_KEYS - {"last_moved_at"}},
-            {"visible": True, "total": 5, "done": 1, "doing": 1, "todo": 1, "blocked": 2},
+            {
+                "visible": True, "total": 5, "done": 1, "doing": 1, "todo": 1, "blocked": 2,
+                "planned": 0, "planned_due_dates": [], "needed_not_started": [],
+            },
         )
         self.assertNotIn("SECRET-D", json.dumps(cards))
 
