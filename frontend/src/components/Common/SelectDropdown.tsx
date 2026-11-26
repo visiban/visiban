@@ -269,7 +269,7 @@ export default function SelectDropdown<T extends string>({
 
       {open && anchor && sheet && createPortal(
         // The scrim is outside the panel, so a tap on it is the outside mousedown that closes the menu.
-        <div aria-hidden="true" data-testid="select-sheet-scrim" className="fixed inset-0 z-50 bg-black/40" />,
+        <div aria-hidden="true" data-testid="select-sheet-scrim" className="fixed inset-0 z-50 bg-backdrop/60" />,
         document.body,
       )}
       {open && anchor && createPortal(

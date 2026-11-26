@@ -68,7 +68,9 @@ export default function CardNeededField({ card, boardId, firstColumnId, canEdit,
   }
 
   const change = async (value: string) => {
-    if (value === current || value === "planned") return;
+    // Re-entry is ignored instead of disabling the trigger: a disabled button drops the focus that
+    // SelectDropdown just returned to it (ux-review, #2549).
+    if (saving || value === current || value === "planned") return;
     setSaving(true);
     setError(null);
     try {
@@ -90,7 +92,7 @@ export default function CardNeededField({ card, boardId, firstColumnId, canEdit,
         value={current}
         onChange={(v) => { void change(v); }}
         options={options}
-        disabled={!canEdit || saving}
+        disabled={!canEdit}
         disabledReason={!canEdit ? "Changing Needed requires Member access" : undefined}
         ariaDescribedBy={helpId}
         className="w-full"
