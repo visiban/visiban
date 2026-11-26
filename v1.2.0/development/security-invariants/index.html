@@ -6671,13 +6671,23 @@ deleted) carry no actor.</p>
 </tr>
 <tr>
 <td>WebSocket</td>
-<td><code>card.parent_changed</code> (<code>announce_parent_changed</code>, <code>clear_for_deleted_column</code>, <code>set_needed</code>) and <code>card.moved</code></td>
+<td><code>card.parent_changed</code> (<code>announce_parent_changed</code>, <code>clear_for_deleted_column</code>, <code>release_on_reorder</code>, <code>set_needed</code>) and <code>card.moved</code></td>
 <td>ids only (<code>card_ids</code>), unchanged; clients re-read the planned fields over REST, where they are gated per viewer. No planned field is added to any frame</td>
 </tr>
 <tr>
 <td>Share link, export, MCP</td>
 <td><code>PublicCardSerializer</code>, <code>import_export.py</code> export, <code>mcp_server/tools.py</code> <code>_serialize_card</code></td>
 <td>take no planned context and omit all six planned fields (<code>planned</code>, <code>needed_now</code>, <code>needed_at_column</code>, <code>needed_at_column_name</code>, <code>planned_released_at</code>, <code>needed_now_reason</code>)</td>
+</tr>
+<tr>
+<td>Column reorder (#2553)</td>
+<td><code>boards/views/columns.py</code> <code>ColumnViewSet.reorder</code></td>
+<td><code>planned_children.release_on_reorder(board)</code> runs inside the reorder transaction after the new positions are written, under the column locks (board row, then columns; the link rows last, as in the column delete). It releases each still-planned link whose Needed column is on the board and now sits at or before its parent's column, with the same actorless <code>planned_released</code> row as a parent move and a <code>card.parent_changed</code> ping (ids only) to each child board. The admin who reorders may hold no role on the child board, and gets none from it. A reorder that crosses nothing releases nothing. Tests: <code>test_planned_reorder_share_2553.py</code> <code>ReorderReleaseTests</code></td>
+</tr>
+<tr>
+<td>Share link: a planned child's date (#2553)</td>
+<td><code>frontend/src/pages/ShareBoardPage.tsx</code></td>
+<td>no change: the share page prints the plain <code>due_date</code> and never derives Overdue, so a planned child cannot look overdue there. No planned field is added (the six above stay off the share link) and the date is not hidden. Rule 19 is unchanged</td>
 </tr>
 <tr>
 <td>Stale / Overdue parity (Rule 10)</td>
