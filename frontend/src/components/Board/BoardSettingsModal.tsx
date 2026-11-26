@@ -587,7 +587,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const commitmentIsStale = !!board.commitment_column_uid && commitmentColumn === null;
   // #2051 — the board's flow-metric time zone. The browser's IANA list; a stored
   // name it lacks is still offered so the current value always shows.
-  const timeZoneNames = Intl.supportedValuesOf("timeZone").filter((n) => n !== "UTC");
+  // Guarded: a browser without Intl.supportedValuesOf (pre-2022) still opens the modal.
+  const timeZoneNames = (typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [])
+    .filter((n) => n !== "UTC");
   if (board.time_zone && board.time_zone !== "UTC" && !timeZoneNames.includes(board.time_zone)) {
     timeZoneNames.unshift(board.time_zone);
   }
