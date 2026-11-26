@@ -862,6 +862,84 @@ class ForeignKeyScannerTests(SimpleTestCase):
         self.assertIn("0079_cardmovement_card_nullable", rendered)
         self.assertIn(EXEMPT_MARKER, rendered)
 
+    # #2620: the constraint's validation scan. On PostgreSQL Django adds the column
+    # and its constraint in one `ADD COLUMN ... REFERENCES` statement; PostgreSQL
+    # skips validation when the new column has no DEFAULT (every row is NULL) and
+    # scans every row when it has one.
+
+    def test_flags_add_field_with_a_default_and_its_constraint(self):
+        for kwargs in (
+            "default=1, db_index=False",
+            "db_default=1, db_index=False",
+            "null=True, default=1, db_index=False",
+            "default=get_default_board, db_index=False",
+            "default=1, db_index=False, db_constraint=True",
+            "default=1, db_index=False, db_constraint=CONSTRAINED",
+        ):
+            with self.subTest(kwargs=kwargs):
+                self.assertEqual(
+                    self._keys(self._op("AddField", kwargs)), ["fk-validate"]
+                )
+
+    def test_flags_a_default_dropped_by_preserve_default(self):
+        # preserve_default=False drops the default afterwards; it still fills
+        # every existing row first, so the constraint is still validated.
+        operation = (
+            "migrations.AddField(model_name='card', name='owner', "
+            f"field={self._field('default=1, db_index=False')}, "
+            "preserve_default=False),"
+        )
+        self.assertEqual(self._keys(operation), ["fk-validate"])
+
+    def test_accepts_add_field_whose_new_column_is_all_null(self):
+        for kwargs in (
+            "null=True, db_index=False",
+            "null=True, default=None, db_index=False",
+        ):
+            with self.subTest(kwargs=kwargs):
+                self.assertEqual(self._keys(self._op("AddField", kwargs)), [])
+
+    def test_accepts_a_default_without_a_database_constraint(self):
+        operation = self._op("AddField", "default=1, db_index=False, db_constraint=False")
+        self.assertEqual(self._keys(operation), [])
+
+    def test_validation_is_reported_alongside_the_index_rules(self):
+        for kwargs, kind, expected in (
+            ("default=1", "ForeignKey", ["fk-index", "fk-validate"]),
+            ("default=1, db_index=True", "ForeignKey", ["db_index=True", "fk-validate"]),
+            ("default=1", "OneToOneField", ["o2o-index", "fk-validate"]),
+        ):
+            with self.subTest(kwargs=kwargs, kind=kind):
+                operation = self._op("AddField", kwargs, kind)
+                self.assertEqual(self._keys(operation), expected)
+
+    def test_validation_ignores_new_tables_state_only_and_many_to_many(self):
+        defaulted = self._op("AddField", "default=1, db_index=False")
+        for operations in (
+            "migrations.CreateModel(name='Card', fields=[]),\n" + defaulted,
+            f"migrations.SeparateDatabaseAndState(state_operations=[{defaulted}]),",
+            "migrations.AddField(model_name='card', name='owners', "
+            "field=models.ManyToManyField(to='boards.board', default=1)),",
+        ):
+            with self.subTest(operations=operations):
+                self.assertEqual(self._keys(operations), [])
+
+    def test_validation_needs_its_own_exemption_comment(self):
+        operation = self._op("AddField", "default=1")
+        one = f"# {EXEMPT_MARKER} tiny table\n{operation}"
+        self.assertEqual(self._keys(one), ["fk-validate"])
+        two = f"# {EXEMPT_MARKER} tiny table\n# {EXEMPT_MARKER} tiny table\n{operation}"
+        self.assertEqual(self._keys(two), [])
+
+    def test_validation_finding_explains_the_fix(self):
+        rendered = scan_source(
+            self._migration(self._op("AddField", "default=1, db_index=False")),
+            self.REL_PATH,
+        )[0].render()
+        self.assertIn("NOT VALID", rendered)
+        self.assertIn("no default", rendered)
+        self.assertIn(EXEMPT_MARKER, rendered)
+
     def test_grandfathering_covers_only_the_foreign_key_rules(self):
         source = self._migration(
             self._op("AddField")

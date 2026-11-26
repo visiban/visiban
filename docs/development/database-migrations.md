@@ -56,6 +56,8 @@ The same check fails on foreign-key changes that name no index at all (#1798):
 |---|---|---|
 | `AddField` of a `ForeignKey` without `db_index=False` | yes | set `db_index=False`, then add the index concurrently (see [Adding a foreign key](#adding-a-foreign-key)) |
 | `AddField` of a `OneToOneField` | yes, even with `db_index=False` | its unique index can't be turned off; add a `ForeignKey` and build the unique index separately |
+| `AddField` of a `ForeignKey` / `OneToOneField` with a `default=` (other than `None`) or any `db_default=`, unless it sets `db_constraint=False` (#2620) | yes, as its own finding next to any index one | add the column nullable with no default, or set `db_constraint=False`, backfill, and add the constraint `NOT VALID` (see [Adding a foreign key](#adding-a-foreign-key)) |
+| `AddField` of a `ForeignKey` with no default | **no** for the constraint (the index rows above still apply) | the new column is all `NULL`, so PostgreSQL marks the constraint valid without reading a row |
 | `AlterField` that turns a `ForeignKey` index from `db_index=False` back on, or turns a `OneToOneField` or `unique=True` key into an indexed `ForeignKey` | yes | set `db_index=False` |
 | `AlterField` that changes `null` on a `ForeignKey` / `OneToOneField`, in either direction | yes | see [Changing an existing foreign key's nullability](#changing-an-existing-foreign-keys-nullability) |
 | `AlterField` that turns another column into a foreign key | yes, unless it sets `db_constraint=False` and builds no index | see [A foreign key on a column that already holds data](#a-foreign-key-on-a-column-that-already-holds-data) |
@@ -77,7 +79,12 @@ target model) can flag an operation that changes nothing; use the exemption comm
 Four applied migrations predate these rules and are listed in
 `GRANDFATHERED_FOREIGN_KEY`: `accounts/0011_user_default_board`,
 `boards/0009_board_group`, `boards/0017_notification_actor_action_type` and
-`boards/0044_cardchecklist_created_by`. The older rules still apply to them.
+`boards/0044_cardchecklist_created_by`. The older rules still apply to them. The
+validation rule (#2620) needed no grandfathering: no migration in the tree adds a
+constrained foreign key with a default.
+
+One exemption comment covers one finding. An `AddField` that trips both an index rule and the
+validation rule needs two comments if both locks are genuinely harmless.
 
 ---
 
@@ -268,9 +275,11 @@ TypeError: AddConstraintNotValid.constraint must be a check constraint.
 ```
 
 `check_migration_concurrency` flags the index a foreign key builds and an `AlterField` that
-creates or re-creates its constraint (see [Foreign keys](#foreign-keys)), but not the
-validation of a constraint that comes with a new column, so which recipe applies is a judgment call the check can't make for you. It comes
-down to whether the column being constrained already holds data.
+creates or re-creates its constraint (see [Foreign keys](#foreign-keys)). For a new column it
+flags the constraint's validation only when the column is added with a default (#2620). When a
+new column is backfilled before it is constrained, which recipe applies is a judgment call the
+check can't make for you. It comes down to whether the column being constrained already holds
+data.
 
 ### A new, nullable column on an existing table
 
@@ -320,17 +329,28 @@ here, then a separate `AddIndexConcurrently` in `accounts/0032_user_pending_emai
 Follow that shape — `boards/0044` predates the split and left its default index
 inline, which was only harmless because `cardchecklist` was small at the time.
 
-The constraint half is cheap for a new column, not free. Even with every row `NULL`,
-PostgreSQL still emits `ADD CONSTRAINT ... FOREIGN KEY` and validates the column against the
-target table under a lock on both — a scan that finds nothing to check, but one whose length
-tracks the table's size. On a small table (the two precedents above) that is fine. **On a
-large table — `cards`, `card_movements`, `card_activities`, anything append-only — use the
-[`NOT VALID` then `VALIDATE` recipe](#a-foreign-key-on-a-column-that-already-holds-data) below
-even when the column starts all `NULL`.** `boards/0119`–`0122` (#1799) is the in-tree
-precedent: `0119` adds `card_activities.board` with `db_constraint=False, db_index=False`,
-`0120` backfills it in batches, `0121` adds the constraint `NOT VALID`, and `0122` validates
-it once, after the backfill. [Known gaps](#known-gaps-in-the-11-to-12-migrations) below
-records the two shipped migrations that did not.
+The constraint half reads no rows, as long as the new column has no default. On PostgreSQL,
+Django writes the column and its constraint as one `ADD COLUMN ... REFERENCES` statement.
+PostgreSQL skips validating a foreign key on a column added without a default, because every
+existing row is `NULL`, and marks the constraint valid without reading a row. Measured on
+PostgreSQL 17 for #2620, on a 4-million-row table: about 1 ms, no rows read. The statement
+still takes `ACCESS EXCLUSIVE` on the table and `SHARE ROW EXCLUSIVE` on the referenced one,
+like any `ADD COLUMN`, but only for that long.
+
+The scan comes back as soon as the column holds values:
+
+- **A `default=` or `db_default=` on the field.** Django puts the `DEFAULT` in the same
+  `ADD COLUMN`, so every existing row holds the value and PostgreSQL validates all of them
+  while it holds both locks (the same 4 million rows: a full scan, about 230 ms). The check
+  fails this (see [Foreign keys](#foreign-keys)). `preserve_default=False` doesn't help,
+  since the default still fills the existing rows first.
+- **A backfill followed by a plain `ADD CONSTRAINT`.** A separate `ADD CONSTRAINT ... FOREIGN
+  KEY` always validates, even on an all-`NULL` column. When a new foreign key has to be
+  backfilled before it is constrained, use the [`NOT VALID` then `VALIDATE`
+  recipe](#a-foreign-key-on-a-column-that-already-holds-data) below. `boards/0119`–`0122`
+  (#1799) is the in-tree precedent: `0119` adds `card_activities.board` with
+  `db_constraint=False, db_index=False`, `0120` backfills it in batches, `0121` adds the
+  constraint `NOT VALID`, and `0122` validates it once, after the backfill.
 
 ### A foreign key on a column that already holds data
 
@@ -459,12 +479,14 @@ The `# constraint-safe:` comment convention used elsewhere on this page doesn't 
 
 ### Teaching the checker to see this
 
-Optional follow-up, out of scope for this page:
+`check_migration_concurrency` now flags the one `AddField` shape whose constraint is
+validated inline: a constrained foreign key added with a default (#2620, see
+[Foreign keys](#foreign-keys)). It still doesn't flag a hand-written `ADD CONSTRAINT ...
+FOREIGN KEY` without `NOT VALID` in `RunPython`/`RunSQL`; review catches that one
+([#2639](https://gitlab.com/visiban/visiban/-/issues/2639)).
 
-- `check_migration_concurrency` could flag an `AddField` that adds a `ForeignKey` with
-  `db_constraint` left at its default (`True`) on an existing table. Today it flags that
-  field's index, not the constraint's validation. Tracked as
-  [#2620](https://gitlab.com/visiban/visiban/-/issues/2620).
+One optional follow-up remains, out of scope for this page:
+
 - `check_migration_constraint_safety`'s adjacent-migration exemption can't tell a genuine
   data-repair `RunPython` from a schema-only one like the `NOT VALID` step above — both
   satisfy `has_top_level_repair()` by name alone. Narrowing that exemption would need the
@@ -473,8 +495,8 @@ Optional follow-up, out of scope for this page:
   not verify a repair step touches the *right* rows" above) — so this is a real trade-off to
   work out, not a one-line fix.
 
-No issue is currently filed for the second; file one before picking it up rather than
-inferring scope from this paragraph.
+No issue is currently filed for it; file one before picking it up rather than inferring
+scope from this paragraph.
 
 ### Changing an existing foreign key's nullability
 
@@ -778,26 +800,18 @@ fourteen above, without any of them changing.
 Found by the 1.2 pre-release audit (#1662). The shipped migrations weren't edited, because
 installs have already run them; these are documented instead.
 
-- **Foreign-key validation is not flagged by the concurrency checker.** `accounts/0031` adds a nullable
-  FK (`pending_email_address`). Even with `db_index=False`, PostgreSQL emits
-  `ADD CONSTRAINT ... FOREIGN KEY`, which takes `SHARE ROW EXCLUSIVE` on `users` and
-  `account_emailaddress` briefly. With every row `NULL` this is fast. For future FKs on large
-  tables use the `NOT VALID` then `VALIDATE` pattern above.
-- **`boards/0078_cardmovement_board_snapshots` adds a foreign key without `NOT VALID`.** It
-  adds a nullable `board` FK to `card_movements`, an append-only table that grows without
-  bound. On PostgreSQL the `ADD CONSTRAINT ... FOREIGN KEY` validates the new column against
-  `boards` under a lock on both tables. With every row `NULL` the scan finds nothing to
-  check, so it is quick, but its cost still tracks the table's size. `boards/0079` shows the
-  class of fix for the sibling problem: its `DropNotNullKeepingForeignKey` changes
-  nullability without rebuilding (and re-validating) the existing `card_id` FK. `0078` has
-  no such equivalent and has shipped, so it is documented here rather than edited. For a
-  future FK on a large table, use the [`NOT VALID` then `VALIDATE`
-  recipe](#a-foreign-key-on-a-column-that-already-holds-data) even if the column starts all
-  `NULL` — `boards/0119`–`0122` (`card_activities.board`, #1799) does. No checker enforces
-  this today: `check_migration_concurrency` does not inspect foreign-key validation (see
-  above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
-  considered (#1894) and declined for now: a lint cannot tell a large table from a small
-  one, so it would either flag every FK on a small table or miss the ones that matter.
+- **Foreign-key validation on `accounts/0031` and `boards/0078` (corrected by #2620).** The
+  audit recorded both as validating their new foreign key with a scan whose cost tracks the
+  table's size. That was wrong. `accounts/0031` adds a nullable FK
+  (`pending_email_address`) to `users`, and `boards/0078_cardmovement_board_snapshots` adds
+  a nullable `board` FK to `card_movements`. Neither has a default, so Django emits
+  `ADD COLUMN ... REFERENCES` and PostgreSQL marks the constraint valid without reading a
+  row (see [Adding a foreign key](#adding-a-foreign-key)). Each takes `ACCESS EXCLUSIVE` on
+  its own table and `SHARE ROW EXCLUSIVE` on the referenced one for a catalog-only change,
+  the same as any `ADD COLUMN`. #1894 declined a lint for this because a lint can't tell a
+  large table from a small one. The shape that really scans, a constrained FK added with a
+  default, scans every row of any existing table. `check_migration_concurrency` now flags it
+  regardless of table size, the same as its index rules.
 - **NOT NULL columns first shipped with a Python-only `default=`.** `accounts/0027`,
   `accounts/0030`, `accounts/0034` and `boards/0052` added `NOT NULL` columns with
   `default=` but no `db_default=`, which is the rolling-deploy hazard described under
@@ -833,6 +847,15 @@ installs have already run them; these are documented instead.
   `account.0009_emailaddress_unique_primary_email`. 1.1.0 and 1.2 both pin
   `django-allauth==65.14.3`, which ships it;
   `accounts/tests/test_migration_upgrade_path_1662.py` fails if a pin change drops it.
+- **Comments in `boards/0119`, `0134` and `0141` overstate the cost of a plain FK
+  `AddField` (found by #2620, after the audit above).** `0119` says it emits
+  `ADD CONSTRAINT ... FOREIGN KEY`, which validates the new column under a lock on both
+  tables at a cost that tracks the size of `card_activities`. `0134` and `0141` say adding
+  the constraint valid would scan `cards` and `card_activities` respectively under
+  `SHARE ROW EXCLUSIVE`. Neither holds for a nullable column with no default, which all
+  three describe: PostgreSQL skips validation (measured on 16 and 17; see
+  [Adding a foreign key](#adding-a-foreign-key)). Don't cite those comments as a reason to
+  split such an `AddField`. Applied migrations are left unedited.
 
 ---
 
