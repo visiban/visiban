@@ -5590,7 +5590,7 @@
 </tr>
 <tr>
 <td><code>window</code></td>
-<td><code>{start, end}</code>, ISO 8601.</td>
+<td><code>{start, end}</code>, ISO 8601 UTC timestamps: <code>[now − window_days × 24h, now)</code>, elapsed time, the same in every board time zone.</td>
 </tr>
 <tr>
 <td><code>cycle_time</code></td>
@@ -5598,7 +5598,7 @@
 </tr>
 <tr>
 <td><code>throughput</code></td>
-<td><code>{definition, period: "week", total, median, weeks: [{start, count}]}</code>. Whole Monday-to-Sunday weeks inside the window, so the partial week at each end is left out and the default 90-day window holds twelve whole weeks (84 days). <code>median</code> needs five whole weeks and is <code>null</code> below that (always under 35 days, possibly up to 41); raise <code>window_days</code> for a median. <code>total</code> counts the completions in those weeks.</td>
+<td><code>{definition, period: "week", total, median, weeks: [{start, count}]}</code>. Whole Monday-to-Sunday weeks inside the window, so the partial week at each end is left out and the default 90-day window holds twelve whole weeks (84 days). <code>median</code> needs five whole weeks and is <code>null</code> below that (always under 35 days, possibly up to 41); raise <code>window_days</code> for a median. <code>total</code> counts the completions in those weeks. <em>(1.3+, #2051)</em> The weeks run Monday to Sunday in the board's <a href="../boards/#boards"><code>time_zone</code></a> (UTC when it is <code>null</code>), the same dating as <code>GET /boards/{id}/metrics/throughput/</code>.</td>
 </tr>
 <tr>
 <td><code>wip</code></td>
@@ -5619,7 +5619,7 @@
 <blockquote>
 <p><strong>Added in 1.3</strong> (#1151)</p>
 </blockquote>
-<p>Cards that have been in their current column longer than the given percentile of how long cards stayed in that column. The history is the stays that ended in the last 90 days (<code>history_days</code>, REST's default dwell range), board-wide. Done columns and archived cards never appear. All board roles; <code>mcp:read</code>; compute bucket.</p>
+<p>Cards that have been in their current column longer than the given percentile of how long cards stayed in that column. The history is the stays that ended in the last 90 days (<code>history_days</code>, REST's default dwell range), board-wide. The 90-day history is elapsed time, <code>[now − 90 × 24h, now)</code>, the same in every board time zone, like the REST sample window for completed dwell. Done columns and archived cards never appear. All board roles; <code>mcp:read</code>; compute bucket.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required); <code>percentile</code> (integer 1 to 99, default <code>85</code>). A high percentile needs many samples: above 95 a column almost always has a <code>null</code> threshold.</p>
 <p><strong>Errors:</strong> besides <code>board_not_found</code> and <code>validation_error</code>, <em>since 1.3</em> (#2428) <code>analytics_busy</code> and <code>analytics_too_large</code> (see <a href="#tool-errors">Tool errors</a>). The tool is refused at once when no analytics slot is free; it never waits.</p>
 <p><strong>Returns:</strong> <code>{percentile, history_days, columns, total, truncated, limit, cards}</code>.</p>

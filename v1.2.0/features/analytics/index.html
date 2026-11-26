@@ -4796,6 +4796,7 @@
 <li><strong>Age (commitment point):</strong> how long an in-progress card has been in progress: the time since it first entered the board's commitment column or a column after it, or since it last left a done column, whichever is later.</li>
 </ul>
 <p>Changing the commitment point re-measures the board's past, the same way marking a column done does.</p>
+<p><strong>Board time zone</strong> <em>(new in 1.3, #2051)</em>: by default every day and ISO week on the Analytics tab is a UTC date, so for a team far from UTC a card finished late in the afternoon can land on the next day. A board admin can set the board's time zone in <strong>Board Settings</strong> → <strong>Rules &amp; limits</strong> → <strong>Flow metrics</strong> (or search <strong>Find a setting</strong> for "time zone"). Throughput days and weeks, cumulative-flow days, the date range, a day's drill-down and "today" then follow that zone, for everyone who opens the board and for the MCP flow tools; the footnote under the charts names it. Durations (cycle time, age, dwell) are elapsed time and do not change, and neither does the rolling window a "Last N days" range samples. Changing the zone re-buckets the board's past; no card data changes. It is separate from the instance time zone, which decides when a card is overdue.</p>
 <p>"Created" in lead time means the card's creation movement, the first history row that places it in a column. A card with no creation movement, for example one imported without its history, starts at its <code>created_at</code> instead. The two can differ for an imported card.</p>
 <h2 id="summary-view">Summary view<a class="headerlink" href="#summary-view" title="Permanent link">&para;</a></h2>
 <p>A table of all swimlanes with:</p>
@@ -4976,7 +4977,7 @@
 <p><strong>Medians.</strong> Every median on this page is the nearest-rank 50th percentile: with an even number of values it is the lower of the two middle values (of 6 values, the 3rd), never their average. The <code>board_medians</code> field of the older <code>GET /api/v1/boards/{id}/analytics/</code> response uses the conventional median, which averages the two middle values, so it can differ from the medians here even over the same visits.</p>
 <h3 id="flow-metrics">Flow metrics<a class="headerlink" href="#flow-metrics" title="Permanent link">&para;</a></h3>
 <p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
-<p>Four charts built from the movement log, so you can see how long work takes and where it piles up. Each chart has a one-sentence finding, its definition, and a <strong>Chart | Table</strong> toggle. They follow the page's <a href="#filters">filters</a>. All dates are UTC, and weekends count.</p>
+<p>Four charts built from the movement log, so you can see how long work takes and where it piles up. Each chart has a one-sentence finding, its definition, and a <strong>Chart | Table</strong> toggle. They follow the page's <a href="#filters">filters</a>. All dates are in the board's time zone (UTC unless a board admin sets one, see below), and weekends count.</p>
 <table>
 <thead>
 <tr>
