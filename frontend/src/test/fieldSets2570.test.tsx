@@ -11,13 +11,22 @@ import { pruneSetFields, pruneSetLane } from "../utils/fieldSets";
 import { withCardDefinitions } from "../hooks/useBoard";
 import CustomFieldValueInput from "../components/Card/CustomFieldValueInput";
 
-// Stubbed by default; a test that needs the real editor behavior flips `realRow`.
-const rowMode = vi.hoisted(() => ({ realRow: false }));
+// Stubbed by default; a test that needs the real editor behavior flips `realRow`. `focusedOnMount`, when set,
+// collects the rows that already held focus when their own passive mount effect ran.
+const rowMode = vi.hoisted(() => ({ realRow: false, focusedOnMount: null as string[] | null }));
 vi.mock("../components/Card/CustomFieldEditRow", async (importOriginal) => {
   const Real = (await importOriginal<typeof import("../components/Card/CustomFieldEditRow")>()).default;
+  const { useEffect, useRef } = await import("react");
+  function StubRow({ name, value }: { name: string; value: string }) {
+    const ref = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+      if (rowMode.focusedOnMount && ref.current === document.activeElement) rowMode.focusedOnMount.push(name);
+    }, [name]);
+    return <input ref={ref} aria-label={name} defaultValue={value} />;
+  }
   return {
     default: (props: React.ComponentProps<typeof Real>) =>
-      rowMode.realRow ? <Real {...props} /> : <input aria-label={props.definition.name} defaultValue={props.value ?? ""} />,
+      rowMode.realRow ? <Real {...props} /> : <StubRow name={props.definition.name} value={props.value ?? ""} />,
   };
 });
 vi.mock("../api/boards", () => ({
@@ -337,6 +346,19 @@ describe("FieldSetBlocks focus, empty states and live updates (#2570)", () => {
     expect(screen.getByLabelText("Metrics")).toHaveFocus();
   });
 
+  it("focuses the first field in the commit that unmounts Fill in, before passive effects (#2632)", () => {
+    // A child's passive mount effect runs before its parent's, so Metrics sees focus there only when
+    // FieldSetBlocks moved it in a layout effect.
+    rowMode.focusedOnMount = [];
+    try {
+      renderBlocks({ values: [], sets: [fset(1, "MEDDIC", [1, 2])] });
+      fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+      expect(rowMode.focusedOnMount).toEqual(["Metrics"]);
+    } finally {
+      rowMode.focusedOnMount = null;
+    }
+  });
+
   it("says no sets apply only when a lane-scoped set was excluded", () => {
     const { rerender, props } = renderBlocks({ values: [], sets: [fset(1, "Empty", [])] });
     expect(screen.queryByText("No field sets apply to cards in Enterprise.")).toBeNull();
@@ -375,6 +397,22 @@ describe("FieldSetBlocks focus, empty states and live updates (#2570)", () => {
     rerender(<div role="dialog"><FieldSetBlocks {...props} sets={[fset(1, "MEDDIC", [1, 2, 3], { name: "Renamed" } as never)]} /></div>);
     await user.tab();
     expect(screen.getByLabelText("Champion")).toHaveFocus();
+  });
+
+  it("falls back to Other fields when the user tabs to a control inside the block being removed (#2632)", async () => {
+    const user = userEvent.setup();
+    const { props, rerender } = renderBlocks({ values: [], sets: [fset(1, "MEDDIC", [1, 2, 3])] });
+    fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+    const input = screen.getByLabelText("Metrics");
+    expect(input).toHaveFocus();
+    // Held: Metrics keeps focus, so MEDDIC's removal waits for the blur.
+    rerender(<div role="dialog"><FieldSetBlocks {...props} sets={[]} /></div>);
+    expect(screen.getByTestId("field-set-s1")).toBeInTheDocument();
+    // Tab lands on Champion, which goes with MEDDIC when the removal applies.
+    await user.tab();
+    expect(screen.queryByTestId("field-set-s1")).toBeNull();
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(within(screen.getByTestId(`field-set-${OTHER_FIELDS_KEY}`)).getByRole("button", { expanded: true }));
   });
 
   it("does not run the focus check when focusout carries a relatedTarget, even with body active mid-blur (#2632)", () => {

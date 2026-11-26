@@ -586,17 +586,21 @@ describe('MentionTextarea keyboard insertion (#1759)', () => {
 
   it('puts the cursor after the inserted mention in the commit that shows it (#2632)', async () => {
     // A requestAnimationFrame restore never fires here, so only a layout effect can pass.
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0)
-    const user = userEvent.setup()
-    render(<Controlled onSubmit={vi.fn()} />)
-    const ta = screen.getByRole('combobox') as HTMLTextAreaElement
-    await user.type(ta, 'hey @')
-    ta.blur()
-    await user.click(await screen.findByText('Alice Smith'))
-    expect(ta).toHaveValue('hey @alice ')
-    expect(ta).toHaveFocus()
-    expect(ta.selectionStart).toBe('hey @alice '.length)
-    expect(ta.selectionEnd).toBe('hey @alice '.length)
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0)
+    try {
+      const user = userEvent.setup()
+      render(<Controlled onSubmit={vi.fn()} />)
+      const ta = screen.getByRole('combobox') as HTMLTextAreaElement
+      await user.type(ta, 'hey @')
+      ta.blur()
+      await user.click(await screen.findByText('Alice Smith'))
+      expect(ta).toHaveValue('hey @alice ')
+      expect(ta).toHaveFocus()
+      expect(ta.selectionStart).toBe('hey @alice '.length)
+      expect(ta.selectionEnd).toBe('hey @alice '.length)
+    } finally {
+      raf.mockRestore()
+    }
   })
 
   it('clears the pending cursor when the parent normalizes the value, so a later match does not steal focus (#2632)', async () => {

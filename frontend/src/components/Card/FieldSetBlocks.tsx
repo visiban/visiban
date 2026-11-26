@@ -210,8 +210,14 @@ export default function FieldSetBlocks(props: Props) {
   const [sets, setSets] = useState(props.sets);
   const [announcement, setAnnouncement] = useState("");
   const [focusCheck, setFocusCheck] = useState(0);
+  // Where the blur was headed (focusout relatedTarget). Mid-blur, activeElement is still body, so a target that
+  // survived the regroup is about to take focus and must not be stolen; one removed with its block never will.
+  const focusNextRef = useRef<Element | null>(null);
   useLayoutEffect(() => {
     if (focusCheck === 0) return;
+    const next = focusNextRef.current;
+    focusNextRef.current = null;
+    if (next?.isConnected) return;
     if (document.activeElement && document.activeElement !== document.body) return;
     const other = rootRef.current?.querySelector<HTMLElement>(`[data-testid="field-set-${otherKeyRef.current}"] button[aria-expanded]`);
     (other ?? headingRef.current)?.focus();
@@ -222,7 +228,7 @@ export default function FieldSetBlocks(props: Props) {
     const container = [rootRef.current, layerRef.current].find((n) => n && active && n.contains(active)) ?? null;
     const row = active?.closest("[data-fact-section]");
     const heldId = container && row ? Number(row.getAttribute("data-fact-section")?.slice("field:".length)) : null;
-    const apply = (checkFocus = true) => {
+    const apply = () => {
       setSets((prev) => {
         const gone = prev.filter((p) => !props.sets.some((s) => s.uid === p.uid));
         if (gone.length > 0) setAnnouncement(`${gone.map((g) => g.name).join(", ")} was removed. Its fields are now under Other fields.`);
@@ -235,7 +241,7 @@ export default function FieldSetBlocks(props: Props) {
         }
         return props.sets;
       });
-      if (!container || !checkFocus) return;
+      if (!container) return;
       // The focused control may have gone with its block: a layout effect checks once the regrouped
       // blocks are in the DOM, so focus never rests on body (focus rule 3, #2608, #2632).
       setFocusCheck((n) => n + 1);
@@ -245,8 +251,9 @@ export default function FieldSetBlocks(props: Props) {
         const next = (event as FocusEvent).relatedTarget;
         if (next instanceof Element && next.closest("[data-fact-section]") === row) return;
         container.removeEventListener("focusout", onOut);
-        // Focus is moving to another element (relatedTarget set): the check would see body mid-blur and steal it.
-        apply(next === null);
+        // Always check: the next control may sit in the block being removed (Tab from Metrics to Champion).
+        focusNextRef.current = next instanceof Element ? next : null;
+        apply();
       };
       container.addEventListener("focusout", onOut);
       return () => container.removeEventListener("focusout", onOut);
@@ -291,9 +298,10 @@ export default function FieldSetBlocks(props: Props) {
     }
   }, [maximized, maxIndex]);
 
-  // After "+N", "Fill in" or a deep link, the block's fields exist only after the re-render.
+  // After "+N", "Fill in" or a deep link, the block's fields exist only after the re-render. "+N" and
+  // "Fill in" unmount in that same commit, so a layout effect moves focus before paint (focus rule 3, #2632).
   const focusBlockRef = useRef<string | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const key = focusBlockRef.current;
     if (!key) return;
     const cell = rootRef.current?.querySelector<HTMLElement>(`[data-testid="field-set-${key}"] [data-fact-section]`);

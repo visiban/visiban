@@ -3098,7 +3098,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     setPendingPolicyMove(null);
     setDndAnnouncement("Move canceled, the column or its policy changed");
     focusCardSoon(pendingPolicyMove.cardId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- focusCardSoon is a plain helper with no state; re-run only when the inputs to the check change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- focusCardSoon only calls the stable requestFocus from useFocusWhenPresent; re-run only when the inputs to the check change
   }, [pendingPolicyMove, board.cards, board.columns]);
 
   const activeCount = countActiveFilters(effectiveFilters);
