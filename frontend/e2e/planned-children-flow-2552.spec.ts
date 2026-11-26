@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, CARD } from './fixtures/board'
+import { BOARD_FULL, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
 
 // Planned children (#2549, #2551 rollup half, #2552), at 390px and a wide window, light and dark:
 // - the parent's child footer draws planned children as dashed segments and shows the row-2 warning in warning
@@ -85,3 +85,132 @@ for (const width of [390, 1280]) {
     })
   }
 }
+
+// ---- Add child dialog and the full planned-child flow (#2549, #2552) ----
+const COLS = [
+  { ...COLUMN_TODO, id: 1, name: 'Lead', position: 0 },
+  { ...COLUMN_TODO, id: 3, uid: 'col0000003q', name: 'Qualify', position: 1 },
+  { ...COLUMN_TODO, id: 4, uid: 'col0000004p', name: 'Proposal', position: 2 },
+  { ...COLUMN_DONE, id: 2, position: 3 },
+]
+const CHILD_COLS = [
+  { id: 100, name: 'To do', color: '#6B7280', wip_limit: null, is_done: false, card_count: 2 },
+  { id: 101, name: 'Doing', color: '#3B82F6', wip_limit: null, is_done: false, card_count: 1 },
+  { id: 102, name: 'Done', color: '#22C55E', wip_limit: null, is_done: true, card_count: 0 },
+]
+const json = (body: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(body) })
+const childRow = (id: number, title: string, planned: boolean, due: string | null) => ({
+  id, title, board_id: 7, column_id: 100, column_name: 'To do', swimlane_id: 1, swimlane_name: 'Lane', archived: false,
+  position: id, assignee: null, blocked: false, blocked_at: null, priority: 'low', due_date: due, labels: [], planned,
+})
+
+/** A parent with the later columns, the child board options, and a children list read from `state`. */
+async function setupAdd(page: Page, state: { parentColumn: number; children: ReturnType<typeof childRow>[]; posted: Record<string, unknown>[]; moves: Record<string, unknown>[] }) {
+  await routeAuth(page)
+  await routeBoard(page, BOARD as typeof BOARD_FULL)
+  const full = () => ({ ...BOARD_FULL, cards_can_have_children: true, current_user_role: 'admin', columns: COLS, cards: [{ ...CARD, title: 'Hooli: pilot rollout', column: state.parentColumn }] })
+  await page.route(`**/api/v1/boards/${BOARD.id}/full/`, (r) => r.fulfill(json(full())))
+  await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/(comments|attachments|checklist|relations|activity|blocks|movements)\/(\?.*)?$/, (r) => r.fulfill(json([])))
+  await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/timeline\//, (r) => r.fulfill(json({ count: 0, next: null, results: [] })))
+  await page.route(`**/api/v1/boards/${BOARD.id}/cards/${CARD.id}/child-board-options/`, (r) =>
+    r.fulfill(json({ fixed_board: null, default: { id: 7, name: 'Delivery' }, can_set_default: false, boards: [{ id: 7, name: 'Delivery', can_set_default: false }] })))
+  await page.route(`**/api/v1/boards/${BOARD.id}/cards/${CARD.id}/children/`, async (r) => {
+    if (r.request().method() === 'POST') {
+      const body = r.request().postDataJSON()
+      state.posted.push(body)
+      const later = body.needed_at_column != null
+      state.children.push(childRow(30, body.title, later, body.due_date ?? null))
+      return r.fulfill(json({ id: 30, title: body.title, planned: later }, 201))
+    }
+    return r.fulfill(json({ count: state.children.length, visible: true, offset: 0, limit: 50, results: state.children,
+      board: { id: 7, name: 'Delivery', role: 'member', enforce_wip_limits: false, enforce_wip_hard: false, columns: CHILD_COLS } }))
+  })
+  await page.route(/\/api\/v1\/boards\/7\/cards\/\d+\/move\//, (r) => {
+    state.moves.push(r.request().postDataJSON())
+    const id = Number(r.request().url().match(/cards\/(\d+)\/move/)![1])
+    const c = state.children.find((x) => x.id === id)!
+    Object.assign(c, { planned: false, column_id: 101, column_name: 'Doing' })
+    return r.fulfill(json({ card: { id, planned: false, column: 101 } }))
+  })
+}
+
+async function openAddChild(page: Page) {
+  await page.goto(`/boards/${BOARD.id}?card=${CARD.id}&tab=children`)
+  await page.getByRole('button', { name: /^Add child/ }).first().click()
+  return page.getByRole('dialog', { name: /^Add child/ })
+}
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`Add child: Needed sheet and Due date on a phone, ${scheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.emulateMedia({ colorScheme: scheme })
+    await setupAdd(page, { parentColumn: 1, children: [], posted: [], moves: [] })
+    const dialog = await openAddChild(page)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', scheme)
+    const needed = dialog.getByRole('combobox', { name: 'Needed' })
+    const due = dialog.getByLabel('Due date (optional)')
+    await expect(needed).toBeVisible({ timeout: 10_000 })
+    for (const el of [needed, due]) expect((await el.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    // Settle the scroll first: the dropdown closes on any outside scroll, including a click's scroll-into-view.
+    await needed.scrollIntoViewIfNeeded()
+    await needed.click()
+    await expect(page.locator('[data-sheet="true"]')).toBeVisible()
+    for (const name of ['Now', 'When the parent reaches Qualify', 'When the parent reaches Proposal', 'When the parent reaches Done']) {
+      const opt = page.getByRole('option', { name })
+      await expect(opt).toBeVisible()
+      expect((await opt.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    }
+    await page.getByRole('option', { name: 'When the parent reaches Proposal' }).click()
+    await expect(page.locator('[data-sheet="true"]')).toHaveCount(0)
+    await expect(needed).toContainText('Proposal')
+    await due.fill('2030-12-04')
+    const help = dialog.getByTestId('due-inactive-help')
+    await expect(help).toContainText('Inactive while planned.')
+    await expect(help).toContainText('Counts once needed.')
+    // Both spans are in the DOM; the long desktop sentence is display:none on a phone.
+    await expect(help.getByText(/^Saved now/)).toBeHidden()
+    const ratio = await help.evaluate(contrast)
+    expect(ratio, `helper contrast ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
+    expect(await dialog.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+  })
+}
+
+test('planned flow: add child at a later column, parent reaches it, release, pull another early', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  const state = {
+    parentColumn: 1, posted: [] as Record<string, unknown>[], moves: [] as Record<string, unknown>[],
+    // Another planned child, already waiting for Done.
+    children: [childRow(21, 'Pilot kickoff', true, null)],
+  }
+  await setupAdd(page, state)
+  const dialog = await openAddChild(page)
+  const tab = page.getByTestId('card-children-tab')
+  const planned = () => tab.getByTestId('child-card-face').filter({ hasText: /planned/i })
+  await expect(planned()).toHaveCount(1)
+  // 1. Add child with Needed = Proposal and a date.
+  await dialog.getByLabel('Title').fill('Proposal workshop')
+  await dialog.getByRole('combobox', { name: 'Needed' }).click()
+  await page.getByRole('option', { name: 'When the parent reaches Proposal' }).click()
+  await dialog.getByLabel('Due date (optional)').fill('2030-12-04')
+  await dialog.getByRole('button', { name: /^Add to / }).click()
+  await expect.poll(() => state.posted).toEqual([expect.objectContaining({ title: 'Proposal workshop', needed_at_column: 4, due_date: '2030-12-04' })])
+  await expect(dialog).toBeHidden()
+  await expect(tab.getByRole('link', { name: /^Proposal workshop/ })).toBeVisible()
+  await expect(planned()).toHaveCount(2)
+  // 2. SIMULATED: the parent reaches Proposal. The server releases the child planned for it (its planned line goes
+  // away, the other stays planned for Done); the page re-reads the board and the children, as it does on the socket event.
+  state.parentColumn = 4
+  state.children.find((c) => c.id === 30)!.planned = false
+  await page.goto(`/boards/${BOARD.id}?card=${CARD.id}&tab=children`)
+  await expect(tab).toBeVisible({ timeout: 10_000 })
+  await expect(tab.getByRole('link', { name: /^Proposal workshop/ })).toBeVisible()
+  await expect(planned()).toHaveCount(1)
+  // 3. Pull the other planned child early: its Move warns, then it leaves planned.
+  await tab.getByRole('button', { name: 'Move Pilot kickoff' }).click()
+  const move = page.getByRole('dialog', { name: 'Move Pilot kickoff' })
+  await move.getByRole('radio', { name: 'Doing' }).check()
+  await move.getByRole('button', { name: 'Move', exact: true }).click()
+  await expect.poll(() => state.moves.length).toBe(1)
+  await expect(planned()).toHaveCount(0)
+})
