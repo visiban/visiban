@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#renovate-automated-dependency-updates" class="md-skip">
+        <a href="#let-renovate-open-your-dependency-bump-mrs" class="md-skip">
           Skip to content
         </a>
       
@@ -4543,12 +4543,14 @@
   
 
 
-<h1 id="renovate-automated-dependency-updates">Renovate (automated dependency updates)<a class="headerlink" href="#renovate-automated-dependency-updates" title="Permanent link">&para;</a></h1>
-<p>Four CI scanners report vulnerable dependencies (<code>backend-dep-scan</code>, <code>frontend-dep-scan</code>,
-<code>dep-scan-osv</code>, <code>trivy-scan</code>). Renovate opens the bump MR. It runs as the scheduled <code>renovate</code>
-job in <code>.gitlab-ci.yml</code>, configured by <code>renovate.json</code> at the repo root.</p>
-<p><strong>Status: the job is inert until the one-time setup below is done.</strong> It needs a token, which
-cannot be created from an MR. It reuses the existing Nightly schedule.</p>
+<h1 id="let-renovate-open-your-dependency-bump-mrs">Let Renovate open your dependency bump MRs<a class="headerlink" href="#let-renovate-open-your-dependency-bump-mrs" title="Permanent link">&para;</a></h1>
+<p>Do the <a href="#one-time-setup-a-maintainer-does-this-by-hand">one-time setup</a> before you expect a bump MR.</p>
+<p><strong>Why it matters:</strong> Four CI scanners report vulnerable dependencies (<code>backend-dep-scan</code>,
+<code>frontend-dep-scan</code>, <code>dep-scan-osv</code>, <code>trivy-scan</code>). Renovate opens the bump MR.</p>
+<p><strong>How it works:</strong> It runs as the scheduled <code>renovate</code> job in <code>.gitlab-ci.yml</code>, configured by
+<code>renovate.json</code> at the repo root.</p>
+<p><strong>Watch out:</strong> <strong>Status: the job is inert until the one-time setup below is done.</strong> It needs a
+token, which cannot be created from an MR. It reuses the existing Nightly schedule.</p>
 <h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4576,14 +4578,15 @@ cannot be created from an MR. It reuses the existing Nightly schedule.</p>
 </tr>
 </tbody>
 </table>
-<p>Only the managers in <code>enabledManagers</code> run (<code>pip_requirements</code>, <code>npm</code>, <code>dockerfile</code>,
+<p><strong>Enabled managers:</strong> Only the managers in <code>enabledManagers</code> run (<code>pip_requirements</code>, <code>npm</code>, <code>dockerfile</code>,
 <code>docker-compose</code>, <code>helm-values</code> and the regex manager). Renovate's own defaults would also pick
 up <code>.nvmrc</code>, GitHub workflows, <code>pyproject.toml</code> and every image through its <code>gitlabci</code> manager,
-so those are off. <code>ignorePaths</code> keeps <code>scripts/</code>, <code>docs/</code>, <code>docs-site/</code>, <code>.github/</code> and
+so those are off.</p>
+<p><strong>Ignored paths:</strong> <code>ignorePaths</code> keeps <code>scripts/</code>, <code>docs/</code>, <code>docs-site/</code>, <code>.github/</code> and
 <code>clients/python/</code> out of the enabled managers' default file patterns. In particular
 <code>scripts/uv-requirements.txt</code> (hash-pinned, tied to <code>UV_VERSION</code> in
 <code>scripts/lock-backend-requirements.sh</code>) and <code>scripts/pip-requirements.txt</code> (the pip floor many
-CI jobs install) are bumped by hand. To check what Renovate would manage after a config change,
+CI jobs install) are bumped by hand. <strong>To check what Renovate would manage</strong> after a config change,
 run an extract against a clean copy of the repo:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>archive<span class="w"> </span>HEAD<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>-x<span class="w"> </span>-C<span class="w"> </span>/path/to/copy<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/path/to/copy<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>init<span class="w"> </span>-q<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>add<span class="w"> </span>-A<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>commit<span class="w"> </span>-qm<span class="w"> </span>copy
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">"</span>:/w<span class="w"> </span>-w<span class="w"> </span>/w<span class="w"> </span>-e<span class="w"> </span><span class="nv">LOG_LEVEL</span><span class="o">=</span>debug<span class="w"> </span>-e<span class="w"> </span><span class="nv">LOG_FORMAT</span><span class="o">=</span>json<span class="w"> </span>node:24-alpine<span class="w"> </span><span class="se">\</span>
@@ -4591,7 +4594,7 @@ run an extract against a clean copy of the repo:</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="s1">         npx --yes --package renovate@&lt;pin&gt; renovate --platform=local --dry-run=extract'</span>
 </code></pre></div>
 <p>The <code>packageFiles</code> log line lists every file and dependency.</p>
-<p>Policy:</p>
+<p><strong>Policy:</strong></p>
 <ul>
 <li>Minor and patch updates are grouped per ecosystem and opened on Monday before 6am ET.</li>
 <li>Major updates are never grouped: one MR per package.</li>
@@ -4610,60 +4613,73 @@ run an extract against a clean copy of the repo:</p>
 <li><strong>Nothing is auto-merged.</strong> A maintainer reviews and merges each MR, after a green pipeline.</li>
 </ul>
 <h3 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h3>
-<p>Routine Renovate MRs carry the <code>no-changelog</code> label, which <code>changelog-check</code> honors, so they need
+<p><strong>Routine bumps need no fragment.</strong> Routine Renovate MRs carry the <code>no-changelog</code> label, which <code>changelog-check</code> honors, so they need
 no <code>changelog.d/</code> fragment. A bump that changes behavior users see (a major framework upgrade, say)
 should get a fragment added by hand on the Renovate branch and the label removed.</p>
 <p><strong>Security bumps need a fragment.</strong> MRs from a vulnerability alert carry <code>dependencies</code> and
 <code>security</code> but not <code>no-changelog</code>, so <code>changelog-check</code> fails until the reviewer adds a
 <code>changelog.d/&lt;slug&gt;.security.md</code> fragment to the Renovate branch (for example
-<code>changelog.d/django-cve-2026-1234.security.md</code>, no dots in the slug). Operators read the
-changelog to decide how urgently to upgrade, so a security fix must appear there.</p>
+<code>changelog.d/django-cve-2026-1234.security.md</code>, no dots in the slug).</p>
+<p><strong>Why it matters:</strong> Operators read the changelog to decide how urgently to upgrade, so a security fix must appear there.</p>
 <h3 id="detection-gaps">Detection gaps<a class="headerlink" href="#detection-gaps" title="Permanent link">&para;</a></h3>
 <p><strong>Python lock file (regenerated automatically, #2482).</strong> Renovate's pip manager edits
 <code>backend/requirements.txt</code> only, but the Dockerfiles install the hash-pinned
-<code>backend/requirements.lock</code>, and <code>backend-lock-check</code> fails when it is stale. A
-<code>postUpgradeTasks</code> rule in <code>renovate.json</code> therefore runs <code>scripts/lock-backend-requirements.sh</code>
+<code>backend/requirements.lock</code>, and <code>backend-lock-check</code> fails when it is stale.</p>
+<p><strong>How it works:</strong> A <code>postUpgradeTasks</code> rule in <code>renovate.json</code> therefore runs <code>scripts/lock-backend-requirements.sh</code>
 on every pip branch and commits <code>backend/requirements.lock</code> and <code>backend/requirements-build.lock</code>
 with the bump. Three pieces must stay in step:</p>
 <ul>
 <li>the command in <code>renovate.json</code> (<code>postUpgradeTasks</code>);</li>
 <li><code>RENOVATE_ALLOWED_COMMANDS</code> on the <code>renovate</code> job, one anchored regex for exactly that command
   (post-upgrade tasks run arbitrary repo code inside the job, so never widen it to a wildcard);</li>
-<li>the <code>renovate</code> job's script, which installs Python (containerbase <code>install-tool</code>) and then uv from
+<li>
+<p>the <code>renovate</code> job's script, which installs Python (containerbase <code>install-tool</code>) and then uv from
   <code>scripts/uv-requirements.txt</code> with <code>--require-hashes</code>, so the lock is generated by the same uv
   that <code>backend-lock-check</code> uses. When you bump uv, update <code>scripts/uv-requirements.txt</code> and
-  <code>UV_VERSION</code> in the lock script as before; the job follows automatically. The Python version
-  (<code>install-tool python 3.12.12</code>) is pinned by hand in that script; Renovate does not bump it.
-  The bootstrap is non-fatal, so if it fails the job logs a WARNING and only pip MRs lose their lock.</li>
+  <code>UV_VERSION</code> in the lock script as before; the job follows automatically.</p>
+<p>The Python version (<code>install-tool python 3.12.12</code>) is pinned by hand in that script; Renovate does not bump it.
+The bootstrap is non-fatal, so if it fails the job logs a WARNING and only pip MRs lose their lock.</p>
+</li>
 </ul>
-<p>If a pip MR still arrives with a red <code>backend-lock-check</code> (the task failed; read the <code>renovate</code>
+<p><strong>Watch out:</strong> If a pip MR still arrives with a red <code>backend-lock-check</code> (the task failed; read the <code>renovate</code>
 job log), check out the branch, run <code>scripts/lock-backend-requirements.sh</code> and commit the result.</p>
 <p><strong>Other manual pins.</strong> Anything under <code>scripts/</code>, <code>docs/</code>, <code>docs-site/</code>, <code>.github/</code> and
 <code>clients/python/</code>, <code>frontend/.nvmrc</code>, and any <code>.gitlab-ci.yml</code> image that is neither behind
-<code>${DOCKERHUB_MIRROR}</code> nor the Playwright image stay manual. The Helm <code>postgres:17</code> image is
-managed, but only for minor and patch tags (see the PostgreSQL rule above). CI images pinned to
+<code>${DOCKERHUB_MIRROR}</code> nor the Playwright image stay manual.</p>
+<p>The Helm <code>postgres:17</code> image is managed, but only for minor and patch tags (see the PostgreSQL rule above). CI images pinned to
 node 20 for the <code>clients/typescript</code> floor (#2374) are exempt from major bumps.</p>
 <h2 id="one-time-setup-a-maintainer-does-this-by-hand">One-time setup (a maintainer does this by hand)<a class="headerlink" href="#one-time-setup-a-maintainer-does-this-by-hand" title="Permanent link">&para;</a></h2>
 <ol>
-<li><strong>Bot account.</strong> Create a GitLab user (for example <code>visiban-renovate-bot</code>) and add it to
+<li>
+<p><strong>Bot account.</strong> Create a GitLab user (for example <code>visiban-renovate-bot</code>) and add it to
    <code>visiban/visiban</code> as <strong>Developer</strong>. Developer is enough to push <code>renovate/*</code> branches and open
-   MRs; do not grant Maintainer. The project is on GitLab Free, where project access tokens are
-   not available, so the token belongs to this user.</li>
-<li><strong>Token.</strong> As the bot, create a personal access token with scope <strong><code>api</code></strong> (Renovate needs
+   MRs; do not grant Maintainer.</p>
+<p>The project is on GitLab Free, where project access tokens are
+not available, so the token belongs to this user.</p>
+</li>
+<li>
+<p><strong>Token.</strong> As the bot, create a personal access token with scope <strong><code>api</code></strong> (Renovate needs
    it to create MRs and comments; <code>write_repository</code> alone is not enough) and the longest expiry
-   GitLab allows. Note the expiry date.</li>
-<li><strong>CI variable.</strong> In Settings, CI/CD, Variables, add <code>RENOVATE_TOKEN</code>: type Variable,
-   <strong>Masked</strong>, <strong>Protected</strong>, and set Visibility to masked. Protected means it reaches
-   only protected refs. A scheduled pipeline on <code>main</code> qualifies; MR pipelines and forks do not.</li>
-<li><strong>Schedule: nothing to create.</strong> The job runs only on the existing Nightly schedule (the one
+   GitLab allows. Note the expiry date.</p>
+</li>
+<li>
+<p><strong>CI variable.</strong> In Settings, CI/CD, Variables, add <code>RENOVATE_TOKEN</code>: type Variable,
+   <strong>Masked</strong>, <strong>Protected</strong>, and set Visibility to masked.</p>
+<p>Protected means it reaches only protected refs. A scheduled pipeline on <code>main</code> qualifies; MR pipelines and forks do not.</p>
+</li>
+<li>
+<p><strong>Schedule: nothing to create.</strong> The job runs only on the existing Nightly schedule (the one
    that sets <code>CVE_SCAN=true</code>; see
    <a href="../../development/ci-gates/#scheduled-pipelines">Scheduled pipelines</a>), never on the load-test
-   or mutation schedules, so adding the <code>RENOVATE_TOKEN</code> variable in step 3 is all it needs. Do not
-   add a schedule for it: every schedule runs the whole pipeline. Running nightly is harmless:
-   <code>renovate.json</code> limits when new branches are created to Monday before 6am ET, and the other
-   nights only rebase or refresh existing MRs.</li>
-<li><strong>Labels.</strong> Create the project labels <code>dependencies</code>, <code>security</code> and <code>no-changelog</code> so their colors are
-   yours rather than GitLab's default.</li>
+   or mutation schedules, so adding the <code>RENOVATE_TOKEN</code> variable in step 3 is all it needs.</p>
+<p>Do not add a schedule for it: every schedule runs the whole pipeline. Running nightly is harmless:
+<code>renovate.json</code> limits when new branches are created to Monday before 6am ET, and the other
+nights only rebase or refresh existing MRs.</p>
+</li>
+<li>
+<p><strong>Labels.</strong> Create the project labels <code>dependencies</code>, <code>security</code> and <code>no-changelog</code> so their colors are
+   yours rather than GitLab's default.</p>
+</li>
 <li><strong>Token row.</strong> Fill in the expiry in the <code>RENOVATE_TOKEN</code> row of
    <a href="../tokens-and-rotation/">Tokens and Rotation</a>.</li>
 </ol>
@@ -4672,24 +4688,29 @@ node 20 for the <code>clients/typescript</code> floor (#2374) are exempt from ma
 <code>deploy</code> stage; its log lists the packages it found and the branches it created. With no
 <code>RENOVATE_TOKEN</code> the job does not exist in the pipeline at all.</p>
 <p>After the first run with a token, open a pip MR and confirm its diff includes
-<code>backend/requirements.lock</code> and that <code>backend-lock-check</code> is green. That path could not be
-exercised before the token existed (#2482). Do not close #2482 until the first pip MR carries
-the regenerated lock. If the post-upgrade task fails with "uv is required", Renovate's subprocess
+<code>backend/requirements.lock</code> and that <code>backend-lock-check</code> is green.</p>
+<p>That path could not be exercised before the token existed (#2482). Do not close #2482 until the first pip MR carries
+the regenerated lock.</p>
+<p><strong>Watch out:</strong> If the post-upgrade task fails with "uv is required", Renovate's subprocess
 did not inherit the job's PATH: point the <code>renovate.json</code> command at an absolute uv path and update
 <code>RENOVATE_ALLOWED_COMMANDS</code> to match, in the same change.</p>
-<p>The job is <code>allow_failure: true</code>: a Renovate hiccup (rate limit, registry outage) must not turn
+<p><strong>Yes, but:</strong> The job is <code>allow_failure: true</code>: a Renovate hiccup (rate limit, registry outage) must not turn
 the schedule red. Read the log if no MRs appear for a week.</p>
 <h2 id="changing-the-config">Changing the config<a class="headerlink" href="#changing-the-config" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Edit <code>renovate.json</code>. The <code>renovate-config-check</code> job runs <code>renovate-config-validator --strict</code> on it
   (when <code>renovate.json</code> or <code>.gitlab-ci.yml</code> changes) and fails the MR on any error or warning.</li>
-<li>The Renovate version is pinned twice and must move together: the image tag of the <code>renovate</code>
-  job and the <code>renovate@&lt;version&gt;</code> in the <code>renovate-config-check</code> job. Renovate does not bump
-  either pin: <code>renovate.json</code> disables the <code>renovate/renovate</code> dependency (the regex manager
-  would otherwise match the image tag), and the <code>npx</code> pin is not matched by any manager. Bump
-  both by hand, in one MR, to a release at least a few weeks old. The validator needs Node 24
-  (<code>engines.node ^24.11.0</code>), which is why that job runs on <code>node:24-alpine</code>.</li>
-<li>Validate locally: <code>npx --yes --package renovate@&lt;pin&gt; renovate-config-validator --strict</code>.</li>
+<li>
+<p>The Renovate version is pinned twice and must move together: the image tag of the <code>renovate</code>
+  job and the <code>renovate@&lt;version&gt;</code> in the <code>renovate-config-check</code> job.</p>
+<p>Renovate does not bump either pin: <code>renovate.json</code> disables the <code>renovate/renovate</code> dependency (the regex manager
+would otherwise match the image tag), and the <code>npx</code> pin is not matched by any manager.</p>
+<p>Bump both by hand, in one MR, to a release at least a few weeks old. The validator needs Node 24
+(<code>engines.node ^24.11.0</code>), which is why that job runs on <code>node:24-alpine</code>.</p>
+</li>
+<li>
+<p>Validate locally: <code>npx --yes --package renovate@&lt;pin&gt; renovate-config-validator --strict</code>.</p>
+</li>
 </ul>
 <h2 id="rotating-the-token">Rotating the token<a class="headerlink" href="#rotating-the-token" title="Permanent link">&para;</a></h2>
 <p>Create a new token as the bot, replace the <code>RENOVATE_TOKEN</code> variable, revoke the old token, and

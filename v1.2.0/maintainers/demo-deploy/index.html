@@ -4587,7 +4587,8 @@ the one real deployment.</p>
 <p class="admonition-title">Nothing below is verified by CI</p>
 <p>CI proves the chart on kind: it installs <code>values-demo.yaml</code>, runs <code>helm test</code>, runs a
 reset, and on Calico proves the egress policy denies outbound traffic
-(<code>helm-install</code> and <code>helm-netpol</code>). CI cannot see the real node, the Cloudflare
+(<code>helm-install</code> and <code>helm-netpol</code>).</p>
+<p>CI cannot see the real node, the Cloudflare
 Tunnel, or the Cloudflare dashboard. Every "verify" step on this page is a human
 check. Record the result in <a href="#deployment-record">Deployment record</a>.</p>
 </div>
@@ -4714,12 +4715,14 @@ so the deployment record is the only durable trace that these were actually set 
 <p>From #1873 the chart renders <code>demo.throttle.userRate</code> as <code>DEMO_THROTTLE_USER_RATE</code>.
 Backend images from before that change (every 1.2 pre-release, including the
 chart's <code>v1.2.0-beta.3</code> default on <code>main</code> today) read only the old
-<code>DEMO_USER_THROTTLE_RATE</code>. With such an image the <code>60000/hour</code> ceiling is silently
+<code>DEMO_USER_THROTTLE_RATE</code>.</p>
+</div>
+<p>With such an image the <code>60000/hour</code> ceiling is silently
 dropped, and every visitor shares the normal <code>user</code> limit, so a handful of visitors
-can exhaust it and get 429 responses. Deploying <code>./helm/visiban</code> from <code>main</code> therefore needs a
+can exhaust it and get 429 responses.</p>
+<p>Deploying <code>./helm/visiban</code> from <code>main</code> therefore needs a
 <code>backend.image.tag</code> built from the same commit or later. See the
 <a href="../../administration/upgrade/#upgrading-to-12x">1.2 upgrade notes</a>.</p>
-</div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>visiban-demo<span class="w"> </span>./helm/visiban<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban-demo<span class="w"> </span>--create-namespace<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values-demo.yaml<span class="w"> </span><span class="se">\</span>
@@ -4811,7 +4814,8 @@ below).</p>
 <h2 id="the-client-ip-behind-the-tunnel">The client IP behind the tunnel<a class="headerlink" href="#the-client-ip-behind-the-tunnel" title="Permanent link">&para;</a></h2>
 <p><code>values-demo.yaml</code> sets <code>backend.settings.numProxies: 2</code>. It assumes this chain:
 visitor → Cloudflare edge (appends the visitor to <code>X-Forwarded-For</code>) → <code>cloudflared</code> →
-frontend nginx (appends the <code>cloudflared</code> pod) → backend. If the chain changes, for
+frontend nginx (appends the <code>cloudflared</code> pod) → backend.</p>
+<p>If the chain changes, for
 example a second proxy is added or <code>cloudflared</code> moves, recount. A value that is too low
 puts every visitor in one throttle bucket, so one crawler locks the demo for everyone. A
 value that is too high lets a visitor choose their own bucket.</p>
@@ -4833,15 +4837,23 @@ requests genuinely arrive through the tunnel, not directly):</p>
 </code></pre></div>
 <h2 id="operating-it">Operating it<a class="headerlink" href="#operating-it" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Reset schedule.</strong> Every hour, on the hour, UTC (<code>demo.reset.schedule</code>). The same value
-  drives the countdown visitors see. To pause resets, set <code>demo.reset.enabled=false</code> and
-  upgrade. The login page then stops promising a reset.</li>
-<li><strong>A failed reset</strong> leaves the previous seed up. It is never a readiness signal, so the
-  demo keeps serving stale data. Find it with
-  <code>kubectl -n visiban-demo get jobs -l app.kubernetes.io/component=demo-seed</code> and read it
-  with <code>kubectl -n visiban-demo logs job/&lt;name&gt; --all-containers</code>. The last three failed
-  runs are kept.</li>
-<li><strong>Run a reset now</strong>: <code>kubectl -n visiban-demo create job --from=cronjob/visiban-demo-demo-reset reset-now</code>.
+<li>
+<p><strong>Reset schedule.</strong> Every hour, on the hour, UTC (<code>demo.reset.schedule</code>). The same value
+  drives the countdown visitors see.</p>
+<p>To pause resets, set <code>demo.reset.enabled=false</code> and
+upgrade. The login page then stops promising a reset.</p>
+</li>
+<li>
+<p><strong>A failed reset</strong> leaves the previous seed up. It is never a readiness signal, so the
+  demo keeps serving stale data.</p>
+<p>Find it with
+<code>kubectl -n visiban-demo get jobs -l app.kubernetes.io/component=demo-seed</code> and read it
+with <code>kubectl -n visiban-demo logs job/&lt;name&gt; --all-containers</code>.</p>
+<p>The last three failed
+runs are kept.</p>
+</li>
+<li>
+<p><strong>Run a reset now</strong>: <code>kubectl -n visiban-demo create job --from=cronjob/visiban-demo-demo-reset reset-now</code>.
   <code>concurrencyPolicy: Forbid</code> only stops the <em>scheduled</em> CronJob from overlapping itself —
   it does not know about a manually created Job, so a manual reset that lands within a few
   seconds of the top of the hour could run alongside the scheduled one (completeness-check,
@@ -4849,20 +4861,29 @@ requests genuinely arrive through the tunnel, not directly):</p>
   serializes on the database rather than corrupting data, but suspend the CronJob first to
   avoid the wasted work and the confusing double-reset log:
   <code>kubectl -n visiban-demo patch cronjob visiban-demo-demo-reset -p '{"spec":{"suspend":true}}'</code>,
-  run the manual reset, then <code>kubectl -n visiban-demo patch cronjob visiban-demo-demo-reset -p '{"spec":{"suspend":false}}'</code>.</li>
-<li><strong>Node sharing.</strong> <code>values-demo.yaml</code> enables <code>demo.resourceQuota</code> (a ResourceQuota plus a
+  run the manual reset, then <code>kubectl -n visiban-demo patch cronjob visiban-demo-demo-reset -p '{"spec":{"suspend":false}}'</code>.</p>
+</li>
+<li>
+<p><strong>Node sharing.</strong> <code>values-demo.yaml</code> enables <code>demo.resourceQuota</code> (a ResourceQuota plus a
   LimitRange for the namespace). Check headroom with
-  <code>kubectl -n visiban-demo describe resourcequota</code>. TruePPM's namespace should carry its own
-  quota for the reverse direction.</li>
-<li><strong>Rotate a password</strong>: change it in the secrets file and upgrade. The backend pods roll,
+  <code>kubectl -n visiban-demo describe resourcequota</code>.</p>
+<p>TruePPM's namespace should carry its own
+quota for the reverse direction.</p>
+</li>
+<li>
+<p><strong>Rotate a password</strong>: change it in the secrets file and upgrade. The backend pods roll,
   because the demo Secret is checksummed into the pod template, and the seed hook
-  re-applies the new password.</li>
-<li><strong>Blank page after a deploy, console says "Expected a JavaScript module script but the
+  re-applies the new password.</p>
+</li>
+<li>
+<p><strong>Blank page after a deploy, console says "Expected a JavaScript module script but the
   server responded with a MIME type of text/html".</strong> The visitor's browser holds a cached
-  <code>index.html</code> from the previous build. The chart's nginx now sends <code>no-cache</code> for it and
-  404s missing <code>/assets/*</code> (#1633), so this should not recur; if it does, check that nothing
-  in front (Cloudflare cache rules) is caching <code>index.html</code>. A hard reload clears it for one
-  visitor.</li>
+  <code>index.html</code> from the previous build.</p>
+<p>The chart's nginx now sends <code>no-cache</code> for it and
+404s missing <code>/assets/*</code> (#1633), so this should not recur; if it does, check that nothing
+in front (Cloudflare cache rules) is caching <code>index.html</code>. A hard reload clears it for one
+visitor.</p>
+</li>
 </ul>
 <h2 id="troubleshooting-cloudflare-error-1033-and-node-diskpressure">Troubleshooting: Cloudflare Error 1033 and node DiskPressure<a class="headerlink" href="#troubleshooting-cloudflare-error-1033-and-node-diskpressure" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> try.visiban.com (and any other hostname on the node's tunnel) shows
@@ -4871,8 +4892,10 @@ connector is registered for the tunnel. It does not say why, so work down this l
 <p><strong>Root cause seen on 2026-10-21 (#1820):</strong> the node's root filesystem filled past the
 kubelet's eviction threshold (<code>nodefs.available&lt;10%</code>). The kubelet set <code>DiskPressure</code>,
 tainted the node <code>node.kubernetes.io/disk-pressure:NoSchedule</code>, and evicted every pod,
-<code>cloudflared</code> included. Replacement pods then sat <code>Pending</code> because nothing could schedule
-onto a tainted node. The demo was down about 5.5 hours because nothing alerted. Both demos
+<code>cloudflared</code> included.</p>
+<p>Replacement pods then sat <code>Pending</code> because nothing could schedule
+onto a tainted node. The demo was down about 5.5 hours because nothing alerted.</p>
+<p>Both demos
 and the tunnel failed together, which is the tell: check the node before debugging any one
 release.</p>
 <p>The kubelet's root directory is on <code>/</code>, <strong>not</strong> on the k3s data volume
@@ -4891,17 +4914,24 @@ release.</p>
    volume prune, and never prune the datastores' PersistentVolumes.</li>
 <li>If the volume group has free extents (<code>vgs</code>), grow the root LV online:
    <code>lvextend -r -l +100%FREE /dev/&lt;vg&gt;/&lt;root-lv&gt;</code>.</li>
-<li>Wait for <code>DiskPressure</code> to go <code>False</code>. The kubelet holds the condition for
-   <code>eviction-pressure-transition-period</code> (5 minutes by default) after space recovers. If
-   the taint is still there after that with <code>df</code> healthy, <code>systemctl restart k3s</code> clears
-   it. That briefly interrupts every pod on the node.</li>
-<li>Remove the leftovers: <code>kubectl delete pod -A --field-selector=status.phase=Failed</code>.
-   Pending pods and the StatefulSets (<code>*-postgresql-0</code>, <code>*-valkey-*</code>) start on their own
-   once the taint is gone. Do not delete them.</li>
-<li>Confirm from inside the cluster, because Cloudflare's bot protection returns <code>403</code> to
+<li>
+<p>Wait for <code>DiskPressure</code> to go <code>False</code>. The kubelet holds the condition for
+   <code>eviction-pressure-transition-period</code> (5 minutes by default) after space recovers.</p>
+<p>If
+the taint is still there after that with <code>df</code> healthy, <code>systemctl restart k3s</code> clears
+it. That briefly interrupts every pod on the node.</p>
+</li>
+<li>
+<p>Remove the leftovers: <code>kubectl delete pod -A --field-selector=status.phase=Failed</code>.</p>
+<p>Pending pods and the StatefulSets (<code>*-postgresql-0</code>, <code>*-valkey-*</code>) start on their own
+once the taint is gone. Do not delete them.</p>
+</li>
+<li>
+<p>Confirm from inside the cluster, because Cloudflare's bot protection returns <code>403</code> to
    <code>curl</code> and so says nothing about the origin:
    <code>kubectl -n visiban-demo run curlt --rm -it --restart=Never --image=curlimages/curl -- curl -sI http://visiban-demo-frontend.visiban-demo.svc.cluster.local:80</code>
-   should return <code>200</code>. Then load the site in a browser and sign in.</li>
+   should return <code>200</code>. Then load the site in a browser and sign in.</p>
+</li>
 </ol>
 <p>If <code>cloudflared</code> pods are Running and the error persists, check the tunnel's status in
 Zero Trust → Networks → Tunnels (a rotated or deleted tunnel token looks identical), and

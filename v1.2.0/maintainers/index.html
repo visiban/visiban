@@ -4463,23 +4463,29 @@ documentation; see <a href="../administration/">Administration</a> for that audi
   <code>docker-compose.prod.yml</code>, and the Helm chart — and <strong>aborts the release</strong> (rolling the
   branch back to <code>main</code>, no partial commit) if any of them fail, rather than merely warning
   (#1269).</li>
-<li>Roll-up summary for stable feature releases (#1995): a stable <code>X.Y.0</code> must open its notes with
+<li>
+<p>Roll-up summary for stable feature releases (#1995): a stable <code>X.Y.0</code> must open its notes with
   a summary of everything since the last non-bug-fix stable release, not just since the last
-  tag. The <code>/release</code> skill drafts it (headline features, action-required changes with a link to
-  <code>docs/administration/upgrade.md</code>, an upgrade-urgency line), gets it approved, and passes it as
-  <code>scripts/release.sh --summary-file &lt;path&gt;</code> (or <code>RELEASE_SUMMARY_FILE</code>). The script refuses a
-  stable <code>X.Y.0</code> with no file (<code>RELEASE_SKIP_SUMMARY=1</code> bypasses it), refuses a missing or
-  blank file, and refuses a file for a pre-release. The approved text opens the dated
-  <code>CHANGELOG.md</code> section and the GitLab Release body ahead of the assembled fragment notes, goes
-  through the same <code>confirm_release_notes</code> gate, and reaches the GitHub Release through the
-  <code>github-release</code> job, which reads that dated section. Pre-releases and bug-fix patches are
-  unchanged.</li>
-<li><code>helm/visiban/Chart.yaml</code>: <code>release.sh</code> rewrites and stages <code>appVersion</code> (bare version, e.g.
+  tag.</p>
+<p>The <code>/release</code> skill drafts it (headline features, action-required changes with a link to
+<code>docs/administration/upgrade.md</code>, an upgrade-urgency line), gets it approved, and passes it as
+<code>scripts/release.sh --summary-file &lt;path&gt;</code> (or <code>RELEASE_SUMMARY_FILE</code>). The script refuses a
+stable <code>X.Y.0</code> with no file (<code>RELEASE_SKIP_SUMMARY=1</code> bypasses it), refuses a missing or
+blank file, and refuses a file for a pre-release.</p>
+<p>The approved text opens the dated
+<code>CHANGELOG.md</code> section and the GitLab Release body ahead of the assembled fragment notes, goes
+through the same <code>confirm_release_notes</code> gate, and reaches the GitHub Release through the
+<code>github-release</code> job, which reads that dated section. Pre-releases and bug-fix patches are
+unchanged.</p>
+</li>
+<li>
+<p><code>helm/visiban/Chart.yaml</code>: <code>release.sh</code> rewrites and stages <code>appVersion</code> (bare version, e.g.
   <code>1.2.0-rc.1</code>) — you do not bump it by hand, and the <code>helm-publish</code> tag job hard-fails if it
   ever differs from the tag. The chart's own <code>version:</code> does <strong>not</strong> move with a release: it is
   the chart packaging version (SemVer for the chart's templates/values contract) and is bumped
   by hand in the MR that changes the chart, since the same app version can ship several chart
-  revisions (#1194).</li>
+  revisions (#1194).</p>
+</li>
 <li>CI job <code>docs-version-accuracy</code> (script <code>scripts/check-docs-version-accuracy.sh</code>) runs on
   MRs, <code>main</code>, and tag pipelines. It reads the current version from <code>frontend/package.json</code>
   and fails on: a <code>Coming in X</code> / <code>Ships in X</code> / <code>Lands in X</code> / <code>Planned for X</code> claim naming
@@ -4489,12 +4495,15 @@ documentation; see <a href="../administration/">Administration</a> for that audi
 <li>A failure means fix the page (there is no allowlist).</li>
 <li><code>New in X</code> labels are provenance and are intentionally not flagged.</li>
 </ul>
-<p><strong>Yes, but:</strong> Publishing is gated too, with one exception. On a <code>v*</code> tag, every publish job <code>needs:</code>
+<p><strong>Yes, but:</strong> Publishing is gated too, with one exception.</p>
+<p>On a <code>v*</code> tag, every publish job <code>needs:</code>
 <code>release-main-pipeline-guard</code>: images, manifests, attestations, the Helm chart and the GitHub
 release. That job refuses unless every check in the tagged commit's own <code>main</code> pipeline is
-green, including <code>allow_failure: true</code> jobs (#1154). That includes the versioned docs:
+green, including <code>allow_failure: true</code> jobs (#1154).</p>
+<p>That includes the versioned docs:
 <code>main</code>'s <code>docs-deploy</code> skips a version whose tag does not exist yet, so the tag pipeline's
-<code>docs-deploy</code> publishes them after the guard (#1997). A refused tag stays on origin, but
+<code>docs-deploy</code> publishes them after the guard (#1997).</p>
+<p>A refused tag stays on origin, but
 <code>main</code> also requires the tag pipeline's <code>release-main-pipeline-guard</code> job to be <code>success</code>
 before it deploys that version, so a refusal cannot publish docs from <code>main</code> (#2398). If it refuses, see
 <a href="known-ci-failures/#release-main-pipeline-guard-refuses-to-publish-a-release-tag">Known CI Failures</a>.</p>

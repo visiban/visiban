@@ -4533,7 +4533,8 @@
 
 
 <h1 id="know-which-ci-scanner-blocks-your-merge">Know which CI scanner blocks your merge<a class="headerlink" href="#know-which-ci-scanner-blocks-your-merge" title="Permanent link">&para;</a></h1>
-<p>The table below lists eleven CI security jobs, in nine rows, that can fail a pipeline. They are not the only ones: the two license checks and the dependency scans can too. Triggers differ. Accept a finding with an expiring suppression, never by turning the scanner off.</p>
+<p>The table below lists eleven CI security jobs, in nine rows, that can fail a pipeline. They are not the only ones: the two license checks and the dependency scans can too. Triggers differ.</p>
+<p>Accept a finding with an expiring suppression, never by turning the scanner off.</p>
 <p><strong>Why it matters:</strong> A scanner you think blocks but does not gives false safety, and one you disable to get green hides a real leak. The table below says which is which.</p>
 <p><strong>The big picture:</strong> Where each job runs is in the table; it is not uniform.</p>
 <table>
@@ -4619,7 +4620,7 @@
 into a red job; it does not stop a leak. <code>secret-detection-gate</code> (<code>scripts/secret-detection-gate.py</code>,
 with a <code>--self-test</code> run before each real invocation) reads <code>gl-secret-detection-report.json</code>
 and fails on any unsuppressed finding of any severity, or if the report is missing or unusable.</p>
-<p><strong>Go deeper:</strong> Component-generated jobs (<code>secret_detection</code>, <code>semgrep-sast</code>) are not literal job keys
+<p><strong>Where they are defined:</strong> Component-generated jobs (<code>secret_detection</code>, <code>semgrep-sast</code>) are not literal job keys
 in a plain reading of <code>.gitlab-ci.yml</code>. They come from the <code>include:</code> block, and the
 "Scanner blocking policy" section of <code>.gitlab-ci.yml</code> overrides them. Look there when
 changing whether either one blocks.</p>
@@ -4656,19 +4657,23 @@ widget and do not fail the pipeline.</p>
 <p><code>gitleaks-scan</code> (working tree), <code>gitleaks-commits</code> (the MR's commits) and <code>gitleaks-history</code> (every commit on <code>main</code>) all use
 <code>.gitleaks.toml</code>, which carries commented path allowlist entries for known-safe fixtures
 (lockfile hashes, API doc examples, test mocks) and one commit-scoped entry for a single
-historical test password. Add an entry only for a value that is provably not a credential,
+historical test password.</p>
+<p>Add an entry only for a value that is provably not a credential,
 and say why in the comment. Prefer the narrowest scope: an exact file, or a commit for a
-one-off hit in history. The issue's suggested directory allowlists (<code>backend/*/tests/</code>,
+one-off hit in history.</p>
+<p>The issue's suggested directory allowlists (<code>backend/*/tests/</code>,
 <code>sample-boards/</code>, <code>oidc/</code>) were intentionally not added: a directory-wide exemption would
 mask real leaks in the blocking scanners. <code>sample-boards/</code> and <code>oidc/keycloak-realm.json</code>
 both scan clean without one.</p>
 <p>The component's <code>secret_detection</code> job uses its own default ruleset and ignores
 <code>.gitleaks.toml</code>, so its fixture and example hits are allowlisted separately, in
-<code>.gitlab/secret-detection-suppressions.json</code> (read by <code>secret-detection-gate</code>). Entries use the
+<code>.gitlab/secret-detection-suppressions.json</code> (read by <code>secret-detection-gate</code>).</p>
+<p>Entries use the
 same format and matching rules as the semgrep suppressions above (exact <code>rule</code>, exact path or
 glob <code>file</code>, <code>expires</code> at most 90 days out, expired entries fail the gate), and additionally the
 <code>reason</code> must cite a tracking issue as <code>#NNNN</code>. The gate prints only the rule name and
-<code>file:line</code>, never the matched value. Prefer fixing the file to suppressing it. Full history is
+<code>file:line</code>, never the matched value.</p>
+<p>Prefer fixing the file to suppressing it. Full history is
 covered by <code>gitleaks-history</code>, and an MR's own commits by <code>gitleaks-commits</code>; the existing history was triaged locally before it became
 blocking.</p>
 <p><strong>Watch out:</strong> If <code>gitleaks-commits</code> flags an intermediate commit, do not just annotate the final tree: with
@@ -4679,7 +4684,8 @@ first, because the history is public on the GitHub and enterprise mirrors. Rewri
 does not un-leak it.</p>
 <h2 id="blocking-scanners-fail-closed">Blocking scanners fail closed<a class="headerlink" href="#blocking-scanners-fail-closed" title="Permanent link">&para;</a></h2>
 <p><strong>Why it matters:</strong> Because <code>semgrep-sast</code> is blocking, an analyzer crash or registry timeout blocks MRs and
-<code>main</code>. Retry the job; do not flip <code>allow_failure</code> back to <code>true</code>. <code>sast-severity-gate</code>
+<code>main</code>. Retry the job; do not flip <code>allow_failure</code> back to <code>true</code>.</p>
+<p><code>sast-severity-gate</code>
 fails if the report is missing or unparsable. <code>gitleaks-history</code> and <code>gitleaks-commits</code> fail if the
 clone is shallow (or, for <code>gitleaks-commits</code>, the MR diff base is missing), so they can never
 report green on a partial scan.</p>
@@ -4708,19 +4714,28 @@ the <code>postcss-selector-parser</code> pin below; the other entries in the <co
 <li><strong>What it does:</strong> forces every copy of <code>postcss-selector-parser</code> to 7.1.6, including the
   copies that <code>tailwindcss</code> (<code>^6.1.2</code>), <code>postcss-nested</code> 6.x (<code>^6.1.1</code>) and
   <code>@tailwindcss/typography</code> (exact <code>6.0.10</code>) request on the vulnerable 6.x line.</li>
-<li><strong>Why it is still needed (checked 2026-10-14):</strong> <code>tailwindcss</code> 3.4.19 is the latest 3.x
-  release (the <code>v3-lts</code> dist-tag; no further 3.x release is expected) and depends on <code>postcss-selector-parser ^6.1.2</code>. It also
-  requires <code>postcss-nested ^6.2.0</code>, whose latest 6.x (6.2.0) depends on <code>^6.1.1</code>, so a
-  <code>^7</code> <code>postcss-nested</code> is not reachable from Tailwind 3. <code>@tailwindcss/typography</code> latest
-  0.5.20 pins exactly <code>6.0.10</code>; the locked 0.5.19 pins exactly <code>6.0.10</code> too. No compatible
-  release resolves a fixed parser on its own, so in practice the override stays until #1420
-  lands, and after that until typography stops pinning 6.x.</li>
-<li><strong>Removal condition:</strong> #1420 (migrate Tailwind CSS v3 to v4, milestone 1.3) is the trigger.
+<li>
+<p><strong>Why it is still needed (checked 2026-10-14):</strong> <code>tailwindcss</code> 3.4.19 is the latest 3.x
+  release (the <code>v3-lts</code> dist-tag; no further 3.x release is expected) and depends on <code>postcss-selector-parser ^6.1.2</code>.</p>
+<p>It also
+requires <code>postcss-nested ^6.2.0</code>, whose latest 6.x (6.2.0) depends on <code>^6.1.1</code>, so a
+<code>^7</code> <code>postcss-nested</code> is not reachable from Tailwind 3. <code>@tailwindcss/typography</code> latest
+0.5.20 pins exactly <code>6.0.10</code>; the locked 0.5.19 pins exactly <code>6.0.10</code> too.</p>
+<p>No compatible
+release resolves a fixed parser on its own, so in practice the override stays until #1420
+lands, and after that until typography stops pinning 6.x.</p>
+</li>
+<li>
+<p><strong>Removal condition:</strong> #1420 (migrate Tailwind CSS v3 to v4, milestone 1.3) is the trigger.
   Tailwind v4 has no <code>postcss-selector-parser</code> dependency, so it removes the <code>tailwindcss</code>
-  and <code>postcss-nested</code> dependents. <code>@tailwindcss/typography</code> 0.5.20 accepts v4 (peer
-  <code>&gt;=4.0.0</code>) but still pins exactly <code>6.0.10</code>, so after #1420 typography is the only
-  remaining blocker. Remove the override once no dependent requests a vulnerable range.</li>
-<li><strong>How to check:</strong></li>
+  and <code>postcss-nested</code> dependents.</p>
+<p><code>@tailwindcss/typography</code> 0.5.20 accepts v4 (peer
+<code>&gt;=4.0.0</code>) but still pins exactly <code>6.0.10</code>, so after #1420 typography is the only
+remaining blocker. Remove the override once no dependent requests a vulnerable range.</p>
+</li>
+<li>
+<p><strong>How to check:</strong></p>
+</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>npm<span class="w"> </span>view<span class="w"> </span>@tailwindcss/typography@latest<span class="w"> </span>dependencies.postcss-selector-parser
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>npm<span class="w"> </span>view<span class="w"> </span>tailwindcss@3<span class="w"> </span>dependencies.postcss-selector-parser<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-1<span class="w">   </span><span class="c1"># until #1420 lands</span>
