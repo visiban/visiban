@@ -113,9 +113,9 @@ It creates, alongside the normal demo board:
 
     **Sales Territory (Overlay) is the [Sales Overlay sample board](../getting-started/sample-boards.md)** (#1889). The command imports the shipped sample through the importer the gallery's **Create from sample** uses, named "Sales Territory (Overlay)". It carries what any imported board carries:
 
-    - 46 cards over ten accounts
+    - 46 cards over ten accounts (the 1.3 flagship build-out below adds 55 deals, about 100 cards in all)
     - the sample's full history, credited to the importing admin, with each original name kept as **import provenance**
-    - a Commercial column over its WIP limit, and a weight limit
+    - the Validate and Commercial columns over their WIP limits, and a weight limit
     - closed deals (won and lost) already archived
     - a `board.created` entry in its change feed
 
@@ -170,7 +170,7 @@ It creates, alongside the normal demo board:
     - **Default child board:** Sales Territory (Overlay) defaults to Customer Implementation and Platform Program to Software Team, where Add child starts.
     - **Visitor access:** every seeded board, these two included, seats the visitor as a plain member. None sits in a group, so there is no group-ancestor role to resolve; the visitor opens each board, and Children mode on the two parent boards, through the direct membership.
 
-    **Sales Territory (Overlay) as the flagship** ([#2599](https://gitlab.com/visiban/visiban/-/issues/2599)). On top of the imported sample the seed adds 55 generic deals (about 100 cards, the largest board on the site), card weight as deal size, WIP limits on Discover, Qualify and Shape alongside the sample's Validate and Commercial limits (Validate and Commercial run over on purpose), stages with sub-columns on Validate and Commercial, Security review and Legal review as tracks, three field sets (Deal, Coverage, Next action), soft limit enforcement and an at-risk health status. Commercial is the dwell hot spot: its deals last moved two to three weeks ago, where every other open column reads under a fortnight. Entry requirements ([#1923](https://gitlab.com/visiban/visiban/-/issues/1923), second part) are not seeded: no column setting for them exists yet.
+    **Sales Territory (Overlay) as the flagship** ([#2599](https://gitlab.com/visiban/visiban/-/issues/2599)). On top of the imported sample the seed adds 55 generic deals (about 100 cards, the largest showcase board), card weight as deal size, WIP limits on Discover, Qualify and Shape alongside the sample's Validate and Commercial limits (Validate and Commercial run over on purpose), per-lane WIP limits on three account lanes (Harborview Bank and Copperline Telecom run over theirs on purpose), stages with sub-columns on Validate and Commercial, Security review and Legal review as tracks, three field sets (Deal, Coverage, Next action), soft limit enforcement and an at-risk health status. Commercial is the dwell hot spot: its deals last moved two to three weeks ago, where every other open column reads under a fortnight. Entry requirements ([#1923](https://gitlab.com/visiban/visiban/-/issues/1923), second part) are not seeded: no column setting for them exists yet.
 
     **Activity vocabulary** ([#2607](https://gitlab.com/visiban/visiban/-/issues/2607)). Every activity type the product records appears at least once in the seeded history: blocked and unblocked, parent and child linked and unlinked, planned child released and Needed changed, custom field changed, override used (with its override records), attachment added and deleted (attached then removed, so no card points at a missing file; uploads are off on the demo), title and description changes, the checklist assign, due date, check, uncheck and delete entries, and the two "other board was deleted" entries. A test derives the list from the model's choices, so a new activity type that is not seeded fails CI.
 

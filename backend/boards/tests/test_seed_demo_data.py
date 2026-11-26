@@ -40,6 +40,7 @@ from boards.models import (
     SavedFilter,
     StageTrack,
     SubColumn,
+    Swimlane,
     SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
 )
@@ -2463,6 +2464,20 @@ class DemoSiteConnectedBoardsTests(TestCase):
         self.assertEqual(kinds, [ET.PARENT_LINKED, ET.PARENT_UNLINKED, ET.PARENT_LINKED])
         self.assertTrue(hasattr(child, "parent_link"))
 
+    def test_released_planned_child_has_no_actor(self):
+        # Mirrors services/planned_children.py: a parent-driven release names no
+        # actor, so the parent's mover stays hidden on a hidden-parent timeline.
+        released = CardParentLink.objects.get(planned_released_at__isnull=False)
+        row = released.child.activities.get(event_type=CardActivity.EventType.PLANNED_RELEASED)
+        self.assertIsNone(row.actor)
+        self.assertEqual(row.from_value, "parent_reached")
+
+    def test_rerun_without_wipe_warns_that_the_build_out_was_skipped(self):
+        Board.objects.filter(name="Customer Implementation").delete()
+        out, _err = _seed(demo_site=True)
+        self.assertIn("Re-run with --wipe", out)
+        self.assertFalse(Board.objects.get(name=OVERLAY).default_child_board)
+
     def test_visitor_reads_every_connected_board_and_children_mode(self):
         from rest_framework.test import APIClient
         from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, get_board_roles
@@ -2481,6 +2496,18 @@ class DemoSiteConnectedBoardsTests(TestCase):
             response = client.get(f"/api/v1/boards/{Board.objects.get(name=name).pk}/children-view/")
             self.assertEqual(response.status_code, 200, name)
             self.assertTrue(response.data["lanes"], name)
+            # Per-lane child counts match the links seeded under that lane's parents.
+            links = CardParentLink.objects.filter(parent__board__name=name).select_related("child__column")
+            expected = {}
+            for link in links:
+                expected[link.parent.swimlane_id] = expected.get(link.parent.swimlane_id, 0) + 1
+            got = {lane["id"]: lane["total"] for lane in response.data["lanes"] if lane["total"]}
+            self.assertEqual(got, expected, name)
+            self.assertGreaterEqual(len(got), 2, name)
+            blocked = sum(lane["blocked"] for lane in response.data["lanes"])
+            self.assertEqual(blocked, links.filter(child__blocked_at__isnull=False).count(), name)
+        overlay_data = client.get(f"/api/v1/boards/{Board.objects.get(name=OVERLAY).pk}/children-view/").data
+        self.assertGreaterEqual(overlay_data["board_total"]["blocked"], 1)
         for name in self.CHILD_BOARDS:
             response = client.get(f"/api/v1/boards/{Board.objects.get(name=name).pk}/")
             self.assertEqual(response.status_code, 200, name)
@@ -2536,6 +2563,14 @@ class DemoSiteFlagshipOverlayTests(TestCase):
         self.assertEqual(self.board.health_status, "at_risk")
         self.assertTrue(self.board.enforce_wip_limits)
 
+    def test_lanes_carry_wip_limits_and_some_are_over(self):
+        from django.db.models import Count
+
+        lanes = list(self.board.swimlanes.exclude(wip_limit=None).annotate(n=Count("cards")))
+        self.assertGreaterEqual(len(lanes), 3)
+        self.assertTrue(any(lane.n > lane.wip_limit for lane in lanes), "no lane is over its limit")
+        self.assertTrue(any(lane.n <= lane.wip_limit for lane in lanes), "every limited lane is over")
+
     def test_weight_is_the_deal_size(self):
         from boards.management.commands._demo_site_connected import _weight_for
 
@@ -2566,10 +2601,19 @@ class DemoSiteFlagshipOverlayTests(TestCase):
         self.assertEqual(fresh, [])
 
     def test_seeded_text_names_no_internal_codename(self):
+        from boards.models import Label
         texts = list(Card.objects.values_list("title", flat=True)) + list(Card.objects.values_list("description", flat=True))
         texts += list(Board.objects.values_list("name", flat=True)) + list(Board.objects.values_list("description", flat=True))
+        texts += list(CardComment.objects.values_list("body", flat=True))
+        texts += list(Label.objects.values_list("name", flat=True))
+        texts += list(Swimlane.objects.values_list("name", flat=True))
+        texts += list(Column.objects.values_list("name", flat=True))
+        for field in ("from_value", "to_value", "item_text"):
+            texts += list(CardActivity.objects.values_list(field, flat=True))
         for text in texts:
-            self.assertNotIn("second chair", text.lower())
+            lowered = (text or "").lower()
+            self.assertNotIn("second chair", lowered)
+            self.assertNotIn("second_chair", lowered)
 
 
 @override_settings(**_DEMO_SITE_SETTINGS)
@@ -2602,7 +2646,14 @@ class DemoSiteActivityVocabularyTests(TestCase):
         def corpus():
             return Counter(CardActivity.objects.values_list("card__board__name", "event_type"))
 
+        def fingerprint():
+            # Deterministic payload fields only: no ids, no timestamps.
+            return sorted(CardActivity.objects.values_list(
+                "card__board__name", "card__title", "event_type", "from_value", "to_value", "item_text",
+            ), key=lambda r: tuple(str(x) for x in r))
+
         _seed(demo_site=True)
-        first = corpus()
+        first, first_fp = corpus(), fingerprint()
         _seed(demo_site=True, wipe=True)
         self.assertEqual(first, corpus())
+        self.assertEqual(first_fp, fingerprint())

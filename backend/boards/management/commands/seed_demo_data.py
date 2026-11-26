@@ -1214,6 +1214,10 @@ class Command(BaseCommand):
         for col_name, (wip, weight) in structure["wip"].items():
             Column.objects.filter(pk=by_name[col_name].pk).update(wip_limit=wip, weight_limit=weight)
 
+        # Per-lane (per account director) WIP limits (#2599).
+        for lane_name, lane_wip in structure.get("lane_wip", {}).items():
+            Swimlane.objects.filter(board=board, name=lane_name).update(wip_limit=lane_wip)
+
         # Stages split into sub-columns (#1102). A card sits in the sub-column
         # its ``gates_passed`` indexes, and each gate it passed leaves one
         # transition row, as a real move through the stage would.

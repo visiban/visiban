@@ -6,7 +6,7 @@ Used only by ``seed_demo_data --demo-site``, after every board in
 1. **The overlay board is built out** (#2599). It is imported from the shipped
    ``sales_overlay`` sample, which the in-app gallery also serves, so the sample
    file itself stays as it is. The seeder adds on top: about 55 more deals
-   (the largest board on the site), a dwell hot spot in Commercial, stages with
+   (the largest showcase board), a dwell hot spot in Commercial, stages with
    sub-columns, tracks, field sets, WIP and weight limits and a health status.
 2. **Boards are connected** (#2598): the overlay board gets Customer
    Implementation below it, and Platform Program gets Software Team below it.
@@ -107,6 +107,9 @@ _RESOLUTIONS = {
 
 OVERLAY_STRUCTURE = {
     "wip": {"Discover": (12, None), "Qualify": (14, None), "Shape": (14, None)},
+    # Per-lane limits on a few account lanes; Harborview Bank and Copperline
+    # Telecom each hold more deals than their limit, Granite Peak Energy does not.
+    "lane_wip": {"Harborview Bank": 4, "Copperline Telecom": 5, "Granite Peak Energy": 12},
     "sub_columns": {
         "Validate": ["Technical validation", "Pilot", "Customer sign-off"],
         "Commercial": ["Pricing", "Legal review", "Approval"],
@@ -333,7 +336,9 @@ def _link_boards(seeded, users, acts):
         if kind == "released":
             released_at = pair_times[-1] + datetime.timedelta(days=1)
             acts.add(child, ET.NEEDED_CHANGED, pair_times[-1] + datetime.timedelta(minutes=10), actor, "manual", "planned")
-            acts.add(child, ET.PLANNED_RELEASED, released_at, actor, "parent_reached", due)
+            # No actor, as the service writes it (planned_children.py): the parent's mover
+            # must stay hidden on a hidden-parent timeline.
+            acts.add(child, ET.PLANNED_RELEASED, released_at, None, "parent_reached", due)
             CardParentLink.objects.filter(pk=link.pk).update(planned_released_at=min(released_at, acts.latest))
 
 
@@ -462,6 +467,11 @@ def seed_connected(cmd, seeded, users, anchor):
     """
     needed = (OVERLAY, IMPLEMENTATION_BOARD_NAME, PROGRAM_BOARD_NAME, SOFTWARE)
     if not all(name in seeded for name in needed):
+        cmd.stdout.write(cmd.style.WARNING(
+            "Skipping the connected boards, the flagship overlay build-out and the activity "
+            "vocabulary: some of the boards they build on already existed and were not "
+            "recreated. Re-run with --wipe to seed them."
+        ))
         return
     board, cards = seeded[OVERLAY]
     _build_overlay(cmd, board, cards, users, anchor)
