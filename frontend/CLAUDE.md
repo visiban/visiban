@@ -2037,9 +2037,11 @@ A parent card on a board whose cards can have children ends in a footer under a 
 | Doing | any column between the first and done | 1px `border-info` outline, left half filled (`text-info`; 5.75:1 dark, 5.17:1 light on the card, where `bg-primary` was 2.83:1 in dark) |
 | To do | the child board's first column | **solid** 1px `border-fg-tertiary` outline |
 | Blocked | manual block or an open `blocks` relation; overrides the column | 1px danger outline plus diagonal stripes |
-| Planned (#2371; this rollup segment is not yet shipped, the card-face status line is) | planned for a later column | **dashed** 1px `border-fg-tertiary` outline |
+| Planned (#2551) | planned for a later column and not released; drawn first, before to do | **dashed** 1px `border-fg-tertiary` outline |
 
-Rule: **dashed outline = planned, solid outline = to do.** The blocked count is danger-on-tint text with the filled blocked glyph; only the idle line ("Work idle N days", `text-warning-on-tint`) uses the clock glyph. The footer is one `role="group"` whose `aria-label` begins "Children: …"; its visible rows are `aria-hidden`. A board the viewer can't open shows only "N children on a board you can't open".
+Rule: **dashed outline = planned, solid outline = to do.** The blocked count is danger-on-tint text with the filled blocked glyph; only the idle line ("Work idle 9d", `text-warning-on-tint`) uses the clock glyph. Visible movement text uses the short forms ("Work moved 2d ago", "Work idle 9d", "Last work done 1d ago"); the accessible sentence keeps the full words ("work moved 2 days ago").
+
+**Planned children in the footer (#2551).** Planned is its own count (`children_rollup.planned`), never in to do, and the movement line reads only the work needed now (`neededNow`), so a parent whose remaining work is all planned never says "No work started" or "Work idle". Row 2 reads "2 planned · work moved 1d ago", or "2 planned" alone. Two warnings replace row 2 when present, in `text-warning-on-tint` with **no glyph**: "Qualify: 1 child not started" (released by the parent's move, not yet moved) first, then "1 planned date has passed: Dec 4" (the earliest planned date before today, compared in the instance timezone like the child's "passed while planned" line). The sentence adds "N planned" after to do and replaces its movement clause with "; Qualify: 1 child not started" / "; 1 planned date has passed, Dec 4". The footer is one `role="group"` whose `aria-label` begins "Children: …"; its visible rows are `aria-hidden`. A board the viewer can't open shows only "N children on a board you can't open".
 
 ## Children tab and its lens (#2209)
 

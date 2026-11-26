@@ -988,6 +988,15 @@ export interface CardChildrenRollupVisible {
   todo: number;
   blocked: number;
   last_moved_at: string | null;
+  /**
+   * Since 1.3 (#2551): children planned for a later parent column, their own bucket (out of `todo`, and their moves
+   * out of `last_moved_at`). Optional: Children mode rows (#2370) do not carry the planned keys yet.
+   */
+  planned?: number;
+  /** Stored dates of the planned children, sorted YYYY-MM-DD; the client compares them with its own today. */
+  planned_due_dates?: string[];
+  /** Children released by the parent reaching their Needed column that have not started, per column in order. */
+  needed_not_started?: { column_name: string; count: number }[];
 }
 
 /** Children on a board the viewer cannot open: the count only (#2210). */
