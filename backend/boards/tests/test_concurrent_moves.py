@@ -141,16 +141,12 @@ class SequentialCardMoveConsistencyTests(TransactionTestCase):
         self.assertEqual(card.column, self.col_c)
 
 
-class ConcurrentColumnCreationTests(TransactionTestCase):
-    """Concurrent column/swimlane creation must not produce duplicate positions.
+class SequentialColumnCreationPositionTests(TransactionTestCase):
+    """Position assignment for columns and swimlanes created one after another.
 
-    select_for_update() on the board row serializes concurrent position
-    calculations so that two simultaneous requests cannot both read the same
-    Max(position) value and assign the same position to their new objects.
-
-    True concurrency is exercised here via threading. TransactionTestCase is
-    required because each thread needs its own DB connection and real commits
-    (TestCase wraps everything in a rolled-back transaction that threads cannot see).
+    These requests are sequential, so they do not exercise the board-row lock
+    taken on create and pass without it. That lock is covered on PostgreSQL by
+    ``BoardRowLockTests`` in ``test_concurrent_lock_sites.py``.
     """
 
     def setUp(self):
