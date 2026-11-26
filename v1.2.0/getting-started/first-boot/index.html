@@ -791,6 +791,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#set-up-backups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set up backups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#inviting-your-team" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3701,6 +3712,8 @@
       
         
       
+        
+      
     
     
     
@@ -4134,6 +4147,34 @@
     
   
     Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/backup-and-restore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Back Up and Restore
   
 
     
@@ -4678,6 +4719,8 @@
 </code></pre></div>
 <p><a id="subsequent-boots"></a></p>
 <p><strong>On later boots:</strong> <code>ensure_site_admin</code> still runs every time. Once a site admin exists the bootstrap does nothing, and credentials are never printed again. The command also re-syncs the Sites framework's domain from <code>SITE_DOMAIN</code> on every run, so a changed <code>SITE_DOMAIN</code> takes effect as soon as you restart the backend, with no extra step.</p>
+<h2 id="set-up-backups">Set up backups<a class="headerlink" href="#set-up-backups" title="Permanent link">&para;</a></h2>
+<p>Before you invite anyone, schedule a backup: Visiban keeps none of its own, and board deletion is permanent. On Docker Compose run <code>docker compose -f docker-compose.prod.yml --profile backup up -d backup</code>; on Kubernetes set <code>backup.enabled=true</code>. See <a href="../../administration/backup-and-restore/">Back up and restore</a>.</p>
 <h2 id="inviting-your-team">Inviting your team<a class="headerlink" href="#inviting-your-team" title="Permanent link">&para;</a></h2>
 <p>Choose how people join <strong>before</strong> you share the URL. Go to <strong>Site admin → General</strong> and set the registration mode:</p>
 <table>

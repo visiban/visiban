@@ -3823,6 +3823,8 @@
       
         
       
+        
+      
     
     
     
@@ -4256,6 +4258,34 @@
     
   
     Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/backup-and-restore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Back Up and Restore
   
 
     
@@ -5188,39 +5218,31 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
 </code></pre></div>
 <h3 id="backing-up-and-restoring">Backing up and restoring<a class="headerlink" href="#backing-up-and-restoring" title="Permanent link">&para;</a></h3>
-<p><strong>Database backup:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>backup_<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.sql
+<p><strong>Set up backups before your team starts using the board.</strong> Visiban keeps none of its own. Back up now, or schedule a daily backup with the <code>backup</code> profile:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>scripts/backup.sh<span class="w"> </span>--output-dir<span class="w"> </span>./backups<span class="w">          </span><span class="c1"># one backup set, now</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>--profile<span class="w"> </span>backup<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>backup<span class="w">   </span><span class="c1"># daily at 02:17 UTC</span>
 </code></pre></div>
-<p><strong>Database restore:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&lt;<span class="w"> </span>backup_20260308.sql
-</code></pre></div>
-<p><strong>Media files</strong> (card attachments) live in a Docker volume. Back them up with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span>tar<span class="w"> </span>czf<span class="w"> </span>/tmp/media.tar.gz<span class="w"> </span>-C<span class="w"> </span>/app<span class="w"> </span>media/
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>cp<span class="w"> </span>backend:/tmp/media.tar.gz<span class="w"> </span>./media_backup.tar.gz
-</code></pre></div>
+<p>Restore a set with <code>scripts/restore.sh backups/visiban-&lt;timestamp&gt;</code>. Each set holds the database dump and the media (attachments) archive; your <code>.env</code> is <strong>not</strong> in it, so keep a copy of that separately. Cadence, off-host copies, restore steps and post-restore checks: <a href="../../administration/backup-and-restore/">Back up and restore</a>.</p>
 <h3 id="certificate-renewal">Certificate renewal<a class="headerlink" href="#certificate-renewal" title="Permanent link">&para;</a></h3>
 <p><strong>Let's Encrypt renews itself.</strong> The <code>certbot</code> container (active only with <code>TLS_MODE=letsencrypt</code>) runs <code>certbot renew</code> every 12 hours. Certificates are valid for 90 days and renew when fewer than 30 days remain. No manual action is needed. To check renewal status:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>certbot
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>certbot
 </code></pre></div>
 <p><strong>Self-signed certificates last 365 days.</strong> To regenerate one, delete the certificate directory and re-run the init script:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>certbot/conf/live/yourdomain.com
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>./init-prod.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>certbot/conf/live/yourdomain.com
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>./init-prod.sh
 </code></pre></div>
 <h3 id="stopping-and-starting">Stopping and starting<a class="headerlink" href="#stopping-and-starting" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># Stop all services (data volumes are preserved)</span>
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>down
-<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>
-<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="c1"># Start again (no rebuild needed unless code changed)</span>
-<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># Stop all services (data volumes are preserved)</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>down
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1"># Start again (no rebuild needed unless code changed)</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div>
 <p><a id="troubleshooting_1"></a></p>
 <h2 id="when-production-misbehaves">When production misbehaves<a class="headerlink" href="#when-production-misbehaves" title="Permanent link">&para;</a></h2>
 <p><strong><code>certbot: error: Could not bind to port 80</code>:</strong> Something else is using port 80. Stop it, then re-run the init script:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>nginx<span class="w"> </span>apache2<span class="w">   </span><span class="c1"># or whichever service holds port 80</span>
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>./init-prod.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>nginx<span class="w"> </span>apache2<span class="w">   </span><span class="c1"># or whichever service holds port 80</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>./init-prod.sh
 </code></pre></div>
 <p><strong><code>Challenge failed: DNS problem: NXDOMAIN</code>:</strong> Your DNS A record hasn't propagated yet. Check with <code>dig yourdomain.com</code>; it must return your server's IP before certbot can issue a certificate. Wait a few minutes and retry.</p>
 <p><strong>You hit the Let's Encrypt rate limit</strong> (5 certificates per domain per week during testing): Add <code>--staging</code> to the certbot command in <code>init-prod.sh</code> to use the Let's Encrypt staging environment. Remove it once you're ready for a real certificate.</p>
@@ -5229,14 +5251,14 @@
 <ol>
 <li>
 <p><strong>Backend not ready.</strong> WebSocket connections are rejected until daphne has fully started:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
 </code></pre></div>
    Wait for a line containing <code>daphne</code> before reloading the page.</p>
 </li>
 <li>
 <p><strong>Valkey unavailable.</strong> Django Channels needs Valkey for the channel layer. Without it, the backend accepts the WebSocket upgrade and then closes it immediately. Edits still save, but their live updates are dropped, and the backend logs a <code>board broadcast dropped</code> warning for each one. Once Valkey is back, an open board catches up when its socket reconnects, when its tab next regains focus, or when you choose <strong>Refresh board</strong> in the connection popover. API clients can replay missed board events from the <a href="../../api/events/">change feed</a>.
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>valkey
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"from django.core.cache import cache; cache.set('healthcheck', 'ok'); print(cache.get('healthcheck'))"</span>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>valkey
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">"from django.core.cache import cache; cache.set('healthcheck', 'ok'); print(cache.get('healthcheck'))"</span>
 </code></pre></div></p>
 </li>
 <li>
@@ -5244,8 +5266,8 @@
 </li>
 <li>
 <p><strong>Nginx not proxying <code>/ws/</code>.</strong> Confirm the nginx container started cleanly and that its config has the WebSocket location block:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>nginx
-<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>nginx<span class="w"> </span>nginx<span class="w"> </span>-T<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">"location /ws"</span>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>nginx
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>nginx<span class="w"> </span>nginx<span class="w"> </span>-T<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">"location /ws"</span>
 </code></pre></div></p>
 </li>
 <li>
@@ -5447,34 +5469,34 @@
 <h2 id="run-from-source">Run from source<a class="headerlink" href="#run-from-source" title="Permanent link">&para;</a></h2>
 <p><strong>For contributors:</strong> run the backend and frontend directly, without Docker.</p>
 <h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="nb">cd</span><span class="w"> </span>backend
-<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
-<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">       </span><span class="c1"># Windows: .venv\Scripts\activate</span>
-<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
-<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="c1"># Docker images install the hash-pinned backend/requirements.lock instead. If</span>
-<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a><span class="c1"># you edit requirements.txt, run scripts/lock-backend-requirements.sh and commit</span>
-<a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a><span class="c1"># the regenerated lock (see docs/development/dependency-lock.md).</span>
-<a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a><span class="c1"># Re-run `pip install -r requirements.txt` after every pull that changes</span>
-<a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a><span class="c1"># requirements.txt: a stale venv shows up as a bare ModuleNotFoundError (e.g.</span>
-<a id="__codelineno-32-10" name="__codelineno-32-10" href="#__codelineno-32-10"></a><span class="c1"># mcp 1.x vs the 2.x pin), not as a clear "out of date" message. From a</span>
-<a id="__codelineno-32-11" name="__codelineno-32-11" href="#__codelineno-32-11"></a><span class="c1"># checkout, `scripts/wt doctor` warns about any `==` pin that differs from</span>
-<a id="__codelineno-32-12" name="__codelineno-32-12" href="#__codelineno-32-12"></a><span class="c1"># what is installed, naming the package and both versions.</span>
-<a id="__codelineno-32-13" name="__codelineno-32-13" href="#__codelineno-32-13"></a>
-<a id="__codelineno-32-14" name="__codelineno-32-14" href="#__codelineno-32-14"></a>cp<span class="w"> </span>../.env.example<span class="w"> </span>.env
-<a id="__codelineno-32-15" name="__codelineno-32-15" href="#__codelineno-32-15"></a><span class="c1"># Set DATABASE_URL=sqlite:///db.sqlite3 for local SQLite</span>
-<a id="__codelineno-32-16" name="__codelineno-32-16" href="#__codelineno-32-16"></a>
-<a id="__codelineno-32-17" name="__codelineno-32-17" href="#__codelineno-32-17"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
-<a id="__codelineno-32-18" name="__codelineno-32-18" href="#__codelineno-32-18"></a>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin<span class="w">   </span><span class="c1"># prints one-time password</span>
-<a id="__codelineno-32-19" name="__codelineno-32-19" href="#__codelineno-32-19"></a>python<span class="w"> </span>manage.py<span class="w"> </span>runserver
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="nb">cd</span><span class="w"> </span>backend
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">       </span><span class="c1"># Windows: .venv\Scripts\activate</span>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a><span class="c1"># Docker images install the hash-pinned backend/requirements.lock instead. If</span>
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a><span class="c1"># you edit requirements.txt, run scripts/lock-backend-requirements.sh and commit</span>
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a><span class="c1"># the regenerated lock (see docs/development/dependency-lock.md).</span>
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="c1"># Re-run `pip install -r requirements.txt` after every pull that changes</span>
+<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a><span class="c1"># requirements.txt: a stale venv shows up as a bare ModuleNotFoundError (e.g.</span>
+<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a><span class="c1"># mcp 1.x vs the 2.x pin), not as a clear "out of date" message. From a</span>
+<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a><span class="c1"># checkout, `scripts/wt doctor` warns about any `==` pin that differs from</span>
+<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a><span class="c1"># what is installed, naming the package and both versions.</span>
+<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a>
+<a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a>cp<span class="w"> </span>../.env.example<span class="w"> </span>.env
+<a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a><span class="c1"># Set DATABASE_URL=sqlite:///db.sqlite3 for local SQLite</span>
+<a id="__codelineno-30-16" name="__codelineno-30-16" href="#__codelineno-30-16"></a>
+<a id="__codelineno-30-17" name="__codelineno-30-17" href="#__codelineno-30-17"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
+<a id="__codelineno-30-18" name="__codelineno-30-18" href="#__codelineno-30-18"></a>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin<span class="w">   </span><span class="c1"># prints one-time password</span>
+<a id="__codelineno-30-19" name="__codelineno-30-19" href="#__codelineno-30-19"></a>python<span class="w"> </span>manage.py<span class="w"> </span>runserver
 </code></pre></div>
 <h3 id="frontend">Frontend<a class="headerlink" href="#frontend" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
-<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>npm<span class="w"> </span>install
-<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>npm<span class="w"> </span>run<span class="w"> </span>dev
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>npm<span class="w"> </span>install
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>npm<span class="w"> </span>run<span class="w"> </span>dev
 </code></pre></div>
 <p><strong>Point Vite at the API:</strong> <code>npm run dev</code> expects the backend at <code>http://localhost:8000</code>. Create <code>frontend/.env.local</code> to tell Vite where the API is. The file is gitignored; never commit it.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># frontend/.env.local — local dev only, never included in Docker builds</span>
-<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8000
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="c1"># frontend/.env.local — local dev only, never included in Docker builds</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8000
 </code></pre></div>
 <p>A commented template is at <code>frontend/.env.local.example</code>.</p>
 

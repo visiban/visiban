@@ -3740,6 +3740,8 @@
       
         
       
+        
+      
     
     
     
@@ -4173,6 +4175,34 @@
     
   
     Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/backup-and-restore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Back Up and Restore
   
 
     
@@ -4719,7 +4749,11 @@ self-test, add a member function and a <code>fold_member</code> line rather than
 </tr>
 <tr>
 <td><code>scripts/prod-compose-drill.sh</code></td>
-<td>Live Docker Compose boot drill for the production stack — a synthetic self-test would need to boot a second real stack. Its own NEGATIVE cases are the known-bad-input assertions, run against the real <code>init-prod.sh</code> and <code>docker-compose.prod.yml</code> instead of a fixture: a boot with the placeholder <code>DJANGO_SECRET_KEY</code> must be rejected, and <code>init-prod.sh</code> must reject a <code>/</code>-bearing <code>DB_PASSWORD</code> or <code>REDIS_PASSWORD</code> before anything boots, with the specific error message (<a href="https://gitlab.com/visiban/visiban/-/issues/1229">#1229</a>). A static check also asserts <code>init-prod.sh</code> restarts nginx after its final <code>up -d</code>. After readiness it also walks the first-run user journey through nginx (site-config, the SPA and a deep-link fallback, login with the bootstrapped admin password, the forced password change and re-login, board create, and a WebSocket upgrade that must return 101 on <code>/ws/boards/&lt;id&gt;/</code> (proves nginx forwards <code>Upgrade</code> and the origin gate passes, not WebSocket authentication), <a href="https://gitlab.com/visiban/visiban/-/issues/1364">#1364</a>); a broken <code>Upgrade</code> proxy header, a CORS/CSRF trusted-origin mismatch, or a first login that never completes now turns the drill red. CI runs the drill as two <code>parallel:matrix</code> legs of <code>compose-prod-drill</code>, <code>TLS_MODE=none</code> (the plain-HTTP nginx template) and <code>TLS_MODE=selfsigned</code> (the HTTPS template, <code>nginx/app.conf.template</code>, where every step-8 request also sends a matching <code>Referer</code> for Django's HTTPS CSRF check and uses <code>curl -k</code>), so a regression in the HTTPS-only config turns the <code>selfsigned</code> leg red (<a href="https://gitlab.com/visiban/visiban/-/issues/2561">#2561</a>). See <a href="https://gitlab.com/visiban/visiban/-/issues/1152">#1152</a>.</td>
+<td>Live Docker Compose boot drill for the production stack — a synthetic self-test would need to boot a second real stack. Its own NEGATIVE cases are the known-bad-input assertions, run against the real <code>init-prod.sh</code> and <code>docker-compose.prod.yml</code> instead of a fixture: a boot with the placeholder <code>DJANGO_SECRET_KEY</code> must be rejected, and <code>init-prod.sh</code> must reject a <code>/</code>-bearing <code>DB_PASSWORD</code> or <code>REDIS_PASSWORD</code> before anything boots, with the specific error message (<a href="https://gitlab.com/visiban/visiban/-/issues/1229">#1229</a>). A static check also asserts <code>init-prod.sh</code> restarts nginx after its final <code>up -d</code>. After readiness it also walks the first-run user journey through nginx (site-config, the SPA and a deep-link fallback, login with the bootstrapped admin password, the forced password change and re-login, board create, and a WebSocket upgrade that must return 101 on <code>/ws/boards/&lt;id&gt;/</code> (proves nginx forwards <code>Upgrade</code> and the origin gate passes, not WebSocket authentication), <a href="https://gitlab.com/visiban/visiban/-/issues/1364">#1364</a>); a broken <code>Upgrade</code> proxy header, a CORS/CSRF trusted-origin mismatch, or a first login that never completes now turns the drill red. CI runs the drill as two <code>parallel:matrix</code> legs of <code>compose-prod-drill</code>, <code>TLS_MODE=none</code> (the plain-HTTP nginx template) and <code>TLS_MODE=selfsigned</code> (the HTTPS template, <code>nginx/app.conf.template</code>, where every step-8 request also sends a matching <code>Referer</code> for Django's HTTPS CSRF check and uses <code>curl -k</code>), so a regression in the HTTPS-only config turns the <code>selfsigned</code> leg red (<a href="https://gitlab.com/visiban/visiban/-/issues/2561">#2561</a>). See <a href="https://gitlab.com/visiban/visiban/-/issues/1152">#1152</a>. On the <code>TLS_MODE=none</code> leg, step 9 seeds boards, cards, movements and an attachment, backs up with <code>scripts/backup.sh</code>, destroys every volume, boots a fresh install and restores with <code>scripts/restore.sh</code>, then asserts the counts, every attachment's bytes and a seeded login came back; it also asserts a truncated dump is refused (<a href="https://gitlab.com/visiban/visiban/-/issues/2626">#2626</a>, <a href="https://gitlab.com/visiban/visiban/-/issues/1464">#1464</a>).</td>
+</tr>
+<tr>
+<td><code>scripts/backup.sh</code>, <code>scripts/restore.sh</code></td>
+<td>Not gates: the operator backup and restore tools (<a href="https://gitlab.com/visiban/visiban/-/issues/2626">#2626</a>). Referenced in <code>.gitlab-ci.yml</code> only as <code>changes:</code> paths. Their known-bad cases (a failed, empty, truncated or non-Visiban dump must exit non-zero and keep nothing; restore must refuse a damaged set) are <code>scripts/tests/backup-restore.test.sh</code>, run in <code>lint-selftests-alpine</code>; the live round-trip is <code>prod-compose-drill.sh</code> step 9, and <code>helm-structure-check.sh</code> section 22 keeps the chart's copies identical.</td>
 </tr>
 <tr>
 <td><code>scripts/compose-upgrade-drill.sh</code></td>

@@ -874,6 +874,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#backups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#scaling" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3850,6 +3861,8 @@
       
         
       
+        
+      
     
     
     
@@ -4283,6 +4296,34 @@
     
   
     Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/backup-and-restore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Back Up and Restore
   
 
     
@@ -5309,10 +5350,19 @@
 <a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">    </span><span class="c1"># storageClassName: "gp3"</span>
 </code></pre></div>
 <p><strong>Watch out:</strong> If the backend and frontend pods run on <strong>different nodes</strong>, the PVC must support <code>ReadWriteMany</code> (RWX), or use a pod affinity rule to put them on the same node.</p>
+<p><strong>Kept on uninstall</strong> <em>(1.3+)</em>: the media PVC carries <code>helm.sh/resource-policy: keep</code> (<code>backend.mediaPersistence.keepOnUninstall</code>, default <code>true</code>), so <code>helm uninstall</code> no longer deletes your attachments.</p>
+<h2 id="backups">Backups<a class="headerlink" href="#backups" title="Permanent link">&para;</a></h2>
+<p>The chart ships an opt-in backup CronJob: a plain-SQL <code>pg_dump</code> plus a media archive, written to its own PVC every day. Turn it on before your team starts using the board:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="nt">backup</span><span class="p">:</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="nt">schedule</span><span class="p">:</span><span class="w"> </span><span class="s">"17</span><span class="nv"> </span><span class="s">2</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*"</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span><span class="nt">retentionDays</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">14</span>
+</code></pre></div>
+<p>Copy the backup PVC off-cluster with your own tooling; the chart writes to a PVC only. Restore steps, RPO/RTO for the bundled database versus a managed one, and post-restore checks: <a href="../../administration/backup-and-restore/#kubernetes-helm">Back up and restore</a>.</p>
 <h2 id="scaling">Scaling<a class="headerlink" href="#scaling" title="Permanent link">&para;</a></h2>
 <p>Raise replicas for the backend or frontend:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="nt">backendReplicaCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="nt">frontendReplicaCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="nt">backendReplicaCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="nt">frontendReplicaCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 </code></pre></div>
 <p>When <code>backendReplicaCount &gt; 1</code>, the chart automatically:</p>
 <ul>
@@ -5323,8 +5373,8 @@
 <h2 id="scheduled-jobs">Scheduled jobs<a class="headerlink" href="#scheduled-jobs" title="Permanent link">&para;</a></h2>
 <p><strong>Off by default.</strong> An install that hasn't turned them on sends no due-date or staleness notifications.</p>
 <p><strong>How it works:</strong> The due-date and staleness notification scans, and the retention prunes, run as Kubernetes CronJobs rendered from <code>scheduledJobs</code> in <code>values.yaml</code>. Turn them on:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span>--set<span class="w"> </span>scheduledJobs.enabled<span class="o">=</span><span class="nb">true</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span>--set<span class="w"> </span>scheduledJobs.enabled<span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
 <p>That schedules <code>notify_due_soon</code> (07:00), <code>notify_stale_cards</code> (08:00) and <code>compute_health_status</code> (02:00, which only touches boards with <a href="../../features/health-status/">auto health status</a> turned on) and <code>sweep_webhook_secrets</code> (04:00, which deletes expired previous webhook signing secrets). The two prune jobs delete data, so you turn each on individually. <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a> covers every key, and how to check and trigger runs.</p>
 <h2 id="health-check-endpoints">Health check endpoints<a class="headerlink" href="#health-check-endpoints" title="Permanent link">&para;</a></h2>
@@ -5354,11 +5404,11 @@
 <h2 id="sample-data">Sample data<a class="headerlink" href="#sample-data" title="Permanent link">&para;</a></h2>
 <p>The backend image ships the sample board JSON files. Import one with <strong>Import</strong> on the dashboard → <strong>Start from a sample</strong>. To import a file by hand, download it from <a href="https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards"><code>backend/boards/sample_boards/</code></a> and use <strong>Dashboard → Import</strong>. See <a href="../sample-boards/">Sample boards</a>.</p>
 <h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span>v1.2.0<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>v1.2.0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span>v1.2.0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>v1.2.0
 </code></pre></div>
 <p><strong>How it works:</strong> Each new backend pod runs the <code>migrate</code> init container before its application container starts. So migrations apply automatically, and no pod serves traffic against a schema it hasn't migrated. The <a href="../../administration/upgrade/">Upgrade guide</a> has version-specific notes and rollback procedures.</p>
 <div class="admonition warning">
@@ -5372,22 +5422,22 @@
 <h2 id="django-admin-access">Django admin access<a class="headerlink" href="#django-admin-access" title="Permanent link">&para;</a></h2>
 <p>The Django admin panel (<code>/admin/</code>) is restricted to loopback at both the nginx and Django layers. There are two ways in.</p>
 <p><strong>Port-forward (default):</strong> for occasional access from one workstation.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/visiban-backend<span class="w"> </span><span class="m">8000</span>:8000
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="c1"># Then open http://localhost:8000/admin/</span>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="c1"># (send the real Host header; a `localhost` entry in backend.settings.allowedHosts</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="c1">#  also needs backend.settings.allowUnsafeHosts=true, the chart no longer adds it)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/visiban-backend<span class="w"> </span><span class="m">8000</span>:8000
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="c1"># Then open http://localhost:8000/admin/</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="c1"># (send the real Host header; a `localhost` entry in backend.settings.allowedHosts</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="c1">#  also needs backend.settings.allowUnsafeHosts=true, the chart no longer adds it)</span>
 </code></pre></div>
 <p><strong>IP allowlist:</strong> for persistent access from a bastion or VPN host. Set <code>backend.settings.adminAllowedIPs</code> to a comma-separated list of IPs and/or CIDR ranges:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.adminAllowedIPs<span class="o">=</span><span class="s2">"10.0.0.0/8,192.168.42.7"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.adminAllowedIPs<span class="o">=</span><span class="s2">"10.0.0.0/8,192.168.42.7"</span>
 </code></pre></div>
 <p><strong>How it works:</strong> Both the frontend nginx config and Django's <code>AdminIPRestrictionMiddleware</code> enforce the allowlist, for defense in depth. Both accept CIDR ranges (for example <code>10.0.0.0/8</code>) as well as individual IPs. See <a href="../../administration/secret-rotation/#helm">Secret Rotation</a>.</p>
 <h2 id="uninstalling">Uninstalling<a class="headerlink" href="#uninstalling" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
 </code></pre></div>
 <p><strong>What's removed:</strong> every Kubernetes resource the chart created. The chart declares no Helm install hooks, and hook resources are the ones Helm would leave behind.</p>
-<p><strong>Yes, but: PersistentVolumeClaims stay.</strong> Delete them by hand to remove all data:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/instance<span class="o">=</span>visiban
+<p><strong>Yes, but: PersistentVolumeClaims stay.</strong> The bundled PostgreSQL's PVC comes from its StatefulSet, which Kubernetes never deletes; the media PVC and the backup PVC are annotated <code>helm.sh/resource-policy: keep</code> <em>(1.3+; before 1.3, uninstall deleted the media PVC)</em>. Delete them by hand to remove all data:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/instance<span class="o">=</span>visiban
 </code></pre></div>
 
 

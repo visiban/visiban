@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://docs.visiban.com/v1.2.0/administration/upgrade/">
       
       
-        <link rel="prev" href="../secret-rotation/">
+        <link rel="prev" href="../backup-and-restore/">
       
       
         <link rel="next" href="../zero-downtime-upgrade/">
@@ -3529,6 +3529,8 @@
       
         
       
+        
+      
     
     
     
@@ -3965,6 +3967,34 @@
     
   
     Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backup-and-restore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Back Up and Restore
   
 
     
@@ -4870,6 +4900,7 @@ access, working throughout.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>visiban-backup-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d%H%M%S<span class="k">)</span>.sql
 </code></pre></div>
 <p><strong>Tip:</strong> store the backup outside the container. A local file on the host is sufficient for most deployments; offsite storage is recommended for production.</p>
+<p><strong>Yes, but:</strong> <code>scripts/backup.sh</code> <em>(1.3+)</em> takes the same dump plus the media archive, and fails loudly on an empty or truncated dump. See <a href="../backup-and-restore/">Back up and restore</a>. On Kubernetes, trigger the backup CronJob by hand before upgrading: <code>kubectl create job --from=cronjob/&lt;release&gt;-backup pre-upgrade-backup</code>.</p>
 <h3 id="2-point-app_version-at-the-new-release-and-pull-it">2. Point <code>APP_VERSION</code> at the new release and pull it<a class="headerlink" href="#2-point-app_version-at-the-new-release-and-pull-it" title="Permanent link">&para;</a></h3>
 <p>The production stack runs the released images named by <code>APP_VERSION</code> in <code>.env</code> and builds nothing locally. Changing that line selects the new version. Without it, <code>pull</code> fetches the version you already run.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># In .env: APP_VERSION=vX.Y.Z   (the release you are upgrading to)</span>
@@ -5099,7 +5130,7 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <p>If the migration sequence includes any irreversible operation (a destructive <code>RunPython</code>, a column drop, or a <code>NOT NULL</code> constraint on existing data), Django will raise <code>django.db.migrations.exceptions.IrreversibleError</code> and abort. In that case the only recovery path is to restore the database from the backup taken before the upgrade.</p>
 </div>
 <h3 id="restoring-from-backup">Restoring from backup<a class="headerlink" href="#restoring-from-backup" title="Permanent link">&para;</a></h3>
-<p>A database that a newer release has migrated cannot be run by the older release, so a restore always goes together with rolling the image tag back to the version the backup was taken on. The backup from <a href="#1-back-up-the-database">step 1</a> is a plain SQL file, so it is restored with <code>psql</code>, not <code>pg_restore</code>. It contains no <code>DROP</code> statements, so restore into a freshly created, empty database. This is a minimal procedure; the full backup and restore playbook is tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/861">#861</a>.</p>
+<p>A database that a newer release has migrated cannot be run by the older release, so a restore always goes together with rolling the image tag back to the version the backup was taken on. The backup from <a href="#1-back-up-the-database">step 1</a> is a plain SQL file, so it is restored with <code>psql</code>, not <code>pg_restore</code>. It contains no <code>DROP</code> statements, so restore into a freshly created, empty database. This is a minimal procedure; for a set written by <code>scripts/backup.sh</code> (database and media), use <code>scripts/restore.sh</code> as described in <a href="../backup-and-restore/#restore">Back up and restore</a>.</p>
 <div class="admonition danger">
 <p class="admonition-title">This replaces the live database</p>
 <p>Everything written since the backup is lost, including cards moved and comments added after the upgrade. Keep a copy of the backup file, and take a fresh <code>pg_dump</code> of the current state first if there is any chance you will want it.</p>
@@ -5146,6 +5177,14 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <h2 id="release-specific-upgrade-notes">Release-specific upgrade notes<a class="headerlink" href="#release-specific-upgrade-notes" title="Permanent link">&para;</a></h2>
 <p>Read the notes for every version between your current release and the target before you upgrade. Each callout is a change an operator may need to act on: a changed default, a renamed setting, or a new requirement.</p>
 <h3 id="upgrading-to-13x">Upgrading to 1.3.x<a class="headerlink" href="#upgrading-to-13x" title="Permanent link">&para;</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Helm: <code>helm uninstall</code> now keeps the media PVC</p>
+<p>Since 1.3 the chart annotates the <code>&lt;release&gt;-media</code> PVC with <code>helm.sh/resource-policy: keep</code> (<code>backend.mediaPersistence.keepOnUninstall</code>, default <code>true</code>, #1464). Before, <code>helm uninstall</code> deleted the PVC and every uploaded attachment on it. The <code>helm upgrade</code> to 1.3 adds the annotation to your existing PVC; nothing else about it changes.</p>
+<ul>
+<li><strong>After an uninstall the PVC stays, and keeps using storage.</strong> A reinstall under the same release name and namespace adopts it again. To delete it for good: <code>kubectl -n &lt;namespace&gt; delete pvc &lt;release&gt;-media</code>.</li>
+<li><strong>To keep the old behavior</strong> (uninstall deletes the media), set <code>backend.mediaPersistence.keepOnUninstall: false</code> and run <code>helm upgrade</code>, which removes the annotation. Do this only if you have another copy of the attachments. See <a href="../backup-and-restore/#what-helm-uninstall-keeps">What <code>helm uninstall</code> keeps</a>.</li>
+</ul>
+</div>
 <div class="admonition note">
 <p class="admonition-title">The board CSV export is now streamed: check a custom reverse proxy</p>
 <p>Since 1.3 the board CSV export is sent a chunk of cards at a time (#2585). The file is unchanged, and the JSON export is not streamed.</p>
