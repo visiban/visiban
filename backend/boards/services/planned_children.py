@@ -1,8 +1,10 @@
 """Planned children (#2371, epic #2206): child work known for a later parent stage.
 
 A child whose ``CardParentLink.needed_at_column`` is set is *planned* until
-the parent reaches (or skips past) that column on its own board, or someone
-pulls the child out of To do. While planned, the child's due date is stored
+the parent reaches (or skips past) that column on its own board (a parent
+move, or a column reorder that puts the Needed column at or before the
+parent's, #2553), or someone pulls the child out of To do. Deleting the
+Needed column resets the child to Needed: Now (``clear_for_deleted_column``). While planned, the child's due date is stored
 but inactive: it is left out of Overdue, Due soon and Stale wherever the
 server computes them (REST, card query, share-link Stale, notifications,
 health; export and MCP emit no such value) through the one

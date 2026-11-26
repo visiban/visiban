@@ -113,10 +113,12 @@ class ReorderReleaseTests(PlannedFixture):
 class ReorderVsParentMoveRaceTests(TransactionTestCase):
     """A reorder racing a parent move that releases the same link (#2553).
 
-    The move holds its columns, the parent row and the link row (its
-    conditional UPDATE); the reorder queues behind it in its own lock order
-    (board, columns, links), then finds the link released once the move
-    commits. One ``planned_released`` row, no
+    The move takes the parent from Lead to Proposal, which is still BEFORE the
+    link's Needed column (Won), so the move releases nothing. The reorder
+    queues behind the move's column locks, then (once it has them) puts Won
+    first, which is at or before the parent's resulting column. So the only
+    thing that can release the link is ``release_on_reorder`` after its wait;
+    remove that call and this test fails. One ``planned_released`` row, no
     deadlock. Patches are taken once in the main thread (a ``patch`` inside a
     worker leaks process-wide).
     """
@@ -135,7 +137,7 @@ class ReorderVsParentMoveRaceTests(TransactionTestCase):
         self.parent = Card.objects.create(board=self.pboard, column=self.lead, swimlane=plane, title="Parent")
         self.child = Card.objects.create(board=self.cboard, column=todo, swimlane=clane, title="Child")
         self.link = CardParentLink.objects.create(
-            parent=self.parent, child=self.child, created_by=self.owner, needed_at_column=self.proposal,
+            parent=self.parent, child=self.child, created_by=self.owner, needed_at_column=self.won,
         )
 
     def test_reorder_queues_on_a_releasing_parent_move_and_releases_once(self):
@@ -148,11 +150,13 @@ class ReorderVsParentMoveRaceTests(TransactionTestCase):
                     # The move's shape (#1522 lock order): its source and
                     # target columns in pk order, the parent's row, the column
                     # change, then its release query (claims the link row).
-                    list(Column.objects.filter(pk__in=[self.lead.pk, self.won.pk]).order_by("pk").select_for_update(no_key=True))
+                    list(Column.objects.filter(pk__in=[self.lead.pk, self.proposal.pk]).order_by("pk").select_for_update(no_key=True))
                     Card.objects.select_for_update().get(pk=self.parent.pk)
-                    Card.objects.filter(pk=self.parent.pk).update(column=self.won)
-                    self.parent.column = self.won
-                    planned_children.release_on_move(self.parent, to_column=self.won, actor=self.owner)
+                    Card.objects.filter(pk=self.parent.pk).update(column=self.proposal)
+                    self.parent.column = self.proposal
+                    planned_children.release_on_move(self.parent, to_column=self.proposal, actor=self.owner)
+                    # Won is ahead of the parent: the move must not release.
+                    assert CardParentLink.objects.get(pk=self.link.pk).planned_released_at is None
                     holding.set()
                     if not release.wait(WAIT):
                         raise RuntimeError("never released")
@@ -166,13 +170,13 @@ class ReorderVsParentMoveRaceTests(TransactionTestCase):
             try:
                 if not holding.wait(WAIT):
                     raise RuntimeError("the move never took its lock")
-                # Proposal moves ahead of Lead, so the reorder crosses the
-                # parent's column and would release the link if it were still planned.
+                # Won moves to the front, ahead of the parent's column
+                # (Proposal once the move commits): only the reorder releases.
                 client = APIClient()
                 client.force_authenticate(self.owner)
                 results["response"] = client.post(
                     f"/api/v1/boards/{self.pboard.pk}/columns/reorder/",
-                    {"order": [self.proposal.pk, self.lead.pk, self.won.pk]}, format="json",
+                    {"order": [self.won.pk, self.lead.pk, self.proposal.pk]}, format="json",
                 )
             except BaseException as exc:  # noqa: BLE001 - surfaced after join
                 errors.append(exc)
