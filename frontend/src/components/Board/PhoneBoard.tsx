@@ -1,5 +1,5 @@
 import LaneFieldGrid, { LaneTierDetails } from "./LaneFieldGrid";
-import { useState, useId, useRef, useEffect, useCallback } from "react";
+import { useState, useId, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { cardSubColumnIndex, getTrackStates, stageSubColumns } from "../../utils/stages";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, CardDensity, Column, CustomFieldDefinition, EffectiveBoardMember, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
@@ -187,6 +187,11 @@ export default function PhoneBoard({
   const ordered = [...columns].sort((a, b) => a.position - b.position);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const uid = useId();
+  // Arrow/Home/End on a column tab focus the newly selected tab in a layout effect (focus rule 3, #2608, #2632).
+  const [focusTabId, setFocusTabId] = useState<{ id: number } | null>(null);
+  useLayoutEffect(() => {
+    if (focusTabId) document.getElementById(`${uid}-tab-${focusTabId.id}`)?.focus();
+  }, [focusTabId, uid]);
   const [addingLane, setAddingLane] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
@@ -280,7 +285,7 @@ export default function PhoneBoard({
     // An open input (and its error) belongs to the column it was opened in.
     if (id !== column.id) { setAddingLane(null); setDraft(""); setAddError(null); setPolicyRect(null); }
     setSelectedId(id);
-    if (focus) requestAnimationFrame(() => document.getElementById(`${uid}-tab-${id}`)?.focus());
+    if (focus) setFocusTabId({ id });
   };
   // Roving tabindex: arrows, Home and End move between tabs, so one Tab stop covers the row.
   const onTabKey = (e: React.KeyboardEvent, idx: number) => {

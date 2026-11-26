@@ -1,4 +1,5 @@
 import type React from "react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import type { BoardFull, CustomFieldDefinition, CustomFieldSet, CustomFieldValue } from "../types";
@@ -10,13 +11,22 @@ import { pruneSetFields, pruneSetLane } from "../utils/fieldSets";
 import { withCardDefinitions } from "../hooks/useBoard";
 import CustomFieldValueInput from "../components/Card/CustomFieldValueInput";
 
-// Stubbed by default; a test that needs the real editor behavior flips `realRow`.
-const rowMode = vi.hoisted(() => ({ realRow: false }));
+// Stubbed by default; a test that needs the real editor behavior flips `realRow`. `focusedOnMount`, when set,
+// collects the rows that already held focus when their own passive mount effect ran.
+const rowMode = vi.hoisted(() => ({ realRow: false, focusedOnMount: null as string[] | null }));
 vi.mock("../components/Card/CustomFieldEditRow", async (importOriginal) => {
   const Real = (await importOriginal<typeof import("../components/Card/CustomFieldEditRow")>()).default;
+  const { useEffect, useRef } = await import("react");
+  function StubRow({ name, value }: { name: string; value: string }) {
+    const ref = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+      if (rowMode.focusedOnMount && ref.current === document.activeElement) rowMode.focusedOnMount.push(name);
+    }, [name]);
+    return <input ref={ref} aria-label={name} defaultValue={value} />;
+  }
   return {
     default: (props: React.ComponentProps<typeof Real>) =>
-      rowMode.realRow ? <Real {...props} /> : <input aria-label={props.definition.name} defaultValue={props.value ?? ""} />,
+      rowMode.realRow ? <Real {...props} /> : <StubRow name={props.definition.name} value={props.value ?? ""} />,
   };
 });
 vi.mock("../api/boards", () => ({
@@ -153,7 +163,8 @@ describe("FieldSetBlocks", () => {
     expect(screen.getByText("Showing Money, 2 of 3.")).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByTestId("field-set-maximized")).toBeNull());
-    await waitFor(() => expect(screen.getByRole("button", { name: "Maximize Money" })).toHaveFocus());
+    // In the commit that unmounts the layer (a layout effect, #2632), so no waiting.
+    expect(screen.getByRole("button", { name: "Maximize Money" })).toHaveFocus();
   });
 
   it("shows an out-of-lane set with a value collapsed with 'Not used in'", () => {
@@ -335,6 +346,19 @@ describe("FieldSetBlocks focus, empty states and live updates (#2570)", () => {
     expect(screen.getByLabelText("Metrics")).toHaveFocus();
   });
 
+  it("focuses the first field in the commit that unmounts Fill in, before passive effects (#2632)", () => {
+    // A child's passive mount effect runs before its parent's, so Metrics sees focus there only when
+    // FieldSetBlocks moved it in a layout effect.
+    rowMode.focusedOnMount = [];
+    try {
+      renderBlocks({ values: [], sets: [fset(1, "MEDDIC", [1, 2])] });
+      fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+      expect(rowMode.focusedOnMount).toEqual(["Metrics"]);
+    } finally {
+      rowMode.focusedOnMount = null;
+    }
+  });
+
   it("says no sets apply only when a lane-scoped set was excluded", () => {
     const { rerender, props } = renderBlocks({ values: [], sets: [fset(1, "Empty", [])] });
     expect(screen.queryByText("No field sets apply to cards in Enterprise.")).toBeNull();
@@ -351,6 +375,61 @@ describe("FieldSetBlocks focus, empty states and live updates (#2570)", () => {
     expect(screen.queryByText(/MEDDIC was removed/)).toBeNull();
     act(() => { input.blur(); });
     expect(screen.getByText(/MEDDIC was removed/)).toBeInTheDocument();
+  });
+
+  it("never leaves focus on body when the focused field's block is removed (#2632)", () => {
+    const { props, rerender } = renderBlocks({ values: [], sets: [fset(1, "MEDDIC", [1, 2, 3])] });
+    fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+    const input = screen.getByLabelText("Metrics");
+    expect(input).toHaveFocus();
+    rerender(<div role="dialog"><FieldSetBlocks {...props} sets={[]} /></div>);
+    act(() => { input.blur(); });
+    expect(document.activeElement).not.toBe(document.body);
+    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
+  });
+
+  it("does not steal focus when the user tabs away as a held regroup applies (#2632)", async () => {
+    const user = userEvent.setup();
+    const { props, rerender } = renderBlocks({ values: [], sets: [fset(1, "MEDDIC", [1, 2, 3])] });
+    fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+    const input = screen.getByLabelText("Metrics");
+    expect(input).toHaveFocus();
+    rerender(<div role="dialog"><FieldSetBlocks {...props} sets={[fset(1, "MEDDIC", [1, 2, 3], { name: "Renamed" } as never)]} /></div>);
+    await user.tab();
+    expect(screen.getByLabelText("Champion")).toHaveFocus();
+  });
+
+  it("falls back to Other fields when the user tabs to a control inside the block being removed (#2632)", async () => {
+    const user = userEvent.setup();
+    const { props, rerender } = renderBlocks({ values: [], sets: [fset(1, "MEDDIC", [1, 2, 3])] });
+    fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+    const input = screen.getByLabelText("Metrics");
+    expect(input).toHaveFocus();
+    // Held: Metrics keeps focus, so MEDDIC's removal waits for the blur.
+    rerender(<div role="dialog"><FieldSetBlocks {...props} sets={[]} /></div>);
+    expect(screen.getByTestId("field-set-s1")).toBeInTheDocument();
+    // Tab lands on Champion, which goes with MEDDIC when the removal applies.
+    await user.tab();
+    expect(screen.queryByTestId("field-set-s1")).toBeNull();
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(within(screen.getByTestId(`field-set-${OTHER_FIELDS_KEY}`)).getByRole("button", { expanded: true }));
+  });
+
+  it("does not run the focus check when focusout carries a relatedTarget, even with body active mid-blur (#2632)", () => {
+    const { props, rerender } = renderBlocks({ values: [], sets: [fset(1, "MEDDIC", [1, 2, 3])] });
+    fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+    const input = screen.getByLabelText("Metrics");
+    rerender(<div role="dialog"><FieldSetBlocks {...props} sets={[fset(1, "MEDDIC", [1, 2, 3], { name: "Renamed" })]} /></div>);
+    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+    // During a real blur, activeElement is already body while focusout dispatches.
+    Object.defineProperty(document, "activeElement", { get: () => document.body, configurable: true });
+    try {
+      act(() => { fireEvent.focusOut(input, { relatedTarget: screen.getByLabelText("Champion") }); });
+      expect(focusSpy).not.toHaveBeenCalled();
+    } finally {
+      delete (document as unknown as { activeElement?: unknown }).activeElement;
+      focusSpy.mockRestore();
+    }
   });
 
   it("keeps focus on the Maximize layer after Escape reverts a text field", () => {

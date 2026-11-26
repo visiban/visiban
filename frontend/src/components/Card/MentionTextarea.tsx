@@ -197,15 +197,24 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
     onChange(newVal);
     setMention({ active: false, query: "", startIndex: -1 });
 
-    // Restore focus and move cursor after the inserted mention
-    requestAnimationFrame(() => {
-      if (textareaRef.current) {
-        const pos = before.length + username.length + 2; // '@' + username + ' '
-        textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(pos, pos);
-      }
-    });
+    // Focus and the cursor move in a layout effect once the parent has committed the new value (focus
+    // rule 3, #2608, #2632): setSelectionRange before then is reset by the value change.
+    pendingCursorRef.current = { text: newVal, pos: before.length + username.length + 2 }; // '@' + username + ' '
+    setCursorTick((n) => n + 1);
   };
+  const pendingCursorRef = useRef<{ text: string; pos: number } | null>(null);
+  const [cursorTick, setCursorTick] = useState(0);
+  useLayoutEffect(() => {
+    const pending = pendingCursorRef.current;
+    const ta = textareaRef.current;
+    if (!pending || !ta) return;
+    // Always consume on the first run after the pick: a parent that normalizes the value would
+    // otherwise leave this pending and steal focus on a later matching value. Mismatch is best-effort.
+    pendingCursorRef.current = null;
+    const pos = value === pending.text ? pending.pos : Math.min(pending.pos, value.length);
+    ta.focus();
+    ta.setSelectionRange(pos, pos);
+  }, [value, cursorTick]);
 
   // Escape closes the open suggestion popup (priority 43, above the card panel's 30) rather than
   // also closing the panel; returns false with no popup so Escape still reaches the panel (#2036).

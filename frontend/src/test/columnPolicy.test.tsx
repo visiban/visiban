@@ -223,7 +223,8 @@ describe('EditColumnModal Policy tab (#1101)', () => {
     mockUpdateColumn.mockResolvedValue(makeColumn())
     const props = renderModal(makeColumn(), 'policy')
     await user.click(screen.getByRole('button', { name: 'Add criterion to Entry criteria' }))
-    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Entry criterion 1' })).toHaveFocus())
+    // Synchronous on purpose: focus moves in a layout effect, not a frame callback (#2632).
+    expect(screen.getByRole('textbox', { name: 'Entry criterion 1' })).toHaveFocus()
     await user.keyboard('First')
     await user.click(screen.getByRole('button', { name: 'Add criterion to Entry criteria' }))
     await user.type(screen.getByRole('textbox', { name: 'Entry criterion 2' }), '  Second  ')
@@ -255,7 +256,7 @@ describe('EditColumnModal Policy tab (#1101)', () => {
     renderModal(makeColumn({ policy: { v: 1, entry: ['Only'], done: [], mode: 'advisory' } }), 'policy')
     await user.click(screen.getByRole('button', { name: 'Remove entry criterion 1' }))
     // Focus falls back to the list's Add button when the list empties.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Add criterion to Entry criteria' })).toHaveFocus())
+    expect(screen.getByRole('button', { name: 'Add criterion to Entry criteria' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(mockUpdateColumn).toHaveBeenCalled())
     expect(mockUpdateColumn.mock.calls[0][2]).toMatchObject({ policy: null })
@@ -276,7 +277,7 @@ describe('EditColumnModal Policy tab (#1101)', () => {
     const user = userEvent.setup()
     renderModal(makeColumn({ policy: { v: 1, entry: ['a', 'b', 'c'], done: [], mode: 'advisory' } }), 'policy')
     await user.click(screen.getByRole('button', { name: 'Remove entry criterion 2' }))
-    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Entry criterion 2' })).toHaveFocus())
+    expect(screen.getByRole('textbox', { name: 'Entry criterion 2' })).toHaveFocus()
     expect(screen.getByRole('textbox', { name: 'Entry criterion 2' })).toHaveValue('c')
   })
 

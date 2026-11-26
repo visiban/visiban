@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { ColumnPolicyMode } from "../../types";
 import { POLICY_CRITERION_MAX_LENGTH, POLICY_MAX_CRITERIA } from "../../utils/columnPolicy";
 
@@ -42,10 +42,18 @@ function CriteriaList({ kind, legend, items, onChange, nextKey, onAnnounce, desc
   const noun = kind === "entry" ? "Entry criterion" : "Done criterion";
   const atCap = items.length >= POLICY_MAX_CRITERIA;
 
-  const focusInput = (key: number) => {
-    // After React commits the new row.
-    requestAnimationFrame(() => inputRefs.current.get(key)?.focus());
-  };
+  // The control to focus once it is in the DOM: a row's input by key, or the Add button. Focus moves in a
+  // layout effect, in the commit that adds or removes the row (focus rule 3, #2608, #2632).
+  const [pendingFocus, setPendingFocus] = useState<number | "add" | null>(null);
+  useLayoutEffect(() => {
+    if (pendingFocus === null) return;
+    const el = pendingFocus === "add" ? addRef.current : inputRefs.current.get(pendingFocus);
+    // The request and the parent's change commit together, so an absent target is gone: drop it rather than
+    // focusing a stale target on a later change.
+    el?.focus();
+    setPendingFocus(null);
+  }, [pendingFocus, items]);
+  const focusInput = (key: number) => setPendingFocus(key);
 
   const add = () => {
     if (atCap) return;
@@ -61,7 +69,7 @@ function CriteriaList({ kind, legend, items, onChange, nextKey, onAnnounce, desc
     // Focus the row that took its place, else the one above, else Add.
     const target = next[index] ?? next[index - 1];
     if (target) focusInput(target.key);
-    else requestAnimationFrame(() => addRef.current?.focus());
+    else setPendingFocus("add");
   };
 
   const move = (index: number, delta: -1 | 1) => {

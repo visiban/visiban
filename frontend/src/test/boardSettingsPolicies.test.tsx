@@ -165,7 +165,7 @@ describe('BoardSettingsPoliciesSection — admin editing', () => {
     await user.type(screen.getByRole('textbox', { name: 'Entry criterion 1' }), 'Ready')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(rowButton('Backlog')).toHaveAttribute('aria-expanded', 'false'))
-    await waitFor(() => expect(rowButton('Backlog')).toHaveFocus())
+    expect(rowButton('Backlog')).toHaveFocus()
     expect(screen.getByText('Policy saved for Backlog.')).toBeInTheDocument()
   })
 
@@ -205,7 +205,7 @@ describe('BoardSettingsPoliciesSection — admin editing', () => {
     await user.type(screen.getByRole('textbox', { name: 'Entry criterion 1' }), '!')
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(rowButton('Review')).toHaveAttribute('aria-expanded', 'false')
-    await waitFor(() => expect(rowButton('Review')).toHaveFocus())
+    expect(rowButton('Review')).toHaveFocus()
     await user.click(rowButton('Review'))
     expect(screen.getByRole('textbox', { name: 'Entry criterion 1' })).toHaveValue('Spec written')
   })

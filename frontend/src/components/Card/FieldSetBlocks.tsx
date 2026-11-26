@@ -209,6 +209,19 @@ export default function FieldSetBlocks(props: Props) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [sets, setSets] = useState(props.sets);
   const [announcement, setAnnouncement] = useState("");
+  const [focusCheck, setFocusCheck] = useState(0);
+  // Where the blur was headed (focusout relatedTarget). Mid-blur, activeElement is still body, so a target that
+  // survived the regroup is about to take focus and must not be stolen; one removed with its block never will.
+  const focusNextRef = useRef<Element | null>(null);
+  useLayoutEffect(() => {
+    if (focusCheck === 0) return;
+    const next = focusNextRef.current;
+    focusNextRef.current = null;
+    if (next?.isConnected) return;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    const other = rootRef.current?.querySelector<HTMLElement>(`[data-testid="field-set-${otherKeyRef.current}"] button[aria-expanded]`);
+    (other ?? headingRef.current)?.focus();
+  }, [focusCheck]);
   useEffect(() => {
     const active = document.activeElement;
     // The Maximize layer is portaled into the sheet, outside rootRef.
@@ -229,18 +242,17 @@ export default function FieldSetBlocks(props: Props) {
         return props.sets;
       });
       if (!container) return;
-      // The focused control may have gone with its block: never leave focus on body.
-      requestAnimationFrame(() => {
-        if (document.activeElement && document.activeElement !== document.body) return;
-        const other = rootRef.current?.querySelector<HTMLElement>(`[data-testid="field-set-${otherKeyRef.current}"] button[aria-expanded]`);
-        (other ?? headingRef.current)?.focus();
-      });
+      // The focused control may have gone with its block: a layout effect checks once the regrouped
+      // blocks are in the DOM, so focus never rests on body (focus rule 3, #2608, #2632).
+      setFocusCheck((n) => n + 1);
     };
     if (container && row) {
       const onOut = (event: Event) => {
         const next = (event as FocusEvent).relatedTarget;
         if (next instanceof Element && next.closest("[data-fact-section]") === row) return;
         container.removeEventListener("focusout", onOut);
+        // Always check: the next control may sit in the block being removed (Tab from Metrics to Champion).
+        focusNextRef.current = next instanceof Element ? next : null;
         apply();
       };
       container.addEventListener("focusout", onOut);
@@ -265,17 +277,20 @@ export default function FieldSetBlocks(props: Props) {
 
   const maximizeButtons = useRef(new Map<string, HTMLButtonElement | null>());
   const [maximized, setMaximized] = useState<string | null>(null);
+  const [restoreMaxFor, setRestoreMaxFor] = useState<{ key: string | null } | null>(null);
   const maxIndex = blocks.findIndex((b) => b.key === maximized);
   const closeMaximize = useCallback(() => {
-    const key = maximized;
+    setRestoreMaxFor({ key: maximized });
     setMaximized(null);
-    // Restore focus to that set's Maximize button, or the section heading if it is gone.
-    requestAnimationFrame(() => {
-      const btn = key ? maximizeButtons.current.get(key) : null;
-      if (btn && btn.isConnected) btn.focus();
-      else headingRef.current?.focus();
-    });
   }, [maximized]);
+  // Restore focus to that set's Maximize button, or the section heading if it is gone. A layout effect runs
+  // in the commit that unmounts the layer (focus rule 3, #2608, #2632).
+  useLayoutEffect(() => {
+    if (!restoreMaxFor) return;
+    const btn = restoreMaxFor.key ? maximizeButtons.current.get(restoreMaxFor.key) : null;
+    if (btn && btn.isConnected) btn.focus();
+    else headingRef.current?.focus();
+  }, [restoreMaxFor]);
   useEffect(() => {
     if (maximized !== null && maxIndex === -1) {
       setMaximized(null);
@@ -283,9 +298,10 @@ export default function FieldSetBlocks(props: Props) {
     }
   }, [maximized, maxIndex]);
 
-  // After "+N", "Fill in" or a deep link, the block's fields exist only after the re-render.
+  // After "+N", "Fill in" or a deep link, the block's fields exist only after the re-render. "+N" and
+  // "Fill in" unmount in that same commit, so a layout effect moves focus before paint (focus rule 3, #2632).
   const focusBlockRef = useRef<string | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const key = focusBlockRef.current;
     if (!key) return;
     const cell = rootRef.current?.querySelector<HTMLElement>(`[data-testid="field-set-${key}"] [data-fact-section]`);
