@@ -149,7 +149,7 @@ kubectl -n visiban get pods -l app.kubernetes.io/instance=visiban   # only Postg
 
 # 2. List the sets on the backup PVC
 kubectl -n visiban run backup-ls --rm -i --restart=Never --image=postgres:17 \
-  --overrides='{"spec":{"securityContext":{"runAsUser":1001,"runAsGroup":1001},"volumes":[{"name":"b","persistentVolumeClaim":{"claimName":"visiban-backup"}}],"containers":[{"name":"ls","image":"postgres:17","command":["ls","/backups"],"volumeMounts":[{"name":"b","mountPath":"/backups"}]}]}}'
+  --overrides='{"spec":{"securityContext":{"runAsNonRoot":true,"runAsUser":1001,"runAsGroup":1001,"fsGroup":1001,"seccompProfile":{"type":"RuntimeDefault"}},"volumes":[{"name":"b","persistentVolumeClaim":{"claimName":"visiban-backup"}}],"containers":[{"name":"ls","image":"postgres:17","command":["ls","/backups"],"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"volumeMounts":[{"name":"b","mountPath":"/backups"}]}]}}'
 ```
 
 Save this as `restore-pod.yaml`, set the set name in `args`, and apply it. Keep the three labels: they are the ones the backup CronJob's pods carry, and with `networkPolicy.enabled` the PostgreSQL ingress rule admits only pods labeled like this; without them `psql` cannot connect and the pod hangs.
@@ -219,6 +219,9 @@ kubectl -n visiban rollout restart statefulset visiban-valkey
 kubectl -n visiban rollout status statefulset visiban-valkey
 # With valkey.primary.persistence.enabled, a restart keeps the data; flush it instead:
 # kubectl -n visiban exec visiban-valkey-0 -c valkey -- valkey-cli FLUSHALL
+# With valkey.enabled=false and externalRedis.url set, there is no visiban-valkey
+# StatefulSet: flush the cache DB Visiban uses on your own instance instead (FLUSHDB on
+# the configured DB, or FLUSHALL if the instance is dedicated) before scaling the backend up.
 
 # 4. Start again, in reverse: the backend's migrate init container runs first
 kubectl -n visiban scale deployment visiban-backend --replicas=1   # your backendReplicaCount, or the HPA's minReplicas
@@ -252,11 +255,14 @@ The steps above assume the set is already on the release's backup PVC. After los
     spec:
       restartPolicy: Never
       automountServiceAccountToken: false
-      securityContext: { runAsNonRoot: true, runAsUser: 1001, runAsGroup: 1001, fsGroup: 1001 }
+      securityContext: { runAsNonRoot: true, runAsUser: 1001, runAsGroup: 1001, fsGroup: 1001, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: copy
           image: postgres:17   # the same image as backup.image
           command: ["sleep", "infinity"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
           volumeMounts: [{ name: backups, mountPath: /backups }]
       volumes:
         - name: backups
