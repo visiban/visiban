@@ -383,6 +383,7 @@ Read the notes for every version between your current release and the target bef
 
     - **After an uninstall the PVC stays, and keeps using storage.** A reinstall under the same release name and namespace adopts it again. To delete it for good: `kubectl -n <namespace> delete pvc <release>-media`.
     - **To keep the old behavior** (uninstall deletes the media), set `backend.mediaPersistence.keepOnUninstall: false` and run `helm upgrade`, which removes the annotation. Do this only if you have another copy of the attachments. See [What `helm uninstall` keeps](backup-and-restore.md#what-helm-uninstall-keeps).
+
 !!! note "Helm: the backend memory limit default rose from 512Mi to 1Gi"
     Since 1.3 the chart's default `backend.resources.limits.memory` is `1Gi` (#2431). A 3-year, 12k-card board peaked at 676-720 MB of process memory on one Analytics drill-down, which a 512 MB limit cannot hold.
 
