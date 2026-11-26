@@ -6670,6 +6670,11 @@ deleted) carry no actor.</p>
 <td>each row carries only <code>planned</code> (the child's own state, from the link row the read already joins), never <code>needed_at_column(_name)</code>; rows exist only with a role on the child board, and an absent or anonymous viewer gets the hidden branch (no rows), failing closed. Tests: <code>test_planned_children_2371.py</code> <code>ChildrenReadPlannedTests</code></td>
 </tr>
 <tr>
+<td>Reads: the parent's <code>children_rollup</code> (#2551)</td>
+<td><code>card_links.rollups_for_viewer</code></td>
+<td><code>planned_due_dates</code> (child data) and <code>needed_not_started</code> (names parent-board columns) are present only for a viewer who can open the child board; a viewer without access, and an absent or anonymous one, gets the count-only <code>{visible: false, total}</code> with neither key, failing closed. Tests: <code>test_planned_children_2549.py</code> <code>PlannedRollupTests.test_hidden_child_board_gets_the_count_only</code> and <code>test_absent_viewer_fails_closed_without_planned_keys</code></td>
+</tr>
+<tr>
 <td>History / activity feed</td>
 <td><code>CardActivitySerializer</code> (<code>GET .../cards/{id}/activity/</code>)</td>
 <td><code>planned_released</code> and <code>needed_changed</code> rows carry only a cause code (<code>parent_reached</code>, <code>pulled</code>, <code>created</code>, <code>manual</code>, <code>column_deleted</code>) and <code>planned</code>/<code>now</code> or the due date; no parent, board, column or person, except the actor of a manual or create write made on the child board itself</td>

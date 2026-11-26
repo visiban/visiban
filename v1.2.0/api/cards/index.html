@@ -7243,7 +7243,7 @@ column is not sent here. Like the other row fields, it is not sent when
 <h3 id="post-apiv1boardsboard_idcardsidchildren"><code>POST /api/v1/boards/{board_id}/cards/{id}/children/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidchildren" title="Permanent link">&para;</a></h3>
 <p><strong>Add child</strong> (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:
-<code>{"board_id": &lt;int&gt;, "title": "&lt;text&gt;", "apply_default_team": &lt;bool, optional&gt;, "expected_assignee_id": &lt;int or null, optional&gt;, "needed_at_column": &lt;int or null, optional&gt;}</code>. The card goes in that board's first
+<code>{"board_id": &lt;int&gt;, "title": "&lt;text&gt;", "apply_default_team": &lt;bool, optional&gt;, "expected_assignee_id": &lt;int or null, optional&gt;, "needed_at_column": &lt;int or null, optional&gt;, "due_date": "&lt;YYYY-MM-DD&gt; or null, optional"}</code>. The card goes in that board's first
 column (which must allow card creation) and first lane, and that cell's WIP
 and weight limits apply as for any create. <code>201</code> returns the new card, as
 <code>POST .../cards/</code> does.</p>
@@ -7393,6 +7393,10 @@ Any role on this card's board.</p>
   reaches that column: it must be a column on this card's board after the
   one this card is in, else <code>400</code> keyed <code>needed_at_column</code> (also for a
   non-integer). See <a href="#planned-children-since-13">Planned children</a>.</li>
+<li><strong>Due date</strong> (#2549, since 1.3): <code>due_date</code> omitted or <code>null</code> stores no
+  date, as before. Otherwise a <code>YYYY-MM-DD</code> date (the same rule as a card
+  edit's <code>due_date</code>), else <code>400</code> keyed <code>due_date</code> and nothing is created. On a
+  planned child the date is stored but inactive until the child is released.</li>
 </ul>
 <h3 id="post-apiv1boardsboard_idcardsidneeded"><code>POST /api/v1/boards/{board_id}/cards/{id}/needed/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidneeded" title="Permanent link">&para;</a></h3>
 <p><em>Since 1.3 (#2371).</em> Change a child card's <strong>Needed</strong>. Body:
@@ -7506,16 +7510,28 @@ line. Refetch on <code>card.parent_changed</code>.</p>
 <p>On a board with <code>cards_can_have_children</code>, each card carries <code>children_rollup</code>
 (#2210), the progress of its children <strong>computed for the caller</strong>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="p">{</span><span class="nt">"visible"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"total"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"done"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"doing"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"todo"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"blocked"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a><span class="w"> </span><span class="nt">"last_moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-19T14:02:00Z"</span><span class="p">}</span>
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a><span class="w"> </span><span class="nt">"last_moved_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-19T14:02:00Z"</span><span class="p">,</span>
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a><span class="w"> </span><span class="nt">"planned"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"planned_due_dates"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span><span class="w"> </span><span class="nt">"needed_not_started"</span><span class="p">:</span><span class="w"> </span><span class="p">[]}</span>
 </code></pre></div>
 <p>The states partition <code>total</code>: a child that is blocked (a manual block or an
 open <code>blocks</code> relation, the same rule as <code>is_blocked</code>) counts as <code>blocked</code>
 whatever its column; otherwise <code>done</code> when its column has <code>is_done</code>, <code>todo</code>
-when it is in the child board's first column, else <code>doing</code>. Archived children
+when it is in the child board's first column, else <code>doing</code> (a planned child is
+its own bucket, below). Archived children
 are not counted. <code>last_moved_at</code> is the latest movement of any counted child,
 or <code>null</code>. A card with no children reads <code>total: 0</code>.</p>
+<p><em>Since 1.3 (#2551).</em> A <a href="#planned-children-since-13">planned child</a> that is not
+blocked or done counts in <code>planned</code>, not <code>todo</code>, and its moves never feed
+<code>last_moved_at</code>, so a parent whose remaining work is all planned does not read
+as "not started" or idle. <code>planned_due_dates</code> lists the planned children's
+stored dates (<code>YYYY-MM-DD</code>, sorted; compare with today yourself, as the board
+does for "1 planned date has passed"). <code>needed_not_started</code> is
+<code>[{"column_name", "count"}]</code>, in column order: children the parent released by
+reaching their Needed column that have not moved since. The column is on the
+parent's own board. Older clients that ignore the three keys read <code>todo</code> without
+planned children.</p>
 <p>When the caller cannot open the child board, the rollup is
-<code>{"visible": false, "total": N}</code> and nothing else: no state, time, title,
+<code>{"visible": false, "total": N}</code> and nothing else (none of the planned keys): no state, time, title,
 board or id (an accepted count-only disclosure, #1104).</p>
 <p><code>children_rollup</code> is <strong>present</strong> on <code>GET .../full/</code>, the per-board card list and
 <code>GET .../cards/{id}/</code>, on cards of a parent-tier board only. It is <strong>absent</strong>

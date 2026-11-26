@@ -10543,6 +10543,7 @@ Children mode. Any role on the board; <code>404</code> without access. A board w
 cards cannot have children answers <code>400</code> with <code>code: "children_not_enabled"</code>.
 Not available on <a href="#public-share-endpoint">share links</a>, which carry none of
 this.</p>
+<p><code>in_progress</code> (on a row, a lane and <code>board_total</code>) is <code>todo + doing + blocked</code>: children planned for a later parent column (#2551) are neither to do nor in progress, so a parent with only planned work has <code>in_progress</code> <code>0</code> and is <code>folded</code>. Lane and <code>board_total</code> values are the sums of the visible rows. No field is added or removed; only the value changes for a row with planned children.</p>
 <p><strong>Query parameters</strong> (all optional)</p>
 <table>
 <thead>
@@ -10670,8 +10671,10 @@ this.</p>
 <li><strong>States.</strong> The same partition as a card's
   <a href="../cards/#parent-and-children-since-13"><code>children_rollup</code></a>: blocked (a
   manual block or an open blocking relation, in any column) overrides the
-  column, then done (a done column), to do (the child board's first column),
-  else doing. "In progress" is everything but done. Archived parents and
+  column, then done (a done column), then planned (Needed set and not
+  released), then to do (the child board's first column), else doing. A
+  planned child is counted in <code>total</code> but not in <code>todo</code>, and its moves do not
+  set <code>last_moved_at</code>; the row rollup does not carry the <code>planned</code> keys. "In progress" is everything but done. Archived parents and
   children are not counted.</li>
 <li><strong>Children you can't open.</strong> A parent whose child board you can't open is a
   locked row: <code>rollup</code> is <code>{"visible": false, "total"}</code>, <code>in_progress</code> and
