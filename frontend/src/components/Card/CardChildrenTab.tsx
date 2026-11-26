@@ -314,6 +314,22 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     e.preventDefault();
     if (target) focusCard(target.id);
   };
+  // A card's Move and Unlink live inside its one roving stop (#2370 roving fix): Tab never stops on them.
+  // Right from the card link walks into its buttons, then on to the next column; Left walks back. Up, Down,
+  // Home and End act from any of them as from the card link.
+  const cardStops = (id: number) => [
+    gridRef.current?.querySelector<HTMLElement>(`[data-child-id="${id}"]`),
+    ...Array.from(gridRef.current?.querySelectorAll<HTMLElement>(`[data-child-action="${id}"]`) ?? []),
+  ].filter((el): el is HTMLElement => !!el);
+  const onCardStopKeyDown = (e: React.KeyboardEvent<HTMLElement>, child: CardChildRow) => {
+    if (isImeComposing(e)) return;
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      const stops = cardStops(child.id);
+      const next = stops[stops.indexOf(e.currentTarget) + (e.key === "ArrowRight" ? 1 : -1)];
+      if (next) { e.preventDefault(); next.focus(); return; }
+    }
+    onCardKeyDown(e, child);
+  };
   const rovingId = children.some((c) => c.id === activeId && shownColumns.some((s) => s.id === c.column_id))
     ? activeId
     : shownColumns.flatMap((c) => byColumn(c.id))[0]?.id ?? null;
@@ -585,7 +601,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
                       data-child-id={child.id}
                       tabIndex={child.id === rovingId ? 0 : -1}
                       onFocus={() => setActiveId(child.id)}
-                      onKeyDown={(e) => onCardKeyDown(e, child)}
+                      onKeyDown={(e) => onCardStopKeyDown(e, child)}
                       aria-label={`${child.title}, ${col.name}${child.assignee ? `, ${child.assignee.display_name || child.assignee.username}` : ""}${child.blocked ? ", blocked" : ""}, ${i + 1} of ${list.length}`}
                       className={`${tgt} ${wide ? "" : "flex items-center"} text-sm text-fg hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}
                     >
@@ -598,7 +614,10 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
                       {canMove && (
                         <button
                           type="button"
-                          tabIndex={child.id === rovingId ? 0 : -1}
+                          tabIndex={-1}
+                          data-child-action={child.id}
+                          onFocus={() => setActiveId(child.id)}
+                          onKeyDown={(e) => onCardStopKeyDown(e, child)}
                           aria-label={`Move ${child.title}`}
                           onClick={() => setMoving(child)}
                           className={`${tgt} ${wide ? "" : "min-w-11"} px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
@@ -609,7 +628,10 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
                       {canLinkHere && data?.visible && (
                         <button
                           type="button"
-                          tabIndex={child.id === rovingId ? 0 : -1}
+                          tabIndex={-1}
+                          data-child-action={child.id}
+                          onFocus={() => setActiveId(child.id)}
+                          onKeyDown={(e) => onCardStopKeyDown(e, child)}
                           aria-label={`Unlink child ${child.title}`}
                           onClick={() => void unlink(child)}
                           className={`${tgt} ${wide ? "" : "min-w-11"} px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}

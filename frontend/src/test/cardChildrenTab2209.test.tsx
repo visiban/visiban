@@ -159,7 +159,8 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     act(() => first.focus())
     await userEvent.keyboard('{ArrowDown}')
     await waitFor(() => expect(screen.getByRole('link', { name: /^Kickoff/ })).toHaveFocus())
-    await userEvent.keyboard('{ArrowRight}')
+    // Right walks through the card's own Move and Unlink first (#2370 roving fix), then to the next column.
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}')
     await waitFor(() => expect(screen.getByRole('link', { name: /^Contract/ })).toHaveFocus())
     await userEvent.keyboard('{ArrowLeft}')
     await waitFor(() => expect(screen.getByRole('link', { name: /^Pen-test/ })).toHaveFocus())
@@ -169,6 +170,31 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     await waitFor(() => expect(screen.getByRole('link', { name: /^Pen-test/ })).toHaveFocus())
     await userEvent.keyboard('{Escape}')
     expect(onExit).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps each card's Move and Unlink inside its one roving stop: arrows reach them, Tab does not (#2370)", async () => {
+    renderTab(state({ data: read(kids) }))
+    const link = screen.getByRole('link', { name: /^Pen-test/ })
+    const move = screen.getByRole('button', { name: 'Move Pen-test scoping call' })
+    const unlink = screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' })
+    for (const b of screen.getAllByRole('button', { name: /^(Move|Unlink child) / })) expect(b).toHaveAttribute('tabindex', '-1')
+    act(() => link.focus())
+    await userEvent.keyboard('{ArrowRight}')
+    expect(move).toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(unlink).toHaveFocus()
+    // The card stays the roving stop while one of its buttons holds focus.
+    expect(link).toHaveAttribute('tabindex', '0')
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}')
+    expect(link).toHaveFocus()
+    // Down from a button acts as from the card link.
+    act(() => move.focus())
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => expect(screen.getByRole('link', { name: /^Kickoff/ })).toHaveFocus())
+    // Tab leaves the card: it never stops on the focused card's Move or Unlink.
+    await userEvent.tab()
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Move Kickoff' }))
+    expect(document.activeElement?.getAttribute('data-child-action')).toBeNull()
   })
 
   it("moves through the child board's move endpoint; an at-limit column is disabled with its reason", async () => {
