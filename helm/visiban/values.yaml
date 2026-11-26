@@ -570,17 +570,6 @@ externalRedis:
 networkPolicy:
   enabled: false
 
-# -- Scheduled maintenance jobs (templates/cronjobs.yaml, #1157). One Kubernetes
-# CronJob per enabled entry, each running a Django management command in the
-# backend image with the backend's env and Secret.
-#
-# OFF by default, so upgrading the chart creates nothing and changes nothing.
-# Turn it on with `scheduledJobs.enabled=true`: that alone schedules the two
-# notification scans, which only act for users who switched the matching
-# preference on. The two prune jobs DELETE data and stay off until enabled
-# individually. If you already run any of these from host cron, remove that
-# cron line when you enable the CronJob — two runs in the same minute can both
-# pass the de-duplication check and notify twice.
 # Opt-in backup CronJob (#1464, templates/backup.yaml). Off by default, so
 # `helm upgrade` on an existing release creates nothing. Each run is
 # scripts/backup.sh in container mode -- the same plain-SQL pg_dump plus media
@@ -631,6 +620,17 @@ backup:
     # data and its backups together.
     keepOnUninstall: true
 
+# -- Scheduled maintenance jobs (templates/cronjobs.yaml, #1157). One Kubernetes
+# CronJob per enabled entry, each running a Django management command in the
+# backend image with the backend's env and Secret.
+#
+# OFF by default, so upgrading the chart creates nothing and changes nothing.
+# Turn it on with `scheduledJobs.enabled=true`: that alone schedules the two
+# notification scans, which only act for users who switched the matching
+# preference on. The two prune jobs DELETE data and stay off until enabled
+# individually. If you already run any of these from host cron, remove that
+# cron line when you enable the CronJob — two runs in the same minute can both
+# pass the de-duplication check and notify twice.
 scheduledJobs:
   enabled: false
   # IANA zone for every schedule below (CronJob .spec.timeZone, Kubernetes
