@@ -16,6 +16,14 @@
 # Run: bash scripts/tests/release.test.sh
 set -euo pipefail
 
+# The fixtures below commit and push. Git exports GIT_DIR and friends inside some
+# hooks and `rebase --exec`, and `cd` or `git -C` do not override them, so drop them
+# or fixture setup would act on the real repository. Only local transports are
+# allowed, so nothing here can push to a real remote.
+# shellcheck disable=SC2046  # word splitting wanted: one variable name per word
+unset $(git rev-parse --local-env-vars)
+export GIT_ALLOW_PROTOCOL=file
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT="$REPO_ROOT/scripts/release.sh"
 [ -f "$SCRIPT" ] || { echo "FAIL: $SCRIPT not found"; exit 1; }
@@ -276,7 +284,13 @@ STUB
     cp "$2" scripts/release.sh
     # Doc-content drift is check-docs-version-accuracy's own job; not under test here.
     printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > scripts/check-docs-version-accuracy.sh
-    # One fragment so [Unreleased] is never empty, whatever the real repo carries (#1640).
+    # Swap the real fragments for one of our own, so [Unreleased] is never empty (#1640)
+    # and a bad fragment elsewhere cannot fail these cases.
+    for f in changelog.d/*.md; do
+      [ -e "$f" ] || continue
+      [ "$(basename "$f")" = "README.md" ] && continue
+      git rm -q "$f"
+    done
     mkdir -p changelog.d
     echo "Release end-to-end fixture entry." > changelog.d/release-test-fixture.fixed.md
     git add scripts changelog.d
