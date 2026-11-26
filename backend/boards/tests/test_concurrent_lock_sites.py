@@ -17,6 +17,7 @@ Site coverage:
 
 * ``services/cards.py`` ``create_card`` column-row lock -> ``CreateCardLockTests``
 * ``views/cards.py`` ``relations`` card-row lock       -> ``CardRelationLockTests``
+* ``views/cards.py`` ``relations`` lock *order* (pk)   -> ``CardRelationLockOrderTests``
 * ``views/columns.py`` ``perform_create`` board lock   -> ``BoardRowLockTests``
 * ``views/swimlanes.py`` ``perform_create`` / ``reorder`` -> ``BoardRowLockTests``
 * ``views/custom_fields.py`` create / update           -> ``BoardRowLockTests``
@@ -39,20 +40,10 @@ checklist-item and attachment POSTs and checklist-item PATCH/DELETE — plus
 ``lock_card_row`` in ``delete_card`` and the URL-card check on the
 ``relations`` card-row lock, by ``test_card_write_vs_delete_lock.py``.
 
-``ConcurrentCardCreationTests`` in ``test_concurrent_moves.py`` only creates
-cards sequentially and passes even with the ``create_card`` lock removed;
-``CreateCardLockTests`` here supersedes it. That class is left unedited because
-#1522 is editing the file; its cleanup is tracked in #1556.
-
 Timing margin: the pause is ``HOLD_SECONDS``. A very slow runner could in theory
 let an unlocked second request finish inside the pause and pass the ordering
 assertion, which is why every test also asserts the final state (positions,
 caps, relation count) as a backstop.
-
-Not covered (tracked in #1556): the ``order_by("pk")`` in the card-relation lock. It only matters
-when two requests acquire the *same pair* of locks in opposite orders, and this
-harness pauses after both locks are held, so it cannot make a missing sort
-deadlock deterministically.
 """
 
 import threading
@@ -61,11 +52,12 @@ from unittest import skipUnless
 from unittest.mock import patch
 
 from django.core.cache import cache
-from django.db import connection, connections
+from django.db import connection, connections, transaction
 from django.test import TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
 from boards.tests.invite_fixtures import generate_invite
+from boards.tests.lock_wait import assert_blocked_on_lock
 from accounts.models import User
 from boards.models import (
     Board,
@@ -255,6 +247,86 @@ class CardRelationLockTests(_LockRaceBase):
         self.assertEqual(done["second"][0].status_code, 400)
         self.assertQueued(done, hold_ended)
         self.assertEqual(CardRelation.objects.count(), 1)
+
+
+class CardRelationLockOrderTests(_LockRaceBase):
+    """The relation view locks its two cards in ascending pk order (#1556).
+
+    Two link requests cannot show this: they run the same lock statement, so
+    they take the rows in the same order whatever that order is. The deadlock
+    needs a counterparty that locks the same pair in pk order, as ``move_card``
+    does. The test plays that role and forces the interleaving: it locks the
+    low-pk card, waits until the request is blocked, then asks for the high-pk
+    card. A pk-ordered request is blocked on the low card and holds neither. A
+    request that took the high card first closes a cycle, and PostgreSQL reports
+    ``deadlock detected`` on one side.
+
+    Positions are inverted against pks because dropping ``order_by("pk")`` falls
+    back to ``Card.Meta.ordering`` (position), which would otherwise agree with
+    pk order and hide the regression.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.low, self.high = (
+            Card.objects.create(
+                board=self.board,
+                column=self.col,
+                swimlane=self.swim,
+                title=title,
+                created_by=self.user,
+                position=position,
+            )
+            for title, position in (("Low pk", 1), ("High pk", 0))
+        )
+        self.assertLess(self.low.pk, self.high.pk)
+
+    def _link_against_pk_ordered_locker(self, from_card, to_card):
+        post = self._request(
+            "post",
+            f"/cards/{from_card.pk}/relations/",
+            {"to_card": to_card.pk, "direction": "blocks"},
+        )
+        responses = []
+        errors = []
+
+        def worker():
+            try:
+                responses.append(post())
+            except BaseException as exc:  # noqa: BLE001 - surfaced after join
+                errors.append(exc)
+            finally:
+                connections.close_all()  # release this thread's PostgreSQL connection
+
+        def lock(card):
+            Card.objects.select_for_update().get(pk=card.pk)
+
+        thread = threading.Thread(target=worker, name="link")
+        with patch(PATCH_BROADCAST):
+            try:
+                with transaction.atomic():
+                    lock(self.low)
+                    thread.start()
+                    assert_blocked_on_lock(
+                        self, thread, "the link request did not wait on the card lock"
+                    )
+                    lock(self.high)  # deadlocks if the request already holds it
+            finally:
+                # Also on failure: the rollback above frees the request, and it
+                # must finish before teardown flushes the tables.
+                if thread.ident is not None:
+                    thread.join(30)
+        self.assertFalse(thread.is_alive(), "the link request hung")
+        self.assertEqual(errors, [])
+        self.assertEqual(responses[0].status_code, 201)
+        self.assertEqual(CardRelation.objects.count(), 1)
+
+    def test_link_from_low_pk_card_locks_in_pk_order(self):
+        self._link_against_pk_ordered_locker(self.low, self.high)
+
+    def test_link_from_high_pk_card_locks_in_pk_order(self):
+        """The card in the URL must not be locked first just for being there."""
+        self._link_against_pk_ordered_locker(self.high, self.low)
 
 
 class BoardRowLockTests(_LockRaceBase):

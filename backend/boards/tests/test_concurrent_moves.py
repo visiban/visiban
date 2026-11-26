@@ -192,14 +192,12 @@ class ConcurrentColumnCreationTests(TransactionTestCase):
         self.assertEqual(len(positions), len(set(positions)), f"Duplicate positions: {positions}")
 
 
-class ConcurrentCardCreationTests(TransactionTestCase):
-    """Card creation in the same cell must not produce duplicate positions.
+class SequentialCardCreationPositionTests(TransactionTestCase):
+    """Position assignment for cards created one after another.
 
-    perform_create() now locks the target column row with select_for_update()
-    before reading the cell's card count, so two simultaneous creates in the
-    same (column, swimlane) cell cannot both read the same Max(position) and
-    assign the same slot (#1050). This mirrors the board-row lock used for
-    column/swimlane creation above.
+    These requests are sequential, so they do not exercise ``create_card``'s
+    column-row lock (#1050) and pass without it. That lock is covered on
+    PostgreSQL by ``CreateCardLockTests`` in ``test_concurrent_lock_sites.py``.
     """
 
     def setUp(self):

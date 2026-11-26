@@ -386,6 +386,14 @@ SQLite has no row locks, so a `select_for_update()` can be deleted without faili
 
 Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` and use `TransactionTestCase`. Every thread that touches the ORM must call `connections.close_all()` in a `finally`. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See `backend/boards/tests/test_concurrent_moves.py` (`ConcurrentMoveLockTests`) and `backend/boards/tests/test_concurrent_lock_sites.py`.
 
+**Lock order** needs a different harness: the pattern above pauses after every lock is held, so it can't see the order they were taken in. Two copies of one request can't show it either, since they lock in the same order whatever it is. Instead, force the opposite order from the test (#1556):
+
+1. In the main thread, inside `transaction.atomic()`, lock the lower-pk row.
+2. Start the request in a thread and call `assert_blocked_on_lock` from `boards.tests.lock_wait`.
+3. Lock the higher-pk row. A pk-ordered request holds neither row, so this succeeds; one that took the higher row first deadlocks.
+
+Set up the rows so the order the query falls back to without `order_by("pk")` (for cards, `Meta.ordering` is `position`) is the reverse of pk order, or removing the call changes nothing. See `CardRelationLockOrderTests` in `test_concurrent_lock_sites.py`.
+
 ### Successful writes assert persisted state, not just a status *(#1404)*
 
 The mirror of pattern 4: a success-path test must show the write landed correctly. Use the helpers in `backend/boards/tests/conftest.py`: `assert_response_matches_row(testcase, data, instance, fields)` compares response fields to the row re-read from the database, `last_board_event_id()` and `board_event_names(board, since_id)` check the change-feed rows the request produced. Also assert scope (board, column, swimlane), authorship, and the `CardMovement` or `CardActivity` row the endpoint owes. `backend/boards/tests/test_write_persistence_1404.py` is the reference for card, comment, checklist, attachment, column, swimlane, and label writes. Members edit only cards they created, so build the fixture card with `created_by=<the acting member>`.
