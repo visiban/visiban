@@ -5,7 +5,6 @@ unchanged environment configuration.
 """
 from unittest import mock
 
-from django.core.mail import EmailMessage
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
