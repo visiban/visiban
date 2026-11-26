@@ -278,17 +278,8 @@ def _old_heatmap_extra(board, buffer_cutoff):
     ).values("card_id"))
 
 
-class RecentDwellBoardScopedMovementTests(FlowFixture):
-    """#2579: the dwell movement term (and the heatmap's) also reads the movement's own board.
-
-    On the aged nightly board the #2567 term still drove from the instance-wide
-    ``card_movements_moved_at`` range scan. ``movements_on_board`` gives the
-    planner the index-only ``movement_board_moved_card_idx`` path; it is
-    redundant with ``card__board``, so the answers must not move. Pinned on a
-    board with archived history (generations of finished work, one archived
-    card that moved in the range, and a legacy row whose ``board`` is NULL)
-    against the unnarrowed whole-board load.
-    """
+class _BoardScopedFixture(FlowFixture):
+    """Archived history, a legacy NULL-board row and done work (#2579, #2630)."""
 
     def setUp(self):
         super().setUp()
@@ -318,6 +309,18 @@ class RecentDwellBoardScopedMovementTests(FlowFixture):
             fm.current_wait_by_swimlane(flow), fm.completed_wait_by_swimlane(flow, r),
             fm.blocked_time(flow, r), flow.gate_last,
         )
+
+class RecentDwellBoardScopedMovementTests(_BoardScopedFixture):
+    """#2579: the dwell movement term (and the heatmap's) also reads the movement's own board.
+
+    On the aged nightly board the #2567 term still drove from the instance-wide
+    ``card_movements_moved_at`` range scan. ``movements_on_board`` gives the
+    planner the index-only ``movement_board_moved_card_idx`` path; it is
+    redundant with ``card__board``, so the answers must not move. Pinned on a
+    board with archived history (generations of finished work, one archived
+    card that moved in the range, and a legacy row whose ``board`` is NULL)
+    against the unnarrowed whole-board load.
+    """
 
     def test_dwell_answers_match_the_whole_board_load(self):
         with CaptureQueriesContext(connection) as ctx:
@@ -361,3 +364,68 @@ class RecentDwellBoardScopedMovementTests(FlowFixture):
                 self.assertEqual({c.id for c in new.cards}, {c.id for c in old.cards})
                 self.assertEqual(self.answers(new), self.answers(old))
         self.assertIn(self.done_recent.pk, {c.id for c in old.cards})
+
+
+def _old_range_rule(board, boundary):
+    """``can_affect_range`` before #2630 (``card__board`` only), kept here as the reference."""
+    moved = CardMovement.objects.filter(
+        card__board=board, card__archived_at__lt=boundary, card__created_at__lt=boundary,
+        moved_at__gte=boundary,
+    ).values("card_id")
+    return Q(archived_at__isnull=True) | Q(archived_at__gte=boundary) | Q(created_at__gte=boundary) | Q(pk__in=moved)
+
+
+class RangeLoadBoardScopedMovementTests(_BoardScopedFixture):
+    """#2630: ``can_affect_range`` reads movements through ``movements_on_board`` as well.
+
+    Bounded only by ``card__board``, its movement term was served on the aged
+    nightly board by an index read with only ``moved_at`` in the condition:
+    every board's movements in the range (14,714 rows at 30 days, 50,248 at
+    90). The movement's own ``board`` column makes it an index-only read of
+    this board's slice. It is redundant with ``card__board``, so the kept set
+    and every answer must stay what the old rule gave, including a legacy
+    NULL-board row that only the second ``UNION`` arm keeps. Same fixture as
+    the dwell suite: archived generations, a NULL-board row, done work.
+    """
+
+    def test_range_load_keeps_the_old_rules_cards_and_answers(self):
+        boundary = fm.range_boundary(self.flow_range, self.now)
+        reference = set(
+            Card.objects.filter(board=self.board).filter(_old_range_rule(self.board, boundary))
+            .values_list("pk", flat=True)
+        )
+        with CaptureQueriesContext(connection) as ctx:
+            flow = fm.load_range_flow(self.board, self.flow_range, now=self.now, columns=self.columns())
+        kept = {card.id for card in flow.cards}
+        self.assertEqual(kept, reference)
+        self.assertIn(self.legacy.pk, kept)
+        self.assertIn(self.late_row.pk, kept)
+        self.assertFalse(kept & {c.pk for c in self.generations})
+        whole = fm.load_board_flow(self.board, now=self.now, columns=self.columns())
+        r = self.flow_range
+        for name, metric in (
+            ("cycle_time", lambda f: fm.cycle_time(f, r)),
+            ("age", lambda f: fm.age(f, r)),
+            ("throughput", lambda f: fm.throughput(f, r, period="day")),
+        ):
+            with self.subTest(name):
+                self.assertEqual(metric(flow), metric(whole))
+        cards_statement = next(
+            q["sql"] for q in ctx.captured_queries if q["sql"].lstrip().startswith('SELECT "cards"."id"')
+        )
+        subquery = cards_statement[cards_statement.index('"card_movements"'):]
+        self.assertRegex(subquery, r'\bUNION\b')
+        self.assertRegex(subquery, rf'U\d+\."board_id" = {self.board.pk}\b')
+        self.assertRegex(subquery, r'U\d+\."board_id" IS NULL')
+
+    def test_cumulative_flow_settled_cards_are_unchanged(self):
+        """``load_cumulative_flow`` excludes the same predicate; the settled bands must not move."""
+        flow = fm.load_cumulative_flow(self.board, self.flow_range, now=self.now, columns=self.columns())
+        whole = fm.load_board_flow(self.board, now=self.now, columns=self.columns())
+        self.assertEqual(fm.cumulative_flow(flow, self.flow_range), fm.cumulative_flow(whole, self.flow_range))
+        boundary = fm.range_boundary(self.flow_range, self.now)
+        settled = set(
+            Card.objects.filter(board=self.board).exclude(_old_range_rule(self.board, boundary))
+            .values_list("pk", flat=True)
+        )
+        self.assertEqual(sum(flow.settled_placements.values()), len(settled))

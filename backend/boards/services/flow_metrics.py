@@ -1386,11 +1386,21 @@ def can_affect_range(board, boundary):
     and created, before ``boundary``), so the subquery reads only those
     cards of this board and their recent movements: the same cards kept,
     by the same rule.
+
+    WHY ``movements_on_board`` (#2630). Bounded only by ``card__board``, the
+    subquery had no board-scoped movement index to drive from, so on the aged
+    nightly board it read every board's movements since ``boundary`` (an
+    index read with only ``moved_at`` in its condition: 14,714 rows at 30
+    days, 50,248 at 90) and hash-joined them to the board's archived cards.
+    Naming the movement's own ``board`` column makes it an index-only range
+    read of this board's slice of ``movement_board_moved_card_idx`` (7,449
+    rows, 41 buffers at 30 days). The term is redundant with ``card__board``
+    (see ``movements_on_board``), so the kept set is unchanged
+    (``RangeLoadBoardScopedMovementTests``).
     """
-    moved = CardMovement.objects.filter(
-        card__board=board, card__archived_at__lt=boundary, card__created_at__lt=boundary,
-        moved_at__gte=boundary,
-    ).values("card_id")
+    moved = movements_on_board(
+        board, card__archived_at__lt=boundary, card__created_at__lt=boundary, moved_at__gte=boundary,
+    )
     return (
         Q(archived_at__isnull=True)
         | Q(archived_at__gte=boundary)
