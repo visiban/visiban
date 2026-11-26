@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { act, render, screen } from "@testing-library/react";
 import CardChildrenRollup, { CardChildrenRollupSkeleton } from "../components/Card/CardChildrenRollup";
-import { movementLine, relativeAge, rollupSentence } from "../components/Card/childrenRollup";
+import { movementLine, relativeAge, rollupSentence, shortAge } from "../components/Card/childrenRollup";
 import { carryParent } from "../hooks/useBoard";
 import type { Card, CardChildrenRollupVisible } from "../types";
 
@@ -13,6 +13,14 @@ const r = (over: Partial<CardChildrenRollupVisible> = {}): CardChildrenRollupVis
 });
 
 describe("children rollup helpers (#2210)", () => {
+  it("shortAge is the visible short form; the spoken text keeps relativeAge", () => {
+    expect(shortAge(new Date(NOW - 60_000).toISOString(), NOW)).toBe("just now");
+    expect(shortAge(new Date(NOW - 3 * 3_600_000).toISOString(), NOW)).toBe("3h ago");
+    expect(shortAge(ago(2), NOW)).toBe("2d ago");
+    expect(movementLine(r({ last_moved_at: ago(2) }), 14, NOW)).toMatchObject({ text: "Work moved 2d ago", spoken: "work moved 2 days ago" });
+    expect(movementLine(r({ last_moved_at: ago(9) }), 7, NOW)).toMatchObject({ text: "Work idle 9d", spoken: "work idle 9 days" });
+  });
+
   it("relativeAge uses the canvas wording", () => {
     expect(relativeAge(new Date(NOW - 60_000).toISOString(), NOW)).toBe("just now");
     expect(relativeAge(new Date(NOW - 3_600_000).toISOString(), NOW)).toBe("1 hour ago");
@@ -22,9 +30,9 @@ describe("children rollup helpers (#2210)", () => {
   });
 
   it("picks the movement case", () => {
-    expect(movementLine(r(), 14, NOW)).toMatchObject({ text: "Work moved 1 day ago", tone: "neutral", idle: false });
-    expect(movementLine(r({ last_moved_at: ago(9) }), 7, NOW)).toMatchObject({ text: "Work idle 9 days", tone: "warning", idle: true });
-    expect(movementLine(r({ done: 5, doing: 0, todo: 0, blocked: 0 }), 7, NOW)).toMatchObject({ text: "Last work done 1 day ago", tone: "success" });
+    expect(movementLine(r(), 14, NOW)).toMatchObject({ text: "Work moved 1d ago", tone: "neutral", idle: false });
+    expect(movementLine(r({ last_moved_at: ago(9) }), 7, NOW)).toMatchObject({ text: "Work idle 9d", tone: "warning", idle: true });
+    expect(movementLine(r({ done: 5, doing: 0, todo: 0, blocked: 0 }), 7, NOW)).toMatchObject({ text: "Last work done 1d ago", tone: "success" });
     expect(movementLine(r({ done: 5, doing: 0, todo: 0, blocked: 0, last_moved_at: null }), 7, NOW).text).toBe("All done");
     expect(movementLine(r({ done: 0, doing: 0, todo: 5, blocked: 0 }), 7, NOW).text).toBe("No work started");
     expect(movementLine(r({ last_moved_at: null }), 7, NOW).text).toBe("No work started");
@@ -59,7 +67,7 @@ describe("CardChildrenRollup (#2210)", () => {
       .toEqual(["todo", "blocked", "doing", "done", "done"]);
     expect(screen.getByTestId("rollup-blocked")).toHaveTextContent("1 blocked");
     expect(screen.getByTestId("rollup-blocked")).toHaveClass("text-danger-on-tint");
-    expect(screen.getByTestId("rollup-movement")).toHaveTextContent("Work moved 1 day ago");
+    expect(screen.getByTestId("rollup-movement")).toHaveTextContent("Work moved 1d ago");
     // A neutral line never uses the clock glyph.
     expect(screen.queryByTestId("rollup-clock-glyph")).toBeNull();
   });
@@ -86,7 +94,7 @@ describe("CardChildrenRollup (#2210)", () => {
     expect(screen.queryByTestId("rollup-movement")).toBeNull();
     expect(screen.getByTestId("rollup-blocked")).toHaveTextContent(/^1$/);
     rerender(<CardChildrenRollup rollup={r({ blocked: 0, todo: 2, last_moved_at: ago(9) })} density="standard" stalenessDays={7} now={NOW} />);
-    expect(screen.getByText("Work idle 9 days")).toBeInTheDocument();
+    expect(screen.getByText("Work idle 9d")).toBeInTheDocument();
   });
 
   it("dense draws glyph and N/M with no bar; the sentence stays whole", () => {
@@ -158,7 +166,7 @@ describe("CardChildrenRollup (#2210)", () => {
       const { unmount } = render(<CardChildrenRollup rollup={rollup} density="comfortable" stalenessDays={14} />);
       expect(screen.getByTestId("rollup-movement")).toHaveTextContent("Work moved just now");
       act(() => { vi.advanceTimersByTime(20 * 60_000); });
-      expect(screen.getByTestId("rollup-movement")).toHaveTextContent("Work moved 1 hour ago");
+      expect(screen.getByTestId("rollup-movement")).toHaveTextContent("Work moved 1h ago");
       expect(vi.getTimerCount()).toBeGreaterThan(0);
       unmount();
       expect(vi.getTimerCount()).toBe(0);

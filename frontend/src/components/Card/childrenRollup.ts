@@ -16,6 +16,15 @@ export function relativeAge(iso: string, now: number): string {
   return `${days} ${days === 1 ? "day" : "days"} ago`;
 }
 
+/** The visible short form (canvas v24 ruling): "just now", "3h ago", "2d ago". The spoken text keeps `relativeAge`. */
+export function shortAge(iso: string, now: number): string {
+  const ms = Math.max(0, now - new Date(iso).getTime());
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours < 1) return "just now";
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(ms / DAY_MS)}d ago`;
+}
+
 export type Tone = "neutral" | "warning" | "success";
 
 export interface Movement {
@@ -32,7 +41,7 @@ export function movementLine(r: CardChildrenRollupVisible, stalenessDays: number
   if (allDone) {
     const age = r.last_moved_at ? relativeAge(r.last_moved_at, now) : "";
     return {
-      text: age ? `Last work done ${age}` : "All done",
+      text: age ? `Last work done ${shortAge(r.last_moved_at!, now)}` : "All done",
       spoken: age ? `last done ${age}` : "all done",
       tone: "success", idle: false,
     };
@@ -41,11 +50,10 @@ export function movementLine(r: CardChildrenRollupVisible, stalenessDays: number
   if (r.last_moved_at) {
     const days = Math.floor((now - new Date(r.last_moved_at).getTime()) / DAY_MS);
     if (stalenessDays > 0 && days >= stalenessDays) {
-      const text = `work idle ${days} ${days === 1 ? "day" : "days"}`;
-      return { text: `W${text.slice(1)}`, spoken: text, tone: "warning", idle: true };
+      return { text: `Work idle ${days}d`, spoken: `work idle ${days} ${days === 1 ? "day" : "days"}`, tone: "warning", idle: true };
     }
     const age = relativeAge(r.last_moved_at, now);
-    return { text: `Work moved ${age}`, spoken: `work moved ${age}`, tone: "neutral", idle: false };
+    return { text: `Work moved ${shortAge(r.last_moved_at, now)}`, spoken: `work moved ${age}`, tone: "neutral", idle: false };
   }
   return { text: "No work started", spoken: "none started", tone: "neutral", idle: false };
 }
