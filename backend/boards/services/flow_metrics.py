@@ -265,7 +265,7 @@ class FlowRange:
     end: datetime.datetime
     first_day: datetime.date
     last_day: datetime.date
-    zone: datetime.tzinfo = datetime.timezone.utc
+    zone: datetime.tzinfo
 
     def contains(self, moment):
         return self.start <= moment < self.end
@@ -2388,7 +2388,7 @@ def cumulative_flow(flow, flow_range):
     }
 
 
-def cumulative_flow_cards(flow, day, zone=_UTC):
+def cumulative_flow_cards(flow, day, *, zone):
     """The cards behind one cumulative-flow day: the same placement rule, read at its end.
 
     ``day`` is a date in ``zone``, the board's (``zone_of``, #2051).

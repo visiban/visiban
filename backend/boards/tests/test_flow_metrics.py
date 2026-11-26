@@ -730,7 +730,7 @@ class CumulativeFlowTests(FlowFixture):
         flow = self.flow()
         payload = fm.cumulative_flow(flow, self.last(12))
         for day in payload["days"]:
-            cards = fm.cumulative_flow_cards(flow, datetime.date.fromisoformat(day["date"]))
+            cards = fm.cumulative_flow_cards(flow, datetime.date.fromisoformat(day["date"]), zone=UTC)
             for column in cards["columns"]:
                 key = column["column_uid"] or fm.NULL_BAND_KEY
                 self.assertEqual(len(column["card_uids"]), day["counts"][key], (day["date"], key))
@@ -745,7 +745,7 @@ class CumulativeFlowTests(FlowFixture):
         flow = self.flow()
         payload = fm.cumulative_flow(flow, self.last(12))
         for day in payload["days"]:
-            cards = fm.cumulative_flow_cards(flow, datetime.date.fromisoformat(day["date"]))
+            cards = fm.cumulative_flow_cards(flow, datetime.date.fromisoformat(day["date"]), zone=UTC)
             for column in cards["columns"]:
                 key = column["column_uid"] or fm.NULL_BAND_KEY
                 self.assertEqual(len(column["card_uids"]), day["counts"][key], (day["date"], key))

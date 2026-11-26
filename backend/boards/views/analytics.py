@@ -1989,7 +1989,7 @@ class BoardAnalyticsMixin:
             flow = flow_metrics.load_cumulative_day(
                 board, day, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
             )
-            payload = flow_metrics.cumulative_flow_cards(flow, day, zone)
+            payload = flow_metrics.cumulative_flow_cards(flow, day, zone=zone)
             payload["cards"] = flow_metrics.card_directory(
                 flow, (uid for column in payload["columns"] for uid in column["card_uids"]),
             )
