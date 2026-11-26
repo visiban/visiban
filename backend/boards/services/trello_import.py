@@ -1177,7 +1177,7 @@ def execute_plan(plan: ImportPlan, user, *, group=None, board_name: str | None =
             for uid in plan.member_user_ids
             if uid != user.pk
             and not (group is not None and group_derived_board_role(
-                User.objects.get(pk=uid), board) == BoardMembership.Role.ADMIN)
+                User(pk=uid), board) == BoardMembership.Role.ADMIN)
         ]
         BoardMembership.objects.bulk_create(memberships)
         _notify_added_members(board, user, [m.user_id for m in memberships[1:]])

@@ -5,6 +5,8 @@ Mirrors the board owner guard (#1828): a request that would store a role below
 board is refused with a 400 carrying ``code: group_admin_role_floor``. Nothing
 is written and no event is recorded.
 """
+from unittest import mock
+
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -12,6 +14,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from boards.models import Board, BoardEvent, BoardMembership
 from boards.permissions import get_board_role, group_derived_board_role
+from boards.views import boards as board_views
 from boards.views.boards import GROUP_ADMIN_FLOOR_CODE
 from groups.models import Group, GroupMembership
 
@@ -86,6 +89,48 @@ class BoardMemberRoleFloorTests(TestCase):
         r = self.client.delete(f"{self.url}{self.group_admin.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(self._role(self.group_admin), "admin")
+
+    def test_lower_row_kept_after_group_promotion_and_removable_by_another_group_admin(self):
+        # The lower row is stored while the user is an ordinary group member,
+        # then the group role is raised. Nothing deletes the row on its own,
+        # and a different group admin can remove it.
+        row = BoardMembership.objects.create(
+            board=self.board, user=self.group_member, role=BoardMembership.Role.VIEWER
+        )
+        GroupMembership.objects.filter(group=self.group, user=self.group_member).update(
+            role=GroupMembership.Role.ADMIN
+        )
+        self.assertTrue(BoardMembership.objects.filter(pk=row.pk).exists())
+        other = APIClient()
+        other.force_authenticate(self.group_admin)
+        r = other.delete(f"{self.url}{self.group_member.id}/")
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(BoardMembership.objects.filter(pk=row.pk).exists())
+        self.assertEqual(self._role(self.group_member), "admin")
+
+    def test_row_removed_while_waiting_is_refused_and_rolled_back(self):
+        # The membership row disappears between the request starting and the
+        # board lock being taken: the check still applies and nothing is kept.
+        orig = BoardMembership.objects.create(
+            board=self.board, user=self.group_admin, role=BoardMembership.Role.VIEWER
+        )
+        real = board_views.lock_board_row_or_404
+
+        def lock_after_delete(*args, **kwargs):
+            BoardMembership.objects.filter(board=self.board, user=self.group_admin).delete()
+            return real(*args, **kwargs)
+
+        before = self._events()
+        with mock.patch.object(board_views, "lock_board_row_or_404", side_effect=lock_after_delete):
+            r = self._post(self.group_admin, role="viewer")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertEqual(r.json()["code"], GROUP_ADMIN_FLOOR_CODE)
+        # The savepoint also undoes the simulated delete, so only the original row remains.
+        self.assertEqual(
+            list(BoardMembership.objects.filter(board=self.board, user=self.group_admin).values_list("pk", flat=True)),
+            [orig.pk],
+        )
+        self.assertEqual(self._events(), before)
 
     def test_group_member_can_still_get_an_explicit_lower_role(self):
         r = self._post(self.group_member, role="viewer")
