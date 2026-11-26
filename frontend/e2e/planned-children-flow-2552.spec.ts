@@ -5,7 +5,11 @@ import { BOARD_FULL, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
 // Planned children (#2549, #2551 rollup half, #2552), at 390px and a wide window, light and dark:
 // - the parent's child footer draws planned children as dashed segments and shows the row-2 warning in warning
 //   text with no glyph, at >= 4.5:1, without horizontal overflow;
-// - a planned child's card detail explains the inactive date and offers Needed (Now only when the parent is hidden).
+// - a planned child's card detail explains the inactive date and offers Needed (Now only when the parent is hidden);
+// - the child card face's planned status line and the Add child Needed sheet read correctly on a phone.
+// The API is fully mocked. The "parent moves" step of the flow test only edits the mock and reloads, so it checks
+// that the page renders the released state from a fresh read; it does NOT drive a real parent move or release
+// (the server-side release is covered by the backend tests).
 const PARENT_CARD = {
   ...CARD, title: 'Hooli: pilot rollout',
   children_rollup: {
@@ -151,10 +155,15 @@ for (const scheme of ['light', 'dark'] as const) {
     const due = dialog.getByLabel('Due date (optional)')
     await expect(needed).toBeVisible({ timeout: 10_000 })
     for (const el of [needed, due]) expect((await el.boundingBox())!.height).toBeGreaterThanOrEqual(44)
-    // Settle the scroll first: the dropdown closes on any outside scroll, including a click's scroll-into-view.
+    // Settle the scroll first (the anchored menu closes on outside scroll; the sheet no longer does, this is harmless).
     await needed.scrollIntoViewIfNeeded()
     await needed.click()
     await expect(page.locator('[data-sheet="true"]')).toBeVisible()
+    // The sheet is a named dialog with a 44px Close, not only a styled panel.
+    const sheet = page.getByRole('dialog', { name: 'Needed' })
+    await expect(sheet).toBeVisible()
+    await expect(sheet.getByRole('listbox', { name: 'Needed' })).toBeVisible()
+    expect((await sheet.getByRole('button', { name: 'Close' }).boundingBox())!.height).toBeGreaterThanOrEqual(44)
     for (const name of ['Now', 'When the parent reaches Qualify', 'When the parent reaches Proposal', 'When the parent reaches Done']) {
       const opt = page.getByRole('option', { name })
       await expect(opt).toBeVisible()
@@ -172,6 +181,24 @@ for (const scheme of ['light', 'dark'] as const) {
     const ratio = await help.evaluate(contrast)
     expect(ratio, `helper contrast ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
     expect(await dialog.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+  })
+}
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`child card face: planned status line at 390px, ${scheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.emulateMedia({ colorScheme: scheme })
+    await setupAdd(page, { parentColumn: 1, children: [childRow(21, 'Pilot kickoff', true, '2030-12-04')], posted: [], moves: [] })
+    await page.goto(`/boards/${BOARD.id}?card=${CARD.id}&tab=children`)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', scheme)
+    const face = page.getByTestId('child-card-face').first()
+    await expect(face).toBeVisible({ timeout: 10_000 })
+    await expect(face).toContainText(/planned|counts once needed/i)
+    const line = face.locator('span').last()
+    const ratio = await line.evaluate(contrast)
+    expect(ratio, `planned line contrast ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
+    expect(await face.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
   })
 }

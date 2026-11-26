@@ -31,10 +31,13 @@ vi.mock('../api/cards', () => ({
   addCardRelation: vi.fn(),
   deleteCardRelation: vi.fn(),
   searchCards: vi.fn().mockResolvedValue([]),
+  setNeeded: vi.fn(),
+  getCard: vi.fn(),
 }))
 
 vi.mock('../api/boards', () => ({
   createLabel: vi.fn(),
+  getColumns: vi.fn().mockResolvedValue([{ id: 10, name: 'Lead', position: 0 }, { id: 33, name: 'Proposal', position: 1 }, { id: 34, name: 'Won', position: 2 }]),
 }))
 
 vi.mock('../components/Card/ActivityTabPanel', () => ({
@@ -77,7 +80,8 @@ vi.mock('../components/Card/RichTextEditor', () => ({
   ),
 }))
 
-import { blockCard, unblockCard } from '../api/cards'
+import { blockCard, unblockCard, getCard, setNeeded } from '../api/cards'
+import userEvent from '@testing-library/user-event'
 import { flagsWrapper } from './instanceFlagsWrapper'
 import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
 // #967: the card tab is session memory at module level; start every test on Details.
@@ -303,5 +307,17 @@ describe('CardDetail planned child (#2549)', () => {
     unmount()
     render(<CardDetail {...props()} />)
     expect(screen.queryByTestId('due-planned-help')).toBeNull()
+  })
+
+  it('names the new Needed column in the helper after Needed is changed (the write returns only three fields)', async () => {
+    const user = userEvent.setup()
+    const parent = { hidden: false, id: 5, title: 'Hooli', board_id: 2, board_name: 'Pipeline', column_id: 10, column_name: 'Lead', swimlane_id: 1, swimlane_name: 'L', archived: false, board_parent_name_singular: '' }
+    vi.mocked(setNeeded).mockResolvedValue({ needed_at_column: 34, planned: true, planned_released_at: null })
+    vi.mocked(getCard).mockResolvedValue(makeCard({ planned: true, needed_at_column: 34, needed_at_column_name: 'Won', parent } as never))
+    render(<CardDetail {...props({ card: makeCard({ due_date: '2026-12-04', planned: true, needed_at_column: 33, needed_at_column_name: 'Proposal', parent } as never) })} />)
+    expect(within(screen.getByTestId('due-planned-help')).getByText('Counts once the work is pulled or the parent reaches Proposal.')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('Needed'))
+    await user.click(await screen.findByRole('option', { name: 'When the parent reaches Won' }))
+    expect(await within(screen.getByTestId('due-planned-help')).findByText('Counts once the work is pulled or the parent reaches Won.')).toBeInTheDocument()
   })
 })

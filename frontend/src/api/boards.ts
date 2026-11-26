@@ -123,20 +123,22 @@ export const getBoard = (id: number) =>
   client.get<Board>(`/api/v1/boards/${id}/`).then((r) => r.data);
 
 /**
- * A board's columns (#2549: the parent board's Needed options). The list endpoint pages at 50, so this follows
- * `?page=N` until `next` is null: a board with more columns must still offer every later column. A bare-list
- * response (no pagination) is returned as is.
+ * A board's columns (#2549: the parent board's Needed options). The list endpoint is limit/offset paged
+ * (`{count, offset, page_size, results}`, 50 by default, no `next`), so this asks for the maximum page and
+ * advances `offset` until `count` is reached: a board with more columns must still offer every later column.
+ * A bare-list response (no pagination) is returned as is.
  */
 export const getColumns = async (boardId: number): Promise<Column[]> => {
   const all: Column[] = [];
-  for (let page = 1; ; page += 1) {
-    const { data } = await client.get<Column[] | { results: Column[]; next?: string | null }>(
+  for (let offset = 0; ; ) {
+    const { data } = await client.get<Column[] | { count: number; results: Column[] }>(
       `/api/v1/boards/${boardId}/columns/`,
-      page === 1 ? undefined : { params: { page } },
+      { params: { offset, page_size: 200 } },
     );
     if (Array.isArray(data)) return data;
     all.push(...data.results);
-    if (!data.next || data.results.length === 0) return all;
+    offset += data.results.length;
+    if (data.results.length === 0 || offset >= data.count) return all;
   }
 };
 

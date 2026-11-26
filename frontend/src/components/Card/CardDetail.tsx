@@ -22,7 +22,7 @@ import type { LimitRefusal } from "../Board/moveBlockedMessages";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
-import { deleteCard, archiveCard, getCardTimeline, getCardComments, addCardComment, deleteComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
+import { getCard, deleteCard, archiveCard, getCardTimeline, getCardComments, addCardComment, deleteComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
 import type { CardPatch, TimelineCounts, TimelinePage } from "../../api/cards";
 import { moveChoices, parseMoveChoice } from "../../utils/cardActions";
 import { cardSubColumnIndex, isGatedStage } from "../../utils/stages";
@@ -2136,7 +2136,23 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                   boardId={board.id}
                   firstColumnId={firstColumnId(board.columns)}
                   canEdit={canEdit}
-                  onChanged={(fields) => setLocalCard((c) => ({ ...c, ...fields }))}
+                  onChanged={(fields) => {
+                    setLocalCard((c) => ({ ...c, ...fields }));
+                    // The write returns three fields; the helper's column name and the needed-now flags come from
+                    // the card read, so merge only those planned fields from a fresh read (a failed read keeps the three).
+                    Promise.resolve()
+                      .then(() => getCard(board.id, localCard.id))
+                      .then((fresh) => setLocalCard((c) => ({
+                        ...c,
+                        needed_at_column: fresh.needed_at_column,
+                        needed_at_column_name: fresh.needed_at_column_name,
+                        needed_now: fresh.needed_now,
+                        needed_now_reason: fresh.needed_now_reason,
+                        planned: fresh.planned,
+                        planned_released_at: fresh.planned_released_at,
+                      })))
+                      .catch(() => {});
+                  }}
                 />
               </div>
 

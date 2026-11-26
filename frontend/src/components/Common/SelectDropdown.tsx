@@ -46,6 +46,8 @@ interface Props<T extends string> {
    * instead of an anchored menu (#2552, the planned-children Needed field). Same listbox, keys and focus.
    */
   phoneSheet?: boolean;
+  /** The phone sheet's accessible name (the field's label, e.g. "Needed"); falls back to `ariaLabel`. Does not rename the trigger. */
+  sheetLabel?: string;
 }
 
 const MIN_MENU_WIDTH = 96;
@@ -66,6 +68,7 @@ export default function SelectDropdown<T extends string>({
   ariaLabel,
   ariaDescribedBy,
   phoneSheet = false,
+  sheetLabel,
 }: Props<T>) {
   const sheet = useIsPhoneViewport() && phoneSheet;
   const [open, setOpen] = useState(false);
@@ -289,7 +292,7 @@ export default function SelectDropdown<T extends string>({
           data-sheet={sheet ? "true" : undefined}
           // A named dialog in sheet mode ("Needed"), so a screen reader hears what the sheet is for.
           role={sheet ? "dialog" : undefined}
-          aria-label={sheet && ariaLabel ? ariaLabel : undefined}
+          aria-label={sheet ? (sheetLabel ?? ariaLabel) : undefined}
           style={sheet ? {
             position: "fixed", left: 0, right: 0, bottom: 0,
             maxHeight: "70dvh", display: "flex", flexDirection: "column",
@@ -314,7 +317,7 @@ export default function SelectDropdown<T extends string>({
             ref={listRef}
             onScroll={onScroll}
             role="listbox"
-            aria-label={sheet && ariaLabel ? ariaLabel : undefined}
+            aria-label={sheet ? (sheetLabel ?? ariaLabel) : undefined}
             className="min-h-0 overflow-y-auto scroll-pb-8"
           >
             {options.map((opt, i) => (

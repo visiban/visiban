@@ -292,6 +292,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
                 id={neededId}
                 // #2552: on a phone the Needed choices open as the bottom sheet (canvas § 9).
                 phoneSheet
+                sheetLabel="Needed"
                 // The lead-time hint appears with a planned choice; describedby carries it to assistive tech.
                 ariaDescribedBy={needed !== "now" ? `${neededHelpId} ${neededHintId}` : neededHelpId}
                 value={needed}

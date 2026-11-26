@@ -48,6 +48,17 @@ describe('Add child: Due date (#2549)', () => {
     expect(vi.mocked(addChild).mock.calls[0][2]).toMatchObject({ due_date: '2026-12-04' })
   })
 
+  it('opens its Needed sheet as a dialog named "Needed" on a phone', async () => {
+    const user = userEvent.setup()
+    const original = window.matchMedia
+    phone(true)
+    try {
+      setup()
+      await user.click(await screen.findByLabelText('Needed'))
+      expect(await screen.findByRole('dialog', { name: 'Needed' })).toBeInTheDocument()
+    } finally { window.matchMedia = original }
+  })
+
   it('omits due_date when empty', async () => {
     const user = userEvent.setup()
     const { onAdded } = setup()
@@ -159,6 +170,26 @@ describe('CardNeededField (#2549)', () => {
     await user.click(await screen.findByRole('option', { name: 'When the parent reaches Proposal' }))
     await waitFor(() => expect(setNeeded).toHaveBeenCalledWith(3, 9, 22))
     expect(onChanged).toHaveBeenCalledWith({ needed_at_column: 22, planned: true, planned_released_at: null })
+  })
+
+  it('says a viewer of the parent board needs member access when the server refuses (403)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(setNeeded).mockRejectedValue({ response: { status: 403 } })
+    render(<CardNeededField card={child()} boardId={3} firstColumnId={100} canEdit onChanged={vi.fn()} />)
+    await user.click(screen.getByLabelText('Needed'))
+    await user.click(await screen.findByRole('option', { name: 'When the parent reaches Proposal' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('You need member access to Pipeline to change when this counts.')
+  })
+
+  it('opens a sheet named "Needed" through the real field on a phone', async () => {
+    const user = userEvent.setup()
+    const original = window.matchMedia
+    phone(true)
+    try {
+      render(<CardNeededField card={child()} boardId={3} firstColumnId={100} canEdit onChanged={vi.fn()} />)
+      await user.click(screen.getByLabelText('Needed'))
+      expect(await screen.findByRole('dialog', { name: 'Needed' })).toBeInTheDocument()
+    } finally { window.matchMedia = original }
   })
 
   it('sets a planned child to Now and reports a failed write', async () => {

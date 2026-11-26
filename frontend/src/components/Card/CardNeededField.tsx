@@ -76,8 +76,13 @@ export default function CardNeededField({ card, boardId, firstColumnId, canEdit,
     try {
       const fields = await setNeeded(boardId, card.id, value === "now" ? null : Number(value));
       onChanged(fields);
-    } catch {
-      setError("Couldn't change Needed. Try again.");
+    } catch (e) {
+      // The server needs Member on the parent's board; the parent payload carries no role, so a viewer of it is
+      // offered the columns and told why the write was refused.
+      const denied = (e as { response?: { status?: number } })?.response?.status === 403;
+      setError(denied && visibleParent
+        ? `You need member access to ${visibleParent.board_name} to change when this counts.`
+        : "Couldn't change Needed. Try again.");
     } finally {
       setSaving(false);
     }
@@ -89,6 +94,7 @@ export default function CardNeededField({ card, boardId, firstColumnId, canEdit,
       <SelectDropdown
         id={id}
         phoneSheet
+        sheetLabel="Needed"
         value={current}
         onChange={(v) => { void change(v); }}
         options={options}
