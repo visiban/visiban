@@ -4534,6 +4534,7 @@ administers the board. Its link opens the board's Webhooks settings
 <h3 id="get-apiv1notifications"><code>GET /api/v1/notifications/</code><a class="headerlink" href="#get-apiv1notifications" title="Permanent link">&para;</a></h3>
 <p>List the 50 most recent <strong>unread</strong> notifications for the current user. Requires authentication.</p>
 <p>Notifications referencing a board the requesting user no longer has access to are filtered from this list (and from <code>unread-count</code> below) — see #987.</p>
+<p><strong>Watch out:</strong> since 1.3 (#2081), this request also marks those notifications <strong>read</strong>, so each one leaves your inbox for good instead of staying unread behind the filter. It only ever changes your own notifications. A notification stays read if your access to the board comes back later. A notification on a deleted board is deleted with the board, so the response is the same whether a board was deleted or your access was removed. <code>unread-count</code> does not mark anything; it already leaves those rows out. A <a href="../authentication/">personal access token</a> with only the <code>read</code> scope gets the same filtered list but marks nothing, because marking is a write.</p>
 <p><strong>Response</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">[</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p">{</span>
@@ -4552,9 +4553,10 @@ administers the board. Its link opens the board's Webhooks settings
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="nt">"board_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sales Pipeline"</span><span class="p">,</span>
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="nt">"mention_source"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
 <a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="nt">"read"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-15T09:41:22Z"</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">]</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-15T09:41:22Z"</span><span class="p">,</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="nt">"target_available"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="p">]</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -4619,6 +4621,11 @@ administers the board. Its link opens the board's Webhooks settings
 <td><code>created_at</code></td>
 <td>string</td>
 <td>ISO 8601 timestamp</td>
+</tr>
+<tr>
+<td><code>target_available</code></td>
+<td>boolean</td>
+<td>Since 1.3 (#2081). Whether you can still open the notification's link: <code>true</code> for a notification with no board, and for one on a board you can access. Because this endpoint marks unavailable notifications read before it lists, it normally returns <code>true</code> only; treat a row with <code>false</code> as gone and do not show it. It never says why a target is unavailable: a deleted board and a board you lost access to look the same.</td>
 </tr>
 </tbody>
 </table>

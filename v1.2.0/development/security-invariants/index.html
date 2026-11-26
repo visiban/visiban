@@ -5012,6 +5012,11 @@ re-checks.</p>
 <td><code>webhooks/dispatch.py</code> <code>_deliver</code>, <code>configurer_has_standing</code></td>
 <td>Standing is re-derived from current state on every dispatch run, never cached: <code>configured_by</code> must be active and <code>get_board_role</code> must be <code>admin</code> or <code>site_admin</code>. Demotion, removal (explicit or group-inherited), deactivation and account deletion (<code>SET_NULL</code>, which fails closed) each disable the subscription with <code>creator_lost_access</code> at its next run, and the board's admins are notified. The API is board-admin only on every action (<code>WebhookSubscriptionViewSet._board</code>) (#863)</td>
 </tr>
+<tr>
+<td>REST notification inbox (list, unread count)</td>
+<td><code>boards/views/notifications.py</code> <code>_target_available_q</code>, <code>_accessible_unread_notifications</code>, <code>NotificationListView.get</code>, <code>NotificationUnreadCountView.get</code></td>
+<td>A row on a board the recipient can no longer open (<code>board_access_q</code>, or <code>can_access_all_content</code>) is left out of both the list and the count, so its <code>board_name</code> and <code>card_title</code> stop being served when access ends (#987, #1959); the list also marks such rows read for a credential with write authority (#2081). Tests: <code>boards/tests/test_notifications.py</code>, <code>boards/tests/test_notification_target_available_2081.py</code></td>
+</tr>
 </tbody>
 </table>
 <h2 id="rule-3-anything-that-grants-access-declares-what-revokes-it">Rule 3: Anything that grants access declares what revokes it<a class="headerlink" href="#rule-3-anything-that-grants-access-declares-what-revokes-it" title="Permanent link">&para;</a></h2>

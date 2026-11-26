@@ -4716,6 +4716,7 @@
 <h2 id="notification-bell">Notification bell<a class="headerlink" href="#notification-bell" title="Permanent link">&para;</a></h2>
 <p>The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed of <strong>unread</strong> notifications. Each notification is a deep link: clicking it marks it read (removing it from the dropdown), navigates to the board, and opens the card detail panel. A mention in a comment opens the panel on the <strong>Comments</strong> tab; a mention in the description, and any mention notification from before 1.3, opens it on the tab you last used. The notification email links to the same place.</p>
 <p>Click <strong>Mark all read</strong> to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.</p>
+<p>If you can no longer open a notification's board, the notification leaves the bell. Notifications on a board you were removed from are marked read the next time you open the bell (since 1.3), so they stay read even if you are added back to the board; before 1.3 they reappeared. Notifications on a deleted board are removed with it. This also covers a notification email whose link now opens a board you cannot reach.</p>
 <div class="admonition note">
 <p class="admonition-title">Notification limit</p>
 <p>The dropdown shows at most <strong>50 unread notifications</strong>. Older unread notifications beyond the 50 most recent are not shown in the UI, though they are still marked read when you click <strong>Mark all read</strong>.</p>
