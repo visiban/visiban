@@ -116,7 +116,7 @@ export function rollupSentence(r: Rollup, movement: Movement | null, warnings: R
         r.doing ? `${r.doing} doing` : null,
         r.blocked ? `${r.blocked} blocked` : "none blocked",
         r.todo ? `${r.todo} to do` : null,
-        planned ? `${planned} planned` : null,
+        planned ? `${planned} planned for later columns` : null,
       ].filter(Boolean).join(", ");
   // A warning replaces the movement clause, as it replaces the visible movement line (canvas v24 § 3).
   if (warnings.length > 0) return `${head}; ${warnings.map((w) => w.spoken).join("; ")}`;

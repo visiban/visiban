@@ -42,12 +42,12 @@ describe("planned rollup helpers (#2551)", () => {
 
   it("sentence counts planned on its own; a warning replaces the movement clause", () => {
     const movement = { text: "Work moved 1d ago", spoken: "work moved 1 day ago", tone: "neutral" as const, idle: false };
-    expect(rollupSentence(r(), movement)).toBe("Children: 2 of 6 done, 1 doing, none blocked, 1 to do, 2 planned, work moved 1 day ago");
+    expect(rollupSentence(r(), movement)).toBe("Children: 2 of 6 done, 1 doing, none blocked, 1 to do, 2 planned for later columns, work moved 1 day ago");
     const w = rollupWarnings(r({ planned: 1, todo: 2, needed_not_started: [{ column_name: "Qualify", count: 1 }] }), TODAY);
     expect(rollupSentence(r({ planned: 1, todo: 2 }), movement, w))
-      .toBe("Children: 2 of 6 done, 1 doing, none blocked, 2 to do, 1 planned; Qualify: 1 child not started");
+      .toBe("Children: 2 of 6 done, 1 doing, none blocked, 2 to do, 1 planned for later columns; Qualify: 1 child not started");
     const d = rollupWarnings(r({ planned: 1, doing: 2, planned_due_dates: ["2026-11-04"] }), TODAY);
-    expect(rollupSentence(r({ planned: 1, doing: 2 }), movement, d)).toMatch(/1 planned; 1 planned date has passed, Nov 4$/);
+    expect(rollupSentence(r({ planned: 1, doing: 2 }), movement, d)).toMatch(/1 planned for later columns; 1 planned date has passed, Nov 4$/);
   });
 });
 
@@ -61,7 +61,7 @@ describe("CardChildrenRollup with planned children (#2551)", () => {
     expect(screen.getByTestId("rollup-segments")).toHaveClass("gap-0.5");
     expect(screen.getByTestId("rollup-movement")).toHaveTextContent("2 planned · work moved 1d ago");
     expect(screen.getByRole("group")).toHaveAccessibleName(
-      "Children: 2 of 6 done, 1 doing, none blocked, 1 to do, 2 planned, work moved 1 day ago",
+      "Children: 2 of 6 done, 1 doing, none blocked, 1 to do, 2 planned for later columns, work moved 1 day ago",
     );
   });
 

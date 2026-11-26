@@ -54,7 +54,7 @@ for (const width of [390, 1280]) {
       const footer = page.getByTestId('card-children-rollup').first()
       await expect(footer).toBeVisible({ timeout: 10_000 })
       await expect(page.locator('html')).toHaveAttribute('data-theme', scheme)
-      await expect(footer).toHaveAttribute('aria-label', /1 planned; Qualify: 1 child not started/)
+      await expect(footer).toHaveAttribute('aria-label', /1 planned for later columns; Qualify: 1 child not started/)
       const seg = footer.locator('[data-segment="planned"]')
       await expect(seg).toHaveCount(1)
       expect(await seg.evaluate((el) => getComputedStyle(el).borderTopStyle)).toBe('dashed')
@@ -200,6 +200,25 @@ for (const scheme of ['light', 'dark'] as const) {
     expect(ratio, `planned line contrast ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
     expect(await face.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+  })
+}
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`child board card face: planned status line at 390px, ${scheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.emulateMedia({ colorScheme: scheme })
+    await setup(page)
+    await page.goto(`/boards/${BOARD.id}`)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', scheme)
+    const line = page.getByTestId('card-status-line').filter({ hasText: /^Planned for a later stage/ })
+    await expect(line).toBeVisible({ timeout: 10_000 })
+    await expect(line).toHaveText('Planned for a later stage · Dec 4, counts once needed')
+    await expect(line).toHaveAttribute('data-status-kind', 'planned')
+    const ratio = await line.evaluate(contrast)
+    expect(ratio, `board card planned line contrast ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+    const box = await line.boundingBox()
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390)
   })
 }
 
