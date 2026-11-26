@@ -242,7 +242,7 @@ The Helm defaults fit a small team, not a large board with long history. Opening
 
 **The headline:** A 512 MB backend limit is too small for a board with about three years of history and 12k active cards. On such a board, one cumulative-flow day drill-down (`?date=`) peaked at 676-720 MB of process memory. That is why the chart's default `limits.memory` is now `1Gi`. The drill-down peak is accepted for 1.3 and tracked in [#2559](https://gitlab.com/visiban/visiban/-/issues/2559).
 
-**Measured since:** The 1.3 beta-exit stress run ([#2588](https://gitlab.com/visiban/visiban/-/issues/2588), [#2595](https://gitlab.com/visiban/visiban/-/issues/2595)) measured the current code (results reported 2026-11-25):
+**Measured since:** The 1.3 beta-exit stress run ([#2588](https://gitlab.com/visiban/visiban/-/issues/2588), [#2595](https://gitlab.com/visiban/visiban/-/issues/2595)) measured the current code (results: runs 1-2 reported 2026-11-25, run 3 on 2026-11-25 (job 18367981631)):
 
 - **Fixture:** `seed_demo_data --scale 100 --aged-generations 12`, which gave 11,990 active and 143,880 archived cards (12 generations, about 3 years).
 - **Setup:** the NUC runner, `daphne`, `DEBUG=False`, `ANALYTICS_MAX_CONCURRENT=1`, three runs.
@@ -292,7 +292,7 @@ The 2026-11-20 latencies above are from a laptop on a full core. The default `cp
 
 **Watch out:**
 
-- The chart's default `limits.memory` rose from `512Mi` to `1Gi` in 1.3, which changes what an existing install requests from its nodes. To keep the old value, set `backend.resources.limits.memory: 512Mi`. See [Upgrading to 1.3.x](upgrade.md#upgrading-to-13x). #2426 and #2427 have shipped and should shrink most of the 2026-11-20 numbers.
+- The chart's default `limits.memory` rose from `512Mi` to `1Gi` in 1.3. Requests and scheduling are unchanged; the pod may now use up to 1 GiB before it is OOM-killed. If the namespace has a ResourceQuota on `limits.memory` or a LimitRange max below `1Gi`, raise it. To keep the old value, set `backend.resources.limits.memory: 512Mi`. See [Upgrading to 1.3.x](upgrade.md#upgrading-to-13x). #2426 and #2427 have shipped and should shrink most of the 2026-11-20 numbers.
 - The 2026-11-20 numbers are pre-fix numbers from a local run (Apple Silicon laptop, PostgreSQL 17, `DEBUG=False`, an aged copy of the demo seed). Treat them as a floor for sizing, not a guarantee. Re-measure on your own data.
 - The 2026-11-20 numbers were also measured before the [Analytics limits](#analytics-limits) existed. Since 1.3 a request that would hold more than `ANALYTICS_MAX_MOVEMENTS` movement rows is refused with `analytics_too_large`, and each process computes at most `ANALYTICS_MAX_CONCURRENT` Analytics requests at once. If you raise `limits.memory` for a large board, raise `ANALYTICS_MAX_MOVEMENTS` with it, or that board's Analytics stays refused.
 - `daphne` has no `--max-requests`. If memory keeps climbing between Analytics bursts, restart the backend pods on a schedule (for example `kubectl -n <namespace> rollout restart deployment -l app.kubernetes.io/instance=<release>,app.kubernetes.io/component=backend`; in-flight requests can be cut and WebSocket clients reconnect). Tuning `MALLOC_ARENA_MAX` or `PYTHONMALLOC` is untested for Visiban, so measure before and after if you try it.

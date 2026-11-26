@@ -386,7 +386,7 @@ Read the notes for every version between your current release and the target bef
 !!! note "Helm: the backend memory limit default rose from 512Mi to 1Gi"
     Since 1.3 the chart's default `backend.resources.limits.memory` is `1Gi` (#2431). A 3-year, 12k-card board peaked at 676-720 MB of process memory on one Analytics drill-down, which a 512 MB limit cannot hold.
 
-    - **Installs on the default.** The backend pod may now use up to 1 GiB. Check that your nodes have room. `requests` is unchanged (`100m` CPU, `256Mi` memory).
+    - **Installs on the default.** The backend pod may now use up to 1 GiB. `requests` is unchanged (`100m` CPU, `256Mi` memory), so scheduling is unchanged; the pod may now use up to 1 GiB before it is OOM-killed. If the namespace has a ResourceQuota on `limits.memory` or a LimitRange max below `1Gi`, raise it or pin `backend.resources.limits.memory: 512Mi`.
     - **Keep the old limit.** Set `backend.resources.limits.memory: 512Mi` in your values file. Installs that set `backend.resources.limits.memory` are not affected. An install that sets only part of `backend.resources` (for example only `requests`) still gets `1Gi` for any memory limit it leaves out.
     - **Sizing.** See [Backend memory and CPU sizing](configuration.md#backend-memory-and-cpu-sizing).
 

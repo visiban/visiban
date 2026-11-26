@@ -79,7 +79,7 @@ The other flags shown are the script's defaults. The CI job provisions four toke
 
 > **Added in 1.3** ([#2430](https://gitlab.com/visiban/visiban/-/issues/2430), which [#2110](https://gitlab.com/visiban/visiban/-/issues/2110) had also asked for).
 
-Memory is what breaks first on the analytics endpoints: 186-691 MB for one request against a 512Mi pod, and 1.1-2.0 GB for one overview open. Latency alone cannot see it.
+Memory is what breaks first on the analytics endpoints: 186-691 MB for one request against the pre-1.3 default 512Mi pod, and 1.1-2.0 GB for one overview open. Latency alone cannot see it.
 
 With `--server-pid-file`, the script reads the server process's peak resident set size around every scenario: it writes `5` to `/proc/<pid>/clear_refs` (which restarts `VmHWM` at the current RSS) before the scenario, and reads `VmHWM` and `VmRSS` after it. Each result carries `peak_rss_mb` (the high-water mark) and `rss_growth_mb` (that mark minus the RSS before the scenario). Linux only, same host as the server. On another platform, or when the script cannot write `/proc/<pid>/clear_refs` (unprivileged or read-only `/proc`), it prints a NOTE and skips memory measurement (`peak_rss_mb` and `rss_growth_mb` are left out of the results entirely, not written as null). Once any scenario has a committed `budget_peak_rss_mb`, memory measurement being off fails the run; with only pending memory budgets it stays a NOTE. If the file is given on Linux and the PID cannot be read, the run fails at startup rather than silently dropping the measurement.
 

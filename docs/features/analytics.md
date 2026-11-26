@@ -341,8 +341,8 @@ When the selected window has no movement data at all (a new board, or a period b
 
 These limits show on a board with about three years of history and 12k active cards. They were measured with `ANALYTICS_MAX_CONCURRENT=1` on `daphne`.
 
-- **Drill-down memory.** One cumulative-flow day drill-down (`?date=`) peaks at about 680-720 MB of process memory. This is accepted for 1.3 and tracked in [#2559](https://gitlab.com/visiban/visiban/-/issues/2559). The chart's default backend memory limit is `1Gi` for this reason. See [Backend memory and CPU sizing](../administration/configuration.md#backend-memory-and-cpu-sizing).
-- **Overview and cumulative flow are refused.** A board that old holds more movements than `ANALYTICS_MAX_MOVEMENTS` (150000 by default), so the Overview and the cumulative flow chart without a date return `422 analytics_too_large`. This is by design: the limit protects the backend from running out of memory. See [Analytics limits](../administration/configuration.md#analytics-limits).
+- **Drill-down memory.** One cumulative-flow day drill-down (`?date=`) peaks at about 676-720 MB of process memory. This is accepted for 1.3 and tracked in [#2559](https://gitlab.com/visiban/visiban/-/issues/2559). The chart's default backend memory limit is `1Gi` for this reason. See [Backend memory and CPU sizing](../administration/configuration.md#backend-memory-and-cpu-sizing).
+- **Overview and cumulative flow are refused.** A board that old holds more movements than `ANALYTICS_MAX_MOVEMENTS` (150000 by default), so the Overview and the cumulative flow chart without a date return `422 analytics_too_large`. This is by design (#2622): the limit protects the backend from running out of memory. See [Analytics limits](../administration/configuration.md#analytics-limits).
 
 ### CSV export
 
