@@ -3490,11 +3490,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       onChange={(v) => setChildrenLane(v ? v : null)}
                     />
                     <label className="flex items-center gap-2 text-sm text-fg min-h-11 sm:min-h-8">
-                      <input type="checkbox" className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis" checked={childrenOptions.showDone} onChange={(e) => setChildrenOptions({ ...childrenOptions, showDone: e.target.checked })} />
+                      <input type="checkbox" className="accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis" checked={childrenOptions.showDone} onChange={(e) => setChildrenOptions({ ...childrenOptions, showDone: e.target.checked })} />
                       Show done cards
                     </label>
                     <label className="flex items-center gap-2 text-sm text-fg min-h-11 sm:min-h-8">
-                      <input type="checkbox" className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis" checked={childrenOptions.blockedOnly} onChange={(e) => setChildrenOptions({ ...childrenOptions, blockedOnly: e.target.checked })} />
+                      <input type="checkbox" className="accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis" checked={childrenOptions.blockedOnly} onChange={(e) => setChildrenOptions({ ...childrenOptions, blockedOnly: e.target.checked })} />
                       Blocked only
                     </label>
                     <SingleSelectDropdown<PlannedOption>
