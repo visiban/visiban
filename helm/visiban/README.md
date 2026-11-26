@@ -98,9 +98,9 @@ The default `backend.resources` are `requests: 100m / 256Mi` and `limits: 500m /
 
 **Measured on the current code:** the 1.3 beta-exit stress run ([#2588](https://gitlab.com/visiban/visiban/-/issues/2588), [#2595](https://gitlab.com/visiban/visiban/-/issues/2595), reported 2026-11-25) used a board with 11,990 active and 143,880 archived cards (12 generations, about 3 years), `daphne`, `DEBUG=False` and `analyticsMaxConcurrent: 1`:
 
-- **Drill-down:** one `metrics/cumulative-flow/?date=` request peaked at 678-720 MB of process memory.
+- **Drill-down:** one `metrics/cumulative-flow/?date=` request peaked at 676-720 MB of process memory.
 - **Refused:** the cumulative-flow chart and the Analytics overview returned `422 analytics_too_large` at the default `analyticsMaxMovements` of 150000.
-- **Concurrent opens:** peak process memory was 572 MB (third run).
+- **Concurrent opens:** peak process memory was 572 MB (third run, at `ANALYTICS_MAX_CONCURRENT=1`).
 
 | Largest board | Suggested `backend.resources.limits.memory` |
 |---|---|

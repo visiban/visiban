@@ -240,7 +240,7 @@ The Helm defaults fit a small team, not a large board with long history. Opening
 
 **Why it matters:** The chart sets `backend.resources` to `requests: 100m / 256Mi` and `limits: 500m / 1Gi`. Before 1.3 the memory limit was `512Mi`. One Analytics overview on a 12k-card board peaked at 551 MB of process memory, and on a 2.4k-card board with three years of history it peaked at 1.1 GB. Idle, the backend uses about 115 MB.
 
-**The headline:** A 512 MB backend limit is too small for a board with about three years of history and 12k active cards. On such a board, one cumulative-flow day drill-down (`?date=`) peaked at 678-720 MB of process memory. That is why the chart's default `limits.memory` is now `1Gi`. The drill-down peak is accepted for 1.3 and tracked in [#2559](https://gitlab.com/visiban/visiban/-/issues/2559).
+**The headline:** A 512 MB backend limit is too small for a board with about three years of history and 12k active cards. On such a board, one cumulative-flow day drill-down (`?date=`) peaked at 676-720 MB of process memory. That is why the chart's default `limits.memory` is now `1Gi`. The drill-down peak is accepted for 1.3 and tracked in [#2559](https://gitlab.com/visiban/visiban/-/issues/2559).
 
 **Measured since:** The 1.3 beta-exit stress run ([#2588](https://gitlab.com/visiban/visiban/-/issues/2588), [#2595](https://gitlab.com/visiban/visiban/-/issues/2595)) measured the current code (results reported 2026-11-25):
 
@@ -252,7 +252,7 @@ The Helm defaults fit a small team, not a large board with long history. Opening
 | `metrics/cumulative-flow/?date=` drill-down | Peak process memory 720 MB (first run), 678 MB (second run: 10 requests, about 5.1-5.8 s each, 218,843 streamed rows) and 676 MB (third run) |
 | `metrics/cumulative-flow/` (no `date`) | Refused with `422 analytics_too_large`: 150,001 held movements, over `ANALYTICS_MAX_MOVEMENTS=150000` |
 | `metrics/overview/?days=90` | Refused with `422`, same count |
-| Concurrent Analytics opens | Peak process memory 572 MB (third run) |
+| Concurrent Analytics opens | Peak process memory 572 MB (third run, at `ANALYTICS_MAX_CONCURRENT=1`) |
 
 - **Latencies are indicative:** the second run shared a busy runner. Its memory figures are not much affected by that load.
 - **Known limits on a board that old:** see [Known limits on old boards](../features/analytics.md#known-limits-on-old-boards).
@@ -493,7 +493,7 @@ held and `streamed`) before raising either setting.
 
 **Yes, but:** that estimate does not hold for a board with years of history. On a
 board with 11,990 active and 143,880 archived cards (about 3 years), one
-cumulative-flow `?date=` drill-down (218,843 streamed rows) peaked at 678-720 MB
+cumulative-flow `?date=` drill-down (218,843 streamed rows) peaked at 676-720 MB
 of process memory, with `ANALYTICS_MAX_CONCURRENT=1` and the default
 `ANALYTICS_MAX_MOVEMENTS`. The pre-1.3 default of `512Mi` is too small for a board of that age.
 See [Backend memory and CPU sizing](#backend-memory-and-cpu-sizing).
