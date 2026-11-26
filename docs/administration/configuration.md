@@ -481,13 +481,13 @@ limit, and holds its slot until then. Size a pod so that:
 baseline memory + ANALYTICS_MAX_CONCURRENT × (one request's peak at ANALYTICS_MAX_MOVEMENTS) < the pod's memory limit
 ```
 
-The defaults are a starting point for the chart's default `512Mi` memory and
+The defaults are a starting point for the chart's default `1Gi` memory and
 `500m` CPU limits, to be tuned for each deployment. As a rough estimate (an
 illustration, not a measured figure for your data), a request holding close to
 the default 150000 rows needs on the order of 150-190 MB above the server's
 idle baseline of about 115 MB, more for a longer range and less for a single chart;
 at that size `ANALYTICS_MAX_CONCURRENT=1` leaves headroom for the rest of the
-process's work under `512Mi`. Measure your
+process's work under the memory limit. Measure your
 own peak (the `analytics.replay` log line reports each request's `movements`
 held and `streamed`) before raising either setting.
 
@@ -495,7 +495,7 @@ held and `streamed`) before raising either setting.
 board with 11,990 active and 143,880 archived cards (about 3 years), one
 cumulative-flow `?date=` drill-down (218,843 streamed rows) peaked at 678-720 MB
 of process memory, with `ANALYTICS_MAX_CONCURRENT=1` and the default
-`ANALYTICS_MAX_MOVEMENTS`. A `512Mi` limit is too small for a board of that age.
+`ANALYTICS_MAX_MOVEMENTS`. The pre-1.3 default of `512Mi` is too small for a board of that age.
 See [Backend memory and CPU sizing](#backend-memory-and-cpu-sizing).
 
 The baseline in the formula is not only idle memory: `daphne` keeps its
