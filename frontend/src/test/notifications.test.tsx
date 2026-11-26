@@ -24,6 +24,7 @@ const mockNotifications: Notification[] = [
     board_name: 'Sprint 1',
     action_type: 'card_moved',
     mention_source: null,
+    target_available: true,
     read: false,
     created_at: new Date(Date.now() - 5 * 60_000).toISOString(),
   },
@@ -37,6 +38,7 @@ const mockNotifications: Notification[] = [
     board_name: 'Sprint 1',
     action_type: 'mentioned',
     mention_source: null,
+    target_available: true,
     read: false,
     created_at: new Date(Date.now() - 30 * 60_000).toISOString(),
   },
@@ -151,6 +153,7 @@ describe('Notification dropdown', () => {
       board_name: 'Sprint 1',
       action_type: 'board_invite',
       mention_source: null,
+      target_available: true,
       read: false,
       created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
     }
@@ -280,6 +283,7 @@ describe('Notification dropdown', () => {
       board_name: 'Sprint 1',
       action_type: 'board_invite',
       mention_source: null,
+      target_available: true,
       read: false,
       created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
     }
@@ -307,6 +311,7 @@ describe('Notification dropdown', () => {
       board_name: 'Sprint 1',
       action_type: 'webhook_disabled',
       mention_source: null,
+      target_available: true,
       read: false,
       created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
     }
@@ -341,6 +346,7 @@ describe('Notification dropdown', () => {
       board_name: 'Sprint 1',
       action_type: 'stale',
       mention_source: null,
+      target_available: true,
       read: false,
       created_at: new Date(Date.now() - 60 * 60_000).toISOString(),
     }
@@ -368,6 +374,47 @@ describe('Notification dropdown', () => {
     await waitFor(() => screen.getByText('Alice moved card "Setup CI" to Done'))
 
     expect(screen.queryByText('View board →')).not.toBeInTheDocument()
+  })
+
+  it('hides an unread row whose target is unavailable, with no tag (#2081)', async () => {
+    const user = userEvent.setup({ delay: null })
+    mockedGetUnreadCount.mockResolvedValue(2)
+    mockedListNotifications.mockResolvedValue([
+      mockNotifications[0],
+      { ...mockNotifications[1], target_available: false },
+    ])
+
+    renderNavbar()
+    await user.click(screen.getByTitle(/Notifications/))
+
+    await waitFor(() => screen.getByText('Alice moved card "Setup CI" to Done'))
+    expect(screen.queryByText('Bob commented on "Fix login"')).not.toBeInTheDocument()
+    expect(screen.queryByText(/not available/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps a row from a server that omits target_available (#2081)', async () => {
+    const user = userEvent.setup({ delay: null })
+    mockedGetUnreadCount.mockResolvedValue(1)
+    // A pre-1.3 server sends no target_available; only an explicit false hides.
+    const { target_available: _omitted, ...legacy } = mockNotifications[0]
+    mockedListNotifications.mockResolvedValue([legacy as Notification])
+
+    renderNavbar()
+    await user.click(screen.getByTitle(/Notifications/))
+
+    await waitFor(() => screen.getByText('Alice moved card "Setup CI" to Done'))
+  })
+
+  it('shows the empty state when every row is unavailable (#2081)', async () => {
+    const user = userEvent.setup({ delay: null })
+    mockedGetUnreadCount.mockResolvedValue(0)
+    mockedListNotifications.mockResolvedValue([{ ...mockNotifications[0], target_available: false }])
+
+    renderNavbar()
+    await user.click(screen.getByTitle(/Notifications/))
+
+    await waitFor(() => expect(screen.getByText('No notifications')).toBeInTheDocument())
+    expect(screen.queryByText('Alice moved card "Setup CI" to Done')).not.toBeInTheDocument()
   })
 
   it('shows empty state when there are no notifications', async () => {

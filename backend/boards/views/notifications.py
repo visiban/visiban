@@ -1,6 +1,6 @@
 """Notification views — list, mark-read, and unread-count endpoints."""
 
-from django.db.models import Q
+from django.db.models import BooleanField, Q, Value
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -54,6 +54,14 @@ class NotificationSerializer(serializers.ModelSerializer):
     # as CardCommentSerializer.author (#1139); found during the #1192 sweep,
     # outside the originally reported four sites.
     actor = BoardUserSerializer(read_only=True, allow_null=True)
+    # Since 1.3 (#2081): whether the recipient can still open the
+    # notification's link. Read from the ``_target_available`` annotation that
+    # ``NotificationListView`` computes in SQL with the board 404's own access
+    # predicate (``board_access_q``), so it costs no per-row query. A board that
+    # was deleted takes its notifications with it (``on_delete=CASCADE``), and a
+    # board the recipient lost access to is answered the same way as one that
+    # never existed, so the field cannot tell the two apart.
+    target_available = serializers.SerializerMethodField()
 
     class Meta:
         model = Notification
@@ -71,6 +79,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             "mention_source",
             "read",
             "created_at",
+            "target_available",
         ]
         read_only_fields = fields
 
@@ -80,8 +89,84 @@ class NotificationSerializer(serializers.ModelSerializer):
     def get_board_name(self, obj) -> str | None:
         return obj.board.name if obj.board_id else None
 
+    def get_target_available(self, obj) -> bool:
+        # Absent-input guard (#1075): a row serialized without the annotation
+        # (any caller other than the list view) reports False, never True. Only
+        # a computed True from the access predicate says the target is reachable.
+        return getattr(obj, "_target_available", None) is True
 
-def _accessible_unread_notifications(user):
+
+def _target_available_q(user):
+    """``Q`` over ``Notification``: rows whose target *user* can still open (#2081).
+
+    The same rule as the board 404 (``get_board_for_user``): a row with no board
+    links to the app itself and is always available; a row on a board is
+    available when ``board_access_q`` matches it, or the user can access all
+    content. Built once per request so the group walk inside ``board_access_q``
+    runs once however many times the ``Q`` is reused.
+
+    Absent-input guard (#1075): with no authenticated user there is no one to
+    authorize against, so the ``Q`` matches nothing rather than everything.
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return Q(pk__in=[])
+    if user.can_access_all_content:
+        return Q(pk__isnull=False)
+    return Q(board__isnull=True) | Q(board__in=Board.objects.filter(board_access_q(user)))
+
+
+def _mark_unavailable_targets_read(user, available_q):
+    """Mark *user*'s unread notifications whose target is gone as read (#2081).
+
+    Owner decision on #2081: a notification whose board the recipient can no
+    longer open drops out of the bell by becoming read on the server, rather
+    than staying unread forever behind the list filter. One ``UPDATE``, scoped
+    to the requesting user's own rows (``recipient=user``), so it can never
+    touch another user's notifications and adds a constant one query.
+
+    Rows on a deleted board never reach this: ``Notification.board`` is
+    ``on_delete=CASCADE``, so they are gone, and the response for a deleted
+    board and for revoked access is the same (the row is simply absent).
+    Returns the number of rows marked read; 0 when there is no user (#1075).
+
+    The user guard below is load-bearing, not belt and braces: for a missing
+    user ``_target_available_q`` returns a match-nothing ``Q``, and
+    ``.exclude()`` of match-nothing is match-*everything*, so without the
+    guard the deny-all predicate would mark every unread row read.
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return 0
+    return (
+        Notification.objects.filter(recipient=user, read=False)
+        .exclude(available_q)
+        .update(read=True)
+    )
+
+
+def _request_may_write(request):
+    """Whether this request's credential carries write authority (#2081).
+
+    The list endpoint is a GET, and ``PATAuthentication`` lets a ``read``-only
+    personal access token through on a GET. The mark-read side effect is a
+    write (``NotificationMarkReadView`` needs ``write`` for the same change),
+    so a read-only token gets the filtered list but marks nothing. Session
+    auth (``request.auth is None``), a DRF ``Token`` and a legacy unscoped PAT
+    carry the owner's full REST authority. Any other credential type is not
+    recognized here and marks nothing: skipping the cleanup is the safe
+    outcome (#1075), since the list filter hides those rows either way.
+    """
+    from accounts.models import SCOPE_WRITE, PersonalAccessToken
+    from rest_framework.authtoken.models import Token
+
+    auth = request.auth
+    if auth is None or isinstance(auth, Token):
+        return True
+    if isinstance(auth, PersonalAccessToken):
+        return auth.is_legacy or SCOPE_WRITE in (auth.scopes or [])
+    return False
+
+
+def _accessible_unread_notifications(user, available_q=None):
     """Unread notifications for *user*, limited to boards they can still access (#987, #1959).
 
     Notifications retain ``card_title`` / ``board_name`` for boards the user
@@ -99,12 +184,9 @@ def _accessible_unread_notifications(user):
     ``[:50]`` slice, inaccessible rows can no longer crowd accessible ones out
     of the window or hide them from the count.
     """
-    qs = Notification.objects.filter(recipient=user, read=False)
-    if user.can_access_all_content:
-        return qs
-    return qs.filter(
-        Q(board__isnull=True) | Q(board__in=Board.objects.filter(board_access_q(user)))
-    )
+    if available_q is None:
+        available_q = _target_available_q(user)
+    return Notification.objects.filter(available_q, recipient=user, read=False)
 
 
 class NotificationListView(APIView):
@@ -122,8 +204,23 @@ class NotificationListView(APIView):
         responses=NotificationSerializer(many=True),
     )
     def get(self, request):
+        user = request.user
+        available_q = _target_available_q(user)
+        # Marked before the select (#2081), so the rows it marks never take a
+        # place in the [:50] window. The select still filters on the same
+        # predicate: a board the user loses access to between the two queries
+        # is dropped, never serialized with its board_name / card_title (#987).
+        # This GET writes on purpose (owner decision, #2081): idempotent, and
+        # only ever the requester's own rows on boards they cannot open, which
+        # the list and the count already hide. A read-only token skips it.
+        if _request_may_write(request):
+            _mark_unavailable_targets_read(user, available_q)
         notifications = list(
-            _accessible_unread_notifications(request.user)
+            _accessible_unread_notifications(user, available_q)
+            # Every row past the WHERE above satisfies ``available_q``, so the
+            # annotation is the predicate's result without repeating its
+            # board-access subquery a third time in the SELECT list.
+            .annotate(_target_available=Value(True, output_field=BooleanField()))
             .select_related("card", "board", "actor")[:50]
         )
         return Response(NotificationSerializer(notifications, many=True).data)

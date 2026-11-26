@@ -38,11 +38,19 @@ check() { # check "<description>" <condition-exit-code>
     pass=$((pass + 1))
   else
     echo "  FAIL: $desc"
+    # Print the last gate output so a CI-only failure is diagnosable (OUT/RC are
+    # globals set by run_gate; empty for checks that do not run the gate).
+    if [[ -n "${OUT:-}" ]]; then
+      echo "    last gate rc=${RC:-?}, output:" >&2
+      printf '    | %s\n' "${OUT//$'\n'/$'\n''    | '}" >&2
+    fi
     fail=$((fail + 1))
   fi
 }
 
 # run_gate <args...> — captures combined output + exit code into $OUT and $RC.
+# Search $OUT with a here-string, never `echo | grep -q`: under pipefail, grep
+# exiting on its first match can SIGPIPE echo and fail a check that matched.
 run_gate() {
   set +e
   OUT="$("$PYTHON" "$GATE" "$@" 2>&1)"
@@ -104,14 +112,14 @@ write_schema() { # write_schema <path> <card-properties-json>
 # --- The gate's own self-test must pass -----------------------------------
 run_gate --self-test
 check "--self-test exits 0" "$([ "$RC" -eq 0 ] && echo 0 || echo 1)"
-check "--self-test reports PASSED" "$(echo "$OUT" | grep -q "self-test: PASSED" && echo 0 || echo 1)"
+check "--self-test reports PASSED" "$(grep -q "self-test: PASSED" <<<"$OUT" && echo 0 || echo 1)"
 
 # --- A matching schema/interface pair is clean ----------------------------
 write_types "$TMP/ok.ts"
 write_schema "$TMP/ok.json" '{"id": {"type": "integer"}}'
 run_gate --schema "$TMP/ok.json" --types "$TMP/ok.ts" --no-suppressions
 check "matching pair exits 0" "$([ "$RC" -eq 0 ] && echo 0 || echo 1)"
-check "matching pair reports OK" "$(echo "$OUT" | grep -q "parity: OK" && echo 0 || echo 1)"
+check "matching pair reports OK" "$(grep -q "parity: OK" <<<"$OUT" && echo 0 || echo 1)"
 
 # --- A serializer field absent from TypeScript blocks ---------------------
 # This is #1079's headline acceptance criterion: add a field to a serializer,
@@ -120,7 +128,7 @@ write_types "$TMP/missing.ts"
 write_schema "$TMP/missing.json" '{"id": {"type": "integer"}, "new_field": {"type": "string"}}'
 run_gate --schema "$TMP/missing.json" --types "$TMP/missing.ts" --no-suppressions
 check "schema field missing from TS exits 1" "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
-check "schema field missing from TS names the field" "$(echo "$OUT" | grep -q "new_field" && echo 0 || echo 1)"
+check "schema field missing from TS names the field" "$(grep -q "new_field" <<<"$OUT" && echo 0 || echo 1)"
 
 # --- A TypeScript field absent from the schema blocks ---------------------
 # The reverse direction: a stale interface field the API no longer sends.
@@ -128,7 +136,7 @@ write_types "$TMP/extra.ts" "ghost: string;"
 write_schema "$TMP/extra.json" '{"id": {"type": "integer"}}'
 run_gate --schema "$TMP/extra.json" --types "$TMP/extra.ts" --no-suppressions
 check "TS field missing from schema exits 1" "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
-check "TS field missing from schema names the field" "$(echo "$OUT" | grep -q "ghost" && echo 0 || echo 1)"
+check "TS field missing from schema names the field" "$(grep -q "ghost" <<<"$OUT" && echo 0 || echo 1)"
 
 # --- A type-family mismatch blocks ----------------------------------------
 # The quiet one: the field exists on both sides, so every type check passes,
@@ -137,7 +145,7 @@ write_types "$TMP/family.ts" "count: number;"
 write_schema "$TMP/family.json" '{"id": {"type": "integer"}, "count": {"type": "string"}}'
 run_gate --schema "$TMP/family.json" --types "$TMP/family.ts" --no-suppressions
 check "type-family mismatch exits 1" "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
-check "type-family mismatch names the field" "$(echo "$OUT" | grep -q "count" && echo 0 || echo 1)"
+check "type-family mismatch names the field" "$(grep -q "count" <<<"$OUT" && echo 0 || echo 1)"
 
 # --- A missing schema component is an error, never a pass -----------------
 # Guards the rename footgun: if a component is renamed and COMPONENT_MAP is not

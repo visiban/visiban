@@ -61,7 +61,13 @@ export default function Navbar({ user, breadcrumb, onLogout, primaryAction, sear
     setShowBell((v) => !v);
     if (!showBell) {
       const data = await listNotifications().catch(() => []);
-      setNotifications(data);
+      // #2081: the server leaves out (and marks read) rows whose board the
+      // reader can no longer open, and annotates the rest `target_available:
+      // true`, so it never emits `false` today. This client filter only guards
+      // against a future server that lists such rows; it hides them, with no
+      // tag. Only an explicit false hides: a server older than 1.3 omits the
+      // field.
+      setNotifications(data.filter((n) => n.target_available !== false));
     }
   };
 
