@@ -4894,6 +4894,7 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <li>[ ] No race between a <code>page.route()</code> registration and a <code>page.goto()</code> that triggers the request — register first</li>
 <li>[ ] Assertions are keyed on role + name, not class names</li>
 <li>[ ] Fixtures are imported from <code>fixtures/board.ts</code>, not inlined per-test</li>
+<li>[ ] A before/after layout check (a <code>boundingBox()</code> read after a click or view switch) first waits on a signal that only the new state has, such as <code>aria-current</code> on the new tab or a control that only the new view renders. A role query's <code>name</code> is a substring match, so <code>name: 'Filters'</code> also finds the old view's "Filters and view options" button and passes before the switch happens. Under CPU load the "after" box is then read from the outgoing view. Playwright's own click can also scroll a partly clipped target into view by a pixel first, which a real press does not do (#2486, <code>e2e/lens-toolbar.spec.ts</code>)</li>
 </ul>
 <h3 id="flake-resistance-checklist-vitest-unit-tests">Flake-resistance checklist (Vitest unit tests)<a class="headerlink" href="#flake-resistance-checklist-vitest-unit-tests" title="Permanent link">&para;</a></h3>
 <p>The Playwright list above has a unit-test counterpart. Every root-caused <code>frontend-test</code> flake so
