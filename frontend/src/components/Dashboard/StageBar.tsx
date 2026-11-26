@@ -7,7 +7,11 @@
 import type { Board } from "../../types";
 import { stageBar } from "./homeModel";
 
-export default function StageBar({ board, className = "" }: { board: Pick<Board, "stage_counts">; className?: string }) {
+/**
+ * `inButton`: the bar sits inside a button (a Jump back in tile). The tile's name already reads
+ * the label, and a native tooltip on a 6px bar inside a button is noise, so no `title` there.
+ */
+export default function StageBar({ board, className = "", inButton = false }: { board: Pick<Board, "stage_counts">; className?: string; inButton?: boolean }) {
   const model = stageBar(board);
   if (!model) return null;
   return (
@@ -16,15 +20,19 @@ export default function StageBar({ board, className = "" }: { board: Pick<Board,
       <span
         role="img"
         aria-label={model.label}
-        title={model.label}
-        className="flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-sunken"
+        title={inButton ? undefined : model.label}
+        // The outer ring (border-line-boundary, #2381) is what shows the bar's extent: bg-sunken
+        // alone is under the 3:1 non-text floor on surface, which leaves an all-zero bar, or a pale
+        // column color, invisible. A ring adds no height.
+        className="flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-sunken ring-1 ring-line-boundary"
       >
         {model.segments.map((s) => (
           <span
             key={s.uid}
             data-testid="stage-bar-segment"
             className="h-full"
-            style={{ flexGrow: s.card_count, flexBasis: 0, backgroundColor: s.color }}
+            // 2px floor so one card among hundreds still shows (the label promises it).
+            style={{ flexGrow: s.card_count, flexBasis: 0, minWidth: 2, backgroundColor: s.color }}
           />
         ))}
       </span>

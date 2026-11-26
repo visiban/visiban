@@ -529,7 +529,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
                         </span>
                         <BoardStatusPill board={b} />
                       </span>
-                      <StageBar board={b} className="mt-2" />
+                      <StageBar board={b} className="mt-2" inButton />
                       <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-secondary">
                         <span className="tabular-nums">Cards {b.card_count}</span>
                         <SignalsText board={b} />
