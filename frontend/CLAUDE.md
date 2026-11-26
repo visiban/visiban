@@ -2029,7 +2029,7 @@ A full-screen phone sheet's footer buttons and text inputs carry `max-sm:min-h-1
 
 ## Child progress footer — segment key (#2210)
 
-A parent card on a board whose cards can have children ends in a footer under a 1px `border-line` hairline (`CardChildrenRollup`). Its segment bar draws one 6px segment per child, in board order (to do, blocked, doing, done); above 8 children it becomes one proportional meter. The key, which never relies on color alone:
+A parent card on a board whose cards can have children ends in a footer under a 1px `border-line` hairline (`CardChildrenRollup`). Its segment bar draws one segment per child, `flex-1` and 6px tall with 2px gaps so the bar fills the row, in board order (planned, to do, blocked, doing, done); above 8 children it becomes one proportional meter. The key, which never relies on color alone:
 
 | Segment | Meaning | Look |
 |---|---|---|
@@ -2037,9 +2037,17 @@ A parent card on a board whose cards can have children ends in a footer under a 
 | Doing | any column between the first and done | 1px `border-info` outline, left half filled (`text-info`; 5.75:1 dark, 5.17:1 light on the card, where `bg-primary` was 2.83:1 in dark) |
 | To do | the child board's first column | **solid** 1px `border-fg-tertiary` outline |
 | Blocked | manual block or an open `blocks` relation; overrides the column | 1px danger outline plus diagonal stripes |
-| Planned (#2371; this rollup segment is not yet shipped, the card-face status line is) | planned for a later column | **dashed** 1px `border-fg-tertiary` outline |
+| Planned (#2551) | planned for a later column and not released; drawn first, before to do | **dashed** 1px `border-fg-tertiary` outline |
 
-Rule: **dashed outline = planned, solid outline = to do.** The blocked count is danger-on-tint text with the filled blocked glyph; only the idle line ("Work idle N days", `text-warning-on-tint`) uses the clock glyph. The footer is one `role="group"` whose `aria-label` begins "Children: …"; its visible rows are `aria-hidden`. A board the viewer can't open shows only "N children on a board you can't open".
+Rule: **dashed outline = planned, solid outline = to do.** The blocked count is danger-on-tint text with the filled blocked glyph; only the idle line ("Work idle 9d", `text-warning-on-tint`) uses the clock glyph. Visible movement text uses the short forms ("Work moved 2d ago", "Work idle 9d", "Last work done 1d ago"); the accessible sentence keeps the full words ("work moved 2 days ago").
+
+**Planned children in the footer (#2551).** Planned is its own count (`children_rollup.planned`), never in to do, and the movement line reads only the work needed now (`neededNow`), so a parent whose remaining work is all planned never says "No work started" or "Work idle". Row 2 reads "2 planned · work moved 1d ago", or "2 planned" alone. Two warnings replace row 2 when present, in `text-warning-on-tint` with **no glyph**: "Qualify: 1 child not started" (released by the parent's move, not yet moved) first, then "1 planned date has passed: Dec 4" (the earliest planned date before today, compared in the instance timezone like the child's "passed while planned" line). The sentence adds "N planned" after to do and replaces its movement clause with "; Qualify: 1 child not started" / "; 1 planned date has passed, Dec 4". The footer is one `role="group"` whose `aria-label` begins "Children: …"; its visible rows are `aria-hidden`. A board the viewer can't open shows only "N children on a board you can't open".
+
+## Phone bottom-sheet selects and inactive-date helpers (#2549, #2552)
+
+- **A select that the canvas opens "as the phone's bottom sheet" opts in with `SelectDropdown phoneSheet`.** Below 640px the same listbox renders pinned to the bottom, full width, 44px rows, over a `bg-backdrop/60` scrim (the `ModalWrapper` backdrop token, never `bg-black/N`); a tap on the scrim is the outside mousedown that closes it, and focus stays on the trigger (`aria-activedescendant`, as on desktop). In sheet mode the panel is a `role="dialog"` named from `sheetLabel ?? ariaLabel` (its listbox carries the same name); pass `sheetLabel` to name the sheet alone, because `ariaLabel` also renames the trigger (which has a visible label, so it must not be overridden) with a visible 44px Close row that dismisses it and returns focus to the trigger, `document.body` scroll is locked while it is open (the prior `overflow` is restored on close and on unmount), and the close-on-outside-scroll rule is off because the pinned panel cannot detach from its trigger. Known gap: no focus trap, so Tab can leave the sheet; focus stays on the trigger and the scrim and Close are the dismiss paths (design debt, tracked in #2642).
+- **Never toggle `disabled` on a control during its own async save.** A disabled button drops the focus `SelectDropdown` just returned to it; ignore re-entry while saving instead (`CardNeededField`).
+- **Inactive-date helper copy:** a bold lead phrase ("Inactive while planned.") then a desktop sentence in `max-sm:hidden` and a short phone sentence in `sm:hidden`, under one `aria-describedby` id (both use `display:none`, so only the visible one is read).
 
 ## Children tab and its lens (#2209)
 

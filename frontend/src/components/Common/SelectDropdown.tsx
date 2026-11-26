@@ -4,6 +4,7 @@ import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight, clampL
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import SelectedCheck from "./SelectedCheck";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 
 export interface SelectDropdownOption<T extends string> {
   value: T;
@@ -40,6 +41,13 @@ interface Props<T extends string> {
   ariaLabel?: string;
   /** id of helper text describing the trigger (applied as `aria-describedby`). */
   ariaDescribedBy?: string;
+  /**
+   * Below 640px, open the options as a bottom sheet (full width, pinned to the bottom, 44px rows, a scrim)
+   * instead of an anchored menu (#2552, the planned-children Needed field). Same listbox, keys and focus.
+   */
+  phoneSheet?: boolean;
+  /** The phone sheet's accessible name (the field's label, e.g. "Needed"); falls back to `ariaLabel`. Does not rename the trigger. */
+  sheetLabel?: string;
 }
 
 const MIN_MENU_WIDTH = 96;
@@ -59,7 +67,10 @@ export default function SelectDropdown<T extends string>({
   escapePriority = 50,
   ariaLabel,
   ariaDescribedBy,
+  phoneSheet = false,
+  sheetLabel,
 }: Props<T>) {
+  const sheet = useIsPhoneViewport() && phoneSheet;
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -98,11 +109,22 @@ export default function SelectDropdown<T extends string>({
     anchor: anchor ? { top: anchor.top, bottom: anchor.bottom } : null,
     deps: [open, options.length],
     onResize: close,
-    onOutsideScroll: close,
+    // The sheet is pinned to the bottom of the viewport, so a scroll can never detach it from its trigger; closing
+    // on one would only dismiss it when something scrolled the trigger into view.
+    onOutsideScroll: sheet ? undefined : close,
   });
   const { moreBelow, onScroll } = useOverflowFade(listRef, [open, options.length]);
 
   useDropdownEscape(open, close, triggerRef, escapePriority);
+
+  // Scroll lock while the sheet is open: the page behind a modal-style sheet must not scroll under a thumb. The
+  // cleanup restores the prior value on close and on unmount.
+  useEffect(() => {
+    if (!open || !sheet) return;
+    const prior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prior; };
+  }, [open, sheet]);
 
   useEffect(() => {
     if (!open) return;
@@ -259,10 +281,22 @@ export default function SelectDropdown<T extends string>({
         </svg>
       </button>
 
+      {open && anchor && sheet && createPortal(
+        // The scrim is outside the panel, so a tap on it is the outside mousedown that closes the menu.
+        <div aria-hidden="true" data-testid="select-sheet-scrim" className="fixed inset-0 z-50 bg-backdrop/60" />,
+        document.body,
+      )}
       {open && anchor && createPortal(
         <div
           ref={panelRef}
-          style={{
+          data-sheet={sheet ? "true" : undefined}
+          // A named dialog in sheet mode ("Needed"), so a screen reader hears what the sheet is for.
+          role={sheet ? "dialog" : undefined}
+          aria-label={sheet ? (sheetLabel ?? ariaLabel) : undefined}
+          style={sheet ? {
+            position: "fixed", left: 0, right: 0, bottom: 0,
+            maxHeight: "70dvh", display: "flex", flexDirection: "column",
+          } : {
             position: "fixed",
             top: top ?? 0,
             left: anchor.left,
@@ -274,13 +308,16 @@ export default function SelectDropdown<T extends string>({
             display: "flex",
             flexDirection: "column",
           }}
-          className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1"
+          className={sheet
+            ? "z-50 bg-surface border-t border-line-strong rounded-t-xl shadow-lg py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+            : "z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1"}
         >
           <div
             id={listboxId}
             ref={listRef}
             onScroll={onScroll}
             role="listbox"
+            aria-label={sheet ? (sheetLabel ?? ariaLabel) : undefined}
             className="min-h-0 overflow-y-auto scroll-pb-8"
           >
             {options.map((opt, i) => (
@@ -319,6 +356,17 @@ export default function SelectDropdown<T extends string>({
               </div>
             ))}
           </div>
+          {sheet && (
+            // Visible dismiss row (44px). Focus returns to the trigger, which keeps it for the whole interaction.
+            <button
+              type="button"
+              data-testid="select-sheet-close"
+              onClick={() => { close(); triggerRef.current?.focus(); }}
+              className="mx-3 mt-2 min-h-11 shrink-0 rounded border border-line-strong bg-surface text-sm font-medium text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Close
+            </button>
+          )}
           {moreBelow && (
             <div
               data-testid="select-more-below"

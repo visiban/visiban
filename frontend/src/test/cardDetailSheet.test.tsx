@@ -39,7 +39,7 @@ vi.mock('../api/cards', () => ({
   deleteCardRelation: vi.fn(),
   searchCards: vi.fn().mockResolvedValue([]),
 }))
-vi.mock('../api/boards', () => ({ createLabel: vi.fn() }))
+vi.mock('../api/boards', () => ({ createLabel: vi.fn(), getColumns: vi.fn().mockResolvedValue([]) }))
 vi.mock('../components/Card/ActivityTabPanel', () => ({
   default: () => <div data-testid="activity-tab-panel">Activity</div>,
 }))

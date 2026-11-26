@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
 
@@ -31,10 +31,13 @@ vi.mock('../api/cards', () => ({
   addCardRelation: vi.fn(),
   deleteCardRelation: vi.fn(),
   searchCards: vi.fn().mockResolvedValue([]),
+  setNeeded: vi.fn(),
+  getCard: vi.fn(),
 }))
 
 vi.mock('../api/boards', () => ({
   createLabel: vi.fn(),
+  getColumns: vi.fn().mockResolvedValue([{ id: 10, name: 'Lead', position: 0 }, { id: 33, name: 'Proposal', position: 1 }, { id: 34, name: 'Won', position: 2 }]),
 }))
 
 vi.mock('../components/Card/ActivityTabPanel', () => ({
@@ -77,7 +80,8 @@ vi.mock('../components/Card/RichTextEditor', () => ({
   ),
 }))
 
-import { blockCard, unblockCard } from '../api/cards'
+import { blockCard, unblockCard, getCard, setNeeded } from '../api/cards'
+import userEvent from '@testing-library/user-event'
 import { flagsWrapper } from './instanceFlagsWrapper'
 import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
 // #967: the card tab is session memory at module level; start every test on Details.
@@ -276,5 +280,44 @@ describe('CardDetail — manual block (#1149)', () => {
       render(<CardDetail {...props({ blockFormRequest: { mode: 'unblock', seq: 1 } })} />)
       expect(screen.queryByTestId('card-unblock-form')).not.toBeInTheDocument()
     })
+  })
+})
+
+// #2549: a planned child's due date says why it is inactive, and its Needed can be changed. A parent the viewer
+// can't open offers Now only and reads no parent board.
+describe('CardDetail planned child (#2549)', () => {
+  it('shows the inactive-date helper, wired to the date input, and Needed with Now only for a hidden parent', async () => {
+    render(<CardDetail {...props({ card: makeCard({ due_date: '2026-12-04', planned: true, needed_at_column: null, needed_at_column_name: null, parent: { hidden: true } }) })} />)
+    const help = await screen.findByTestId('due-planned-help')
+    // Three variants (#2549 ruling): hidden parent, visible parent (next test), phone. Desktop and phone spans are
+    // both in the DOM (CSS hides one), so each string is pinned on its own element.
+    expect(within(help).getByText('Inactive while planned.').tagName).toBe('STRONG')
+    expect(within(help).getByText('Counts once the work is pulled or needed.')).toBeInTheDocument()
+    expect(within(help).getByText('Counts once needed.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Due date')).toHaveAttribute('aria-describedby', help.id)
+    const field = screen.getByTestId('card-needed-field')
+    expect(field).toHaveTextContent("The parent is on a board you can't open, so Needed can only be set to Now.")
+    expect(screen.getByLabelText('Needed')).toHaveTextContent('Planned for a later stage')
+  })
+
+  it('names the Needed column when the parent is visible, and shows nothing for a card with no parent', () => {
+    const { unmount } = render(<CardDetail {...props({ card: makeCard({ due_date: '2026-12-04', planned: true, needed_at_column: 33, needed_at_column_name: 'Proposal' }) })} />)
+    expect(within(screen.getByTestId('due-planned-help')).getByText('Counts once the work is pulled or the parent reaches Proposal.')).toBeInTheDocument()
+    expect(screen.queryByTestId('card-needed-field')).toBeNull()
+    unmount()
+    render(<CardDetail {...props()} />)
+    expect(screen.queryByTestId('due-planned-help')).toBeNull()
+  })
+
+  it('names the new Needed column in the helper after Needed is changed (the write returns only three fields)', async () => {
+    const user = userEvent.setup()
+    const parent = { hidden: false, id: 5, title: 'Hooli', board_id: 2, board_name: 'Pipeline', column_id: 10, column_name: 'Lead', swimlane_id: 1, swimlane_name: 'L', archived: false, board_parent_name_singular: '' }
+    vi.mocked(setNeeded).mockResolvedValue({ needed_at_column: 34, planned: true, planned_released_at: null })
+    vi.mocked(getCard).mockResolvedValue(makeCard({ planned: true, needed_at_column: 34, needed_at_column_name: 'Won', parent } as never))
+    render(<CardDetail {...props({ card: makeCard({ due_date: '2026-12-04', planned: true, needed_at_column: 33, needed_at_column_name: 'Proposal', parent } as never) })} />)
+    expect(within(screen.getByTestId('due-planned-help')).getByText('Counts once the work is pulled or the parent reaches Proposal.')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('Needed'))
+    await user.click(await screen.findByRole('option', { name: 'When the parent reaches Won' }))
+    expect(await within(screen.getByTestId('due-planned-help')).findByText('Counts once the work is pulled or the parent reaches Won.')).toBeInTheDocument()
   })
 })

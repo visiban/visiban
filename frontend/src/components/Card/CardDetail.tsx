@@ -22,7 +22,7 @@ import type { LimitRefusal } from "../Board/moveBlockedMessages";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
-import { deleteCard, archiveCard, getCardTimeline, getCardComments, addCardComment, deleteComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
+import { getCard, deleteCard, archiveCard, getCardTimeline, getCardComments, addCardComment, deleteComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
 import type { CardPatch, TimelineCounts, TimelinePage } from "../../api/cards";
 import { moveChoices, parseMoveChoice } from "../../utils/cardActions";
 import { cardSubColumnIndex, isGatedStage } from "../../utils/stages";
@@ -40,6 +40,7 @@ import { dropUnknownLabels } from "../../utils/cardLabels";
 import { isStaleCard } from "../../utils/cardVersion";
 import { formatDateStr, formatDateTimeUser, formatRelativeTime, todayInTimezone } from "../../utils/date";
 import PlannedMoveWarning, { firstColumnId, plannedMoveWarningText } from "./PlannedMoveWarning";
+import CardNeededField from "./CardNeededField";
 import type { UserDatePrefs } from "../../utils/date";
 import { isOverdue } from "../../utils/cardUrgency";
 import MentionTextarea from "./MentionTextarea";
@@ -222,6 +223,7 @@ function laterParentColumns(columns: { id: number; name: string; position: numbe
 
 export default function CardDetail({ onOpenBoardSettings, card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, childrenRefreshSignal = 0, blockFormRequest = null, tabRequest, backToParentId = null, focusChildId = null }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
+  const duePlannedHelpId = `${useId()}-due-planned-help`;
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
   const deleteCommentTriggerRef = useConfirmFocusReturn(confirmDeleteCommentId);
@@ -2072,6 +2074,7 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                             ref={dueDateRef}
                             type="date"
                             aria-label="Due date"
+                            aria-describedby={localCard.planned ? duePlannedHelpId : undefined}
                             value={localCard.due_date}
                             onChange={(e) => {
                               const v = e.target.value || null;
@@ -2102,6 +2105,7 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                         ref={dueDateEmptyRef}
                         type="date"
                         aria-label="Due date"
+                        aria-describedby={localCard.planned ? duePlannedHelpId : undefined}
                         value=""
                         min={new Date().toISOString().slice(0, 10)}
                         onChange={(e) => {
@@ -2114,7 +2118,42 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                       />
                     </div>
                   )}
+                  {localCard.planned && (
+                    // #2549: a planned child's date is stored but inactive; say why it is not in Due soon.
+                    <p id={duePlannedHelpId} data-testid="due-planned-help" className="mt-1 text-xs text-fg-tertiary">
+                      <strong className="font-semibold text-fg-secondary">Inactive while planned.</strong>{" "}
+                      <span className="max-sm:hidden">
+                        {localCard.needed_at_column_name
+                          ? `Counts once the work is pulled or the parent reaches ${localCard.needed_at_column_name}.`
+                          : "Counts once the work is pulled or needed."}
+                      </span>
+                      <span className="sm:hidden">Counts once needed.</span>
+                    </p>
+                  )}
                 </div>
+                <CardNeededField
+                  card={localCard}
+                  boardId={board.id}
+                  firstColumnId={firstColumnId(board.columns)}
+                  canEdit={canEdit}
+                  onChanged={(fields) => {
+                    setLocalCard((c) => ({ ...c, ...fields }));
+                    // The write returns three fields; the helper's column name and the needed-now flags come from
+                    // the card read, so merge only those planned fields from a fresh read (a failed read keeps the three).
+                    Promise.resolve()
+                      .then(() => getCard(board.id, localCard.id))
+                      .then((fresh) => setLocalCard((c) => ({
+                        ...c,
+                        needed_at_column: fresh.needed_at_column,
+                        needed_at_column_name: fresh.needed_at_column_name,
+                        needed_now: fresh.needed_now,
+                        needed_now_reason: fresh.needed_now_reason,
+                        planned: fresh.planned,
+                        planned_released_at: fresh.planned_released_at,
+                      })))
+                      .catch(() => {});
+                  }}
+                />
               </div>
 
               {/* Priority */}

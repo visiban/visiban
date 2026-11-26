@@ -83,6 +83,25 @@ describe('plannedMoveWarningText (#2550)', () => {
   })
 })
 
+describe('Children tab summary uses the footer planned bucket (#2551)', () => {
+  it('counts a planned child as planned, not to do; blocked and done beat planned', () => {
+    renderTab(state(read([
+      row({ id: 1, planned: true }),
+      row({ id: 2, column_id: 100, position: 1 }),
+      row({ id: 3, column_id: 100, position: 2, planned: true, blocked: true }),
+      row({ id: 4, column_id: 102, position: 3, planned: true }),
+    ])))
+    expect(screen.getByTestId('children-planned-count')).toHaveTextContent(/^1 planned$/)
+    expect(screen.getByRole('img', { name: '1 done, 0 doing, 1 blocked, 1 to do, 1 planned for later columns' })).toBeInTheDocument()
+  })
+
+  it('omits the planned segment and count when no child is planned', () => {
+    renderTab(state(read([row({ id: 1 })])))
+    expect(screen.queryByTestId('children-planned-count')).toBeNull()
+    expect(screen.getByRole('img', { name: '0 done, 0 doing, 0 blocked, 1 to do' })).toBeInTheDocument()
+  })
+})
+
 describe("Children tab: a planned child's date is inactive (#2553)", () => {
   it('a planned child with a past date reads "passed while planned", never Overdue', () => {
     renderTab(state(read([row({ planned: true, due_date: '2020-01-02' })])))

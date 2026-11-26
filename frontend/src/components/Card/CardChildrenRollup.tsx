@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { CardChildrenRollup as Rollup, CardChildrenRollupVisible, CardDensity } from "../../types";
-import { ROLLUP_SEGMENT_MAX, movementLine, rollupSentence, type Tone } from "./childrenRollup";
+import { ROLLUP_SEGMENT_MAX, movementLine, neededNow, plannedPrefix, rollupSentence, rollupWarnings, type Tone } from "./childrenRollup";
 import { useSharedMinuteClock } from "../../hooks/useSharedMinuteClock";
+import { todayInTimezone } from "../../utils/date";
+import { instanceTimezone } from "../../utils/instanceTimezone";
 
 /**
  * Same footprint as the real footer at each density so a card never jumps (#2210):
@@ -49,7 +51,7 @@ const ClockGlyph = () => (
   </svg>
 );
 
-type SegmentState = "done" | "doing" | "todo" | "blocked";
+type SegmentState = "planned" | "done" | "doing" | "todo" | "blocked";
 
 // The live-change ring sits outside the segment, past a 1px surface-colored offset, so it is
 // measured against the card and never against the segment's own fill: an inset ring on Doing was
@@ -63,13 +65,16 @@ const SEGMENT_CLASS: Record<SegmentState, string> = {
   // where --primary was 2.83:1 in dark (#2210). The half fill separates it from solid Done.
   doing: "border border-info bg-[linear-gradient(90deg,currentColor_50%,transparent_50%)] text-info",
   todo: "border border-fg-tertiary",
+  // #2551: planned work waits in To do, so its segment is the to-do outline, dashed: shape, not color.
+  planned: "border border-dashed border-fg-tertiary",
   // Outline plus diagonal stripes: color is never the only cue.
   blocked: "border border-danger bg-[repeating-linear-gradient(135deg,currentColor_0_1px,transparent_1px_3px)] text-danger",
 };
 
-/** Segments in board order: to do (first column), blocked, doing, done. */
+/** Segments in board order: planned and to do (first column), blocked, doing, done. */
 function segments(r: CardChildrenRollupVisible): SegmentState[] {
   return [
+    ...Array<SegmentState>(r.planned ?? 0).fill("planned"),
     ...Array<SegmentState>(r.todo).fill("todo"),
     ...Array<SegmentState>(r.blocked).fill("blocked"),
     ...Array<SegmentState>(r.doing).fill("doing"),
@@ -90,6 +95,8 @@ interface Props {
   stalenessDays: number;
   /** Injected for tests; defaults to the clock. */
   now?: number;
+  /** Today as YYYY-MM-DD, for the planned-date warning; injected for tests, else the instance timezone's today. */
+  today?: string;
 }
 
 /**
@@ -100,22 +107,28 @@ interface Props {
  * link draw nothing. The footer is one `role="group"` with the whole sentence
  * as its name; the visible rows are `aria-hidden`.
  */
-export default function CardChildrenRollup({ rollup, density, stalenessDays, now }: Props) {
+export default function CardChildrenRollup({ rollup, density, stalenessDays, now, today }: Props) {
   // One shared ticker re-renders the footer each minute so "moved N ago" and
   // "idle" never go stale; an injected `now` (tests) wins.
   const ticked = useSharedMinuteClock();
   const clock = now ?? ticked;
   const visible = rollup.visible ? rollup : null;
-  const movement = visible && visible.total > 0 ? movementLine(visible, stalenessDays, clock) : null;
-  const sentence = rollupSentence(rollup, movement);
+  // #2551: the movement line describes only work needed now; planned children are their own count.
+  const planned = visible?.planned ?? 0;
+  const current = visible ? neededNow(visible) : null;
+  const movement = current && current.total > 0 ? movementLine(current, stalenessDays, clock) : null;
+  const warnings = visible && visible.total > 0
+    ? rollupWarnings(visible, today ?? todayInTimezone(instanceTimezone(), new Date(clock)))
+    : [];
+  const sentence = rollupSentence(rollup, movement, warnings);
 
   // Live update (#2210): ring only the segments that gained a child for 2s and
   // announce politely when the counts change after the first render. Under
   // reduced motion the ring has no transition, so it simply appears and drops.
   const counts: Record<SegmentState, number> = visible
-    ? { todo: visible.todo, blocked: visible.blocked, doing: visible.doing, done: visible.done }
-    : { todo: 0, blocked: 0, doing: 0, done: 0 };
-  const key = visible ? `${counts.done}/${counts.doing}/${counts.todo}/${counts.blocked}` : `h${rollup.total}`;
+    ? { planned, todo: visible.todo, blocked: visible.blocked, doing: visible.doing, done: visible.done }
+    : { planned: 0, todo: 0, blocked: 0, doing: 0, done: 0 };
+  const key = visible ? `${counts.done}/${counts.doing}/${counts.todo}/${counts.blocked}/${counts.planned}` : `h${rollup.total}`;
   const prevKey = useRef(key);
   const prevCounts = useRef(counts);
   // Per state, how many segments existed before the change: segments past that
@@ -163,22 +176,23 @@ export default function CardChildrenRollup({ rollup, density, stalenessDays, now
     </span>
   );
   const segs = segments(visible);
-  const seen: Record<SegmentState, number> = { todo: 0, blocked: 0, doing: 0, done: 0 };
+  const seen: Record<SegmentState, number> = { planned: 0, todo: 0, blocked: 0, doing: 0, done: 0 };
   const indexInState = segs.map((s) => seen[s]++);
   const bar = density === "dense" ? null : segs.length > ROLLUP_SEGMENT_MAX ? (
     <span data-testid="rollup-meter" className={`flex h-1.5 flex-1 min-w-[2rem] rounded-sm border border-fg-tertiary`}>
-      {(["todo", "blocked", "doing", "done"] as const).map((s) => {
-        const n = visible[s];
+      {(["planned", "todo", "blocked", "doing", "done"] as const).map((s) => {
+        const n = counts[s];
         return n > 0 ? <span key={s} data-segment-group={s} data-ringed={isChanged(s, n - 1) ? "true" : undefined} className={`${SEGMENT_CLASS[s]}${isChanged(s, n - 1) ? ` ${RING_CLASS}` : ""}`} style={{ width: `${(n / visible.total) * 100}%` }} /> : null;
       })}
     </span>
   ) : (
-    // gap-1 (4px), not gap-0.5: the live ring reaches 3px past a segment (1px offset + 2px ring),
-    // so a 2px gap let it cover an unchanged neighbor's outline.
-    <span data-testid="rollup-segments" className={`flex flex-1 min-w-0 gap-1 rounded-sm`}>
+    // Canvas shape (design ruling, #2551): each segment is flex:1, 6px tall, with 2px gaps, so the bar
+    // fills the row. Trade-off recorded: the 2s live ring reaches 3px past a segment (1px offset + 2px
+    // ring), so with a 2px gap it briefly overlaps a neighbor's outline by 1px; it sits above it (z-10).
+    <span data-testid="rollup-segments" className={`flex flex-1 min-w-0 gap-0.5 rounded-sm`}>
       {segs.map((s, i) => {
         const ringed = isChanged(s, indexInState[i]);
-        return <span key={i} data-segment={s} data-ringed={ringed ? "true" : undefined} className={`h-1.5 w-1.5 shrink-0 rounded-[1px] ${SEGMENT_CLASS[s]}${ringed ? ` ${RING_CLASS}` : ""}`} />;
+        return <span key={i} data-segment={s} data-ringed={ringed ? "true" : undefined} className={`h-1.5 flex-1 min-w-0 rounded-[1px] ${SEGMENT_CLASS[s]}${ringed ? ` ${RING_CLASS}` : ""}`} />;
       })}
     </span>
   );
@@ -198,7 +212,17 @@ export default function CardChildrenRollup({ rollup, density, stalenessDays, now
           <span className={`inline-flex items-center gap-0.5 text-xs shrink-0 ${TONE_CLASS.warning}`}><ClockGlyph />{movement.text}</span>
         )}
       </div>
-      {density === "comfortable" && movement && (
+      {density === "comfortable" && warnings.length > 0 ? (
+        // #2551: a warning replaces the movement line; warning text with no glyph.
+        <p aria-hidden="true" data-testid="rollup-warning" className={`mt-0.5 text-xs truncate ${TONE_CLASS.warning}`}>
+          {warnings.map((w) => w.text).join(" · ")}
+        </p>
+      ) : density === "comfortable" && planned > 0 ? (
+        <p aria-hidden="true" data-testid="rollup-movement" className={`mt-0.5 flex items-center gap-1 text-xs truncate ${movement?.idle ? TONE_CLASS.warning : TONE_CLASS.neutral}`}>
+          {movement?.idle && <ClockGlyph />}
+          {plannedPrefix(planned, movement)}
+        </p>
+      ) : density === "comfortable" && movement && (
         <p aria-hidden="true" data-testid="rollup-movement" className={`mt-0.5 flex items-center gap-1 text-xs truncate ${TONE_CLASS[movement.tone]}`}>
           {movement.idle && <ClockGlyph />}
           {movement.text}

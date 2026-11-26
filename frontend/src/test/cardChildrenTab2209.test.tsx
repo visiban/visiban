@@ -780,13 +780,27 @@ describe('Children tab remainder (#2209 slice 3)', () => {
     expect(screen.queryByTestId('children-work-moved')).not.toBeInTheDocument()
   })
 
+  it('"Work moved" uses the footer short form: hours, and days rather than a date (#2549)', () => {
+    const at = (ms: number) => new Date(Date.now() - ms).toISOString()
+    const props = { board: parentBoard, cardId: 5, cardTitle: 'P', state: state({ data: read(kids) }), onExitToTabs: vi.fn() }
+    const { rerender } = render(<CardChildrenTab {...props} lastMovedAt={at(5 * 3600_000 + 60_000)} />)
+    expect(screen.getByTestId('children-work-moved')).toHaveTextContent('Work moved 5h ago')
+    rerender(<CardChildrenTab {...props} lastMovedAt={at(9 * 24 * 3600_000 + 60_000)} />)
+    expect(screen.getByTestId('children-work-moved')).toHaveTextContent('Work moved 9d ago')
+  })
+
+  it('"Work moved" renders nothing for an invalid date (#2549)', () => {
+    render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lastMovedAt="not-a-date" />)
+    expect(screen.queryByTestId('children-work-moved')).not.toBeInTheDocument()
+  })
+
   it('"Work moved" ticks forward while the tab stays open', () => {
     vi.useFakeTimers()
     try {
       vi.setSystemTime(new Date('2026-11-22T12:00:00Z'))
       const moved = new Date('2026-11-22T11:01:00Z').toISOString() // 59m before "now"
       const { unmount } = render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lastMovedAt={moved} />)
-      expect(screen.getByTestId('children-work-moved')).toHaveTextContent('Work moved 59m ago')
+      expect(screen.getByTestId('children-work-moved')).toHaveTextContent('Work moved just now')
       act(() => { vi.advanceTimersByTime(2 * 60_000) })
       expect(screen.getByTestId('children-work-moved')).toHaveTextContent('Work moved 1h ago')
       unmount()

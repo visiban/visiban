@@ -41,14 +41,14 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(f).toHaveAttribute('aria-label', /^Children: 2 of 5 done, 1 doing, 1 blocked, 1 to do, work moved 1 day ago/)
       await expect(f.locator('[data-segment]')).toHaveCount(5)
       await expect(f.getByTestId('rollup-blocked')).toHaveText('1 blocked')
-      await expect(f.getByTestId('rollup-movement')).toHaveText('Work moved 1 day ago')
+      await expect(f.getByTestId('rollup-movement')).toHaveText('Work moved 1d ago')
     })
 
     test('standard keeps row 1 only; idle shows there when nothing is blocked', async ({ page }) => {
       await openBoard(page, { density: 'standard', theme, cards: [IDLE_PARENT] })
       const f = footer(page)
       await expect(f.getByTestId('rollup-movement')).toHaveCount(0)
-      await expect(f).toContainText('Work idle 30 days')
+      await expect(f).toContainText('Work idle 30d')
     })
 
     test('dense draws the one-line footer with N/M and no bar', async ({ page }) => {
@@ -92,7 +92,7 @@ test.describe('child rollup footer at 390px', () => {
     await openBoard(page, { density: 'comfortable', theme: 'light' })
     const f = footer(page)
     await expect(f).toBeVisible()
-    await expect(f.getByTestId('rollup-movement')).toHaveText('Work moved 1 day ago')
+    await expect(f.getByTestId('rollup-movement')).toHaveText('Work moved 1d ago')
     await expect(f).toContainText('2/5 done')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     const card = f.locator('xpath=ancestor::*[@data-card-id][1]')

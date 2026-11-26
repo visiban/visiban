@@ -1825,7 +1825,27 @@ def _empty_rollup():
     return {
         "visible": True, "total": 0, "done": 0, "doing": 0, "todo": 0, "blocked": 0,
         "last_moved_at": None,
+        # Since 1.3 (#2551): planned children, their stored dates and the
+        # released-but-not-started warning. See :func:`rollups_for_viewer`.
+        "planned": 0, "planned_due_dates": [], "needed_not_started": [],
     }
+
+
+#: The ``rollup_link_rows`` extras :func:`rollups_for_viewer` reads (#2551):
+#: one join on the Needed column for its name, no extra query.
+_PLANNED_ROLLUP_EXTRA = (
+    "needed_at_column_id", "planned_released_at", "needed_at_column__name",
+    "needed_at_column__position", "child__due_date",
+)
+
+
+def is_planned_state(state, needed_col, released):
+    """True when a child counts as planned: Needed set, not released, and not blocked or done.
+
+    The ONE rule Children mode and the card's children_rollup share (#2551): blocked and done beat planned,
+    planned beats to do, so a planned child leaves ``todo`` and never feeds ``last_moved_at``.
+    """
+    return needed_col is not None and released is None and state not in ("blocked", "done")
 
 
 def rollup_link_rows(links, *extra):
@@ -1903,7 +1923,8 @@ def rollups_for_viewer(parent_ids, user):
     card face shows as "No children"). A rollup is either
 
     * ``{"visible": True, "total", "done", "doing", "todo", "blocked",
-      "last_moved_at"}`` when ``user`` holds a role on the child board, or
+      "last_moved_at", "planned", "planned_due_dates", "needed_not_started"}``
+      when ``user`` holds a role on the child board, or
     * ``{"visible": False, "total"}`` when it does not: the accepted count-only
       disclosure (owner sign-off 2026-11-17, decision B). No state, timestamp,
       board, column or id of a child the viewer cannot open is returned.
@@ -1924,6 +1945,20 @@ def rollups_for_viewer(parent_ids, user):
     rollup (#2209). Like :func:`children_for_viewer`, only the board of a
     parent's first link is read.
 
+    **Planned children (#2551, #2371 § 3)** are their own bucket, ``planned``
+    (Needed set and not released, the ``LINK_PLANNED_Q`` predicate), checked
+    after blocked and done and before the column, so ``todo`` and the
+    "No work started" / "Work idle" lines describe only work needed now: a
+    planned child's moves never feed ``last_moved_at`` either.
+    ``planned_due_dates`` is the sorted stored dates of planned children (the
+    client compares them with its own today, as the child's "passed while
+    planned" line does, so both agree). ``needed_not_started`` is
+    ``[{"column_name", "count"}]`` in column order: children released by the
+    parent reaching their Needed column that have not moved since (the
+    ``needed_now`` predicate of ``planned_children.planned_entries``). The
+    column is the PARENT board's, which the reader of the parent card can
+    open; the hidden variant below drops all three with every other state.
+
     **Cost is fixed, not per card** (perf-check, #2210): one query for every
     live child row of every parent in ``parent_ids`` (the write side caps a
     parent at ``CHILDREN_PER_PARENT_LIMIT`` links under its row lock; the read
@@ -1935,7 +1970,7 @@ def rollups_for_viewer(parent_ids, user):
     if not ids:
         return {}
     out = {pid: _empty_rollup() for pid in ids}
-    rows = rollup_link_rows(CardParentLink.objects.filter(parent_id__in=ids))
+    rows = rollup_link_rows(CardParentLink.objects.filter(parent_id__in=ids), *_PLANNED_ROLLUP_EXTRA)
     if not rows:
         return out
     board_of = first_link_boards(rows)
@@ -1945,14 +1980,37 @@ def rollups_for_viewer(parent_ids, user):
         roles = {}
     else:
         roles = get_board_roles(user, boards)
-    for parent_id, child_board_id, blocked_at, has_blocker, is_done, position, moved, *_ in rows:
+    not_started = {}
+    for (
+        parent_id, child_board_id, blocked_at, has_blocker, is_done, position, moved,
+        needed_col, released, needed_name, needed_pos, due,
+    ) in rows:
         if board_of[parent_id] != child_board_id:
             continue
         r = out[parent_id]
         r["total"] += 1
-        r[rollup_state(blocked_at, has_blocker, is_done, position, first_position.get(child_board_id))] += 1
+        state = rollup_state(blocked_at, has_blocker, is_done, position, first_position.get(child_board_id))
+        if is_planned_state(state, needed_col, released):
+            r["planned"] += 1
+            if due is not None:
+                r["planned_due_dates"].append(due)
+            continue
+        r[state] += 1
         if moved is not None and (r["last_moved_at"] is None or moved > r["last_moved_at"]):
             r["last_moved_at"] = moved
+        if (
+            state == "todo" and needed_col is not None and released is not None
+            and (moved is None or moved <= released)
+        ):
+            key = (needed_pos, needed_col, needed_name)
+            per = not_started.setdefault(parent_id, {})
+            per[key] = per.get(key, 0) + 1
+    for parent_id, per in not_started.items():
+        out[parent_id]["needed_not_started"] = [
+            {"column_name": name, "count": n} for (_pos, _pk, name), n in sorted(per.items())
+        ]
+    for r in out.values():
+        r["planned_due_dates"] = [d.isoformat() for d in sorted(r["planned_due_dates"])]
     for parent_id, child_board_id in board_of.items():
         if roles.get(child_board_id) is None:
             # Count only: every other key would describe a board the viewer

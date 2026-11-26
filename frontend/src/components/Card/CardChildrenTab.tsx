@@ -10,7 +10,8 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { BoardFull, CardChildRow, CardChildrenColumn } from "../../types";
 import { formatBlockedDuration } from "../../utils/blockedState";
 import { colorChipStyle } from "../../utils/colorContrast";
-import { formatDueDate, formatRelativeTime, todayInTimezone } from "../../utils/date";
+import { formatDueDate, todayInTimezone } from "../../utils/date";
+import { shortAge } from "./childrenRollup";
 import { buildPlannedStatusLine } from "../../utils/cardStatusLine";
 import PlannedMoveWarning, { plannedMoveWarningText } from "./PlannedMoveWarning";
 import { useSharedMinuteClock } from "../../hooks/useSharedMinuteClock";
@@ -22,12 +23,14 @@ import AddChildDialog from "./AddChildDialog";
 import ChildCardPicker from "./ChildCardPicker";
 import { CHILDREN_BOARD_ESCAPE_PRIORITY, CHILD_MOVE_ESCAPE_PRIORITY, WIDE_MIN_PX, WRITE_ROLES, describeChildrenChange, moveTargetState, type ChildrenState } from "./cardChildren";
 
-type Segment = "done" | "doing" | "blocked" | "todo";
+type Segment = "done" | "doing" | "blocked" | "todo" | "planned";
 
 function segmentOf(child: CardChildRow, columns: CardChildrenColumn[]): Segment {
   const col = columns.find((c) => c.id === child.column_id);
   if (col?.is_done) return "done";
   if (child.blocked) return "blocked";
+  // #2551: the footer's rule (is_planned_state): blocked and done beat planned, planned beats to do.
+  if (child.planned === true) return "planned";
   return columns[0]?.id === child.column_id ? "todo" : "doing";
 }
 
@@ -167,7 +170,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   const shownColumn = columns.find((c) => c.id === shownColumnId) ?? nonEmpty[0] ?? columns[0];
   const shownColumns = wide ? columns : shownColumn ? [shownColumn] : [];
 
-  const counts = { done: 0, doing: 0, blocked: 0, todo: 0 } as Record<Segment, number>;
+  const counts = { done: 0, doing: 0, blocked: 0, todo: 0, planned: 0 } as Record<Segment, number>;
   for (const c of children) counts[segmentOf(c, columns)] += 1;
   const total = children.length;
   const doneLine = (n: number) => `${n} of ${total} done`;
@@ -470,6 +473,8 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
       ["doing", "doing", "bg-info"],
       ["blocked", "blocked", "bg-danger"],
       ["todo", "to do", "bg-fg-tertiary"],
+      // Dashed outline, as in the card footer: shape, not color, marks work that is not needed yet.
+      ["planned", "planned for later columns", "border border-dashed border-fg-tertiary"],
     ];
     return (
       <div className="flex flex-col gap-4">
@@ -478,13 +483,14 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
             <div className="flex items-baseline gap-3 flex-wrap">
               <span className="text-base font-semibold text-fg">{doneLine(counts.done)}</span>
               {counts.blocked > 0 && <span className="text-sm text-danger"><span aria-hidden="true">⊘ </span>{counts.blocked} blocked</span>}
-              {lastMovedAt && formatRelativeTime(lastMovedAt, clock) && (
-                <span className="text-sm text-fg-tertiary" data-testid="children-work-moved">Work moved {formatRelativeTime(lastMovedAt, clock)}</span>
+              {counts.planned > 0 && <span className="text-sm text-fg-tertiary" data-testid="children-planned-count">{counts.planned} planned</span>}
+              {lastMovedAt && !Number.isNaN(new Date(lastMovedAt).getTime()) && (
+                <span className="text-sm text-fg-tertiary" data-testid="children-work-moved">Work moved {shortAge(lastMovedAt, clock)}</span>
               )}
             </div>
             <div
               role="img"
-              aria-label={segments.map(([k, label]) => `${counts[k]} ${label}`).join(", ")}
+              aria-label={segments.filter(([k]) => k !== "planned" || counts[k] > 0).map(([k, label]) => `${counts[k]} ${label}`).join(", ")}
               className="flex h-2 w-full rounded overflow-hidden bg-surface-hover"
             >
               {segments.map(([k, , cls]) => counts[k] > 0 && (

@@ -122,6 +122,26 @@ export const createBoard = (data: { name: string; description?: string; template
 export const getBoard = (id: number) =>
   client.get<Board>(`/api/v1/boards/${id}/`).then((r) => r.data);
 
+/**
+ * A board's columns (#2549: the parent board's Needed options). The list endpoint is limit/offset paged
+ * (`{count, offset, page_size, results}`, 50 by default, no `next`), so this asks for the maximum page and
+ * advances `offset` until `count` is reached: a board with more columns must still offer every later column.
+ * A bare-list response (no pagination) is returned as is.
+ */
+export const getColumns = async (boardId: number): Promise<Column[]> => {
+  const all: Column[] = [];
+  for (let offset = 0; ; ) {
+    const { data } = await client.get<Column[] | { count: number; results: Column[] }>(
+      `/api/v1/boards/${boardId}/columns/`,
+      { params: { offset, page_size: 200 } },
+    );
+    if (Array.isArray(data)) return data;
+    all.push(...data.results);
+    offset += data.results.length;
+    if (data.results.length === 0 || offset >= data.count) return all;
+  }
+};
+
 export const getBoardFull = (id: number) =>
   client.get<BoardFull>(`/api/v1/boards/${id}/full/`).then((r) => r.data);
 
