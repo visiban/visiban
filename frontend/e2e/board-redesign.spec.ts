@@ -163,7 +163,12 @@ test.describe('board redesign baseline', () => {
     // Menus (#2394): the Filter panel and the ... menu, the two reference menus the View menu shot
     // does not cover. Opened one at a time (the reference draws all three side by side).
     test('filter menu', async ({ page }) => {
-      await openBoard(page, 'dark')
+      // The reference opens the panel over two active filters (Label: Renewal and a second row), so
+      // the capture carries the count badge, the highlighted rows and the chip row (#2450). The
+      // second filter is Overdue rather than the reference's APAC lane rule: a lane rule travels
+      // as a compact JSON URL param, and the panel's selected-row treatment is the same.
+      const renewal = REDESIGN_BOARD.labels.find((l) => l.name === 'Renewal')!
+      await openBoard(page, 'dark', `?f_labels=${renewal.id}&f_due=overdue`)
       await page.getByRole('button', { name: /^Filter/ }).first().click()
       await expect(page.getByRole('dialog', { name: 'Filter' })).toBeVisible()
       await page.mouse.move(0, 0)
@@ -185,10 +190,10 @@ test.describe('board redesign baseline', () => {
   // stages-settings.png are not captured here because they are a component sheet and a settings panel,
   // not board states. The Stage settings visual match to stages-settings.png stays open under #2278;
   // components.png has no capture yet.
-  // These baselines pin renderings known to diverge from the reference. Column-header mid-word
-  // wrapping and the collapse chevron are #2389; the other divergences (`...` menu contents, view-only
-  // star and status pill, offline banner color, non-bold lead-ins, Filter panel active filters, no-match
-  // panel) are #2450. A baseline update after those land is expected, not a regression.
+  // Known remaining divergence from the reference (#2450, #2389 landed): the offline banner stays amber
+  // while reconnecting on purpose (#2342, danger only once failed), and the Filter panel's second active
+  // filter is Overdue, not the reference's APAC lane rule. Column names truncate on one line with the
+  // collapse chevron shown on hover or focus, as the reference draws them.
   test.describe('desktop 1440 board states', () => {
     test.use({ viewport: { width: 1440, height: 900 } })
 

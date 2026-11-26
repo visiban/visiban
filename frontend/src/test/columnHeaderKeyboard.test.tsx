@@ -161,6 +161,46 @@ describe('ColumnHeader — kebab touch reveal (#2343)', () => {
   })
 })
 
+// #2389 — the collapse chevron is hidden at rest like the reference, but stays reachable
+describe('ColumnHeader — collapse chevron reveal and name truncation (#2389)', () => {
+  it('the chevron is opacity-hidden at rest, not display:none, and revealed by hover, focus and no-hover', () => {
+    renderHeader()
+    const chevron = screen.getByRole('button', { name: 'Collapse column' })
+    const cls = chevron.className
+    expect(cls).toContain('opacity-0')
+    expect(cls).toContain('group-hover/col:opacity-100')
+    expect(cls).toContain('focus:opacity-100')
+    expect(cls).toContain('[@media(hover:none)]:opacity-100')
+    expect(cls).not.toMatch(/\bhidden\b|invisible/)
+  })
+
+  it('Tab reaches the chevron and Enter collapses', async () => {
+    const user = userEvent.setup()
+    const props = renderHeader()
+    const chevron = screen.getByRole('button', { name: 'Collapse column' })
+    chevron.focus()
+    expect(chevron).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(props.onToggleCollapse).toHaveBeenCalledTimes(1)
+  })
+
+  it('the name stays on one line and never breaks mid-word; the full name is the accessible name and the title', () => {
+    const long = { ...column, name: 'Prospecting and qualification' }
+    renderHeader({ column: long })
+    const nameBtn = screen.getByRole('button', { name: 'Prospecting and qualification' })
+    expect(nameBtn.className).toContain('truncate')
+    expect(nameBtn.className).not.toContain('break-words')
+    expect(nameBtn).toHaveAttribute('title', 'Prospecting and qualification (click to rename)')
+  })
+
+  it('a non-admin name truncates too and carries the full name as its title', () => {
+    renderHeader({ isAdmin: false })
+    const name = screen.getByText('Backlog')
+    expect(name.className).toContain('truncate')
+    expect(name).toHaveAttribute('title', 'Backlog')
+  })
+})
+
 describe('ColumnHeader — split stage (#2278)', () => {
   const stage = { ...column, sub_columns: [{ id: 1, uid: 'sub1', position: 0, name: 'Doing' }, { id: 2, uid: 'sub2', position: 1, name: 'Ready' }] } as Column
   const card = (id: number, gates_passed: number) => ({ id, column: 10, gates_passed }) as unknown as React.ComponentProps<typeof ColumnHeader>['cards'][number]

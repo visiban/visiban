@@ -127,6 +127,11 @@ describe('HealthStatusControl (#1133)', () => {
     expect(screen.queryByRole('button', { name: /Health status/ })).not.toBeInTheDocument()
   })
 
+  it('shows the No status pill to a non-admin when the header opts in (#2450)', () => {
+    renderControl({ canEdit: false, showUnsetToReaders: true })
+    expect(screen.getByText(NO_STATUS_LABEL)).toBeInTheDocument()
+  })
+
   it('shows a plain pill to a non-admin when a status applies', () => {
     renderControl({ canEdit: false, ...inherited('off_track') })
     expect(screen.queryByRole('button', { name: /Health status/ })).not.toBeInTheDocument()

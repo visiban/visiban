@@ -280,7 +280,9 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
         <div className="flex items-start gap-2">
           <button type="button"
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-            className="text-fg-secondary hover:text-fg transition text-xs shrink-0 mt-0.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+            // Hidden at rest like the reference (#2389): opacity, never display:none, so Tab still reaches it and it stays
+            // in the a11y tree. Hover, focus and a no-hover device reveal it (frontend/CLAUDE.md § Column headers).
+            className="text-fg-secondary hover:text-fg transition text-xs shrink-0 mt-0.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded opacity-0 group-hover/col:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
             title="Collapse column"
             aria-label="Collapse column"
           >
@@ -311,14 +313,14 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
               <button
                 type="button"
                 ref={renameTriggerRef}
-                className="flex-1 font-semibold text-fg text-[13px] leading-snug break-words min-w-0 text-left cursor-text hover:text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                title="Click to rename"
+                className="flex-1 font-semibold text-fg text-[13px] leading-snug truncate min-w-0 text-left cursor-text hover:text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                title={`${column.name} (click to rename)`}
                 onClick={(e) => { e.stopPropagation(); startRenaming(); }}
               >
                 {column.name}
               </button>
             ) : (
-              <span className="flex-1 min-w-0 font-semibold text-fg text-[13px] leading-snug break-words">
+              <span className="flex-1 min-w-0 font-semibold text-fg text-[13px] leading-snug truncate" title={column.name}>
                 {column.name}
               </span>
             )

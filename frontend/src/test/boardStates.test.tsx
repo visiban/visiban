@@ -104,3 +104,18 @@ describe('board states (#2324)', () => {
     expect(onShowAll).toHaveBeenCalledOnce()
   })
 })
+
+// #2450: the reference draws the lead-ins and the no-match line in bold (700), not semibold.
+describe('board state emphasis (#2450)', () => {
+  it('lead-ins and the no-match line are bold and the no-match panel is compact', () => {
+    const { unmount } = render(<ViewOnlyNotice />)
+    expect(screen.getByText('View only.')).toHaveClass('font-bold')
+    unmount()
+    const u2 = render(<main><BoardLoadError onRetry={vi.fn()} /></main>)
+    expect(screen.getByText("The board didn't load.")).toHaveClass('font-bold')
+    u2.unmount()
+    render(<BoardNoMatchState line="No cards are due soon" onShowAll={vi.fn()} />)
+    expect(screen.getByText('No cards are due soon')).toHaveClass('font-bold')
+    expect(screen.getByTestId('board-no-match')).toHaveClass('py-4')
+  })
+})

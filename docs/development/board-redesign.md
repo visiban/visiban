@@ -59,7 +59,7 @@ Screenshots: `board-dark.png`, `menus.png`.
 
 - **Tabs:** Board, Summary, History, Analytics. History stays a full view and keeps its URL. The active tab is bold with a 2px `primary` underline.
 - **Buttons, right-aligned:** Filter, View, Activity, Export (download icon), Settings (gear icon), then the `⋯` kebab. No divider: Row 2 has none. Bordered, 36px tall, icon plus label. Export shows when the viewer can export and Settings for admins; tooltips read "Export board ⌘ ⇧ E" and "Board settings ⌘ ," (#2435). A button whose panel is open, or Filter while any filter is active, takes the selected treatment (see [Design tokens](#design-tokens)); Filter also shows the count of active filters.
-- **Overflow menu:** Keyboard shortcuts only (#2435). Export and Board settings are toolbar buttons.
+- **Overflow menu:** Export board (when the viewer can export), Board settings (admins) and Keyboard shortcuts, as the reference draws it (#2450). Export and Settings also stay as toolbar buttons (#2435), so the menu repeats them.
 - **Connection status:** the existing `ConnectionStatus` component, last in the row.
 - **Board name:** the last breadcrumb crumb, inside the `h1`: a button labeled "<board>, switch board" that opens the 360px "Switch board" popover (Starred, Recent on this device, then the rest of the group; a bottom sheet on phones). Admins rename through the Rename button beside it (#2473).
 - **Board status pill:** beside the star in Row 1. Same data and menu as today.
@@ -93,7 +93,7 @@ All cards, Overdue, Stale, Due soon. Each shows a color swatch, a label and a co
 
 Screenshot: `components.png`.
 
-Each header is a panel tinted with the column color: color dot, name (wraps, never truncates), an add-card button, a 3px meter, then the count line.
+Each header is a panel tinted with the column color: color dot, name (one line, truncated with an ellipsis and the full name as its title, #2389), an add-card button, the collapse chevron (hidden until hover or focus; always shown on a device with no hover), a 3px meter, then the count line.
 
 | State | Count line | Meter |
 |---|---|---|
@@ -358,7 +358,7 @@ For `ux-review` and `completeness-check` on the implementing MRs:
 
 - [ ] Toolbar holds only the four tabs, Filter, View, Activity, Export, Settings, the overflow menu and the connection status
 - [ ] One grid template drives headers, cells and collapsed strips; a split stage takes one column's width per sub-column
-- [ ] Column names wrap and never truncate; the count line matches [Column headers](#column-headers)
+- [ ] Column names stay on one line and truncate with an ellipsis (#2389); the count line matches [Column headers](#column-headers)
 - [ ] The lane band replaces the label panel and wraps without sideways scroll
 - [ ] Only overdue cards have a colored border; stale is warning text with a clock icon
 - [ ] Card rows appear in the order in [Cards](#cards); on-track cards have no status line

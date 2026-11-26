@@ -2821,12 +2821,13 @@ describe('BoardView', () => {
       expect(screen.queryByText(/Space.*drag to pan/)).not.toBeInTheDocument()
     })
 
-    it('the overflow menu advertises the shortcuts overlay key only', () => {
+    it('the overflow menu advertises the shortcuts overlay key only (Export and Board settings carry no hint, #2450)', () => {
       Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
       Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
       render(<BoardView {...defaultProps()} />)
       expect(overflowItem(/^Keyboard shortcuts/)).toHaveTextContent('?')
-      expect(screen.queryByRole('menuitem', { name: /Board settings|Export board/ })).not.toBeInTheDocument()
+      expect(overflowItem(/^Export board/)).not.toHaveTextContent('⌘')
+      expect(overflowItem(/^Board settings/)).not.toHaveTextContent('⌘')
     })
 
     it('Filters and Activity drawer tooltips name the control; the drawer advertises its shortcut', () => {
@@ -3118,15 +3119,44 @@ describe('BoardView', () => {
       expect(screen.getByRole('button', { name: 'More board actions' })).toBeInTheDocument()
     })
 
-    it('overflow menu holds only Keyboard shortcuts (#2435)', async () => {
+    it('overflow menu lists Export board, Board settings and Keyboard shortcuts for an admin (#2450)', async () => {
       render(<BoardView currentUser={fakeUser} />)
       await userEvent.setup().click(screen.getByRole('button', { name: 'More board actions' }))
-      expect(screen.queryByRole('menuitem', { name: /Export board|Board settings/ })).not.toBeInTheDocument()
-      expect(screen.getByRole('menuitem', { name: /Keyboard shortcuts/ })).toBeInTheDocument()
+      // The reference menu order; the toolbar buttons stay (#2435).
+      expect(screen.getAllByRole('menuitem').map((m) => m.textContent?.replace(/\?$/, ''))).toEqual(['Export board', 'Board settings', 'Keyboard shortcuts'])
       expect(screen.queryByRole('menuitem', { name: /Replay onboarding tour/ })).not.toBeInTheDocument()
       // Layout, archived and drawer actions live in the View menu / Activity drawer, not here.
       expect(screen.queryByRole('menuitem', { name: /layout|density|archived|activity|drawer/i })).not.toBeInTheDocument()
+    })
+
+    it('overflow Export board and Board settings open the same surfaces as the toolbar buttons (#2450)', async () => {
+      const user = userEvent.setup()
+      render(<BoardView currentUser={fakeUser} />)
+      await user.click(screen.getByRole('button', { name: 'More board actions' }))
+      await user.click(screen.getByRole('menuitem', { name: 'Export board' }))
+      expect(await screen.findByRole('dialog', { name: /Export board/i })).toBeInTheDocument()
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: /Export board/i })).not.toBeInTheDocument())
+      await user.click(screen.getByRole('button', { name: 'More board actions' }))
+      await user.click(screen.getByRole('menuitem', { name: 'Board settings' }))
+      expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
+    })
+
+    it('overflow menu drops Board settings for a non-admin and Export when the viewer cannot export (#2450)', async () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer', export_min_role: 'member' }) })
+      render(<BoardView currentUser={fakeUser} />)
+      await userEvent.setup().click(screen.getByRole('button', { name: 'More board actions' }))
+      expect(screen.queryByRole('menuitem', { name: /Export board|Board settings/ })).not.toBeInTheDocument()
       expect(screen.getAllByRole('menuitem')).toHaveLength(1)
+      expect(screen.getByRole('menuitem', { name: /Keyboard shortcuts/ })).toBeInTheDocument()
+    })
+
+    it('overflow menu keeps Export for a viewer who may export, without Board settings (#2450)', async () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer' }) })
+      render(<BoardView currentUser={fakeUser} />)
+      await userEvent.setup().click(screen.getByRole('button', { name: 'More board actions' }))
+      expect(screen.getByRole('menuitem', { name: 'Export board' })).toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: 'Board settings' })).not.toBeInTheDocument()
     })
 
     it('overflow menuitems carry a visible keyboard-focus ring (#1234)', async () => {
