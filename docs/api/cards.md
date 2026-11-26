@@ -724,7 +724,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 | `attachment` | `attachment_added`, `attachment_deleted` |
 | `system` | `archived`, `reactivated`, and since 1.3 `parent_linked`, `parent_unlinked`, `child_linked`, `child_unlinked` (#1104), `children_removed_board_deleted`, `parent_removed_board_deleted` (#2208), `planned_released`, `needed_changed` (#2371) |
 
-A `planned_released` entry (#2371) has `from_value` `parent_reached` (the parent reached or skipped past the column; no actor) or `pulled` (the child left To do early), and `to_value` the child's due date or `""`. A `needed_changed` entry has `from_value` `created`, `manual` or `column_deleted` (no actor) and `to_value` `planned` or `now`. Neither names the parent, its board, its column or the person who moved the parent.
+A `planned_released` entry (#2371) has `from_value` `parent_reached` (the parent reached or skipped past the column; no actor) or `pulled` (the child left To do early), and `to_value` the child's due date or `""`. A `needed_changed` entry has `from_value` `created`, `manual` or `column_deleted` (no actor; also written when a site admin moves the Needed column to another board in the Django admin, which the parent can then never reach) and `to_value` `planned` or `now`. Neither names the parent, its board, its column or the person who moved the parent.
 
 An `unblocked` entry's `data` also carries `block_duration_seconds` (*added in 1.3*, #1149): how long the block it closed lasted, or `null` when no closed block matches (an imported entry whose block history was not imported).
 
