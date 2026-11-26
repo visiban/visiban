@@ -5,13 +5,21 @@ from boards.services.date_shift import shift_board_dates
 
 
 class _CountingDict(dict):
-    """A values dict that counts membership tests made against it."""
+    """A values dict that counts every keyed read made against it."""
 
     lookups = 0
 
     def __contains__(self, key):
         type(self).lookups += 1
         return super().__contains__(key)
+
+    def get(self, key, default=None):
+        type(self).lookups += 1
+        return super().get(key, default)
+
+    def __getitem__(self, key):
+        type(self).lookups += 1
+        return super().__getitem__(key)
 
 
 class ShiftBoundedWorkTests(SimpleTestCase):
@@ -23,8 +31,20 @@ class ShiftBoundedWorkTests(SimpleTestCase):
             "cards": [{"custom_field_values": _CountingDict({"d0": "2024-01-01"})} for _ in range(20)],
         }
         shift_board_dates(data, 3)
+        self.assertLessEqual(_CountingDict.lookups, 2 * 20)
         self.assertEqual(data["cards"][0]["custom_field_values"]["d0"], "2024-01-04")
-        self.assertLessEqual(_CountingDict.lookups, 20)
+
+    def test_bounded_work_per_swimlane_row(self):
+        _CountingDict.lookups = 0
+        n_defs = 500
+        rows = 5
+        data = {
+            "swimlane_custom_fields": [{"name": f"d{i}", "field_type": "date"} for i in range(n_defs)],
+            "swimlanes": [{"custom_field_values": _CountingDict({"d0": "2024-01-01"})} for _ in range(rows)],
+        }
+        shift_board_dates(data, 3)
+        self.assertLessEqual(_CountingDict.lookups, 2 * rows)
+        self.assertEqual(data["swimlanes"][0]["custom_field_values"]["d0"], "2024-01-04")
 
     def test_normal_file_output_unchanged(self):
         data = {
