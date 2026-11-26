@@ -254,9 +254,10 @@ class CardRelationLockTests(_LockRaceBase):
 class CardRelationLockOrderTests(_LockRaceBase):
     """The relation view locks its two cards in ascending pk order (#1556).
 
-    Two link requests cannot show this: they run the same lock statement, so
-    they take the rows in the same order whatever that order is. The deadlock
-    needs a counterparty that locks the same pair in pk order, as ``move_card``
+    Two link requests cannot reliably show this: they run the same lock
+    statement, so they usually take the rows in the same order even when it is
+    not pk order. A dependable deadlock needs a counterparty that locks the same
+    pair in pk order, as ``move_card``
     does. The test plays that role and forces the interleaving: it locks the
     low-pk card, waits until the request is blocked, then asks for the high-pk
     card. A pk-ordered request is blocked on the low card and holds neither. A

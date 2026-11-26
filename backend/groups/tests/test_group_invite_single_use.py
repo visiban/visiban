@@ -455,14 +455,16 @@ class JoinGroupSingleUseRaceConditionTests(TransactionTestCase):
         def attempt(user):
             client = APIClient()
             client.force_authenticate(user)
-            barrier.wait()  # Both threads attempt the join simultaneously.
-            r = client.post(f"/api/v1/groups/join/{raw}/")
-            results.append(r.status_code)
-            # Release thread-local DB connection. Without this,
-            # TransactionTestCase.teardown_databases() fails with
-            # "database is being accessed by other users" on DROP.
-            from django.db import connections as _conns
-            _conns.close_all()
+            try:
+                barrier.wait()  # Both threads attempt the join simultaneously.
+                r = client.post(f"/api/v1/groups/join/{raw}/")
+                results.append(r.status_code)
+            finally:
+                # Release thread-local DB connection. Without this,
+                # TransactionTestCase.teardown_databases() fails with
+                # "database is being accessed by other users" on DROP.
+                from django.db import connections as _conns
+                _conns.close_all()
 
         t1 = threading.Thread(target=attempt, args=(u1,))
         t2 = threading.Thread(target=attempt, args=(u2,))
@@ -471,6 +473,7 @@ class JoinGroupSingleUseRaceConditionTests(TransactionTestCase):
         t1.join()
         t2.join()
 
+        self.assertEqual(len(results), 2, f"A worker raised; got: {results}")
         success_count = sum(1 for s in results if s == status.HTTP_201_CREATED)
         self.assertEqual(success_count, 1, f"Expected exactly 1 success, got: {results}")
 
