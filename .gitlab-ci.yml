@@ -641,8 +641,10 @@ lint-selftests-alpine:
         # Invoked directly (not only via release.test.sh) so check-gate-selftest-parity.sh
         # (#1093) sees the --self-test flag on the release.sh line itself.
         bash scripts/release.sh --self-test
-        # release.test.sh adds the end-to-end rollback cases in hermetic clones;
-        # python3 is for assemble-changelog.sh.
+        # release.test.sh adds the rollback cases and the end-to-end merge/tag cases
+        # (stubbed glab, local bare origin) in hermetic clones. The end-to-end cases
+        # write their own copies of the files release.sh rewrites, so those paths are
+        # not in `rules:changes`. python3 is for assemble-changelog.sh and release.sh.
         sh scripts/ci-hermetic-run.sh bash scripts/tests/release.test.sh  # #2461: poisoned + canary
       }
 

@@ -11,7 +11,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import User
+from accounts.models import SiteSetting, User
 from boards.models import Board, BoardMembership
 from groups.models import Group, GroupMembership
 
@@ -184,6 +184,11 @@ class BoardGroupChangeViaUpdateTests(TestCase):
     """
 
     def setUp(self):
+        # Create the singleton outside the captured request. With no row and a
+        # cold cache, MaintenanceModeMiddleware creates it mid-request, and
+        # SiteSetting.save() queues its own on_commit callback, so the callback
+        # count would depend on which tests ran earlier.
+        SiteSetting.get()
         self.user = User.objects.create_user(username="owner", password="pass")
         self.client = APIClient()
         self.client.force_authenticate(self.user)
