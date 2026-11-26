@@ -42,8 +42,16 @@ Two foreign-key shapes do the same damage without naming an index anywhere
    into a ``OneToOneField``, or ``db_constraint=False`` back on. A ``OneToOneField``
    (or ``unique=True`` key) turned into a plain indexed ``ForeignKey`` builds a new
    index, so it falls under rule 6.
+9. ``AddField`` of a constrained ``ForeignKey`` / ``OneToOneField`` with a
+   ``default`` or ``db_default`` on an existing table (#2620). Django adds the
+   column and its constraint in one ``ADD COLUMN ... REFERENCES`` statement.
+   PostgreSQL skips validating the constraint when the new column has no default,
+   since every row is NULL, but with a default it scans every row under ACCESS
+   EXCLUSIVE on this table and SHARE ROW EXCLUSIVE on the referenced one. The
+   all-NULL case is deliberately not flagged: it reads no rows.
 
-An ``AlterField`` only states the field's new definition, so rules 6 to 8 replay each
+An ``AlterField`` only states the field's new definition, so rules 7 and 8 (and the
+``AlterField`` half of rule 6) replay each
 app's earlier migrations, in filename order, to learn the old one. When the old
 definition cannot be found the operation is flagged: unknown is not "unchanged".
 
@@ -139,8 +147,10 @@ GRANDFATHERED = frozenset(
 
 FOREIGN_KEY_FIELDS = frozenset({"ForeignKey", "OneToOneField"})
 
-# Migrations that predate the two foreign-key rules (#1798). Unlike GRANDFATHERED,
-# an entry here is skipped by those two rules only; every older rule still applies.
+# Migrations that predate the foreign-key rules (#1798). Unlike GRANDFATHERED, an
+# entry here is skipped by the foreign-key rules only; every older rule still
+# applies. The validation rule (#2620) needed no entries: no migration in history
+# adds a constrained foreign key with a default.
 GRANDFATHERED_FOREIGN_KEY = frozenset(
     {
         # AddField(ForeignKey) with the implicit index, all applied history
@@ -152,7 +162,15 @@ GRANDFATHERED_FOREIGN_KEY = frozenset(
 )
 
 FOREIGN_KEY_KEYS = frozenset(
-    {"fk-index", "o2o-index", "fk-null", "fk-convert", "fk-constraint", "fk-readd"}
+    {
+        "fk-index",
+        "o2o-index",
+        "fk-null",
+        "fk-convert",
+        "fk-constraint",
+        "fk-readd",
+        "fk-validate",
+    }
 )
 
 # Field kwargs Django ignores when it decides whether to drop and re-add a foreign
@@ -257,6 +275,14 @@ GUIDANCE = {
         "revalidating every row under ACCESS EXCLUSIVE on this table and SHARE ROW "
         "EXCLUSIVE on the referenced one. Change the database by hand and record the "
         "new definition with SeparateDatabaseAndState state_operations"
+    ),
+    "fk-validate": (
+        "Django adds the column with its default and the foreign key constraint in "
+        "one statement, so PostgreSQL validates every existing row under ACCESS "
+        "EXCLUSIVE on this table and SHARE ROW EXCLUSIVE on the referenced one. Add "
+        "the column nullable with no default (PostgreSQL then skips the validation), "
+        "or declare db_constraint=False, backfill, and add the constraint NOT VALID, "
+        "then validate it"
     ),
     "fk-null": (
         "changing null on a foreign key makes Django drop and re-add the constraint, "
@@ -625,6 +651,34 @@ def record_fields(source: str, history: FieldHistory) -> None:
         _record(node, history)
 
 
+def _adds_column_with_a_value(node: ast.Call) -> bool:
+    """True if Django's ``ADD COLUMN`` for this field carries a ``DEFAULT``.
+
+    On PostgreSQL, Django adds a foreign-key column and its constraint in one
+    statement (``ADD COLUMN ... REFERENCES ...``). PostgreSQL skips validating that
+    constraint when the new column has no default, because every existing row is
+    NULL by construction, and marks it valid without reading a row. With a default,
+    every existing row holds the value, so the constraint is validated by scanning
+    the whole table under ACCESS EXCLUSIVE, holding SHARE ROW EXCLUSIVE on the
+    referenced table throughout (#2620).
+
+    Django writes ``DEFAULT`` for any ``db_default`` and for a ``default`` whose
+    value is not None, and ``preserve_default=False`` does not change that: the
+    default is still used to fill the existing rows. A default that is not a
+    literal (a callable, a name) is treated as a value, because the scan cannot
+    tell that it evaluates to None.
+    """
+    field = _field_argument(node)
+    if not isinstance(field, ast.Call):
+        return False
+    if _keyword(field, "db_default") is not None:
+        return True
+    default = _keyword(field, "default")
+    if default is None:
+        return False
+    return not (isinstance(default, ast.Constant) and default.value is None)
+
+
 def _foreign_key_risks(
     node: ast.Call, history: FieldHistory
 ) -> list[tuple[str, str]]:
@@ -637,13 +691,21 @@ def _foreign_key_risks(
     explicit_index = _indexing_kwarg(node) is not None
 
     if name == "AddField":
+        risks = []
         if explicit_index:
-            return []
-        if new.kind == "OneToOneField":
-            return [("AddField(OneToOneField)", "o2o-index")]
-        if new.db_index is not False:
-            return [("AddField(ForeignKey) without db_index=False", "fk-index")]
-        return []
+            pass
+        elif new.kind == "OneToOneField":
+            risks.append(("AddField(OneToOneField)", "o2o-index"))
+        elif new.db_index is not False:
+            risks.append(("AddField(ForeignKey) without db_index=False", "fk-index"))
+        # A separate finding, not folded into the index one: the index fix
+        # (db_index=False) leaves the validation scan in place, and an exemption
+        # written for one hazard must not silently cover the other.
+        if new.db_constraint is not False and _adds_column_with_a_value(node):
+            risks.append(
+                (f"AddField({new.kind}) with a default and its constraint", "fk-validate")
+            )
+        return risks
 
     model = _argument(node, "model_name", 0)
     field_name = _argument(node, "name", 1)
@@ -788,7 +850,7 @@ class Command(BaseCommand):
     help = (
         "Fail if any migration adds an index or constraint without the "
         "CONCURRENTLY / NOT VALID pattern (#1081), or builds a foreign-key index "
-        "or re-validates a foreign key inline (#1798)."
+        "or validates a foreign key inline (#1798, #2620)."
     )
 
     def add_arguments(self, parser):
