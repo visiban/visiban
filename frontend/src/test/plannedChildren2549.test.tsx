@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AddChildDialog from '../components/Card/AddChildDialog'
 import CardNeededField from '../components/Card/CardNeededField'
@@ -101,6 +101,34 @@ describe('SelectDropdown phoneSheet (#2552)', () => {
     await user.click(document.getElementById('t')!)
     expect(screen.getByRole('listbox').parentElement).not.toHaveAttribute('data-sheet')
     expect(screen.queryByTestId('select-sheet-scrim')).toBeNull()
+  })
+
+  it('is a named dialog with a 44px Close that dismisses it, returns focus to the trigger and releases the scroll lock', async () => {
+    const user = userEvent.setup()
+    phone(true)
+    render(<SelectDropdown id="s" ariaLabel="Needed" phoneSheet value="now" onChange={vi.fn()} options={[{ value: 'now', label: 'Now' }]} />)
+    const trigger = document.getElementById('s')!
+    await user.click(trigger)
+    expect(screen.getByRole('dialog', { name: 'Needed' })).toBeInTheDocument()
+    expect(screen.getByRole('listbox', { name: 'Needed' })).toBeInTheDocument()
+    expect(document.body.style.overflow).toBe('hidden')
+    const close = screen.getByRole('button', { name: 'Close' })
+    expect(close.className).toContain('min-h-11')
+    await user.click(close)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(trigger).toHaveFocus()
+    expect(document.body.style.overflow).toBe('')
+  })
+
+  it('restores the page scroll when unmounted while open, and does not close on a scroll', async () => {
+    const user = userEvent.setup()
+    phone(true)
+    const { unmount } = render(<SelectDropdown id="s" ariaLabel="Needed" phoneSheet value="now" onChange={vi.fn()} options={[{ value: 'now', label: 'Now' }]} />)
+    await user.click(document.getElementById('s')!)
+    fireEvent.scroll(window)
+    expect(screen.getByRole('dialog', { name: 'Needed' })).toBeInTheDocument()
+    unmount()
+    expect(document.body.style.overflow).toBe('')
   })
 })
 

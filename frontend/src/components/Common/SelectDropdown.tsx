@@ -106,11 +106,22 @@ export default function SelectDropdown<T extends string>({
     anchor: anchor ? { top: anchor.top, bottom: anchor.bottom } : null,
     deps: [open, options.length],
     onResize: close,
-    onOutsideScroll: close,
+    // The sheet is pinned to the bottom of the viewport, so a scroll can never detach it from its trigger; closing
+    // on one would only dismiss it when something scrolled the trigger into view.
+    onOutsideScroll: sheet ? undefined : close,
   });
   const { moreBelow, onScroll } = useOverflowFade(listRef, [open, options.length]);
 
   useDropdownEscape(open, close, triggerRef, escapePriority);
+
+  // Scroll lock while the sheet is open: the page behind a modal-style sheet must not scroll under a thumb. The
+  // cleanup restores the prior value on close and on unmount.
+  useEffect(() => {
+    if (!open || !sheet) return;
+    const prior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prior; };
+  }, [open, sheet]);
 
   useEffect(() => {
     if (!open) return;
@@ -276,6 +287,9 @@ export default function SelectDropdown<T extends string>({
         <div
           ref={panelRef}
           data-sheet={sheet ? "true" : undefined}
+          // A named dialog in sheet mode ("Needed"), so a screen reader hears what the sheet is for.
+          role={sheet ? "dialog" : undefined}
+          aria-label={sheet && ariaLabel ? ariaLabel : undefined}
           style={sheet ? {
             position: "fixed", left: 0, right: 0, bottom: 0,
             maxHeight: "70dvh", display: "flex", flexDirection: "column",
@@ -300,6 +314,7 @@ export default function SelectDropdown<T extends string>({
             ref={listRef}
             onScroll={onScroll}
             role="listbox"
+            aria-label={sheet && ariaLabel ? ariaLabel : undefined}
             className="min-h-0 overflow-y-auto scroll-pb-8"
           >
             {options.map((opt, i) => (
@@ -338,6 +353,17 @@ export default function SelectDropdown<T extends string>({
               </div>
             ))}
           </div>
+          {sheet && (
+            // Visible dismiss row (44px). Focus returns to the trigger, which keeps it for the whole interaction.
+            <button
+              type="button"
+              data-testid="select-sheet-close"
+              onClick={() => { close(); triggerRef.current?.focus(); }}
+              className="mx-3 mt-2 min-h-11 shrink-0 rounded border border-line-strong bg-surface text-sm font-medium text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Close
+            </button>
+          )}
           {moreBelow && (
             <div
               data-testid="select-more-below"
