@@ -186,8 +186,15 @@ SWIMLANE_VALUE_BEARING_EVENTS = frozenset({
 
 @functools.cache
 def _available_time_zones():
-    """The tz database's zone keys, read once per process (#2051): the call scans the filesystem."""
-    return zoneinfo.available_timezones()
+    """The tz database's zone keys, read once per process (#2051): the call scans the filesystem.
+
+    ``localtime`` and ``posixrules`` are subtracted because the scan returns
+    whatever files sit under the system zoneinfo directory: Debian-based images
+    ship ``/usr/share/zoneinfo/localtime`` (a link to the host zone), which a
+    macOS dev box lacks, so the bare set accepted ``localtime`` only in CI. They
+    are not IANA zone names and would silently mean "the server's zone".
+    """
+    return zoneinfo.available_timezones() - {"localtime", "posixrules"}
 
 
 def _is_allowed_definition_id(value, allowed):

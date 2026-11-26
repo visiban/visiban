@@ -213,6 +213,24 @@ class TimeZoneSerializerTests(EndpointFixture):
         self.board.refresh_from_db()
         self.assertIsNone(self.board.time_zone)
 
+    def test_non_zone_files_in_the_zoneinfo_dir_are_refused(self):
+        # Debian-based CI images ship /usr/share/zoneinfo/localtime, which
+        # available_timezones() returns; a macOS dev box does not (#2051).
+        from unittest import mock
+
+        from boards import serializers as board_serializers
+
+        board_serializers._available_time_zones.cache_clear()
+        self.addCleanup(board_serializers._available_time_zones.cache_clear)
+        with mock.patch.object(
+            board_serializers.zoneinfo, "available_timezones",
+            return_value={"UTC", "Europe/Berlin", "localtime", "posixrules"},
+        ):
+            for bad in ("localtime", "posixrules"):
+                with self.subTest(bad=bad):
+                    self.assertEqual(self.patch(bad).status_code, 400)
+            self.assertEqual(self.patch("Europe/Berlin").status_code, 200)
+
     def test_member_and_viewer_cannot_set_it(self):
         for role in ("member", "viewer"):
             with self.subTest(role=role):
