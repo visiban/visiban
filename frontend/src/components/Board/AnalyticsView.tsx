@@ -28,6 +28,8 @@ interface Props {
   customFields?: Pick<CustomFieldDefinition, "id" | "name" | "field_type" | "position">[];
   /** Shown in the title row. */
   boardName?: string;
+  /** #2051 — the board's flow-metric time zone; null or omitted is UTC. */
+  timeZone?: string | null;
   /** Swimlane custom fields, for the Swimlanes view's "Group lanes by" (#2267). */
   swimlaneFields?: { id: number; name: string }[];
   /** "Go to board" and "Open on board" switch back to the board. */
@@ -40,15 +42,15 @@ interface Props {
   urlSource?: AnalyticsUrlSource;
 }
 
-/** The period in words, in UTC like every bucket: "Aug 16 – Nov 14". */
-function periodText({ days }: FlowFilters) {
+/** The period in words, in the board's zone like every bucket (UTC by default): "Aug 16 – Nov 14". */
+function periodText({ days }: FlowFilters, timeZone: string) {
   const end = Date.now();
-  return `${formatDate(end - days * DAY_MS)} – ${formatDate(end)}`;
+  return `${formatDate(end - days * DAY_MS, timeZone)} – ${formatDate(end, timeZone)}`;
 }
 
 /** Region 1 (#2261): the page title, the Beta badge, the board and the period. */
-function AnalyticsTitleRow({ boardName, filters, headingRef }: {
-  boardName?: string; filters: FlowFilters; headingRef: RefObject<HTMLHeadingElement | null>;
+function AnalyticsTitleRow({ boardName, filters, headingRef, timeZone }: {
+  boardName?: string; filters: FlowFilters; headingRef: RefObject<HTMLHeadingElement | null>; timeZone: string;
 }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 min-w-0">
@@ -67,7 +69,7 @@ function AnalyticsTitleRow({ boardName, filters, headingRef }: {
             <span className="sr-only">, </span>
           </>
         )}
-        {periodText(filters)}
+        {periodText(filters, timeZone)}
       </p>
     </div>
   );
@@ -86,7 +88,9 @@ function AnalyticsTitleRow({ boardName, filters, headingRef }: {
  */
 export default function AnalyticsView({
   boardId, currentUserRole, onOpenCard, swimlanes = [], labels = [], columns = [], boardName, onGoToBoard, swimlaneFields = [], customFields, urlSource,
+  timeZone,
 }: Props) {
+  const zone = timeZone || "UTC";
   const url = useAnalyticsUrlParams(urlSource);
   const { params: urlParams, update: updateUrl } = url;
   const { filters: urlFilters, setFilters } = useAnalyticsFilters(url);
@@ -122,7 +126,7 @@ export default function AnalyticsView({
   return (
     <div className="flex-1 overflow-y-auto bg-page" data-testid="analytics-page">
       <div className="flex flex-col gap-4 p-4 min-w-0">
-        <AnalyticsTitleRow boardName={boardName} filters={fetchedFilters ?? filters} headingRef={headingRef} />
+        <AnalyticsTitleRow boardName={boardName} filters={fetchedFilters ?? filters} headingRef={headingRef} timeZone={zone} />
         <nav aria-label="Analytics views" className="flex gap-6 border-b border-line">
           {([["overview", "Overview"], ["swimlanes", "Swimlanes"]] as const).map(([id, text]) => (
             <a
@@ -171,7 +175,7 @@ export default function AnalyticsView({
         />
         )}
         <p className="text-xs text-fg-tertiary">
-          Calendar days in UTC, from each card&apos;s movement history. Filters use each card&apos;s current swimlane
+          Calendar days in {zone === "UTC" ? "UTC" : zone.replace(/_/g, " ")}, from each card&apos;s movement history. Filters use each card&apos;s current swimlane
           and labels. Analytics is in beta: data may be incomplete in some configurations, so results are best used as
           directional guidance.
         </p>

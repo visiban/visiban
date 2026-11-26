@@ -3247,6 +3247,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             columns={board.columns}
             customFields={board.custom_field_definitions}
             boardName={board.name}
+            timeZone={board.time_zone}
             // The server 400s on an admin-only grouping field for a non-admin, so offer
             // exactly the fields the lane filter offers (same helper, same rule).
             // The lane filter's built-ins (#2336) are text, never a grouping field.

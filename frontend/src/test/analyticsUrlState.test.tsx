@@ -239,3 +239,26 @@ describe('AnalyticsView on the URL (#2318)', () => {
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
   })
 })
+
+describe('Analytics board time zone (#2051)', () => {
+  it('names the board zone in the footnote and dates the period in it', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    // 03:00Z on Nov 20 is still Nov 19 in Los Angeles.
+    vi.setSystemTime(new Date('2026-11-20T03:00:00Z'))
+    try {
+      render(<MemoryRouter><AnalyticsView {...props} timeZone="America/Los_Angeles" /></MemoryRouter>)
+      expect(screen.getByText(/Calendar days in America\/Los Angeles, from each card/)).toBeInTheDocument()
+      expect(screen.getByText(/– Nov 19$/)).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('reads a missing or UTC zone as UTC', () => {
+    for (const timeZone of [null, 'UTC']) {
+      const { unmount } = render(<MemoryRouter><AnalyticsView {...props} timeZone={timeZone} /></MemoryRouter>)
+      expect(screen.getByText(/Calendar days in UTC, from each card/)).toBeInTheDocument()
+      unmount()
+    }
+  })
+})

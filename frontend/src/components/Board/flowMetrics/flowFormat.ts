@@ -17,10 +17,21 @@ export const formatDays = (days: number) => (isTinyDays(days) ? "<0.1d" : `${day
 /** A real duration that one decimal would show as 0.0. */
 export const isTinyDays = (days: number) => days > 0 && days < 0.05;
 
-const SHORT_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const SHORT_DATES = new Map<string, Intl.DateTimeFormat>();
 
-/** A calendar day or instant, in UTC, the zone every bucket and window uses (ADR). */
-export const formatDate = (value: string | number) => SHORT_DATE.format(new Date(value));
+/**
+ * A calendar day or instant, in UTC by default, the zone every bucket uses (ADR).
+ * A `YYYY-MM-DD` day parses as UTC midnight, so it keeps UTC; pass the board's
+ * zone (#2051) only for an instant, such as "now".
+ */
+export const formatDate = (value: string | number, timeZone = "UTC") => {
+  let format = SHORT_DATES.get(timeZone);
+  if (!format) {
+    format = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone });
+    SHORT_DATES.set(timeZone, format);
+  }
+  return format.format(new Date(value));
+};
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
