@@ -298,6 +298,7 @@ for (const scheme of ['light', 'dark'] as const) {
     await expect(blocked).toHaveAttribute('aria-pressed', 'true')
     // Neither Delivery parent has a child in the Blocked column (the band's "1 blocked" counts the flag, in Doing).
     await expect(mode.getByText('Nothing blocked')).toHaveCount(2)
+    await expectText(mode.getByText("Delivery's columns. Blocked here is the column; the band counts the flag."), 'Blocked column note')
     await expectText(mode.getByText('Nothing blocked').nth(1), 'Nothing blocked')
     await expect(mode.getByRole('heading', { level: 4, name: 'Acme: platform renewal' })).toBeVisible()
 
@@ -309,7 +310,7 @@ for (const scheme of ['light', 'dark'] as const) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
 
     // A second child board in the lane is one switch; it swaps the column buttons to that board.
-    const toOnboarding = mode.getByRole('button', { name: 'Onboarding · 2 children Columns' })
+    const toOnboarding = mode.getByRole('button', { name: 'Show Onboarding · 2 children Columns' })
     await expectText(toOnboarding, 'board switch')
     await toOnboarding.click()
     const onboarding = mode.getByRole('group', { name: 'Columns on Onboarding' })

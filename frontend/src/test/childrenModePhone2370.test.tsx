@@ -109,10 +109,16 @@ describe('Children mode phone layout (#2370 item 12)', () => {
     expect(within(columns).getByRole('button', { name: /^Blocked/ })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('link', { name: 'SSO for analytics, Blocked, blocked' })).toBeInTheDocument()
     expect(screen.getByText('Nothing blocked')).toBeInTheDocument()
+    expect(screen.getByText("Delivery's columns. Blocked here is the column; the band counts the flag.")).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: /Acme Corp/ })).toBeInTheDocument()
     // Move stays inside the card's roving stop for a member of the child board.
     expect(screen.getByRole('button', { name: 'Move SSO for analytics' })).toHaveAttribute('tabindex', '-1')
+    // Collapsed, the band is two lines: no actions line, until the lane opens again.
+    fireEvent.click(within(band).getByRole('button', { name: /^Collapse lane/ }))
+    expect(within(screen.getByTestId('children-phone-band')).queryByRole('button', { name: 'Copy link to Acme Corp' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^Expand lane Acme Corp/ }))
     // The Done column keeps its "N done · Show" cells.
-    fireEvent.click(within(columns).getByRole('button', { name: /^Done/ }))
+    fireEvent.click(within(screen.getByRole('group', { name: 'Columns on Delivery' })).getByRole('button', { name: /^Done/ }))
     expect(screen.getByRole('button', { name: '2 done. Show done cards' })).toBeInTheDocument()
   })
 
@@ -156,14 +162,14 @@ describe('Children mode phone layout (#2370 item 12)', () => {
     await screen.findByRole('group', { name: 'Columns on Delivery' })
     expect(screen.queryByRole('group', { name: 'Columns on Onboarding' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Acme: training pack' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Onboarding · 2 children Columns' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show Onboarding · 2 children Columns' }))
     expect(screen.queryByRole('group', { name: 'Columns on Delivery' })).toBeNull()
     const onboarding = screen.getByRole('group', { name: 'Columns on Onboarding' })
     await waitFor(() => expect(document.activeElement).toBe(within(onboarding).getByRole('button', { name: /^Booked/ })))
     expect(screen.getByRole('heading', { level: 4, name: 'Acme: training pack' })).toBeInTheDocument()
     // A viewer on Onboarding has no Move.
     expect(screen.queryByRole('button', { name: 'Move Kickoff deck' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Delivery · 7 children Columns' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Delivery · 7 children Columns' })).toBeInTheDocument()
   })
 
   it('keeps the desktop grid with every child board above the phone breakpoint', async () => {

@@ -6,7 +6,7 @@ import type { CardChildrenColumn, ChildrenView, ChildrenViewBoard, ChildrenViewC
 import {
   CHILDREN_MODE_ESCAPE_PRIORITY, LARGE_LANE_PARENTS, blockedDays, cellName, changesPillText, childBoardSwitchLabel, childCardName, columnOverLimit, compactRowLabel, foldLabel,
   columnHeadCaption, columnMeterPct, holdRowOrder, isFoldedRow, laneBandName, laneBlockedLabel, laneLink, laneSubtitle, laneTotalLabel, lockedRowText, moreParentsLabel,
-  parentsLabel, pendingRowChanges, phoneColumnCount, phoneEmptyCellText, rowDoneLabel, shownInProgress, visibleChildren, type ChildrenModeOptions,
+  parentsLabel, pendingRowChanges, isBlockedColumnName, phoneBlockedColumnNote, phoneColumnCount, phoneEmptyCellText, rowDoneLabel, shownInProgress, visibleChildren, type ChildrenModeOptions,
 } from "../../utils/childrenMode";
 import { columnTintStyle } from "../../utils/colorContrast";
 import { ChildMovePopover } from "../Card/CardChildrenTab";
@@ -453,7 +453,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
         {phone ? (
           <div className="flex flex-col gap-1 text-xs">
             <span className="text-fg-secondary">Children on <a href={`/boards/${board.id}`} className={`${FOCUS} inline-flex items-center min-h-11 text-link hover:underline rounded`}>{board.name}</a></span>
-            <div role="group" aria-label={`Columns on ${board.name}`} data-testid="children-phone-columns" className="flex gap-1 overflow-x-auto" onKeyDown={onColumnButtonsKeyDown}>
+            <div role="group" aria-label={`Columns on ${board.name}`} data-testid="children-phone-columns" className="flex gap-1 overflow-x-auto px-0.5 py-1 -mx-0.5" onKeyDown={onColumnButtonsKeyDown}>
               {allCols.map((c) => {
                 const on = c.id === phoneColumn?.id;
                 return (
@@ -474,6 +474,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
               })}
             </div>
             {phoneColumn && <div data-testid="children-column-head" className="flex flex-col">{columnHead(phoneColumn)}</div>}
+            {phoneColumn && isBlockedColumnName(phoneColumn.name) && <span className="text-fg-secondary">{phoneBlockedColumnNote(board.name)}</span>}
           </div>
         ) : (
         <div className="min-w-max" style={{ display: "grid", gridTemplateColumns: template }}>
@@ -675,7 +676,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
               // Phone band (canvas 6b, as PhoneBoard's): tinted with the lane color; line one is the collapse button
               // with the name and total, line two the blocked count and "+N on a board you can't open", then the
               // lane actions behind a divider (#2498's placement). Text on the tint is fg / fg-secondary / *-on-tint only.
-              <div role="group" aria-label={laneBandName(lane)} data-testid="children-phone-band" style={columnTintStyle(laneColors?.[lane.id])} className="flex flex-col rounded-t-lg border-b border-line bg-surface-raised">
+              <div role="group" aria-label={laneBandName(lane)} data-testid="children-phone-band" style={columnTintStyle(laneColors?.[lane.id])} className={`flex flex-col bg-surface-raised ${isCollapsed ? "rounded-lg" : "rounded-t-lg border-b border-line"}`}>
                 <h3 className="m-0">
                   <button
                     type="button"
@@ -694,7 +695,8 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                   <span className={lane.blocked > 0 ? "text-danger-on-tint font-semibold" : "text-fg-secondary"}>{laneBlockedLabel(lane)}</span>
                   {lane.hidden > 0 && <span className="inline-flex items-center gap-1 text-fg-secondary"><LockIcon />+{lane.hidden} on a board you can&apos;t open</span>}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 mx-3 py-2 border-t border-line">{actions}</div>
+                {/* Collapsed, the band is the canvas's two lines; the actions return with the lane. */}
+                {!isCollapsed && <div className="flex flex-wrap items-center gap-2 mx-3 py-2 border-t border-line">{actions}</div>}
               </div>
             ) : (
             <div role="group" aria-label={laneBandName(lane)} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 bg-surface-raised rounded-t-lg">
@@ -746,7 +748,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                       }}
                       className={`${FOCUS} mx-3 mt-2 w-[calc(100%-1.5rem)] min-h-11 px-3 flex items-center justify-between gap-2 text-sm text-fg rounded border border-line-strong hover:bg-surface-hover`}
                     >
-                      <span className="min-w-0 break-words text-left">{childBoardSwitchLabel(b.name, drawn.filter((r) => r.child_board_id === id))}</span>
+                      <span className="min-w-0 break-words text-left"><span className="sr-only">Show </span>{childBoardSwitchLabel(b.name, drawn.filter((r) => r.child_board_id === id))}</span>
                       <span className="shrink-0 text-xs text-fg-secondary">Columns <span aria-hidden="true">›</span></span>
                     </button>
                   );

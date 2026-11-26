@@ -258,8 +258,14 @@ export function cellName(parentTitle: string, columnName: string, count: number)
  * draws only "Nothing blocked" (the Blocked column); every other column reads "Nothing in {column}".
  */
 export function phoneEmptyCellText(columnName: string): string {
-  return columnName.trim().toLowerCase() === "blocked" ? "Nothing blocked" : `Nothing in ${columnName}`;
+  return isBlockedColumnName(columnName) ? "Nothing blocked" : `Nothing in ${columnName}`;
 }
+
+/** A child-board column named Blocked (any case): the column, not the #449 blocked flag the band counts. */
+export const isBlockedColumnName = (name: string) => name.trim().toLowerCase() === "blocked";
+
+/** Under the phone column buttons when Blocked is shown (canvas 6b): why the band's count can differ from the column's. */
+export const phoneBlockedColumnNote = (boardName: string) => `${boardName}'s columns. Blocked here is the column; the band counts the flag.`;
 
 /**
  * A phone column button's count: the children the rows draw in that column under the options. The folded Done
