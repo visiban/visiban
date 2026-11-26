@@ -275,6 +275,146 @@ def _require_group_member(user, group):
     raise PermissionDenied(_("You must be a group member to perform this action."))
 
 
+# Boards per transaction when a removed member's board sockets are evicted
+# (#2624). See _evict_lost_board_access for the trade-off.
+_EVICTION_CHUNK_SIZE = 50
+
+# Most boards one group removal sends a board-channel ``member.removed`` to
+# (#2624), like ``broadcast.INHERITED_ROW_FANOUT_MAX`` for the subgroup
+# fan-out. The eviction runs in the request's post-commit callback, one feed
+# row and one channel-layer publish per board, so a subtree with thousands of
+# boards would hold the request for thousands of writes. Past the cap the
+# remaining boards (by id) are not told: the removed user's sockets on them
+# close at the consumer's periodic access re-check (docs/api/websockets.md,
+# "Access re-check and eviction"), and other viewers' rosters converge on
+# their next refetch. The skip is logged so an operator can see it.
+BOARD_EVICTION_FANOUT_MAX = 500
+
+
+def _subtree_group_ids(group_pk):
+    """Return the ids of ``group_pk`` and every group below it, to the depth cap.
+
+    Access inherited from a group reaches every board in its subtree, so a
+    removal must consider boards placed under child groups too.
+    """
+    from .models import _GROUP_TRAVERSAL_MAX_DEPTH as _MAX_DEPTH
+
+    subtree_ids = {group_pk}
+    frontier = {group_pk}
+    for _ in range(_MAX_DEPTH):
+        if not frontier:
+            break
+        children = set(
+            Group.objects.filter(parent__in=frontier)
+            .exclude(id__in=subtree_ids)
+            .values_list("id", flat=True)
+        )
+        subtree_ids |= children
+        frontier = children
+    return subtree_ids
+
+
+def _inherited_only_board_ids(subtree_ids, user_id):
+    """Boards in ``subtree_ids`` where ``user_id`` has no direct BoardMembership.
+
+    A direct membership outranks any group-inherited role, so those boards can
+    never lose access through a group removal. Excluding them is only a
+    narrowing: the eviction still re-resolves every remaining board's role.
+    """
+    from boards.models import Board, BoardMembership
+
+    direct = BoardMembership.objects.filter(
+        board__group_id__in=subtree_ids, user_id=user_id
+    ).values("board_id")
+    return set(
+        Board.objects.filter(group_id__in=subtree_ids)
+        .exclude(id__in=direct)
+        .values_list("id", flat=True)
+    )
+
+
+def _record_eviction_chunk(board_ids, user_id):
+    """Persist and publish ``member.removed`` for one chunk of boards (#2624)."""
+    from boards.broadcast import record_board_event
+
+    # The eviction runs post-commit, so each chunk opens its own short
+    # transaction rather than joining one that is already closed.
+    with transaction.atomic():
+        for bid in board_ids:
+            record_board_event(bid, _group_broadcast.EVT_MEMBER_REMOVED, {"user_id": user_id})
+
+
+def _evict_lost_board_access(user_id, group_pk, pre_read_board_ids):
+    """Send ``member.removed`` to every board where a group removal ended access.
+
+    Runs in the removal's ``on_commit`` callback, after the membership row is
+    gone, so the role it resolves is the post-removal one.
+
+    **Two reads, unioned (#2624).** ``pre_read_board_ids`` was read before the
+    removal's transaction. A board placed under the subtree concurrently is
+    missing from it, and moving that read inside the transaction would not
+    help: the removal holds the group row ``FOR NO KEY UPDATE`` while placing a
+    board takes only ``FOR KEY SHARE`` on its destination group, so the two do
+    not conflict. Reading the subtree's boards again here, after commit, sees
+    any placement that committed first. The pre-read is kept in the union so a
+    board moved *out* of the subtree in the same window is still re-checked.
+    A placement that commits after this read cannot grant access through the
+    removed membership, which is already gone; any other access change it makes
+    is backstopped by the consumer's periodic access re-check. Such a board
+    can still receive a ``member.removed`` frame and feed row naming a user
+    who never had access to it through this membership; that is harmless (the
+    consumer closes only that user's sockets) and preferred to a missed
+    eviction.
+
+    **One role resolution.** The roles come from ``get_board_roles`` in a
+    fixed number of queries, never ``get_board_role`` per board.
+
+    **Fan-out cap, then chunks.** At most ``BOARD_EVICTION_FANOUT_MAX`` boards
+    that lost access get a ``member.removed`` frame, the lowest ids first, as
+    the subgroup fan-out caps itself at ``INHERITED_ROW_FANOUT_MAX``. The frame
+    is the fast eviction path, not the only one: on a board past the cap the
+    removed user's sockets close at the consumer's periodic access re-check
+    (within about 7 seconds on a board with traffic, within about 30 seconds
+    on a quiet one),
+    which runs whether or not any frame is sent. The skip is logged with the
+    group id and the counts only. Within the cap, at most
+    ``_EVICTION_CHUNK_SIZE`` feed rows are written per transaction. Each feed
+    INSERT takes its board's feed lock in shared mode until the transaction
+    ends, so one transaction for the whole fan-out would hold every board's
+    feed lock until the last write, and one transaction per board costs a
+    commit round trip per board. Fifty bounds both.
+    """
+    from accounts.models import User
+    from boards.models import Board
+    from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, get_board_roles
+
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return
+
+    board_ids = set(pre_read_board_ids) | _inherited_only_board_ids(
+        _subtree_group_ids(group_pk), user_id
+    )
+    if not board_ids:
+        return
+    roles = get_board_roles(
+        user,
+        Board.objects.filter(pk__in=board_ids).select_related(GROUP_ANCESTOR_SELECT_RELATED),
+    )
+    lost = sorted(bid for bid, role in roles.items() if role is None)
+    if len(lost) > BOARD_EVICTION_FANOUT_MAX:
+        logger.warning(
+            "group member board eviction fan-out capped: group_id=%s boards=%s sent=%s",
+            group_pk,
+            len(lost),
+            BOARD_EVICTION_FANOUT_MAX,
+        )
+        lost = lost[:BOARD_EVICTION_FANOUT_MAX]
+    for start in range(0, len(lost), _EVICTION_CHUNK_SIZE):
+        _record_eviction_chunk(lost[start:start + _EVICTION_CHUNK_SIZE], user_id)
+
+
 def _revoke_lapsed_admin_invite_links(user, group=None):
     """Revoke ``user``'s unused invite links they can no longer administer (#1510).
 
@@ -1056,45 +1196,19 @@ class GroupViewSet(viewsets.ModelViewSet):
             # membership are unaffected by group membership changes; boards
             # without one relied entirely on group-inherited access.
             #
-            # We collect the board IDs now (inside the transaction) so the
-            # on_commit callback does not need to re-query the group tree under
-            # a new connection after the membership row is gone.
+            # This read runs BEFORE the removal's transaction (ATOMIC_REQUESTS
+            # is not set), so a board placed under the subtree concurrently is
+            # missing from it. The on_commit callback therefore reads the
+            # subtree's boards again after commit and evicts from the union of
+            # both reads (#2624); see _evict_lost_board_access.
             #
-            # Trade-off: this does not consider other group paths (e.g. the
-            # user belongs to a sibling group that also covers the same board).
-            # To avoid false positives, the on_commit callback re-checks
-            # get_board_role() after the deletion has committed. Only boards
-            # where access is truly gone receive the eviction broadcast.
-            from .models import _GROUP_TRAVERSAL_MAX_DEPTH as _MAX_DEPTH
-            from boards.models import Board, BoardMembership as _BM
-
-            # Collect IDs of all groups in this group's subtree (including itself)
-            # so we cover inherited access through child groups as well.
-            subtree_ids = {group.pk}
-            frontier = {group.pk}
-            for _ in range(_MAX_DEPTH):
-                if not frontier:
-                    break
-                children = set(
-                    Group.objects.filter(parent__in=frontier)
-                    .exclude(id__in=subtree_ids)
-                    .values_list("id", flat=True)
-                )
-                subtree_ids |= children
-                frontier = children
-
-            # Boards in the subtree where the user has NO direct board membership —
-            # these are the boards whose access was inherited purely from group membership.
-            direct_board_ids = set(
-                _BM.objects.filter(
-                    board__group_id__in=subtree_ids, user=target_user
-                ).values_list("board_id", flat=True)
-            )
-            candidate_board_ids = list(
-                Board.objects.filter(group_id__in=subtree_ids)
-                .exclude(id__in=direct_board_ids)
-                .values_list("id", flat=True)
-            )
+            # Other group paths (e.g. a sibling group that also covers the same
+            # board) are not considered here. To avoid false positives the
+            # callback re-resolves the user's role on every candidate board
+            # after the deletion has committed; only boards where access is
+            # truly gone receive the eviction broadcast.
+            subtree_ids = _subtree_group_ids(group.pk)
+            candidate_board_ids = _inherited_only_board_ids(subtree_ids, target_user.id)
 
             removed_user_id = target_user.id
 
@@ -1124,51 +1238,22 @@ class GroupViewSet(viewsets.ModelViewSet):
 
                 def _evict_stale_ws(
                     uid=removed_user_id,
-                    board_ids=candidate_board_ids,
+                    gid=group.pk,
+                    board_ids=frozenset(candidate_board_ids),
                 ):
                     """Broadcast member.removed to boards where the user lost all access.
 
-                    Re-checks get_board_role() after the deletion has committed so
-                    we only evict connections on boards where the group membership
-                    was the sole access path. Users who retain access via a direct
-                    board membership or another group path are not evicted.
+                    Users who retain access via a direct board membership or
+                    another group path are not evicted.
                     """
-                    from boards.broadcast import record_board_event
-                    from boards.models import Board as _Board
-                    from boards.permissions import get_board_role as _get_role
-                    from accounts.models import User as _User
+                    _evict_lost_board_access(uid, gid, board_ids)
 
-                    try:
-                        user_obj = _User.objects.get(pk=uid)
-                    except _User.DoesNotExist:
-                        return
-
-                    # Batch-fetch all candidate boards in one query rather than
-                    # one SELECT per board (O(n) → O(1) round-trips).
-                    board_map = {
-                        b.pk: b
-                        for b in _Board.objects.filter(pk__in=board_ids).select_related(
-                            "group",
-                            "group__parent",
-                            "group__parent__parent",
-                            "group__parent__parent__parent",
-                            "group__parent__parent__parent__parent",
-                            "group__parent__parent__parent__parent__parent",
-                        )
-                    }
-                    for bid in board_ids:
-                        board_obj = board_map.get(bid)
-                        if board_obj is None:
-                            continue
-                        if _get_role(user_obj, board_obj) is None:
-                            # This callback already runs post-commit — the role is
-                            # deliberately re-checked after the deletion has landed
-                            # — so the feed row gets its own short transaction
-                            # rather than joining one that is already closed.
-                            with transaction.atomic():
-                                record_board_event(bid, _group_broadcast.EVT_MEMBER_REMOVED, {"user_id": uid})
-
-                transaction.on_commit(_evict_stale_ws)
+                # robust: the membership row is already gone when this runs,
+                # so a failure here must not answer 500 for a removal that
+                # committed, nor skip the group-channel callback registered
+                # below. Django logs the exception; the consumer's periodic
+                # access re-check still closes the removed user's sockets.
+                transaction.on_commit(_evict_stale_ws, robust=True)
 
                 # Additive: notify the group channel so other admins viewing the
                 # group page see the members list converge in real time. This is
@@ -1176,8 +1261,11 @@ class GroupViewSet(viewsets.ModelViewSet):
                 # stale board connections) — the group channel drives the members
                 # panel. New event type; no existing payload shape changed (#1051).
                 # Also sent to each subgroup whose members panel listed the user
-                # as inherited and where they lost access (#2168); the subtree
-                # was snapshotted above, before the delete.
+                # as inherited and where they lost access (#2168). The subtree
+                # read above ran before the transaction, so a subgroup created
+                # under the group concurrently is missing from it; the callback
+                # unions it with a fresh read after commit, as the board-channel
+                # eviction does (#2624).
                 group_id = group.pk
 
                 def _broadcast_group_member_removed(
@@ -1189,9 +1277,23 @@ class GroupViewSet(viewsets.ModelViewSet):
                     # removed naming so one frontend socket layer handles both.
                     # A subgroup that keeps the user through a farther ancestor
                     # gets member.updated with its new inherited row (#2175).
-                    broadcast_member_removed(gid, uid, sub_ids, removed_role=role)
+                    # The group's own frame must go out even if the fresh read
+                    # fails (broadcast_member_removed's contract), so fall back
+                    # to the pre-transaction subtree.
+                    try:
+                        descendants = sub_ids | _subtree_group_ids(gid)
+                    except Exception as exc:  # noqa: BLE001 — best-effort re-read
+                        descendants = sub_ids
+                        logger.warning(
+                            "group member.removed subtree re-read failed: group_id=%s error=%s",
+                            gid,
+                            type(exc).__name__,
+                        )
+                    broadcast_member_removed(gid, uid, descendants, removed_role=role)
 
-                transaction.on_commit(_broadcast_group_member_removed)
+                # robust for the same reason as the eviction above: the
+                # publish runs after the removal committed.
+                transaction.on_commit(_broadcast_group_member_removed, robust=True)
 
             return Response(status=status.HTTP_204_NO_CONTENT)
         # PATCH — update role

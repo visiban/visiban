@@ -316,7 +316,7 @@ class GroupMembershipBroadcastNamingTests(TestCase):
         so other admins' members panels converge in real time (#1051)."""
         with patch("groups.views.transaction.on_commit") as mock_on_commit, \
              patch("groups.broadcast.broadcast_group_event") as mock_group:
-            mock_on_commit.side_effect = lambda fn: fn()
+            mock_on_commit.side_effect = lambda fn, **kwargs: fn()
             resp = self.client.delete(
                 f"/api/v1/groups/{self.group.id}/members/{self.member.id}/",
             )

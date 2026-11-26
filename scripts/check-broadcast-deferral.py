@@ -300,10 +300,12 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "instance), and record_board_event() defers each publish. Bounded by "
         "the lanes on one board whose status or counts changed in this run."
     ),
-    "backend/groups/views.py::GroupViewSet._evict_stale_ws": (
+    "backend/groups/views.py::_record_eviction_chunk": (
         "One member.removed per board the user actually lost access to — the "
-        "loop iterates boards (distinct channels), not rows on one channel, and "
-        "each iteration re-checks get_board_role() post-commit before emitting."
+        "loop iterates boards (distinct channels), not rows on one channel. The "
+        "caller, _evict_lost_board_access(), runs post-commit, resolves roles "
+        "once with get_board_roles() and caps the fan-out at "
+        "BOARD_EVICTION_FANOUT_MAX. record_board_event() defers each publish."
     ),
     "backend/groups/broadcast.py::_send_inherited_rows": (
         "One member.updated per descendant group that inherits an added or "

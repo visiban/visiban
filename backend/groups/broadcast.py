@@ -162,7 +162,7 @@ def broadcast_member_removed(
     Call post-commit (``transaction.on_commit``). The frame always goes to
     ``group_{group_id}``, the group the membership was in. It also goes to the
     channel of each group in ``descendant_ids`` (the removed group's subtree,
-    snapshotted before the delete) that no longer lists the user: a
+    read before the delete and again after commit, #2624) that no longer lists the user: a
     subgroup's members panel lists members inherited from its ancestors, so
     a subgroup page open in another session must refetch too (#2168).
 
