@@ -335,6 +335,20 @@ class Board(models.Model):
             "out of the column a card was created in."
         ),
     )
+    # The IANA time zone flow metrics date their days and ISO weeks in (#2051).
+    # null (the default) = the flow-metric ADR's UTC rule, so a board that does
+    # not opt in measures exactly as before. Not defaulted from
+    # INSTANCE_TIMEZONE, which decides "today" for due dates: that default
+    # would move every existing board's buckets on an install that sets it.
+    # The serializer accepts only names the tz database has; a name that later
+    # disappears from it reads as UTC (flow_metrics.zone_of).
+    time_zone = models.CharField(
+        max_length=64, null=True, blank=True, default=None,
+        help_text=(
+            "IANA time zone (for example America/Los_Angeles) that flow metrics "
+            "date their days and weeks in (#2051). null (the default) keeps UTC."
+        ),
+    )
     # Two-tier card links (#2208, prerequisite for #1104): a board with this on
     # is a "parent tier" board whose cards may have child cards on another
     # board. Since #2446 the rule is per card: a board with it off keeps any

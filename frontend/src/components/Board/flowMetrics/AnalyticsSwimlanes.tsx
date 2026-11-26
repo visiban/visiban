@@ -23,6 +23,8 @@ interface Props {
   onOpenSwimlane: (swimlaneId: number) => void;
   /** Reports the filters the numbers on screen were fetched for (the title row's period). */
   onFetchedFilters?: (filters: FlowFilters | null) => void;
+  /** #2051 — the board's zone; a change refetches because every bucket moves. */
+  timeZone?: string | null;
 }
 
 const pct = (value: number, scale: number) => `${Math.min(100, Math.max(0, (value / scale) * 100))}%`;
@@ -121,7 +123,7 @@ function LaneRow({ row, scale, boardMedian, onOpen }: {
  * takes. Status, trend and percentiles come from the server; this draws them.
  */
 export default function AnalyticsSwimlanes({
-  boardId, filters, onFiltersChange, labels, swimlaneFields = [], onOpenSwimlane, onFetchedFilters,
+  boardId, filters, onFiltersChange, labels, swimlaneFields = [], onOpenSwimlane, onFetchedFilters, timeZone,
 }: Props) {
   const [data, setData] = useState<FlowSwimlaneComparison | null>(null);
   const [fetched, setFetched] = useState<FlowFilters | null>(null);
@@ -155,7 +157,8 @@ export default function AnalyticsSwimlanes({
         if (current) { setFailedKind(analyticsErrorKind(error)); setFailed(true); setLoading(false); }
       });
     return () => { current = false; controller.abort(); };
-  }, [boardId, days, labelId, groupId, attempt]);
+    // timeZone is a refetch key only (#2051).
+}, [boardId, days, labelId, groupId, attempt, timeZone]);
 
   useEffect(() => { onFetchedFilters?.(fetched); }, [fetched, onFetchedFilters]);
 

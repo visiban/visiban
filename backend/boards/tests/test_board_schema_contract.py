@@ -420,6 +420,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "swimlane_rollup_field",
             # Additive (#2050): the commitment point.
             "commitment_column_uid",
+            # Additive (#2051): the zone flow-metric days are dated in.
+            "time_zone",
             # Additive (#2208): two-tier card links.
             "cards_can_have_children",
             # Additive (#2208 part 2): where Add child starts, id only.

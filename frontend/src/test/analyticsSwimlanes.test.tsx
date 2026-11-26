@@ -77,6 +77,16 @@ describe('Swimlanes view', () => {
     await waitFor(() => expect(vi.mocked(getFlowCycleTime).mock.calls.at(-1)?.[1]).toMatchObject({ labelId: 4 }))
   })
 
+  it('refetches the lanes when the board time zone changes (#2051)', async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(<AnalyticsView {...props} timeZone={null} />)
+    await user.click(screen.getByRole('link', { name: 'Swimlanes' }))
+    await screen.findByTestId('swimlanes-finding')
+    const before = vi.mocked(getFlowSwimlanes).mock.calls.length
+    rerender(<AnalyticsView {...props} timeZone="Pacific/Auckland" />)
+    await waitFor(() => expect(vi.mocked(getFlowSwimlanes).mock.calls.length).toBe(before + 1))
+  })
+
   it('leaves a modified click on the view links alone', async () => {
     render(<AnalyticsView {...props} />)
     const user = userEvent.setup()

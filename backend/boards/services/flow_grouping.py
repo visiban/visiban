@@ -139,7 +139,7 @@ def _is_active(flow, flow_range, card, lanes=None):
         # Throughput buckets whole UTC days, and on a rolling range the first
         # day starts at midnight, before ``start``: a completion there is a
         # throughput sample that ``contains`` would miss.
-        or flow_range.first_day <= fm._utc_date(card.completion_at) <= flow_range.last_day
+        or flow_range.first_day <= flow_range.local_date(card.completion_at) <= flow_range.last_day
     ):
         if lanes is None:
             return True

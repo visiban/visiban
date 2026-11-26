@@ -311,8 +311,9 @@ def _lock_endpoints(parent_pk, child_pk, board_pks=()):
     to commit and then counts it in :func:`links_blocking_flag_flip`. Cards
     second, so two links naming the same parent (the one-child-board and cap
     checks) or the same pair in opposite directions (the two-tier check)
-    queue instead of both passing on a stale read. pk order on both, so two
-    requests naming the same rows in opposite roles queue, not deadlock.
+    queue instead of both passing on a stale read. pk order on both, to match
+    the other pk-ordered lockers of these rows (e.g. ``move_card`` for cards):
+    taking them in another order can deadlock against those.
 
     Returns ``{card_pk: board_id}`` for the cards still present, read under
     the lock so a card moved to another board meanwhile is judged where it is.

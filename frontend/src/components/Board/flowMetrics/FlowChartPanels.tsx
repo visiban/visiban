@@ -65,8 +65,12 @@ const withMeaning = (summary: string, noun: string | undefined, verb: string) =>
 const compact = (notes: (string | null)[]) => notes.filter((note): note is string => note !== null);
 
 export function CycleTimePanel({
-  data, cards, days, onSelect, view, onViewChange, noun, isolated,
-}: PanelViewProps & BreakdownProps & { data: FlowCycleTime; cards: Map<string, FlowCard>; days: number; onSelect: (s: FlowCycleTimeSample) => void }) {
+  data, cards, days, onSelect, view, onViewChange, noun, isolated, timeZone = "UTC",
+}: PanelViewProps & BreakdownProps & {
+  data: FlowCycleTime; cards: Map<string, FlowCard>; days: number; onSelect: (s: FlowCycleTimeSample) => void;
+  /** The resolved board zone (#2051): a completion is an instant, so it is dated there, not in UTC. */
+  timeZone?: string;
+}) {
   const groups = data.grouping?.groups ?? [];
   const columns: ChartTableColumn<FlowCycleTimeSample>[] = [
     {
@@ -75,7 +79,7 @@ export function CycleTimePanel({
       render: (s) => <CardButton title={cards.get(s.card_uid)?.title ?? s.card_uid} onClick={() => onSelect(s)} />,
     },
     { key: "days", header: "Cycle time", numeric: true, render: (s) => formatDays(s.value_days) },
-    { key: "end", header: "Finished", render: (s) => formatDate(s.end) },
+    { key: "end", header: "Finished", render: (s) => formatDate(s.end, timeZone) },
     {
       key: "owner",
       header: "Owner",
@@ -106,7 +110,7 @@ export function CycleTimePanel({
       testId="flow-cycle-time"
       table={<ChartTable label="Cycle time per card" columns={columns} rows={data.samples} rowKey={(s) => s.card_uid} />}
     >
-      {(labelledBy) => <CycleTimeChart data={data} cards={cards} days={days} labelledBy={labelledBy} onSelect={onSelect} isolated={isolated} />}
+      {(labelledBy) => <CycleTimeChart data={data} cards={cards} days={days} labelledBy={labelledBy} onSelect={onSelect} isolated={isolated} timeZone={timeZone} />}
     </ChartPanel>
   );
 }

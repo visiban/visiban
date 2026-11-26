@@ -3,7 +3,7 @@ import { getCardMovements } from "../../../api/cards";
 import { useEscapeStack } from "../../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../../hooks/useFocusTrap";
 import type { CardMovement, FlowCard } from "../../../types";
-import { formatDate, formatDays, pluralize } from "./flowFormat";
+import { formatDate, formatDays, pluralize, resolveZone } from "./flowFormat";
 
 export interface DrillFact {
   label: string;
@@ -77,7 +77,7 @@ function transitionText(movement: CardMovement) {
 }
 
 /** The card's transitions, oldest first, from the existing card movements endpoint. */
-function Transitions({ boardId, card, onBeforeRetry }: { boardId: number; card: FlowCard; onBeforeRetry: () => void }) {
+function Transitions({ boardId, card, onBeforeRetry, timeZone }: { boardId: number; card: FlowCard; onBeforeRetry: () => void; timeZone: string }) {
   const [movements, setMovements] = useState<CardMovement[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -114,7 +114,7 @@ function Transitions({ boardId, card, onBeforeRetry }: { boardId: number; card: 
         <li key={movement.id} className="flex items-baseline justify-between gap-3">
           <span className="text-fg-secondary min-w-0 truncate" title={transitionText(movement)}>{transitionText(movement)}</span>
           <span className="text-xs text-fg-tertiary shrink-0">
-            {formatDate(movement.moved_at)}
+            {formatDate(movement.moved_at, timeZone)}
             {movement.moved_by ? ` · ${movement.moved_by.display_name || movement.moved_by.username}` : ""}
           </span>
         </li>
@@ -124,10 +124,12 @@ function Transitions({ boardId, card, onBeforeRetry }: { boardId: number; card: 
 }
 
 function CardBody({
-  boardId, selection, card, onOpenCard, onClose, onBeforeRetry,
+  boardId, selection, card, onOpenCard, onClose, onBeforeRetry, timeZone,
 }: {
   boardId: number;
   selection: Extract<DrillSelection, { kind: "card" }>;
+  /** The resolved board zone a transition's instant is dated in (#2051). */
+  timeZone: string;
   card: FlowCard | undefined;
   onOpenCard?: (cardId: number) => void;
   onClose: () => void;
@@ -167,7 +169,7 @@ function CardBody({
       {card && (
         <section aria-label="Transitions section" className="flex flex-col gap-1.5">
           <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Transitions</h3>
-          <Transitions boardId={boardId} card={card} onBeforeRetry={onBeforeRetry} />
+          <Transitions boardId={boardId} card={card} onBeforeRetry={onBeforeRetry} timeZone={timeZone} />
         </section>
       )}
       {card && onOpenCard && !card.archived && (
@@ -382,10 +384,12 @@ interface Props {
   onChange: (selection: DrillSelection) => void;
   onClose: () => void;
   onOpenCard?: (cardId: number) => void;
+  /** The board zone transitions are dated in (#2051); UTC when unset or unknown to this browser. */
+  timeZone?: string;
 }
 
 /** The click-through for every metric: the cards behind a mark, their transitions and owners. */
-export default function FlowDrillDrawer({ boardId, selection, cards, onChange, onClose, onOpenCard }: Props) {
+export default function FlowDrillDrawer({ boardId, selection, cards, onChange, onClose, onOpenCard, timeZone = "UTC" }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   useEscapeStack(onClose, 30);
   useFocusTrap(panelRef, true);
@@ -442,7 +446,7 @@ export default function FlowDrillDrawer({ boardId, selection, cards, onChange, o
           {selection.kind === "column" ? (
             <ColumnBody selection={selection} cards={cards} onChange={onChange} onOpenCard={onOpenCard} onClose={onClose} />
           ) : selection.kind === "card" ? (
-            <CardBody boardId={boardId} selection={selection} card={card} onOpenCard={onOpenCard} onClose={onClose} onBeforeRetry={() => panelRef.current?.focus()} />
+            <CardBody boardId={boardId} selection={selection} card={card} onOpenCard={onOpenCard} onClose={onClose} onBeforeRetry={() => panelRef.current?.focus()} timeZone={resolveZone(timeZone)} />
           ) : (
             <CardList
               selection={selection}

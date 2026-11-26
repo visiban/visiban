@@ -1,8 +1,10 @@
 import datetime
 import decimal
+import functools
 import json
 import math
 import re
+import zoneinfo
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models as _db_models
@@ -180,6 +182,19 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
 SWIMLANE_VALUE_BEARING_EVENTS = frozenset({
     EVT_SWIMLANE_CREATED, EVT_SWIMLANE_UPDATED, EVT_SWIMLANE_REORDERED,
 })
+
+
+@functools.cache
+def _available_time_zones():
+    """The tz database's zone keys, read once per process (#2051): the call scans the filesystem.
+
+    ``localtime`` and ``posixrules`` are subtracted because the scan returns
+    whatever files sit under the system zoneinfo directory: Debian-based images
+    ship ``/usr/share/zoneinfo/localtime`` (a link to the host zone), which a
+    macOS dev box lacks, so the bare set accepted ``localtime`` only in CI. They
+    are not IANA zone names and would silently mean "the server's zone".
+    """
+    return zoneinfo.available_timezones() - {"localtime", "posixrules"}
 
 
 def _is_allowed_definition_id(value, allowed):
@@ -5319,7 +5334,7 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "stage_counts", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "allow_assignee_override", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children", "default_child_board", "parent_name_singular", "parent_name_plural"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "stage_counts", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "allow_assignee_override", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "time_zone", "cards_can_have_children", "default_child_board", "parent_name_singular", "parent_name_plural"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133)
         # and every row's stage counts from one query (#2483).
@@ -5352,6 +5367,26 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
         ).exists():
             raise serializers.ValidationError(
                 "commitment_column_uid must be the uid of a column on this board that is not a done column, or null."
+            )
+        return value
+
+    def validate_time_zone(self, value):
+        """An IANA zone name from the tz database, or null (#2051).
+
+        Membership in ``available_timezones()`` rather than a bare
+        ``ZoneInfo(value)``: the set holds only real zone keys, so it refuses
+        ``localtime``, ``posixrules``, a directory such as ``America``, a path,
+        and a case variant that a case-insensitive filesystem would otherwise
+        resolve (``europe/london`` on a macOS dev box, a 500 on Linux later).
+        Empty or null means UTC, the ADR's rule, and is stored as null. The
+        name is stored as sent, so ``UTC`` stays ``UTC``: it buckets exactly
+        as null does.
+        """
+        if not value:
+            return None
+        if value not in _available_time_zones():
+            raise serializers.ValidationError(
+                "time_zone must be an IANA time zone name such as America/Los_Angeles, or null for UTC."
             )
         return value
 
@@ -5940,6 +5975,8 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
             "swimlane_rollup_field",
             # Additive (#2050): where cycle time starts; written via PATCH /boards/{id}/.
             "commitment_column_uid",
+            # Additive (#2051): the zone flow-metric days are dated in; written via PATCH /boards/{id}/.
+            "time_zone",
             # Additive (#2208): two-tier card links; written via PATCH /boards/{id}/.
             "cards_can_have_children",
             # Additive (#2208 part 2): id only; written via PATCH /boards/{id}/.
@@ -5952,7 +5989,7 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
         ]
         # `group` is read-only here: this serializer only renders /full/, and a
         # group change goes through BoardSerializer.validate_group or move-group.
-        read_only_fields = ["uid", "group", "commitment_column_uid", "cards_can_have_children", "default_child_board", "parent_name_singular", "parent_name_plural"]
+        read_only_fields = ["uid", "group", "commitment_column_uid", "time_zone", "cards_can_have_children", "default_child_board", "parent_name_singular", "parent_name_plural"]
         extra_kwargs = _BOARD_ENFORCEMENT_EXTRA_KWARGS
 
     def get_archived_card_count(self, obj) -> int:
