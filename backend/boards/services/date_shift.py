@@ -58,10 +58,12 @@ def _date_field_names(definitions):
 
 
 def _shift_custom_values(values, date_names, delta):
-    if not isinstance(values, dict):
+    if not isinstance(values, dict) or not date_names:
         return
-    for name in date_names:
-        if name in values:
+    # Walk the row's own keys against the prebuilt set (#2629). ``list``
+    # because the loop reassigns values in place.
+    for name in list(values):
+        if name in date_names:
             values[name] = _shift_date(values[name], delta)
 
 
