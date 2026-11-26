@@ -118,11 +118,13 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
   const [reasonFor, setReasonFor] = useState<MoveBlockedError | null>(null);
   const [busy, setBusy] = useState(false);
   // The card a forced move with a reason just moved. Focus goes back to it in a layout effect (focus rule 3,
-  // #2608), in the commit that closes the dialog; a success usually clears the error and unmounts this
-  // component too, so the unmount cleanup makes the last attempt.
+  // #2608), in the commit that closes the dialog, while this toast stays mounted. A success usually clears the
+  // error, so the host unmounts this component in the same batch and that state update is dropped (#2631): the
+  // ref is set before it, outside render, so the unmount cleanup still knows which card to focus.
   const [restoreFor, setRestoreFor] = useState<number | null>(null);
   const restoreRef = useRef<number | null>(null);
-  restoreRef.current = restoreFor;
+  // Whether the unmount cleanup has already run: a host can drop this component while the force is in flight.
+  const mountedRef = useRef(true);
   const [failure, setFailure] = useState("");
   const openReason = (e: MoveBlockedError) => { setFailure(""); setReasonFor(e); };
   const closeReason = () => { setFailure(""); setReasonFor(null); };
@@ -138,7 +140,12 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
         return;
       }
       setReasonFor(null);
-      if (movedId != null) setRestoreFor(movedId);
+      if (movedId != null) {
+        restoreRef.current = movedId;
+        setRestoreFor(movedId);
+        // Already unmounted, so no cleanup is left to run: make the attempt here.
+        if (!mountedRef.current) queueMicrotask(() => focusMovedCard(movedId));
+      }
     } catch (err) {
       setFailure(notMoved(err));
     } finally {
@@ -164,15 +171,23 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
   // not in the DOM yet, watch for it instead of polling per frame (focus rule 3). Disconnected on cleanup.
   useLayoutEffect(() => {
     if (restoreFor === null) return;
-    if (focusMovedCard(restoreFor)) { setRestoreFor(null); return; }
+    const done = () => { restoreRef.current = null; setRestoreFor(null); };
+    if (focusMovedCard(restoreFor)) { done(); return; }
     const observer = new MutationObserver(() => {
-      if (focusMovedCard(restoreFor)) { observer.disconnect(); setRestoreFor(null); }
+      if (focusMovedCard(restoreFor)) { observer.disconnect(); done(); }
     });
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [restoreFor]);
-  useLayoutEffect(() => () => {
-    if (restoreRef.current !== null) focusMovedCard(restoreRef.current);
+  // On unmount the closing dialog still holds focus, so wait a microtask for it to leave the DOM (focus falls to
+  // body) before taking it for the moved card. Not requestAnimationFrame (focus rule 3).
+  useLayoutEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const id = restoreRef.current;
+      if (id !== null) queueMicrotask(() => focusMovedCard(id));
+    };
   }, []);
 
   const column = "column_name" in error ? error.column_name : null;

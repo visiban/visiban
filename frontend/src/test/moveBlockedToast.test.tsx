@@ -4,6 +4,7 @@ import { ToastProvider } from '../contexts/ToastContext'
 import userEvent from '@testing-library/user-event'
 import MoveBlockedToast from '../components/Board/MoveBlockedToast'
 import { ADMIN_OVERRIDE, NO_OVERRIDE } from '../utils/forceOverride'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 // The toast renders in the shared region (#2060), so tests mount the provider
@@ -241,22 +242,38 @@ describe('MoveBlockedToast — reason dialog focus (#2631)', () => {
     card.remove()
   })
 
-  it('makes a last attempt to focus the moved card when the toast unmounts first', async () => {
-    const user = userEvent.setup()
-    const onForce = vi.fn().mockResolvedValue({ ok: true })
-    const { unmount } = renderToast(
-      <MoveBlockedToast error={wipError} eligibility={{ kind: 'assignee' }} cardId={42} onForce={onForce} onDismiss={vi.fn()} />
+  // Models App.tsx: the toast renders only while `moveError` is set, and `runForcedMove` clears the error before it
+  // resolves, so the success that closes the dialog unmounts the toast in the same batch (#2631).
+  function Host({ cardMounts }: { cardMounts: 'already' | 'with-move' }) {
+    const [err, setErr] = useState<MoveBlockedError | null>(wipError)
+    const [moved, setMoved] = useState(false)
+    const onForce = async () => {
+      await Promise.resolve()
+      setMoved(true)
+      setErr(null)
+      return { ok: true }
+    }
+    return (
+      <>
+        {(cardMounts === 'already' || moved) && <button data-card-id="42">Moved card</button>}
+        {err && <MoveBlockedToast error={err} eligibility={{ kind: 'assignee' }} cardId={42} onForce={onForce} onDismiss={vi.fn()} />}
+      </>
     )
-    await submitReason(user, onForce)
-    const card = document.createElement('button')
-    card.setAttribute('data-card-id', '42')
-    ;(document.activeElement as HTMLElement | null)?.blur()
-    document.body.appendChild(card)
-    // Unmount in the same tick the card lands, before any observer callback can run.
-    unmount()
-    expect(card).toHaveFocus()
-    card.remove()
-  })
+  }
+
+  for (const cardMounts of ['already', 'with-move'] as const) {
+    it(`focuses the moved card when a success unmounts the toast with the move (card ${cardMounts})`, async () => {
+      const user = userEvent.setup()
+      render(wrap(<Host cardMounts={cardMounts} />))
+      await user.click(toast().getByText(/Move anyway/))
+      await user.type(await screen.findByLabelText('Reason (required)'), 'Ship it')
+      await user.click(screen.getByRole('button', { name: 'Move anyway' }))
+      await waitFor(() => expect(screen.queryByTestId('move-blocked-toast')).toBeNull())
+      expect(screen.queryByLabelText('Reason (required)')).toBeNull()
+      await act(async () => { await Promise.resolve() })
+      expect(screen.getByRole('button', { name: 'Moved card' })).toHaveFocus()
+    })
+  }
 })
 
 describe('MoveBlockedToast — hard-block variant', () => {
