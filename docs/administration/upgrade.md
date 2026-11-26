@@ -62,6 +62,8 @@ docker compose -f docker-compose.prod.yml exec -T db \
 
 **Tip:** store the backup outside the container. A local file on the host is sufficient for most deployments; offsite storage is recommended for production.
 
+**Yes, but:** `scripts/backup.sh` *(1.3+)* takes the same dump plus the media archive, and fails loudly on an empty or truncated dump. See [Back up and restore](backup-and-restore.md). On Kubernetes, trigger the backup CronJob by hand before upgrading: `kubectl create job --from=cronjob/<release>-backup pre-upgrade-backup`.
+
 ### 2. Point `APP_VERSION` at the new release and pull it
 
 The production stack runs the released images named by `APP_VERSION` in `.env` and builds nothing locally. Changing that line selects the new version. Without it, `pull` fetches the version you already run.
@@ -317,7 +319,7 @@ After rolling back, restart the backend container with the previous image versio
 
 ### Restoring from backup
 
-A database that a newer release has migrated cannot be run by the older release, so a restore always goes together with rolling the image tag back to the version the backup was taken on. The backup from [step 1](#1-back-up-the-database) is a plain SQL file, so it is restored with `psql`, not `pg_restore`. It contains no `DROP` statements, so restore into a freshly created, empty database. This is a minimal procedure; the full backup and restore playbook is tracked in [#861](https://gitlab.com/visiban/visiban/-/issues/861).
+A database that a newer release has migrated cannot be run by the older release, so a restore always goes together with rolling the image tag back to the version the backup was taken on. The backup from [step 1](#1-back-up-the-database) is a plain SQL file, so it is restored with `psql`, not `pg_restore`. It contains no `DROP` statements, so restore into a freshly created, empty database. This is a minimal procedure; for a set written by `scripts/backup.sh` (database and media), use `scripts/restore.sh` as described in [Back up and restore](backup-and-restore.md#restore).
 
 !!! danger "This replaces the live database"
     Everything written since the backup is lost, including cards moved and comments added after the upgrade. Keep a copy of the backup file, and take a fresh `pg_dump` of the current state first if there is any chance you will want it.

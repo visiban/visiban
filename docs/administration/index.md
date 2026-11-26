@@ -12,6 +12,7 @@ Find the guide for the admin task in front of you: configure, upgrade, secure, s
 | [Admin Panel](admin-panel.md) | Managing users, registration mode, and instance settings via the `/admin` UI |
 | [Maintenance Mode](maintenance-mode.md) | Putting the instance into read-only mode for an upgrade or migration |
 | [Issue Board Lens Usage](issue-board-lens-usage.md) | Monitoring the lens's outbound GitHub/GitLab API calls: admin usage report, structured log line, and the limits that bound them |
+| [Back Up and Restore](backup-and-restore.md) | Scheduled backups (`scripts/backup.sh`, Compose `backup` profile, Helm `backup.enabled`), off-host copies, restore onto a fresh install, RPO/RTO |
 | [Scheduled Jobs](scheduled-jobs.md) | Running the notification scans and retention prunes: Compose `scheduler` profile, Helm CronJobs, or host cron |
 | [Site Admins](site-admins.md) | What site admins can do, how to grant and revoke site admin access |
 | [Card History Retention](card-history-retention.md) | What a deleted card's movement history keeps and who sees it; erasing it on request with `purge_card_history` |

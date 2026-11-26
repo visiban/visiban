@@ -1,0 +1,178 @@
+{{- /*
+Opt-in backup CronJob (#1464; the Compose side is #2626).
+
+Each run is scripts/backup.sh in container mode, shipped here as
+files/backup.sh (with files/restore.sh for the documented restore pod). The
+copies must stay byte-identical to scripts/: scripts/helm-structure-check.sh
+section 22 fails the build when they drift, so Compose and Helm can never
+disagree about the dump format, the integrity checks or the set layout.
+
+Writes to a PVC, never object storage (out of scope, #2626). The PVC and the
+media PVC both default to helm.sh/resource-policy: keep, so `helm uninstall`
+deletes neither the attachments nor their backups.
+
+Every pod:
+  - reads only DATABASE_URL (and DATABASE_URL_PASSWORD when the password lives
+    in postgresql.auth.existingSecret) -- not the whole backend env;
+  - carries `app.kubernetes.io/component: backup`, listed in
+    visiban.datastoreClients so the PostgreSQL NetworkPolicy admits it;
+  - runs as the backend's uid/gid 1001 so it can read the media files, with
+    fsGroup 1001 so it can write the backup PVC; root filesystem read-only;
+  - fails rather than retries by default (backoffLimit 0): a failed backup is a
+    failed Job, which is what an operator alerts on.
+*/ -}}
+{{- if .Values.backup.enabled }}
+{{- $b := .Values.backup }}
+{{- $fullname := include "visiban.fullname" . }}
+{{- $claim := $b.persistence.existingClaim | default (printf "%s-backup" $fullname) }}
+{{- $media := and $b.includeMedia .Values.backend.mediaPersistence.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-backup-scripts
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+data:
+  backup.sh: |
+{{ .Files.Get "files/backup.sh" | indent 4 }}
+  restore.sh: |
+{{ .Files.Get "files/restore.sh" | indent 4 }}
+{{- if not $b.persistence.existingClaim }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $claim }}
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+  {{- if $b.persistence.keepOnUninstall }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml $b.persistence.accessModes | nindent 4 }}
+  {{- if $b.persistence.storageClassName }}
+  storageClassName: {{ $b.persistence.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $b.persistence.size }}
+{{- end }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $fullname | trunc 45 | trimSuffix "-" }}-backup
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ $b.schedule | quote }}
+  {{- if $b.timeZone }}
+  timeZone: {{ $b.timeZone | quote }}
+  {{- end }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: {{ $b.startingDeadlineSeconds | int }}
+  successfulJobsHistoryLimit: {{ $b.successfulJobsHistoryLimit | int }}
+  failedJobsHistoryLimit: {{ $b.failedJobsHistoryLimit | int }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ $b.backoffLimit | int }}
+      activeDeadlineSeconds: {{ $b.activeDeadlineSeconds | int }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ include "visiban.name" . }}
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            fsGroup: 1001
+            seccompProfile:
+              type: RuntimeDefault
+          {{- if and $media (has "ReadWriteOnce" .Values.backend.mediaPersistence.accessModes) }}
+          # A ReadWriteOnce media PVC attaches to one node: run where the
+          # backend runs.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: {{ include "visiban.name" . }}
+                      app.kubernetes.io/instance: {{ .Release.Name }}
+                      app.kubernetes.io/component: backend
+          {{- end }}
+          volumes:
+            - name: tmp
+              emptyDir: {}
+            - name: scripts
+              configMap:
+                name: {{ $fullname }}-backup-scripts
+            - name: backups
+              persistentVolumeClaim:
+                claimName: {{ $claim }}
+            {{- if $media }}
+            - name: media
+              persistentVolumeClaim:
+                claimName: {{ $fullname }}-media
+                readOnly: true
+            {{- end }}
+          containers:
+            - name: backup
+              image: {{ $b.image | quote }}
+              command: ["/bin/sh", "/opt/visiban/backup.sh"]
+              env:
+                - name: VISIBAN_BACKUP_MODE
+                  value: container
+                - name: BACKUP_DIR
+                  value: /backups
+                - name: BACKUP_RETENTION_DAYS
+                  value: {{ $b.retentionDays | int | quote }}
+                - name: MEDIA_DIR
+                  value: /app/media
+                - name: BACKUP_SKIP_MEDIA
+                  value: {{ ternary "0" "1" $media | quote }}
+                - name: HOME
+                  value: /tmp
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "visiban.secretName" . }}
+                      key: database-url
+                {{- if include "visiban.databasePasswordFromSecret" . }}
+                - name: DATABASE_URL_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "visiban.postgresql.secretName" . }}
+                      key: password
+                {{- end }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+                - name: scripts
+                  mountPath: /opt/visiban
+                  readOnly: true
+                - name: backups
+                  mountPath: /backups
+                {{- if $media }}
+                - name: media
+                  mountPath: /app/media
+                  readOnly: true
+                {{- end }}
+              resources:
+                {{- toYaml $b.resources | nindent 16 }}
+{{- end }}

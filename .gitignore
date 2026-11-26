@@ -109,3 +109,7 @@ clients/python/htmlcov/
 clients/python/.coverage
 .coverage
 clients/typescript/*.tgz
+
+# Default output of scripts/backup.sh and the Compose `backup` service (#2626):
+# full copies of the database and media, never to be committed.
+/backups/

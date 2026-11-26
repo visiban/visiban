@@ -270,6 +270,11 @@ backend:
   # Persistent volume for user-uploaded media (attachments, avatars).
   mediaPersistence:
     enabled: true
+    # helm.sh/resource-policy: keep (#1464): `helm uninstall` leaves this PVC,
+    # and every uploaded attachment on it, in place. Delete it by hand
+    # (kubectl delete pvc <release>-media) when you really mean to. A reinstall
+    # under the same release name and namespace adopts it again.
+    keepOnUninstall: true
     size: 5Gi
     # storageClassName: ""
     accessModes:
@@ -576,6 +581,56 @@ networkPolicy:
 # individually. If you already run any of these from host cron, remove that
 # cron line when you enable the CronJob — two runs in the same minute can both
 # pass the de-duplication check and notify twice.
+# Opt-in backup CronJob (#1464, templates/backup.yaml). Off by default, so
+# `helm upgrade` on an existing release creates nothing. Each run is
+# scripts/backup.sh in container mode -- the same plain-SQL pg_dump plus media
+# tarball, the same integrity checks and the same backup-set layout as a
+# Compose install's backup -- written to a PVC (object storage is out of scope;
+# copy the PVC off-cluster yourself). Restore steps:
+# docs/administration/backup-and-restore.md.
+#
+# The media PVC is mounted read-only. With a ReadWriteOnce media PVC the job
+# pod must run on the backend pod's node, so it carries a required podAffinity
+# to the backend; it stays Pending while the backend is scaled to zero.
+backup:
+  enabled: false
+  schedule: "17 2 * * *"
+  # IANA zone for the schedule (CronJob .spec.timeZone). Empty = controller
+  # default, UTC on almost every cluster.
+  timeZone: ""
+  # Sets older than this are pruned after each SUCCESSFUL run; 0 keeps all.
+  retentionDays: 14
+  # false = database only (e.g. backend.mediaPersistence.enabled is false).
+  includeMedia: true
+  # Needs pg_dump/psql at least as new as the server: keep it on the same
+  # major as postgresql.image (or your external server).
+  image: "postgres:17"
+  activeDeadlineSeconds: 3600
+  # A failed backup is not retried by default: the Job fails, and stays
+  # visible in failedJobsHistoryLimit, so alert on failed Jobs.
+  backoffLimit: 0
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  persistence:
+    # Use a PVC you manage instead of the chart's own.
+    existingClaim: ""
+    # Room for retentionDays sets of (compressed database + media).
+    size: 20Gi
+    # storageClassName: ""
+    accessModes:
+      - ReadWriteOnce
+    # The backups must outlive `helm uninstall`, or uninstall deletes the
+    # data and its backups together.
+    keepOnUninstall: true
+
 scheduledJobs:
   enabled: false
   # IANA zone for every schedule below (CronJob .spec.timeZone, Kubernetes

@@ -279,6 +279,48 @@ services:
       - ./certbot/www:/var/www/certbot
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
+  # Opt-in scheduled backup (#2626). Only started with the `backup` profile:
+  #   docker compose -f docker-compose.prod.yml --profile backup up -d backup
+  # Runs scripts/backup.sh in container mode once a day at BACKUP_TIME (UTC)
+  # into BACKUP_DIR on the host, and prunes sets older than
+  # BACKUP_RETENTION_DAYS after each successful run. A failed run makes the
+  # container unhealthy until the next run succeeds, so `docker compose ps`
+  # shows it. Same dump format and layout as a one-shot `scripts/backup.sh`;
+  # restore either with scripts/restore.sh. See
+  # docs/administration/backup-and-restore.md.
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    profiles: ["backup"]
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    environment:
+      VISIBAN_BACKUP_MODE: container
+      PGHOST: db
+      PGUSER: visiban
+      PGDATABASE: visiban
+      PGPASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set — do not use a default in production}
+      MEDIA_DIR: /app/media
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    entrypoint: ["/bin/sh", "/opt/visiban/backup.sh"]
+    command: ["--daily-at", "${BACKUP_TIME:-02:17}"]
+    volumes:
+      - ./scripts/backup.sh:/opt/visiban/backup.sh:ro
+      - mediafiles:/app/media:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "test ! -e /backups/.last-failure"]
+      interval: 60s
+      timeout: 5s
+      retries: 1
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   pgdata:
   frontend-dist:

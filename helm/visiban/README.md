@@ -214,6 +214,16 @@ within the switch), plus the `board_events` and `notifications` retention prunes
 due-date or staleness notification is ever sent. See `scheduledJobs` in
 `values.yaml`, and <https://visiban.gitlab.io/visiban/administration/scheduled-jobs/>.
 
+## Backups
+
+`backup.enabled=true` renders a CronJob that runs the repository's
+`scripts/backup.sh` (shipped as `files/backup.sh`) every day: a plain-SQL
+`pg_dump` plus a media archive, written to the `<release>-backup` PVC, with
+retention. **Off by default.** The media PVC and the backup PVC are annotated
+`helm.sh/resource-policy: keep`, so `helm uninstall` deletes neither. See
+`backup` in `values.yaml`, and
+<https://visiban.gitlab.io/visiban/administration/backup-and-restore/>.
+
 ## NetworkPolicies
 
 `networkPolicy.enabled=true` restricts pod-to-pod traffic to the paths Visiban
