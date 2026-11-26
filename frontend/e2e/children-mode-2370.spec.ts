@@ -134,7 +134,7 @@ for (const scheme of ['light', 'dark'] as const) {
     const focus = mode.getByRole('button', { name: `Focus on ${laneName}` })
     await expect(focus).toHaveAttribute('aria-pressed', 'true')
     await expectText(focus, 'Focus')
-    await expectText(mode.getByRole('button', { name: 'Copy link' }), 'Copy link')
+    await expectText(mode.getByRole('button', { name: `Copy link to ${laneName}` }), 'Copy link')
     await mode.getByRole('button', { name: `${laneName} lane menu` }).click()
     await expect(page.getByRole('menuitem', { name: 'Edit swimlane…' })).toBeVisible()
     await page.keyboard.press('Escape')

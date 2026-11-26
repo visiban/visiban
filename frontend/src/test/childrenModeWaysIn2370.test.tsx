@@ -119,7 +119,7 @@ describe('Children mode ways in and band (#2370 items 1, 2, 3, 8, 10)', () => {
     fireEvent.click(pressed)
     expect(onFocusLane).toHaveBeenLastCalledWith(null)
     // Order beside the name: Focus, Copy link, ⋮.
-    const copy = screen.getByRole('button', { name: 'Copy link' })
+    const copy = screen.getByRole('button', { name: 'Copy link to Acme Corp' })
     const menu = screen.getByRole('button', { name: 'Acme Corp lane menu' })
     expect(pressed.compareDocumentPosition(copy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(copy.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

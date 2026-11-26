@@ -262,7 +262,8 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                     aria-label={`${col.name} on ${board.name}: ${col.card_count} of limit ${col.wip_limit}`}
                     aria-valuemin={0}
                     aria-valuemax={col.wip_limit ?? 0}
-                    aria-valuenow={col.card_count}
+                    aria-valuenow={Math.min(col.card_count, col.wip_limit ?? 0)}
+                    aria-valuetext={`${col.card_count} of limit ${col.wip_limit}${col.card_count > (col.wip_limit ?? 0) ? ", over limit" : ""}`}
                     className="mt-1 block h-1 w-full overflow-hidden rounded bg-surface-active"
                   >
                     <span className={`block h-full ${col.card_count > (col.wip_limit ?? 0) ? "bg-danger" : "bg-primary-emphasis"}`} style={{ width: `${pct}%` }} />
@@ -413,7 +414,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                   Focus
                 </button>
               )}
-              <button type="button" onClick={() => void copyLink(lane)} className={`${FOCUS} ${tgt} px-2 text-xs text-fg-secondary rounded border border-line-strong hover:bg-surface-hover hover:text-fg`}>
+              <button type="button" onClick={() => void copyLink(lane)} aria-label={copiedLane === lane.id ? undefined : `Copy link to ${lane.name}`} className={`${FOCUS} ${tgt} px-2 text-xs text-fg-secondary rounded border border-line-strong hover:bg-surface-hover hover:text-fg`}>
                 {copiedLane === lane.id ? "Link copied" : "Copy link"}
               </button>
               {onEditLane && (

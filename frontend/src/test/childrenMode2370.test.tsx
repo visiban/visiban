@@ -207,7 +207,7 @@ describe('ChildrenModeView', () => {
     fireEvent.click(await screen.findByRole('button', { name: '+1 more parent · load 20' }))
     await screen.findByRole('button', { name: 'Acme: more' })
     expect(getChildrenView).toHaveBeenLastCalledWith(4, { lane: null, cursor: 'abc', done: false })
-    fireEvent.click(screen.getAllByRole('button', { name: 'Copy link' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /^Copy link/ })[0])
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/boards/4?show=children&lane=3`))
     expect(screen.getByRole('button', { name: 'Collapse lane Acme Corp, 4 in progress of 8' })).toBeInTheDocument()
   })
