@@ -2859,6 +2859,8 @@ cards cannot have children answers `400` with `code: "children_not_enabled"`.
 Not available on [share links](#public-share-endpoint), which carry none of
 this.
 
+`in_progress` (on a row, a lane and `board_total`) is `todo + doing + blocked`: children planned for a later parent column (#2551) are neither to do nor in progress, so a parent with only planned work has `in_progress` `0` and is `folded`. Lane and `board_total` values are the sums of the visible rows. No field is added or removed; only the value changes for a row with planned children.
+
 **Query parameters** (all optional)
 
 | Name | Meaning |

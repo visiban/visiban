@@ -182,7 +182,8 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
                 lane["parents"] += 1
                 lane["hidden"] += e["total"]
             continue
-        e["in_progress"] = e["total"] - e["done"]
+        # Planned children were skipped above, so this is total - done - planned (#2551 owner ruling).
+        e["in_progress"] = e["todo"] + e["doing"] + e["blocked"]
         e["has_blocked"] = e["blocked"] > 0
         e["folded"] = e["in_progress"] == 0
         if lane is None:
@@ -191,6 +192,7 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
         lane_boards[lane["id"]].add(e["child_board_id"])
         for k in ("total", *_STATES):
             lane[k] += e[k]
+        lane["in_progress"] += e["in_progress"]
         lane["folded"] += 1 if e["folded"] else 0
         # Visible rows only: a hidden child's move must never reach the lane
         # (a locked row's last_moved_at was already cleared above).
@@ -198,7 +200,6 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
         if moved is not None and (lane["last_moved_at"] is None or moved > lane["last_moved_at"]):
             lane["last_moved_at"] = moved
     for pk, lane in lane_out.items():
-        lane["in_progress"] = lane["total"] - lane["done"]
         lane["child_boards"] = len(lane_boards[pk])
 
     after = decode_cursor(cursor) if cursor is not None else None

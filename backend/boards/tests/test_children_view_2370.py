@@ -147,6 +147,28 @@ class ChildrenViewReadTests(_ViewFixture, TestCase):
         self.assertIsNone(row["last_moved_at"])
         self.assertEqual(full[planned.pk]["children_rollup"]["planned"], 1)
 
+    def test_planned_children_are_not_in_progress_and_totals_stay_sums(self):
+        planned = self._planned_parent()
+        body = self._view(self.viewer)
+        for row in (r for r in body["rows"] if r["rollup"]["visible"]):
+            roll = row["rollup"]
+            self.assertEqual(row["in_progress"], roll["todo"] + roll["doing"] + roll["blocked"], row["id"])
+        row = next(r for r in body["rows"] if r["id"] == planned.pk)
+        # planned plain, blocked and done: only the blocked one is in progress (blocked beats planned).
+        self.assertEqual(row["in_progress"], 1)
+        for lane in body["lanes"]:
+            rows = [r for r in body["rows"] if r["swimlane_id"] == lane["id"]]
+            self.assertEqual(lane["in_progress"], sum(r["in_progress"] for r in rows if r["in_progress"] is not None))
+        self.assertEqual(body["board_total"]["in_progress"], sum(lane["in_progress"] for lane in body["lanes"]))
+
+    def test_a_parent_with_only_planned_work_folds(self):
+        later = _make_column(self.pboard, name="Later", order=9)
+        parent = _make_card(self.parent.column, self.lane_p, title="only planned")
+        kid = _make_card(self.todo.column, self.lane_c, title="waiting")
+        CardParentLink.objects.create(parent=parent, child=kid, created_by=self.owner, needed_at_column=later)
+        row = next(r for r in self._view(self.viewer)["rows"] if r["id"] == parent.pk)
+        self.assertEqual((row["in_progress"], row["folded"]), (0, True))
+
     def test_rows_order_blocked_first_then_most_recent_move_folded_last(self):
         # Unblocked parents, created oldest-first: A's child moved 1 day ago, B's
         # 5 days ago, C's never. Order must be most recent move first with

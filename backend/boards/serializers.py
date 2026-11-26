@@ -4261,7 +4261,7 @@ class CardChildrenRollupField(serializers.Field):
 class _ChildrenViewTotalsSerializer(serializers.Serializer):
     """Schema only (#2370): ``board_total`` of ``GET /boards/{id}/children-view/``."""
 
-    in_progress = serializers.IntegerField(help_text="Children you can open that are not done: to do, doing and blocked.")
+    in_progress = serializers.IntegerField(help_text="Children you can open that are in progress: to do, doing and blocked. Children planned for a later parent column are not counted (#2551).")
     total = serializers.IntegerField(help_text="Live children you can open.")
     blocked = serializers.IntegerField(help_text="Of `total`, blocked (the #449 predicate), in any column.")
     hidden = serializers.IntegerField(help_text="Live children on boards you can't open: a count only.")
@@ -4309,7 +4309,7 @@ class ChildrenViewRowSerializer(serializers.Serializer):
     column_name = serializers.CharField()
     assignee = BoardUserSerializer(allow_null=True)
     rollup = CardChildrenRollupField()
-    in_progress = serializers.IntegerField(allow_null=True, help_text="Null when the child board is one you can't open.")
+    in_progress = serializers.IntegerField(allow_null=True, help_text="`todo + doing + blocked`: not done and not planned for a later parent column (#2551). Null when the child board is one you can't open.")
     folded = serializers.BooleanField(help_text="Nothing in progress; always false for a locked row.")
     child_board_id = serializers.IntegerField(allow_null=True, help_text="Null when the child board is one you can't open.")
     children = ChildrenViewChildSerializer(many=True, help_text="Not-done children, plus done ones with `done=true`; empty for a locked row.")
