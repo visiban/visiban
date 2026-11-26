@@ -438,7 +438,9 @@ class FlowMetricsQuerySerializer(serializers.Serializer):
         if "days" in attrs and (from_date or to_date):
             raise serializers.ValidationError("Send either days or from_date/to_date, not both.")
         if from_date or to_date:
-            to_date = to_date or timezone.now().date()
+            # "Today" in the board's time zone (#2051), the zone date_range reads.
+            zone = flow_metrics.zone_of(self.context["board"])
+            to_date = to_date or timezone.now().astimezone(zone).date()
             from_date = from_date or to_date - datetime.timedelta(days=flow_metrics.DEFAULT_RANGE_DAYS - 1)
             if from_date > to_date:
                 raise serializers.ValidationError("from_date must not be after to_date.")
@@ -697,10 +699,12 @@ def _flow_query(serializer_class, request, board, **context):
     return serializer.validated_data
 
 
-def _flow_range(params, now):
+def _flow_range(params, now, board):
+    """The request's range, its days dated in the board's time zone (#2051; UTC when unset)."""
+    zone = flow_metrics.zone_of(board)
     if "from_date" in params:
-        return flow_metrics.date_range(params["from_date"], params["to_date"], now=now)
-    return flow_metrics.rolling_range(params.get("days", flow_metrics.DEFAULT_RANGE_DAYS), now=now)
+        return flow_metrics.date_range(params["from_date"], params["to_date"], now=now, zone=zone)
+    return flow_metrics.rolling_range(params.get("days", flow_metrics.DEFAULT_RANGE_DAYS), now=now, zone=zone)
 
 
 def _load_range_flow(board, params, now, flow_range):
@@ -1470,7 +1474,9 @@ class BoardAnalyticsMixin:
             # from the flow service (ADR #1532, #448). A card that bounces between
             # done columns counts once and stays counted after it is archived.
             rollup = flow_metrics.swimlane_completion_rollup(
-                flow_metrics.load_recent_completions(board, flow_metrics.rolling_range(30, now=now), columns=columns)
+                flow_metrics.load_recent_completions(
+                    board, flow_metrics.rolling_range(30, now=now, zone=flow_metrics.zone_of(board)), columns=columns,
+                )
             )
 
             result = []
@@ -1632,7 +1638,7 @@ class BoardAnalyticsMixin:
             col_id_to_name = {c.id: c.name for c in columns}
             # Current and completed dwell come from the flow service (#448), so the
             # heatmap's Current and In period modes agree with the flow charts.
-            flow_range = flow_metrics.rolling_range(days, now=now)
+            flow_range = flow_metrics.rolling_range(days, now=now, zone=flow_metrics.zone_of(board))
             # The heatmap's own frozen figures (avg_days_per_column, velocity,
             # stalled cards) read the same cards' movements, so they are derived
             # from the flow service's one history load, card by card as it is
@@ -1868,7 +1874,7 @@ class BoardAnalyticsMixin:
         params = _flow_query(CappedGroupedFlowMetricsQuerySerializer, request, board)
         with _analytics_slot(request, board, "metrics_cycle_time"):
             now = timezone.now()
-            flow_range = _flow_range(params, now)
+            flow_range = _flow_range(params, now, board)
             flow = _load_range_flow(board, params, now, flow_range)
             return Response(_cycle_time_payload(flow, flow_range, _grouping(board, params, flow), params.get("limit")))
 
@@ -1900,7 +1906,7 @@ class BoardAnalyticsMixin:
         params = _flow_query(SwimlaneComparisonQuerySerializer, request, board, role=role)
         with _analytics_slot(request, board, "metrics_swimlanes"):
             now = timezone.now()
-            flow_range = _flow_range(params, now)
+            flow_range = _flow_range(params, now, board)
             flow = _load_range_flow(board, params, now, flow_range)
             lanes = list(board.swimlanes.order_by("position", "id"))
             return Response(flow_metrics.swimlane_comparison(
@@ -1928,7 +1934,7 @@ class BoardAnalyticsMixin:
         params = _flow_query(ThroughputQuerySerializer, request, board)
         with _analytics_slot(request, board, "metrics_throughput"):
             now = timezone.now()
-            flow_range = _flow_range(params, now)
+            flow_range = _flow_range(params, now, board)
             flow = _load_range_flow(board, params, now, flow_range)
             return Response(_throughput_payload(
                 flow, flow_range, params["period"], _grouping(board, params, flow), params.get("limit"),
@@ -1959,12 +1965,16 @@ class BoardAnalyticsMixin:
         params = _flow_query(CumulativeFlowQuerySerializer, request, board)
         now = timezone.now()
         day = params.get("date")
-        if day is not None and day >= now.date():
-            # Today is still running, so it is never a bucket (ADR "Whole days").
-            raise CodedValidationError(INVALID_QUERY_PARAM, "date must be a whole UTC day before today.")
+        zone = flow_metrics.zone_of(board)
+        if day is not None and day >= now.astimezone(zone).date():
+            # Today is still running, so it is never a bucket (ADR "Whole days"),
+            # and "today" is the board's (#2051). A UTC board keeps its message.
+            raise CodedValidationError(
+                INVALID_QUERY_PARAM, f"date must be a whole {board.time_zone or 'UTC'} day before today.",
+            )
         with _analytics_slot(request, board, "metrics_cumulative_flow"):
             if day is None:
-                flow_range = _flow_range(params, now)
+                flow_range = _flow_range(params, now, board)
                 flow = flow_metrics.load_cumulative_flow(
                     board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
                 )
@@ -1976,7 +1986,7 @@ class BoardAnalyticsMixin:
             flow = flow_metrics.load_cumulative_day(
                 board, day, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
             )
-            payload = flow_metrics.cumulative_flow_cards(flow, day)
+            payload = flow_metrics.cumulative_flow_cards(flow, day, zone)
             payload["cards"] = flow_metrics.card_directory(
                 flow, (uid for column in payload["columns"] for uid in column["card_uids"]),
             )
@@ -1994,7 +2004,7 @@ class BoardAnalyticsMixin:
         params = _flow_query(CappedGroupedFlowMetricsQuerySerializer, request, board)
         with _analytics_slot(request, board, "metrics_wip_age"):
             now = timezone.now()
-            flow_range = _flow_range(params, now)
+            flow_range = _flow_range(params, now, board)
             flow = _load_range_flow(board, params, now, flow_range)
             return Response(_wip_age_payload(flow, flow_range, _grouping(board, params, flow), params.get("limit")))
 
@@ -2010,7 +2020,7 @@ class BoardAnalyticsMixin:
         params = _flow_query(GroupedFlowMetricsQuerySerializer, request, board)
         with _analytics_slot(request, board, "metrics_dwell"):
             now = timezone.now()
-            flow_range = _flow_range(params, now)
+            flow_range = _flow_range(params, now, board)
             flow = _load_range_flow(board, params, now, flow_range)
             return Response(_dwell_payload(flow, flow_range, _grouping(board, params, flow)))
 
@@ -2031,7 +2041,7 @@ class BoardAnalyticsMixin:
             flow = flow_metrics.load_live_wip(
                 board, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"), now=now,
             )
-            return Response(flow_metrics.blocked_summary(flow, _flow_range(params, now)))
+            return Response(flow_metrics.blocked_summary(flow, _flow_range(params, now, board)))
 
     @extend_schema(
         summary="Cards that need attention: blocked, past the cycle-time p85, or stalled",
@@ -2045,7 +2055,7 @@ class BoardAnalyticsMixin:
         params = _flow_query(AttentionQuerySerializer, request, board)
         with _analytics_slot(request, board, "metrics_attention"):
             now = timezone.now()
-            flow_range = _flow_range(params, now)
+            flow_range = _flow_range(params, now, board)
             flow = _load_range_flow(board, params, now, flow_range)
             return Response(_attention_payload(board, flow, flow_range, params.get("limit")))
 
@@ -2088,7 +2098,7 @@ class BoardAnalyticsMixin:
         params = _flow_query(FlowOverviewQuerySerializer, request, board)
         with _analytics_slot(request, board, "metrics_overview"):
             now = timezone.now()
-            flow_range = _flow_range(params, now)
+            flow_range = _flow_range(params, now, board)
             flow = flow_metrics.load_cumulative_flow(
                 board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
             )
