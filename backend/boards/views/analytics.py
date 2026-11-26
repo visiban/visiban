@@ -737,11 +737,11 @@ _FLOW_FILTER_PARAMETERS = [
     ),
     OpenApiParameter(
         name="from_date", type=OpenApiTypes.DATE, location=OpenApiParameter.QUERY, required=False,
-        description="First UTC day of the range, inclusive (`YYYY-MM-DD`).",
+        description="First day of the range, inclusive (`YYYY-MM-DD`), in the board's `time_zone` (UTC when null).",
     ),
     OpenApiParameter(
         name="to_date", type=OpenApiTypes.DATE, location=OpenApiParameter.QUERY, required=False,
-        description=f"Last UTC day of the range, inclusive. A range holds at most {_MAX_FLOW_RANGE_DAYS} days.",
+        description=f"Last day of the range, inclusive, in the board's `time_zone` (UTC when null). A range holds at most {_MAX_FLOW_RANGE_DAYS} days.",
     ),
     OpenApiParameter(
         name="swimlane_id", type={"type": "integer", "format": "int64", "minimum": 1},
@@ -1914,7 +1914,7 @@ class BoardAnalyticsMixin:
             ))
 
     @extend_schema(
-        summary="Cards completed per whole ISO week or UTC day",
+        summary="Cards completed per whole ISO week or day in the board's `time_zone` (UTC when null)",
         parameters=[
             *_FLOW_FILTER_PARAMETERS,
             *_FLOW_GROUP_PARAMETERS,
@@ -1941,14 +1941,14 @@ class BoardAnalyticsMixin:
             ))
 
     @extend_schema(
-        summary="Cards per column at the end of each UTC day, or the cards behind one day",
+        summary="Cards per column at the end of each day in the board's `time_zone` (UTC when null), or the cards behind one day",
         parameters=[
             *_FLOW_FILTER_PARAMETERS,
             OpenApiParameter(
                 name="date", type=OpenApiTypes.DATE, location=OpenApiParameter.QUERY, required=False,
                 description=(
                     "Return the cards behind this day's counts instead of the diagram. "
-                    "Must be a whole UTC day before today."
+                    "Must be a whole day in the board's `time_zone` (UTC when null) before today."
                 ),
             ),
         ],
