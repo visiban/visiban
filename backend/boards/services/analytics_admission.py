@@ -393,6 +393,11 @@ class _DeadlineWrapper:
         raw = self.raw
         if raw is None or raw.closed:
             return
+        if not self._held(raw):
+            # With Django's connection pool, closing a connection hands it
+            # back to the pool, where another request may already hold it:
+            # it is no longer this slot's to set or close.
+            return
         if raw.info.transaction_status == psycopg.pq.TransactionStatus.INERROR:
             # A statement was cancelled inside an atomic block: the rollback
             # undoes the setting too, since SET is transactional in PostgreSQL.
@@ -401,12 +406,25 @@ class _DeadlineWrapper:
             self._set(raw, self.session_ms)
         except psycopg.Error:
             # The value could not be put back on a live connection: close it
-            # so it is never reused (or returned to the pool) with it.
+            # so it is never reused with it. The raw connection is closed
+            # first because Django's own ``close`` does not close a pooled
+            # connection, it hands it back to the pool still open (and still
+            # tightened); a closed one is discarded there instead. Then Django
+            # drops its reference, if it still holds this connection.
             logger.warning("analytics.replay could not restore statement_timeout; closing the connection")
+            raw.close()
             if self.db is not None and self.db.connection is raw:
                 self.db.close()
-            else:
-                raw.close()
+
+    def _held(self, raw):
+        """Whether ``raw`` is still this slot's connection to touch.
+
+        Without a pool, a connection Django replaced is still only ours. With
+        one, it went back to the pool when Django closed it.
+        """
+        if self.db is None or self.db.connection is raw:
+            return True
+        return not getattr(self.db, "pool", None)
 
 
 def _log(user_id, board_id, endpoint, movements, streamed, started, outcome):

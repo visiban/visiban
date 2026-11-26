@@ -16,6 +16,7 @@ need PostgreSQL and skip elsewhere.
 import logging
 import threading
 import time
+from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest import mock, skipUnless
 
@@ -290,6 +291,44 @@ def _statement_timeout():
         return cursor.fetchone()[0]
 
 
+@contextmanager
+def _pooled_connection():
+    """A second handle on the test database through Django's psycopg pool.
+
+    One connection at most, so a connection handed back is the one served
+    next unless the pool discarded it. Registered under its alias for the
+    length of the test, since connection signal handlers look it up there.
+    """
+    alias = "analytics_pool_test"
+    settings = {**_conns["default"].settings_dict, "CONN_MAX_AGE": 0}
+    settings["OPTIONS"] = {**settings.get("OPTIONS", {}), "pool": {"min_size": 1, "max_size": 1}}
+    db = type(_conns["default"])(settings, alias=alias)
+    _conns[alias] = db
+    try:
+        yield db
+    finally:
+        db.close()
+        db.close_pool()
+        del _conns[alias]
+
+
+def _show_timeout(db):
+    with db.cursor() as cursor:
+        cursor.execute("SHOW statement_timeout")
+        return cursor.fetchone()[0]
+
+
+def _raw(db):
+    db.ensure_connection()
+    return db.connection
+
+
+def _fail_restore(raw, ms):
+    import psycopg
+
+    raise psycopg.OperationalError("restore failed")
+
+
 def _sleep(seconds):
     with connection.cursor() as cursor:
         cursor.execute("SELECT pg_sleep(%s)", [seconds])
@@ -382,6 +421,58 @@ class StatementTimeoutTests(TransactionTestCase):
         self.assertIsNone(connection.connection)
         # The next query opens a fresh connection with the session default.
         self.assertEqual(_statement_timeout(), before)
+
+    @override_settings(ANALYTICS_MAX_SECONDS=60)
+    def test_a_failed_restore_closes_the_raw_connection(self):
+        """The psycopg connection itself is closed, not only Django's handle.
+
+        Under ``DATABASE_POOL`` Django's ``close`` hands the connection back
+        to the pool still open; closing the raw connection is what keeps the
+        tightened setting out of the next request. The pooled path itself is
+        covered below.
+        """
+        import psycopg
+
+        wrapper = admission._DeadlineWrapper(Ticket(10, time.monotonic() + 60))
+        with connection.execute_wrapper(wrapper):
+            Board.objects.count()
+        raw = wrapper.raw
+        with mock.patch.object(admission._DeadlineWrapper, "_set", side_effect=psycopg.OperationalError("x")), \
+                self.assertLogs("boards.services.analytics_admission", logging.WARNING):
+            wrapper.restore()
+        self.assertTrue(raw.closed)
+        self.assertIsNone(connection.connection)
+
+    def test_with_a_pool_a_failed_restore_never_returns_the_connection(self):
+        with _pooled_connection() as pooled:
+            before = _show_timeout(pooled)
+            wrapper = admission._DeadlineWrapper(Ticket(10, time.monotonic() + 60))
+            with pooled.execute_wrapper(wrapper):
+                _show_timeout(pooled)
+            raw = wrapper.raw
+            self.assertNotEqual(_show_timeout(pooled), before)
+            with mock.patch.object(admission._DeadlineWrapper, "_set", side_effect=_fail_restore), \
+                    self.assertLogs("boards.services.analytics_admission", logging.WARNING):
+                wrapper.restore()
+            self.assertTrue(raw.closed)
+            # The pool discards the closed connection and serves a fresh one
+            # with the session default, never the tightened one.
+            self.assertIsNot(_raw(pooled), raw)
+            self.assertEqual(_show_timeout(pooled), before)
+
+    def test_with_a_pool_a_connection_handed_back_is_left_alone(self):
+        # Django's close returned the connection to the pool, where another
+        # request may hold it: the slot neither sets nor closes it.
+        with _pooled_connection() as pooled:
+            wrapper = admission._DeadlineWrapper(Ticket(10, time.monotonic() + 60))
+            with pooled.execute_wrapper(wrapper):
+                _show_timeout(pooled)
+            raw = wrapper.raw
+            pooled.close()
+            with mock.patch.object(admission._DeadlineWrapper, "_set") as setter:
+                wrapper.restore()
+            setter.assert_not_called()
+            self.assertFalse(raw.closed)
 
     def test_a_request_held_by_a_long_statement_frees_its_slot_for_a_waiter(self):
         # The first request's query would run 10 s; the bound cancels it at
