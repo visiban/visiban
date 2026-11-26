@@ -1471,7 +1471,9 @@ def process(payload, opts=None, runner=run, project=None):
             return quiet("not an MR create")
         backgrounded = backgrounded_call(ti, response)
         if not backgrounded:
-            return quiet("glab mr create ran but no MR URL was printed")  # a failed create posts nothing
+            # Usually a failed create. A `> file` redirect or a shell `&` can open the MR and still print
+            # no URL, but the hook cannot tell those apart from a failure, so all stay quiet on purpose.
+            return quiet("glab mr create ran but no MR URL was printed")
     cwd = payload.get("cwd") or os.getcwd()
     sid = payload.get("session_id") or ""
     rc, _, _ = runner([sys.executable, os.path.join(HERE, "cost-ledger"), "enabled"], cwd)
@@ -1481,8 +1483,13 @@ def process(payload, opts=None, runner=run, project=None):
         # No hook fires when the background task finishes, so say so now. No polling or API lookup, and
         # the session state is neither read nor advanced: --retry does all of that later.
         OUTCOME["why"] = "backgrounded before the MR URL"
-        return ("Record 1 (## Cost of this MR) was not posted: glab mr create was moved to the background before it "
-                "printed the MR URL. When that background task finishes, " + retry_hint(None, sid))
+        # Not retry_hint: the repo-project check below has not run, so "this repo" could be the wrong one.
+        # The command match is textual, hence the conditional wording.
+        return ("Record 1 (## Cost of this MR) is not posted: this command mentions glab mr create and was moved "
+                "to the background before an MR URL was printed. If it opens an MR, then when that background task "
+                "finishes, run this in a checkout of that MR's own project (its worktree): "
+                "python3 scripts/post-mr-cost.py --retry --mr <iid> --session %s (docs/development/cost-ledger.md)."
+                % (sid if SESSION_RE.match(sid) else "<session-id>"))
     manual = retry_hint(iid, sid)
     if project is None:
         url_project, here = mr_project(payload.get("tool_response")), repo_project(runner, cwd)
@@ -3091,13 +3098,16 @@ def _self_test():
         calls.clear()
         msg = process(bg, runner=runner_for(0)) or ""
         check("backgrounded (%s) -> the retry hint with the session and a literal <iid>" % label,
-              "Record 1 (## Cost of this MR) was not posted" in msg and "--retry --mr <iid> --session abc-123" in msg
+              "Record 1 (## Cost of this MR) is not posted" in msg and "--retry --mr <iid> --session abc-123" in msg
+              and "that MR's own project" in msg and "this repo's checkout" not in msg
               and OUTCOME["why"] == "backgrounded before the MR URL", repr(msg))
         check("backgrounded (%s) -> only the setting is read: nothing posted" % label,
               len(calls) == 1 and calls[0][-1:] == ["enabled"], repr(calls))
         calls.clear()
         check("backgrounded (%s), ledger off -> quiet" % label,
               process(bg, runner=runner_for(1)) is None and len(calls) == 1 and "off or unreadable" in OUTCOME["why"])
+    msg = process(dict(payload, session_id="../x", tool_response=moved), runner=runner_for(0)) or ""
+    check("backgrounded with no usable session says <session-id>", "--session <session-id> " in msg, repr(msg))
     with open(sentinel, "rb") as f:
         check("backgrounded: the session state is left untouched", f.read() == before)
     os.remove(sentinel)

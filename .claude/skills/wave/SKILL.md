@@ -653,7 +653,7 @@ being reported done.
 **Check the cost comment (record 1).** With the ledger on, the `PostToolUse` hook
 `.claude/hooks/post-mr-cost.sh` posted record 1 when `glab mr create` ran, so **do not post it
 yourself**, except with the `--retry` command the hook printed for a backgrounded create,
-once that task finishes. If the MR has no `## Cost of this MR` comment (the hook was off or errored;
+once that task finishes, run in the MR's own worktree. If the MR has no `## Cost of this MR` comment (the hook was off or errored;
 `mr-cost-hook.log` in the git common dir says why), say so in the Step 7 report; do not run the
 measuring scripts or `cost-table.py` by hand. Exempt: ledger off (`scripts/cost-ledger enabled`
 exits non-zero) or a description with `cost-ledger: off`, where no comment is expected
