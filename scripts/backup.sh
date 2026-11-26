@@ -188,6 +188,16 @@ run_backup() {
   name="visiban-$stamp"
   final="$OUTPUT_DIR/$name"
   [ ! -e "$final" ] || { log "ERROR: $final already exists"; return 1; }
+  # A run killed outright (SIGKILL, OOM, node loss) cannot clean up after
+  # itself and leaves a .partial full-data copy behind; nothing else would
+  # ever remove it. Only ones older than 12 hours go, so a run still in
+  # progress beside this one (a one-shot host run during the schedule) keeps
+  # its own.
+  find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -type d -name '.visiban-[0-9]*T[0-9]*Z.partial' \
+    -mmin +720 -print | while IFS= read -r stale; do
+      log "removing $stale, left by an interrupted run"
+      rm -rf "$stale"
+    done
   PARTIAL="$OUTPUT_DIR/.$name.partial"
   rm -rf "$PARTIAL"
   mkdir -p "$PARTIAL" || return 1
@@ -208,7 +218,7 @@ run_backup() {
   fi
   # pg_dump writes this trailer as its very last line. A dump cut short (disk
   # full, connection dropped, process killed) does not end with it.
-  if ! gzip -dc "$PARTIAL/database.sql.gz" | tail -n 5 | grep -q '^-- PostgreSQL database dump complete'; then
+  if ! gzip -dc "$PARTIAL/database.sql.gz" | tail -n 5 | grep -c '^-- PostgreSQL database dump complete' > /dev/null; then
     log "ERROR: the database dump is truncated (no 'PostgreSQL database dump complete' trailer); nothing kept"
     cleanup_partial; return 1
   fi
@@ -264,8 +274,12 @@ run_backup() {
   return 0
 }
 
+SLEEP_PID=""
 trap cleanup_partial EXIT
-trap 'cleanup_partial; exit 130' INT TERM
+# The scheduler is PID 1 in its container: it must act on `docker stop`'s
+# SIGTERM at once, not after the day-long sleep (and Docker's SIGKILL).
+trap '[ -z "$SLEEP_PID" ] || kill "$SLEEP_PID" 2>/dev/null; cleanup_partial; exit 143' TERM
+trap '[ -z "$SLEEP_PID" ] || kill "$SLEEP_PID" 2>/dev/null; cleanup_partial; exit 130' INT
 
 if [ -z "$DAILY_AT" ]; then
   run_backup
@@ -281,7 +295,12 @@ while :; do
   next=$(( now - now % 86400 + target_s ))
   [ "$next" -gt "$now" ] || next=$(( next + 86400 ))
   log "scheduler: next run in $(( next - now ))s"
-  sleep $(( next - now ))
+  # Backgrounded + `wait`, so a signal interrupts the wait and the trap runs
+  # now; a foreground `sleep` would hold the trap until it finished.
+  sleep $(( next - now )) &
+  SLEEP_PID=$!
+  wait "$SLEEP_PID"
+  SLEEP_PID=""
   if run_backup; then
     date -u +%Y-%m-%dT%H:%M:%SZ > "$OUTPUT_DIR/.last-success"
     rm -f "$OUTPUT_DIR/.last-failure"

@@ -88,7 +88,12 @@ done
 
 [ -n "$SET_DIR" ] || die "usage: scripts/restore.sh [--yes] [--skip-media] <backup-set-dir>"
 [ -d "$SET_DIR" ] || die "backup set not found: $SET_DIR"
-SET_DIR="$(cd "$SET_DIR" && pwd)"
+# Sets are written 0700/0600 (a scheduled Compose set is root-owned), so name
+# the cause instead of failing on a bare `cd`.
+if [ ! -r "$SET_DIR" ] || [ ! -x "$SET_DIR" ]; then
+  die "cannot read set dir $SET_DIR (run as root/owner, e.g. with sudo)"
+fi
+SET_DIR="$(cd "$SET_DIR" && pwd)" || die "cannot read set dir $SET_DIR (run as root/owner, e.g. with sudo)"
 case "$MODE" in
   host|container) ;;
   *) die "VISIBAN_BACKUP_MODE must be 'host' or 'container' (got '$MODE')" ;;
@@ -109,7 +114,11 @@ if command -v sha256sum >/dev/null 2>&1; then
 else
   (cd "$SET_DIR" && shasum -a 256 -c SHA256SUMS >/dev/null) || die "SHA256SUMS does not match — the set is damaged"
 fi
-gzip -dc "$DUMP" | tail -n 5 | grep -q '^-- PostgreSQL database dump complete' \
+# Every `producer | grep` check below uses `grep -c ... >/dev/null`, never
+# `grep -q`: -q exits on the first match, the producer then dies of SIGPIPE
+# (141), and under pipefail the `if` reads that as "no match" -- so a refusal
+# would be skipped on exactly the large input it exists for.
+gzip -dc "$DUMP" | tail -n 5 | grep -c '^-- PostgreSQL database dump complete' > /dev/null \
   || die "the database dump is truncated (no completion trailer)"
 # sha256sum -c checks only the files SHA256SUMS lists: an archive missing from
 # it would go unverified, so require its line (#1075: absent input denies).
@@ -118,12 +127,12 @@ if [ "$SKIP_MEDIA" = 0 ]; then
   grep -q '  media.tar.gz$' "$SET_DIR/SHA256SUMS" || die "SHA256SUMS does not list media.tar.gz — cannot verify the media archive"
   gzip -t "$MEDIA" || die "the media archive fails its gzip integrity test"
   members="$(tar -tzf "$MEDIA")" || die "the media archive cannot be listed"
-  if printf '%s\n' "$members" | grep -Eq '^/|(^|/)\.\.(/|$)'; then
+  if printf '%s\n' "$members" | grep -Ec '^/|(^|/)\.\.(/|$)' > /dev/null; then
     die "the media archive holds an absolute path or a '..' component — refusing to extract it"
   fi
   # Uploads are plain files and directories; a link member could point an
   # extraction outside the media directory.
-  if tar -tvzf "$MEDIA" | grep -Eq '^[lh]| link to '; then
+  if tar -tvzf "$MEDIA" | grep -Ec '^[lh]| link to ' > /dev/null; then
     die "the media archive holds a symlink or hard link — refusing to extract it"
   fi
 fi

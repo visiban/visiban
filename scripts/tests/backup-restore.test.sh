@@ -135,6 +135,27 @@ STUB_DUMP=good sh "$BACKUP" --output-dir "$OUT" --retention-days 7 2>/dev/null
 [ -d "$OUT/unrelated-dir" ] && [ -d "$OUT/visiban-notes" ] && ok "non-set directories are never pruned" || bad "retention removed a directory that is not a backup set"
 [ "$(sets "$OUT")" -ge 2 ] && ok "the new set is kept" || bad "the new set is missing"
 
+echo "backup: a .partial left by a killed run is pruned; a recent one (a run in progress) is not"
+OUT="$WORK/out-stale"
+mkdir -p "$OUT/.visiban-20200101T000000Z.partial" "$OUT/.visiban-29990101T000000Z.partial"
+printf 'all the data\n' > "$OUT/.visiban-20200101T000000Z.partial/database.sql.gz"
+touch -t 202001010000 "$OUT/.visiban-20200101T000000Z.partial"
+if STUB_DUMP=good sh "$BACKUP" --output-dir "$OUT" --retention-days 0 2>/dev/null; then ok "the run succeeds"; else bad "the run failed"; fi
+[ ! -e "$OUT/.visiban-20200101T000000Z.partial" ] && ok "a stale .partial is removed" || bad "a stale .partial survived the next run"
+[ -d "$OUT/.visiban-29990101T000000Z.partial" ] && ok "a fresh .partial (another run in progress) is kept" || bad "a fresh .partial was removed"
+[ "$(sets "$OUT")" = 1 ] && ok "and the new set is kept" || bad "the new set is missing"
+
+echo "backup: the scheduler stops on SIGTERM at once, not after its sleep"
+OUT="$WORK/out-sched"
+STUB_DUMP=good sh "$BACKUP" --output-dir "$OUT" --daily-at "$(date -u -v-1M +%H:%M 2>/dev/null || date -u -d '-1 min' +%H:%M)" 2>"$WORK/sched.log" &
+sched_pid=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do grep -q 'next run in' "$WORK/sched.log" 2>/dev/null && break; sleep 0.3; done
+kill -TERM "$sched_pid" 2>/dev/null
+stopped=0
+for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$sched_pid" 2>/dev/null || { stopped=1; break; }; sleep 0.3; done
+if [ "$stopped" = 1 ]; then ok "the scheduler exited within 3s of SIGTERM"; else bad "the scheduler ignored SIGTERM during its sleep"; kill -KILL "$sched_pid" 2>/dev/null; fi
+wait "$sched_pid" 2>/dev/null
+
 echo "backup: argument validation"
 sh "$BACKUP" --retention-days abc 2>/dev/null && bad "--retention-days abc accepted" || ok "--retention-days abc rejected"
 sh "$BACKUP" --daily-at 25:00 2>/dev/null && bad "--daily-at 25:00 accepted" || ok "--daily-at 25:00 rejected"
@@ -190,6 +211,46 @@ else
   echo "  skip: this tar cannot write a '..' member, so the '..' refusal is not exercised here"
 fi
 expect_refused "a missing media directory (container mode)" "$SET" MEDIA_DIR="$WORK/absent-media"
+
+# A real install has thousands of uploads. Each guard pipes a listing into
+# grep; a bad member near the START of a long listing is the case where an
+# early-exiting `grep -q` SIGPIPEs its producer and pipefail turns the refusal
+# into a pass. Both guards get the large case.
+echo "restore: a bad member early in a LARGE media archive is still refused"
+mkdir -p "$WORK/bigtree/files"
+(cd "$WORK/bigtree/files" && i=0 && while [ "$i" -lt 5000 ]; do : > "an-uploaded-attachment-with-a-realistic-name-$i.png"; i=$((i + 1)); done)
+mkdir -p "$WORK/bigtree-link"; ln -s /etc "$WORK/bigtree-link/aaa-link"
+# The link first, then 5000 plain files after it: ~300 KB of listing, several
+# times a pipe buffer, so an early-exiting grep would leave its producer
+# blocked on a full pipe and SIGPIPE it.
+build_set_with_media "$WORK/set-big-symlink" -cf - -C "$WORK/bigtree-link" aaa-link -C "$WORK/bigtree" files
+gzip -dc "$WORK/set-big-symlink/media.tar.gz" | tar -tvf - | head -1 | grep -c '^l' > /dev/null \
+  && ok "fixture: the link is the first of $(gzip -dc "$WORK/set-big-symlink/media.tar.gz" | tar -tf - | wc -l | tr -d ' ') members" \
+  || bad "fixture: the large archive does not start with the link"
+expect_refused "a symlink first in a 5000-member media archive" "$WORK/set-big-symlink"
+if [ -f "$DOTDOT_SET/media.tar.gz" ] && gzip -dc "$DOTDOT_SET/media.tar.gz" | tar -tf - | grep -c '\.\./' > /dev/null; then
+  build_set_with_media "$WORK/set-big-dotdot" -P -cf - -C "$WORK/dotdot/a" ../top.txt -C "$WORK/bigtree" files 2>/dev/null
+  expect_refused "a '..' member first in a 5000-member media archive" "$WORK/set-big-dotdot"
+else
+  echo "  skip: this tar cannot write a '..' member, so the large '..' refusal is not exercised here"
+fi
+# An absolute member path needs no special tar flag to fake: -P keeps it.
+build_set_with_media "$WORK/set-big-abs" -P -cf - "$WORK/dotdot/top.txt" -C "$WORK/bigtree" files 2>/dev/null
+if gzip -dc "$WORK/set-big-abs/media.tar.gz" | tar -tf - | head -1 | grep -c '^/' > /dev/null; then
+  expect_refused "an absolute path first in a 5000-member media archive" "$WORK/set-big-abs"
+else
+  echo "  skip: this tar strips the leading / on create, so the absolute-path refusal is not exercised here"
+fi
+
+echo "restore: an unreadable set dir names the cause"
+if [ "$(id -u)" != 0 ]; then
+  NOREAD="$WORK/noread"; cp -R "$SET" "$NOREAD"; chmod 000 "$NOREAD"
+  sh "$RESTORE" --yes "$NOREAD" 2>"$WORK/log" && bad "an unreadable set ran" || ok "an unreadable set is refused"
+  grep -c 'run as root/owner' "$WORK/log" > /dev/null && ok "the error says to run as root/owner" || bad "the error does not name the cause: $(cat "$WORK/log")"
+  chmod 700 "$NOREAD"
+else
+  echo "  skip: running as root, which can read any set dir"
+fi
 
 echo
 echo "backup-restore.test.sh: $PASS passed, $FAIL failed"
