@@ -6158,6 +6158,11 @@
 <td>Number of archived cards. Reported separately because <code>card_count</code> excludes them, yet <code>DELETE /api/v1/boards/{id}/</code> deletes them too. Clients that confirm a board delete should treat <code>card_count + archived_card_count</code> as the number of cards at stake. Also present on <code>GET /api/v1/boards/</code>, <code>GET /api/v1/groups/{id}/boards/</code>, and <code>/full/</code>. Added in 1.2 (#1289).</td>
 </tr>
 <tr>
+<td><code>stage_counts</code></td>
+<td>array</td>
+<td><em>(1.3+, #2483)</em> Live cards per stage, in board order: one <code>{ uid, name, color, card_count }</code> entry per column, columns with no cards included, so the first and last entries are the board's first and last stage. A stage is a column; cards in a column's sub-columns count toward that column. Archived cards are left out, so the counts sum to <code>card_count</code>. <code>[]</code> for a board with no columns. Read-only. Present on list, retrieve, <code>GET /api/v1/groups/{id}/boards/</code>, <code>descendant-boards/</code> and <code>descendant-boards/paged/</code>, create, update and import responses, and the <code>board.created</code> / <code>board.updated</code> payloads (not on <code>/full/</code>, which returns the columns and cards themselves). A list resolves every board's counts in one query. The counts are a snapshot taken when the response or frame is built: card creates, moves and archives send card events, not <code>board.updated</code>, so re-fetch the list rather than keeping <code>stage_counts</code> current from WebSocket frames. A board created from a template starts with one zero-count entry per template column. The home page draws its stage bar from this field.</td>
+</tr>
+<tr>
 <td><code>staleness_threshold_days</code></td>
 <td>integer</td>
 <td>Days without movement before a card is considered stale (default: 7). Must be between 0 and 36500 (100 years); a larger value returns <code>400 Bad Request</code> keyed to the field. Before this cap a value near 30 million returned <code>500</code> on create and update.</td>
