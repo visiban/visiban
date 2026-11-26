@@ -591,8 +591,10 @@ backup:
   retentionDays: 14
   # false = database only (e.g. backend.mediaPersistence.enabled is false).
   includeMedia: true
-  # Needs pg_dump/psql at least as new as the server: keep it on the same
-  # major as postgresql.image (or your external server).
+  # Keep it on the SAME major as postgresql.image (or your external server):
+  # pg_dump refuses a newer server, and a dump from a newer pg_dump is not
+  # guaranteed to load into an older one (the restore stops on the first
+  # error). externalDatabase on 15, 16 or 18: set e.g. "postgres:16".
   image: "postgres:17"
   activeDeadlineSeconds: 3600
   # A failed backup is not retried by default: the Job fails, and stays

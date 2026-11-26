@@ -121,7 +121,7 @@ backup:
 
 **Watch out:**
 
-- Keep `backup.image` on the same PostgreSQL major as your server, or newer. `pg_dump` refuses a newer server.
+- Keep `backup.image` on the **same PostgreSQL major as your server**. `pg_dump` refuses a newer server, and a dump written by a newer `pg_dump` is not guaranteed to load into an older server: the restore runs with `ON_ERROR_STOP=1`, so one statement the older server rejects rolls the whole restore back. The default `postgres:17` matches the bundled PostgreSQL. With `externalDatabase` on another supported major (15, 16 or 18), set `backup.image` to that major, for example `postgres:16`, **before** the first scheduled run; a backup you cannot restore is not a backup.
 - With `networkPolicy.enabled`, the backup pod (`app.kubernetes.io/component: backup`) is already allowed to reach the bundled PostgreSQL.
 - Set `backup.includeMedia: false` when `backend.mediaPersistence.enabled` is false; there is no media volume to read.
 - The backups live on a PVC in the same cluster. Copy them off-cluster, for example with a CronJob of your own that mounts the backup PVC and runs `rclone`.
@@ -134,7 +134,7 @@ Everything that writes means: the backend, the backend HorizontalPodAutoscaler i
 
 ```bash
 # 1. Stop everything that writes
-# The HPA cannot scale to zero, so remove it; `helm upgrade` re-creates it in step 3.
+# The HPA cannot scale to zero, so remove it; `helm upgrade` re-creates it in step 4.
 kubectl -n visiban delete hpa visiban-backend --ignore-not-found
 kubectl -n visiban scale deployment visiban-backend --replicas=0
 # The webhook dispatcher, if enabled (NotFound otherwise is fine)
@@ -152,7 +152,7 @@ kubectl -n visiban run backup-ls --rm -i --restart=Never --image=postgres:17 \
   --overrides='{"spec":{"securityContext":{"runAsUser":1001,"runAsGroup":1001},"volumes":[{"name":"b","persistentVolumeClaim":{"claimName":"visiban-backup"}}],"containers":[{"name":"ls","image":"postgres:17","command":["ls","/backups"],"volumeMounts":[{"name":"b","mountPath":"/backups"}]}]}}'
 ```
 
-Save this as `restore-pod.yaml`, set the set name in `args`, and apply it:
+Save this as `restore-pod.yaml`, set the set name in `args`, and apply it. Keep the three labels: they are the ones the backup CronJob's pods carry, and with `networkPolicy.enabled` the PostgreSQL ingress rule admits only pods labeled like this; without them `psql` cannot connect and the pod hangs.
 
 ```yaml
 apiVersion: v1
@@ -160,6 +160,10 @@ kind: Pod
 metadata:
   name: visiban-restore
   namespace: visiban
+  labels:
+    app.kubernetes.io/name: visiban
+    app.kubernetes.io/instance: visiban   # your release name
+    app.kubernetes.io/component: backup
 spec:
   restartPolicy: Never
   automountServiceAccountToken: false
@@ -208,7 +212,15 @@ kubectl apply -f restore-pod.yaml
 kubectl -n visiban logs -f visiban-restore    # ends with "OK: restored ..."
 kubectl -n visiban delete pod visiban-restore
 
-# 3. Start again, in reverse: the backend's migrate init container runs first
+# 3. Empty the Valkey cache: it still holds entries keyed to the replaced data
+# (Django's cache and the real-time layer). The default Valkey keeps its data
+# in an emptyDir, so a restart empties it:
+kubectl -n visiban rollout restart statefulset visiban-valkey
+kubectl -n visiban rollout status statefulset visiban-valkey
+# With valkey.primary.persistence.enabled, a restart keeps the data; flush it instead:
+# kubectl -n visiban exec visiban-valkey-0 -c valkey -- valkey-cli FLUSHALL
+
+# 4. Start again, in reverse: the backend's migrate init container runs first
 kubectl -n visiban scale deployment visiban-backend --replicas=1   # your backendReplicaCount, or the HPA's minReplicas
 kubectl -n visiban scale deployment visiban-webhook-dispatcher --replicas=1   # if enabled
 for cj in $(kubectl -n visiban get cronjob -l app.kubernetes.io/instance=visiban -o name); do
@@ -218,9 +230,48 @@ done
 helm upgrade visiban <chart> --version <the installed chart version> --reuse-values
 ```
 
-If any CronJob was suspended **before** the restore on purpose, leave it suspended in step 3: the loop un-suspends every CronJob of the release.
+If any CronJob was suspended **before** the restore on purpose, leave it suspended in step 4: the loop un-suspends every CronJob of the release.
 
 The Secret holding `database-url` is named after the release (`visiban` here) unless you set `secret.existingSecret`. The same restore runs in one transaction and refuses a damaged set, as on Compose.
+
+### Restore onto a fresh cluster
+
+The steps above assume the set is already on the release's backup PVC. After losing the cluster, you have an off-cluster copy and nothing else, and the restore pod needs two things the chart renders only with `backup.enabled: true`: the `visiban-backup-scripts` ConfigMap (the chart's copy of `restore.sh`) and the `visiban-backup` PVC. Get them, then get the set onto that PVC:
+
+1. Install the chart ([Kubernetes](../getting-started/kubernetes.md)) under the same release name, with the **same secrets** as the lost install (at least `DJANGO_SECRET_KEY` and `VISIBAN_SECRET_ENCRYPTION_KEY`, in `values.secret.yaml` or your `secret.existingSecret`), with `backup.enabled: true`, and with a chart version at or after the release the backup was taken on. Wait until the release is up.
+2. Stop everything that writes: step 1 above. The new install's backend is running and must not be.
+3. Start a helper pod that mounts the backup PVC, and copy the set in. `kubectl cp` needs `tar` in the container; the backup image has it. `fsGroup: 1001` makes the copied set readable by the restore pod, which runs as uid 1001.
+
+    ```bash
+    kubectl -n visiban apply -f - <<'EOF'
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: backup-copy
+      namespace: visiban
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, runAsUser: 1001, runAsGroup: 1001, fsGroup: 1001 }
+      containers:
+        - name: copy
+          image: postgres:17   # the same image as backup.image
+          command: ["sleep", "infinity"]
+          volumeMounts: [{ name: backups, mountPath: /backups }]
+      volumes:
+        - name: backups
+          persistentVolumeClaim: { claimName: visiban-backup }
+    EOF
+    kubectl -n visiban wait --for=condition=Ready pod/backup-copy
+    kubectl -n visiban cp ./visiban-20261126T021700Z backup-copy:/backups/visiban-20261126T021700Z
+    # Prove the copy is intact before anything destructive
+    kubectl -n visiban exec backup-copy -- sh -c 'cd /backups/visiban-20261126T021700Z && sha256sum -c SHA256SUMS'
+    kubectl -n visiban delete pod backup-copy
+    ```
+
+4. Continue with step 2 above (list the sets, run the restore pod) and finish with steps 3 and 4.
+
+If the backup PVC survived (`helm uninstall` keeps it; see below), skip the copy: install with `backup.enabled: true` and the same release name and namespace, and the chart picks the existing `visiban-backup` claim up.
 
 ### What `helm uninstall` keeps
 
