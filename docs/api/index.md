@@ -252,7 +252,7 @@ keeps retrying until the cache answers; it does not fall back to the sign-in pag
 which signed the web app user out until they signed in again (#2143). The browser pages under
 `/accounts/` and `/admin/` answer the same JSON `503`.
 
-### Analytics refusals (`analytics_busy`, `analytics_too_large`)
+### Analytics refusals (`analytics_busy`, `analytics_timeout`, `analytics_too_large`)
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
