@@ -834,6 +834,12 @@ dependencies:
   _wire "confirm gate gets the combined body" 'confirm_release_notes "$RELEASE_BODY" || {'
   _wire "rotation inserts the summary" 'rotate_changelog_with_summary CHANGELOG.md "$VERSION" "$TODAY" "$RELEASE_SUMMARY_TEXT" > "$TMP" && mv "$TMP" CHANGELOG.md'
   _wire "GitLab release body comes from RELEASE_BODY" 'write_release_notes_file "$RELEASE_BODY" "$NOTES_FILE"'
+  # Merge and tag call sites (#1822). The `|| exit 1`s are redundant while errexit
+  # is on, so no end-to-end case can see one go missing; pin the lines here.
+  # release.test.sh covers the behavior (what gets merged, gated and tagged).
+  _wire "a failed release-MR merge stops the release" 'merge_release_mr "$MR_NUM" || exit 1'
+  _wire "an unresolved merge commit stops the release" 'MERGE_SHA=$(resolve_mr_merge_sha "$MR_NUM") || exit 1'
+  _wire "the tag goes on the MR's merge commit" 'git tag "$TAG" "$MERGE_SHA"'
   # Order: the summary must be resolved before the release branch exists.
   # grep -m1, not `| head -1`: with several matches head exits early and, under
   # pipefail, busybox grep dies of SIGPIPE (141) in CI while macOS grep does not.
