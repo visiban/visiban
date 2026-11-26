@@ -26,8 +26,11 @@ from boards.models import (
     CardChecklist,
     CardComment,
     CardExternalRef,
+    CardActivity,
+    CardBlock,
     CardGateTransition,
     CardMovement,
+    CardParentLink,
     CardRelation,
     Column,
     CustomFieldDefinition,
@@ -818,6 +821,12 @@ class SeedDemoSiteTests(TestCase):
     #: sample's own shape (DemoSiteOverlayBoardTests, test_sample_boards).
     HAND_BUILT = [n for n in BOARD_NAMES if n != "Sales Territory (Overlay)"]
 
+    #: Boards after the seven showcase boards: the Trello import (#1908), the
+    #: first-run board (#2600) and the two connected boards (#2598).
+    OTHER_BOARD_NAMES = {
+        "Product Roadmap (Trello import)", "Simple Kanban", "Customer Implementation", "Platform Program",
+    }
+
     @staticmethod
     def spec(name):
         """The board's definition: its _demo_site_data spec, or the sample it imports."""
@@ -828,7 +837,13 @@ class SeedDemoSiteTests(TestCase):
 
     @classmethod
     def spec_card_count(cls, name):
-        return len(cls.spec(name)["cards"])
+        count = len(cls.spec(name)["cards"])
+        if name == OVERLAY:
+            # The imported sample plus the deals the seeder adds (#2599).
+            from boards.management.commands._demo_site_connected import OVERLAY_COLUMN_COUNTS
+
+            count += sum(OVERLAY_COLUMN_COUNTS.values())
+        return count
 
     def test_demo_site_password_sets_are_not_in_the_admin_action_log(self):
         """#1699: documented exception to the admin action log.
@@ -894,7 +909,7 @@ class SeedDemoSiteTests(TestCase):
     def test_seeds_seven_showcase_boards_plus_the_trello_import(self):
         _seed(demo_site=True)
         seeded = set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True))
-        self.assertEqual(seeded, set(self.BOARD_NAMES) | {"Product Roadmap (Trello import)", "Simple Kanban"})
+        self.assertEqual(seeded, set(self.BOARD_NAMES) | self.OTHER_BOARD_NAMES)
         for name in self.BOARD_NAMES:
             board = Board.objects.get(name=name)
             self.assertEqual(board.cards.count(), self.spec_card_count(name), name)
@@ -992,7 +1007,7 @@ class SeedDemoSiteTests(TestCase):
         )
         self.assertFalse(Board.objects.filter(owner=visitor).exists())
         boards = Board.objects.all()
-        self.assertEqual(boards.count(), 10)  # the demo board + the nine demo-site boards
+        self.assertEqual(boards.count(), 12)  # the demo board + the eleven demo-site boards
         for board in boards:
             membership = BoardMembership.objects.get(board=board, user=visitor)
             self.assertEqual(membership.role, BoardMembership.Role.MEMBER, board.name)
@@ -1106,7 +1121,7 @@ class SeedDemoSiteTests(TestCase):
         _seed(demo_site=True, wipe=True)
         self.assertFalse(Board.objects.filter(name__in=RETIRED_BOARD_NAMES).exists())
         self.assertEqual(
-            set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True)), set(self.BOARD_NAMES) | {"Product Roadmap (Trello import)", "Simple Kanban"}
+            set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True)), set(self.BOARD_NAMES) | self.OTHER_BOARD_NAMES
         )
 
     def test_without_flag_no_demo_site_content(self):
@@ -1729,6 +1744,15 @@ class SeedResetDatabaseTests(TransactionTestCase):
 #    accounts for its state; the overlay board's URL never moves ────────────
 
 OVERLAY = "Sales Territory (Overlay)"
+
+
+def _overlay_added():
+    from boards.management.commands._demo_site_connected import OVERLAY_COLUMN_COUNTS
+
+    return OVERLAY_COLUMN_COUNTS
+
+
+OVERLAY_ADDED = _overlay_added()
 TRELLO = "Product Roadmap (Trello import)"
 
 
@@ -1763,7 +1787,7 @@ class DemoSiteHistoryReconciliationTests(TestCase):
         from boards.tests.history_reconciliation import board_history_problems
 
         boards = Board.objects.order_by("id")
-        self.assertEqual(boards.count(), 10)
+        self.assertEqual(boards.count(), 12)
         for board in boards:
             with self.subTest(board.name):
                 self.assertEqual(board_history_problems(board, imported=board.name in (OVERLAY, TRELLO)), {})
@@ -1890,9 +1914,12 @@ class DemoSiteOverlayBoardTests(TestCase):
         )
 
     def test_the_board_is_the_sample(self):
-        self.assertEqual(
-            sorted(self.board.cards.values_list("title", flat=True)), sorted(c["title"] for c in self.data["cards"]),
-        )
+        # Every card of the sample is on the board, untouched; the seeder adds
+        # deals on top (#2599), none of which reuse a sample title.
+        titles = list(self.board.cards.values_list("title", flat=True))
+        self.assertEqual(len(titles), len(set(titles)))
+        self.assertLessEqual({c["title"] for c in self.data["cards"]}, set(titles))
+        self.assertEqual(len(titles), len(self.data["cards"]) + sum(OVERLAY_ADDED.values()))
         self.assertEqual(
             list(self.board.columns.order_by("position").values_list("name", flat=True)),
             [c["name"] for c in self.data["columns"]],
@@ -1901,9 +1928,10 @@ class DemoSiteOverlayBoardTests(TestCase):
             list(self.board.swimlanes.order_by("position").values_list("name", flat=True)),
             [s["name"] for s in self.data["swimlanes"]],
         )
+        # The sample's fields in order, then the two review gates the seeder adds as tracks (#2599).
         self.assertEqual(
             list(CustomFieldDefinition.objects.filter(board=self.board).order_by("position").values_list("name", flat=True)),
-            [f["name"] for f in self.data["custom_fields"]],
+            [f["name"] for f in self.data["custom_fields"]] + ["Security review", "Legal review"],
         )
         self.assertEqual(
             self.board.cards.filter(archived_at__isnull=False).count(),
@@ -1932,13 +1960,15 @@ class DemoSiteOverlayBoardTests(TestCase):
         the sample file sets to the card's creation movement, so nothing in its
         history predates it."""
         cards = self.board.cards.all()
-        self.assertEqual(cards.count(), len(self.data["cards"]))
+        self.assertEqual(cards.count(), len(self.data["cards"]) + sum(OVERLAY_ADDED.values()))
         for card in cards:
             first = card.movements.order_by("moved_at", "id").first()
             self.assertEqual(card.created_at, first.moved_at, card.title)
 
     def test_history_is_the_files_with_import_provenance(self):
-        moves = CardMovement.objects.filter(card__board=self.board)
+        # The sample's cards only: the deals the seeder adds (#2599) are the
+        # seeder's own work and carry no import provenance.
+        moves = CardMovement.objects.filter(card__board=self.board, card__title__in=[c["title"] for c in self.data["cards"]])
         self.assertEqual(moves.count(), sum(len(c["movements"]) for c in self.data["cards"]))
         self.assertFalse(moves.filter(imported_from_username__isnull=True).exists())
         self.assertTrue(moves.exclude(notes="").exclude(notes="Card created").exists())  # trail notes
@@ -1957,7 +1987,7 @@ class DemoSiteOverlayBoardTests(TestCase):
         self.assertLessEqual(assignees, set(members))
         # Every assignee in the file resolved, so no card lost its owner.
         self.assertEqual(
-            self.board.cards.filter(assignee__isnull=False).count(),
+            self.board.cards.filter(assignee__isnull=False, title__in=[c["title"] for c in self.data["cards"]]).count(),
             sum(1 for c in self.data["cards"] if c.get("assignee")),
         )
 
@@ -1967,7 +1997,9 @@ class DemoSiteOverlayBoardTests(TestCase):
             col.name for col in self.board.columns.all()
             if col.wip_limit and live.filter(column=col).count() > col.wip_limit
         ]
-        self.assertEqual(over, ["Commercial"])
+        # Validate and Commercial run over; the limits seeded on top (#2599)
+        # stay above their counts.
+        self.assertEqual(over, ["Validate", "Commercial"])
         self.assertTrue(self.board.columns.filter(weight_limit__isnull=False).exists())
 
     def test_no_event_is_in_the_future_whatever_the_hour_of_the_reset(self):
@@ -1976,11 +2008,15 @@ class DemoSiteOverlayBoardTests(TestCase):
         hour dates nothing after now."""
         from boards.models import CardActivity
 
+        imported = {"card__board": self.board, "card__title__in": [c["title"] for c in self.data["cards"]]}
         latest = max(
-            CardMovement.objects.filter(card__board=self.board).latest("moved_at").moved_at,
-            CardActivity.objects.filter(card__board=self.board).latest("created_at").created_at,
-            CardComment.objects.filter(card__board=self.board).latest("created_at").created_at,
+            CardMovement.objects.filter(**imported).latest("moved_at").moved_at,
+            CardActivity.objects.filter(**imported).latest("created_at").created_at,
+            CardComment.objects.filter(**imported).latest("created_at").created_at,
         )
+        # The deals the seeder adds are dated up to today but never past now.
+        for model, field in ((CardMovement, "moved_at"), (CardActivity, "created_at"), (CardComment, "created_at")):
+            self.assertLessEqual(model.objects.filter(card__board=self.board).latest(field).__dict__[field], timezone.now())
         today_noon = timezone.now().replace(hour=12, minute=0, second=0, microsecond=0)
         self.assertLess(latest, today_noon - datetime.timedelta(hours=12))
 
@@ -2011,7 +2047,9 @@ class OverlayBoardUrlTests(TransactionTestCase):
         (1, BOARD_NAME), (2, "Software Team"), (3, "Property Management"), (4, "Construction"),
         (5, "Sales Territory"), (6, OVERLAY), (7, "Content Moderation"), (8, "Logistics Exceptions"),
         (9, TRELLO),  # appended (#1908), so the overlay board stays /boards/6
-        (10, "Simple Kanban"),  # appended last (#2600), same reason
+        (10, "Simple Kanban"),  # appended after the sample boards (#2600), same reason
+        (11, "Customer Implementation"),  # connected boards (#2598), appended: no earlier id moves
+        (12, "Platform Program"),
     ]
 
     @pytest.mark.slow
@@ -2063,10 +2101,11 @@ class DemoSiteSimpleBoardTests(TestCase):
     def test_is_created_last_so_it_lists_first_and_other_urls_hold(self):
         from boards.management.commands._demo_site_data import BOARDS
 
-        self.assertEqual(BOARDS[-1]["name"], "Simple Kanban")
-        self.assertEqual(Board.objects.order_by("pk").last().name, "Simple Kanban")
-        # The board list is ordered by -updated_at (Board.Meta), so the board
-        # created last is the first a new visitor sees.
+        # The connected boards (#2598) are appended after it, so no earlier id moves.
+        self.assertEqual(BOARDS[-3]["name"], "Simple Kanban")
+        self.assertEqual(list(Board.objects.order_by("pk").values_list("name", flat=True))[9], "Simple Kanban")
+        # The board list is ordered by -updated_at (Board.Meta), so the seeder
+        # touches the first-run board last: it is the first a new visitor sees.
         self.assertEqual(Board.objects.first().name, "Simple Kanban")
 
     def test_reseeding_with_wipe_recreates_it_once(self):
@@ -2088,9 +2127,9 @@ class DemoSiteTrelloBoardTests(TestCase):
     def test_the_board_is_last_and_the_overlay_board_did_not_move(self):
         from boards.management.commands._demo_site_data import BOARDS
 
-        # The simple board (#2600) is appended after the Trello import, so the
-        # Trello board is second to last and the overlay board is still index 4.
-        self.assertEqual(BOARDS[-2], {"name": TRELLO, "trello": "trello_export.json"})
+        # The simple board (#2600) and the connected boards (#2598) are appended
+        # after the Trello import, so the Trello board is fourth to last and the overlay board is still index 4.
+        self.assertEqual(BOARDS[-4], {"name": TRELLO, "trello": "trello_export.json"})
         self.assertTrue(Board.objects.filter(name=TRELLO).exists())
         # A TestCase never resets the sequences, so the absolute pk (6) is only
         # provable after reset_database (test_overlay_board_keeps_its_url);
@@ -2179,7 +2218,7 @@ class SeedWipeChangeFeedTests(TestCase):
         _seed(demo_site=True, wipe=True)
         existing = set(Board.objects.values_list("pk", flat=True))
         gone = before - existing
-        self.assertEqual(len(gone), 10)
+        self.assertEqual(len(gone), 12)
         for board_id in gone:
             self.assertEqual(
                 BoardEvent.objects.filter(board_id=board_id, event="board.deleted").count(), 1, board_id,
@@ -2362,3 +2401,208 @@ class DemoSiteBoardStructureTests(TestCase):
         self.assertEqual(SubColumn.objects.filter(column__board=board).count(), 3)
         self.assertEqual(CustomFieldSet.objects.filter(board=board).count(), 2)
         self.assertEqual(Board.objects.filter(name="Software Team").count(), 1)
+
+
+@override_settings(**_DEMO_SITE_SETTINGS)
+class DemoSiteConnectedBoardsTests(TestCase):
+    """#2598: real parent and child boards, links, planned children and Children mode."""
+
+    PARENT_BOARDS = (OVERLAY, "Platform Program")
+    CHILD_BOARDS = ("Customer Implementation", "Software Team")
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed(demo_site=True)
+        cls.visitor = User.objects.get(username="visitor")
+
+    def test_each_hierarchy_is_a_parent_board_over_a_child_board(self):
+        for name in self.PARENT_BOARDS:
+            self.assertTrue(Board.objects.get(name=name).cards_can_have_children, name)
+        for name in self.CHILD_BOARDS:
+            self.assertFalse(Board.objects.get(name=name).cards_can_have_children, name)
+        self.assertEqual(Board.objects.get(name=OVERLAY).default_child_board.name, "Customer Implementation")
+        self.assertEqual(Board.objects.get(name="Platform Program").default_child_board.name, "Software Team")
+
+    def test_links_follow_the_two_tier_rules(self):
+        from boards.management.commands._demo_site_connected import LINKS
+
+        links = CardParentLink.objects.select_related("parent__board", "child__board")
+        self.assertEqual(links.count(), len(LINKS))
+        parents = {link.parent_id for link in links}
+        for link in links:
+            self.assertIn(link.parent.board.name, self.PARENT_BOARDS)
+            self.assertIn(link.child.board.name, self.CHILD_BOARDS)
+            self.assertNotIn(link.child_id, parents)  # a child is never a parent
+        # One child board per parent (epic #2206 decision A).
+        for parent_id in parents:
+            self.assertEqual(
+                links.filter(parent_id=parent_id).values("child__board_id").distinct().count(), 1,
+            )
+
+    def test_planned_children_wait_for_a_later_stage_and_one_is_released(self):
+        planned = CardParentLink.objects.filter(
+            needed_at_column__isnull=False, planned_released_at__isnull=True,
+        ).select_related("parent__column", "needed_at_column")
+        self.assertGreaterEqual(planned.count(), 5)
+        for link in planned:
+            self.assertEqual(link.needed_at_column.board_id, link.parent.board_id)
+            self.assertGreater(link.needed_at_column.position, link.parent.column.position)
+        released = CardParentLink.objects.filter(needed_at_column__isnull=False, planned_released_at__isnull=False)
+        self.assertEqual(released.count(), 1)
+        link = released.get()
+        self.assertLessEqual(link.needed_at_column.position, link.parent.column.position)
+
+    def test_links_leave_history_on_both_cards_and_one_pair_was_relinked(self):
+        ET = CardActivity.EventType
+        for link in CardParentLink.objects.all():
+            self.assertTrue(link.child.activities.filter(event_type=ET.PARENT_LINKED).exists(), link.child.title)
+            self.assertTrue(link.parent.activities.filter(event_type=ET.CHILD_LINKED).exists(), link.parent.title)
+        child = Card.objects.get(board__name="Customer Implementation", title="Billing interface design review")
+        kinds = list(child.activities.filter(event_type__in=[ET.PARENT_LINKED, ET.PARENT_UNLINKED])
+                     .order_by("created_at", "id").values_list("event_type", flat=True))
+        self.assertEqual(kinds, [ET.PARENT_LINKED, ET.PARENT_UNLINKED, ET.PARENT_LINKED])
+        self.assertTrue(hasattr(child, "parent_link"))
+
+    def test_visitor_reads_every_connected_board_and_children_mode(self):
+        from rest_framework.test import APIClient
+        from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, get_board_roles
+
+        names = self.PARENT_BOARDS + self.CHILD_BOARDS
+        boards = list(Board.objects.filter(name__in=names).select_related(GROUP_ANCESTOR_SELECT_RELATED))
+        roles = get_board_roles(self.visitor, boards)
+        for board in boards:
+            # No seeded board sits in a group, so the role is the direct
+            # membership; the group-ancestor path has nothing to resolve (#2443).
+            self.assertIsNone(board.group_id, board.name)
+            self.assertEqual(roles[board.pk], BoardMembership.Role.MEMBER, board.name)
+        client = APIClient()
+        client.force_authenticate(self.visitor)
+        for name in self.PARENT_BOARDS:
+            response = client.get(f"/api/v1/boards/{Board.objects.get(name=name).pk}/children-view/")
+            self.assertEqual(response.status_code, 200, name)
+            self.assertTrue(response.data["lanes"], name)
+        for name in self.CHILD_BOARDS:
+            response = client.get(f"/api/v1/boards/{Board.objects.get(name=name).pk}/")
+            self.assertEqual(response.status_code, 200, name)
+            # A child board is not a parent board: Children mode is refused.
+            self.assertEqual(client.get(f"/api/v1/boards/{Board.objects.get(name=name).pk}/children-view/").status_code, 400)
+
+    def test_children_mode_has_work_in_progress_by_state(self):
+        impl = Board.objects.get(name="Customer Implementation")
+        links = CardParentLink.objects.filter(child__board=impl)
+        columns = set(links.values_list("child__column__name", flat=True))
+        self.assertTrue({"Kickoff", "Build", "UAT", "Live"} <= columns)  # doing and done
+        self.assertTrue(links.filter(child__blocked_at__isnull=False).exists())  # a blocked child
+        self.assertTrue(links.filter(child__column__name="Backlog").exists())  # a to-do child
+
+    def test_simple_kanban_stays_first_in_the_board_list(self):
+        self.assertEqual(Board.objects.first().name, "Simple Kanban")
+
+
+@override_settings(**_DEMO_SITE_SETTINGS)
+class DemoSiteFlagshipOverlayTests(TestCase):
+    """#2599: the overlay board is the largest, most complete showcase."""
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed(demo_site=True)
+        cls.board = Board.objects.get(name=OVERLAY)
+
+    def test_it_is_the_largest_board_on_the_site(self):
+        # Of the showcase boards: the generic demo board is the default seed's own fixture.
+        counts = {b.name: b.cards.count() for b in Board.objects.exclude(name=BOARD_NAME)}
+        overlay = counts.pop(OVERLAY)
+        self.assertGreater(overlay, max(counts.values()))
+
+    def test_the_sample_pipeline_and_lanes_are_kept(self):
+        data = _sample("sales_overlay")
+        self.assertEqual(
+            list(self.board.columns.order_by("position").values_list("name", flat=True)),
+            [c["name"] for c in data["columns"]],
+        )
+        self.assertEqual(self.board.swimlanes.count(), len(data["swimlanes"]))
+
+    def test_it_shows_stages_tracks_field_sets_limits_and_health(self):
+        self.assertEqual(
+            list(SubColumn.objects.filter(column__board=self.board, column__name="Commercial")
+                 .order_by("position").values_list("name", flat=True)),
+            ["Pricing", "Legal review", "Approval"],
+        )
+        tracks = StageTrack.objects.filter(column__board=self.board)
+        self.assertEqual({t.field_definition.name for t in tracks}, {"Security review", "Legal review"})
+        self.assertEqual(CustomFieldSet.objects.filter(board=self.board).count(), 3)
+        self.assertTrue(self.board.columns.exclude(weight_limit=None).exists())
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.health_status, "at_risk")
+        self.assertTrue(self.board.enforce_wip_limits)
+
+    def test_weight_is_the_deal_size(self):
+        from boards.management.commands._demo_site_connected import _weight_for
+
+        values = dict(
+            CustomFieldValue.objects.filter(card__board=self.board, field_definition__name="Deal value")
+            .values_list("card_id", "value")
+        )
+        sample_titles = [c["title"] for c in _sample("sales_overlay")["cards"]]
+        generated = Card.objects.filter(board=self.board).exclude(title__in=sample_titles)
+        self.assertGreaterEqual(generated.count(), 50)
+        for card in generated:
+            self.assertEqual(card.weight, _weight_for(int(values[card.id])), card.title)
+
+    def test_commercial_is_a_dwell_hot_spot(self):
+        now = timezone.now()
+
+        def waited(card):
+            return (now - card.movements.order_by("-moved_at").first().moved_at).days
+
+        stuck = [c for c in Card.objects.filter(board=self.board, column__name="Commercial") if waited(c) >= 14]
+        self.assertGreaterEqual(len(stuck), 3)
+        fresh = [
+            c for c in Card.objects.filter(
+                board=self.board, column__name__in=["Identify", "Discover", "Qualify"], created_by__username="admin",
+            ).exclude(title__in=[x["title"] for x in _sample("sales_overlay")["cards"]])
+            if waited(c) >= 14
+        ]
+        self.assertEqual(fresh, [])
+
+    def test_seeded_text_names_no_internal_codename(self):
+        texts = list(Card.objects.values_list("title", flat=True)) + list(Card.objects.values_list("description", flat=True))
+        texts += list(Board.objects.values_list("name", flat=True)) + list(Board.objects.values_list("description", flat=True))
+        for text in texts:
+            self.assertNotIn("second chair", text.lower())
+
+
+@override_settings(**_DEMO_SITE_SETTINGS)
+class DemoSiteActivityVocabularyTests(TestCase):
+    """#2607: every activity type the product can emit is in the seeded corpus."""
+
+    def test_every_event_type_appears_at_least_once(self):
+        _seed(demo_site=True)
+        seeded = set(CardActivity.objects.values_list("event_type", flat=True).distinct())
+        # Derived from the model's choices, so a type added without a seed fails here.
+        self.assertEqual(sorted(set(CardActivity.EventType.values) - seeded), [])
+
+    def test_blocks_overrides_and_links_have_their_backing_rows(self):
+        from boards.models import CardOverride
+
+        _seed(demo_site=True)
+        ET = CardActivity.EventType
+        # An open block mirrors onto the card; a cleared one has its resolution.
+        self.assertTrue(CardBlock.objects.filter(unblocked_at__isnull=True, card__blocked_at__isnull=False).exists())
+        self.assertTrue(CardBlock.objects.filter(unblocked_at__isnull=False).exclude(resolution="").exists())
+        self.assertEqual(CardActivity.objects.filter(event_type=ET.BLOCKED).count(), CardBlock.objects.count())
+        # An override has both its audit row and its history row, per card.
+        forced = set(CardOverride.objects.values_list("card_id", flat=True))
+        self.assertEqual(forced, set(CardActivity.objects.filter(event_type=ET.OVERRIDE_USED).values_list("card_id", flat=True)))
+
+    @pytest.mark.slow
+    def test_the_corpus_is_the_same_after_a_wipe_and_reseed(self):
+        from collections import Counter
+
+        def corpus():
+            return Counter(CardActivity.objects.values_list("card__board__name", "event_type"))
+
+        _seed(demo_site=True)
+        first = corpus()
+        _seed(demo_site=True, wipe=True)
+        self.assertEqual(first, corpus())
