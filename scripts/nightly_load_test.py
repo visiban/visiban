@@ -1173,6 +1173,12 @@ def _self_test():
         _pr = {r["check"]: r for r in _evaluate_exit_run(_run)}
         if _pr["overview_payload_bytes"]["passed"] is not want or not _pr["overview_peak_rss_mb"]["passed"]:
             failures.append(f"overview refusal ({label}): payload passed={_pr['overview_payload_bytes']['passed']}, want {want}")
+        # A failing payload says why in its detail; a passing one does not claim an over-bar payload.
+        _pd = _pr["overview_payload_bytes"]["detail"]
+        _over_bar = f"at or over the {EXIT_OVERVIEW_PAYLOAD_BYTES}-byte bar"
+        if (_over_bar in _pd) is want or "Expected refusal" not in _pd \
+                or (not want and f"payload was {EXIT_OVERVIEW_PAYLOAD_BYTES} bytes" not in _pd):
+            failures.append(f"overview refusal ({label}): the payload detail does not say why it passed or failed: {_pd}")
 
     # The declared dict run_exit hands the ops carries the cap (#2622).
     _decl = _exit_declared(argparse.Namespace(fixture_scale=100, fixture_aged_generations=12, exit_max_movements=777))
@@ -1385,11 +1391,13 @@ def _self_test():
         failures.append(f"exit run ops: drill_down returned {dd}, not the peak RSS (high-water mark)")
     ov = _one_call("overview_open", rec_ops.overview_open,
                    lambda u: u.startswith(f"{root9}/metrics/overview/?"))
-    if ov != (hwm_mb, 4321):
+    ov_peak, ov_bytes = ov
+    if not math.isclose(ov_peak, hwm_mb) or ov_bytes != 4321:
         failures.append(f"exit run ops: overview_open returned {ov}, not (peak RSS, payload bytes)")
     a365 = _one_call("analytics_365", rec_ops.analytics_365,
                      lambda u: u == f"{root9}/analytics/?days=365")
-    if a365 != ([float(EXIT_ANALYTICS_365_SAMPLES)], growth_mb):
+    a365_samples, a365_growth = a365
+    if a365_samples != [float(EXIT_ANALYTICS_365_SAMPLES)] or not math.isclose(a365_growth, growth_mb):
         failures.append(f"exit run ops: analytics_365 returned {a365}, not (samples, RSS growth)")
     # One request, no warm-up: the stub above ignores its counts, so pin them from what it was handed.
     _365_calls = [(i, w) for u, i, w in sample_calls if u == f"{root9}/analytics/?days=365"]
@@ -1702,7 +1710,7 @@ _EXIT_CURRENT_USER_URL = "/api/v1/auth/user/"
 # than being lost. The first run's 30 s cut analytics/?days=365 off while the server was still running
 # it. A request slower than this is recorded as a timeout, never as a latency. It applies to the
 # requests the bars are measured on (EXIT_REQUEST_TIMEOUT); the others have their own: the unread-count
-# poller (EXIT_UNREAD_TIMEOUT_SECONDS), each burst open (EXIT_STALL_SECONDS), the two fixture reads
+# poller (EXIT_UNREAD_TIMEOUT_SECONDS), each burst open (EXIT_STALL_SECONDS), the three fixture reads
 # (EXIT_FIXTURE_TIMEOUT_SECONDS) and the idle probe (EXIT_IDLE_PROBE_TIMEOUT).
 EXIT_READ_TIMEOUT_SECONDS = 90
 EXIT_CONNECT_TIMEOUT_SECONDS = 10
@@ -1715,16 +1723,16 @@ EXIT_UNREAD_TIMEOUT_SECONDS = 30
 # warm-up and no repeats: its p95 is that one sample. Worst case inside the job's 3 h (10800 s)
 # timeout, less the 600 s the `timeout` wrapper in .gitlab-ci.yml leaves: seed and server start about
 # 2460 s (41 min, first run) + cumulative flow (2 warm-up + 10) x 90 s = 1080 + drill-down 10 x 90 =
-# 900 + overview 90 + burst (rounds x 60 s, 3 rounds = 180) + five idle waits x 300 = 1500 + the two
-# fixture reads 2 x 120 = 240 (always first) + this request 900 = about 7350 s, under the 10200 s the
-# wrapper allows (about 2850 s headroom). One 900 s request replaces the ten 90 s requests it used to
+# 900 + overview 90 + burst (rounds x 60 s, 3 rounds = 180) + five idle waits x 300 = 1500 + the three
+# fixture reads 3 x 120 = 360 (always first) + this request 900 = about 7470 s, under the 10200 s the
+# wrapper allows (about 2730 s headroom). One 900 s request replaces the ten 90 s requests it used to
 # be, so its worst case is the same 900 s. The 900 s is a per-socket-read limit, not an overall cap, so
 # a body that trickles could run longer; if it did, the `timeout` wrapper ends the script with exit 124
 # and the artifact holds the last checkpoint (`complete: false`, no analytics_365 entry).
 EXIT_ANALYTICS_365_READ_TIMEOUT_SECONDS = 900
 EXIT_ANALYTICS_365_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, EXIT_ANALYTICS_365_READ_TIMEOUT_SECONDS)
 EXIT_ANALYTICS_365_SAMPLES = 1
-EXIT_FIXTURE_TIMEOUT_SECONDS = 120   # both fixture reads: /cards/archived/ and /full/ on the 12k-card board
+EXIT_FIXTURE_TIMEOUT_SECONDS = 120   # each fixture read: /cards/archived/, /full/ and /movements/ on the 12k-card board
 # The idle wait before each analytics measurement (#2595), independent of the read timeout above. A
 # client timeout does not stop the server: it keeps running the request and holds the analytics slot
 # (ANALYTICS_MAX_CONCURRENT=1), so every later request would be refused busy or share the CPU. Before
@@ -2084,6 +2092,9 @@ def _evaluate_exit_run(m):
                 if expected:
                     # The generic refusal text says the bar fails; here it does not, so say what happened.
                     r["detail"] = f"422 {TOO_LARGE_CODE}: refused by design, not measured. Expected refusal: {why}"
+                    if not r["passed"]:
+                        r["detail"] += (f"; but the burst's overview payload was {m.get(r['check'])} bytes, "
+                                        f"at or over the {EXIT_OVERVIEW_PAYLOAD_BYTES}-byte bar")
                 else:
                     r["detail"] += f". Unexpected refusal: {why}"
         elif r["check"] == "over_cap_refused_cleanly":
