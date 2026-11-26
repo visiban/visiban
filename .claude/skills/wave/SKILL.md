@@ -598,7 +598,8 @@ Every agent finishes by, in order:
    cannot call it and must not try. `.claude/skills/mr/SKILL.md` is the
    canonical format for both paths. Run `git push` and `glab mr create` as **separate**
    Bash calls, and never pipe `glab mr create` through `tail`; if the create was
-   backgrounded, the hook prints a `--retry` command to run once it finishes. The implementer skips `/mr` Step 4's cost-comment check:
+   backgrounded, the hook prints a `--retry` command to run once it finishes (the implementer
+   puts it in its report and does not run it; Step 6 does). The implementer skips `/mr` Step 4's cost-comment check:
    Step 6 posts and checks record 1, because only the orchestrator holds the window end and split.
 7. Include `Closes #NNN` in the MR description, the `completeness-check`
    `## Requirements` table, and a `## Gates` section with one

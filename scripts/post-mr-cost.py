@@ -200,15 +200,15 @@ def mr_iid(command, response):
 def backgrounded_call(tool_input, response):
     """Whether the Bash call returned before its command finished. The hook's `tool_response` is
     normally a dict that says so only by a non-empty `backgroundTaskId` (the sentence the model reads
-    is not in it); `run_in_background` and the sentence itself are fallbacks."""
+    is not in it); `run_in_background` and, for a string response only, the sentence itself are fallbacks.
+    A dict's stdout and stderr are the command's own output, so they are never matched against it."""
     if isinstance(response, dict):
         task = response.get("backgroundTaskId")
         if isinstance(task, str) and task:
             return True
     if tool_input.get("run_in_background") is True:
         return True
-    text = response if isinstance(response, str) else json.dumps(response or "")
-    return BACKGROUNDED_RE.search(text) is not None
+    return isinstance(response, str) and BACKGROUNDED_RE.search(response) is not None
 
 
 def run(cmd, cwd, env=None, timeout=300):
@@ -3105,6 +3105,10 @@ def _self_test():
     check("a create that failed with no URL (not backgrounded) stays quiet",
           process(dict(payload, tool_response={"stdout": "", "stderr": "boom"}), runner=runner_for(0)) is None
           and not calls and OUTCOME["why"] == "glab mr create ran but no MR URL was printed")
+    calls.clear()
+    check("a failed create whose own output says 'running in background' stays quiet",
+          process(dict(payload, tool_response={"stdout": "", "stderr": "remote: pipeline running in background\nERROR: 409"}),
+                  runner=runner_for(0)) is None and not calls)
     calls.clear()
     check("a backgrounded command that is not an MR create stays quiet",
           process(dict(payload, tool_input={"command": "pytest", "run_in_background": True}, tool_response=timed_out),
