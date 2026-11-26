@@ -176,7 +176,7 @@ describe('Children mode phone layout (#2370 item 12)', () => {
     expect(screen.getByRole('heading', { level: 4, name: 'Acme: training pack' })).toBeInTheDocument()
     // A viewer on Onboarding has no Move.
     expect(screen.queryByRole('button', { name: 'Move Kickoff deck' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Show Delivery · 7 children Columns' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Delivery columns, 7 children' })).toBeInTheDocument()
   })
 
   it('keeps the desktop grid with every child board above the phone breakpoint', async () => {
