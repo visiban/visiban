@@ -282,7 +282,9 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
             // Hidden at rest like the reference (#2389): opacity, never display:none, so Tab still reaches it and it stays
             // in the a11y tree. Hover, focus and a no-hover device reveal it (frontend/CLAUDE.md § Column headers).
-            className="text-fg-secondary hover:text-fg transition text-xs shrink-0 mt-0.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded opacity-0 group-hover/col:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
+            // Absolute, in the header's left padding (#2450): it reserves no width, so the name keeps the room the
+            // reference gives it and hover does not reflow the row.
+            className="absolute left-0.5 top-2.5 text-[10px] leading-none text-fg-secondary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded opacity-0 group-hover/col:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
             title="Collapse column"
             aria-label="Collapse column"
           >
@@ -389,8 +391,9 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
               {ADD_ICON}
             </button>
           )}
+          {/* Zero width at rest (#2450) so the name keeps the room; no overflow clip, the menu panel must escape. */}
           {isAdmin && (
-            <div className="opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition">
+            <div className="opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition w-0 shrink-0 pointer-events-none group-hover/col:w-6 group-hover/col:pointer-events-auto focus-within:w-6 focus-within:pointer-events-auto [@media(hover:none)]:w-6 [@media(hover:none)]:pointer-events-auto">
               <OverflowMenu items={kebabItems} ariaLabel={`Actions for column "${column.name}"`} />
             </div>
           )}

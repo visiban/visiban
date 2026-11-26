@@ -235,7 +235,10 @@ export default function HealthStatusControl({
     // no value ("No open cards"), so a non-admin can read why.
     // The board header opts in (#2450): the reference shows the "No status" pill to every viewer there.
     if (display.value === "none" && !(auto && auto.computedAt) && !showUnsetToReaders) return liveRegion;
-    if ((detailed && fetchHistory) || auto) {
+    // An unset value with no auto facts has nothing to read, so a reader's "No status" pill (#2450) stays a static
+    // display rather than a trigger for a near-empty popover.
+    const nothingToRead = display.value === "none" && !(auto && auto.computedAt);
+    if (!nothingToRead && ((detailed && fetchHistory) || auto)) {
       // Non-admins get a trigger that opens a read-only popover with the
       // history (#2242), never a greyed-out control.
       return (

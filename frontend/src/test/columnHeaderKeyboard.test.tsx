@@ -158,6 +158,8 @@ describe('ColumnHeader — kebab touch reveal (#2343)', () => {
     expect(cls).toContain('group-hover/col:opacity-100')
     expect(cls).toContain('focus-within:opacity-100')
     expect(cls).toContain('[@media(hover:none)]:opacity-100')
+    expect(cls).toContain('w-0') // reserves no width at rest (#2450)
+    expect(cls).toContain('group-hover/col:w-6')
   })
 })
 
@@ -172,6 +174,7 @@ describe('ColumnHeader — collapse chevron reveal and name truncation (#2389)',
     expect(cls).toContain('focus:opacity-100')
     expect(cls).toContain('[@media(hover:none)]:opacity-100')
     expect(cls).not.toMatch(/\bhidden\b|invisible/)
+    expect(cls).toContain('absolute') // out of the flex row: reserves no width (#2450)
   })
 
   it('Tab reaches the chevron and Enter collapses', async () => {

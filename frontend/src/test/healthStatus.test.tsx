@@ -132,6 +132,12 @@ describe('HealthStatusControl (#1133)', () => {
     expect(screen.getByText(NO_STATUS_LABEL)).toBeInTheDocument()
   })
 
+  it('keeps the reader No status pill static even with a history loader (#2450)', () => {
+    renderControl({ canEdit: false, showUnsetToReaders: true, fetchHistory: vi.fn().mockResolvedValue({ results: [] }) })
+    expect(screen.getByText(NO_STATUS_LABEL)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Health status/ })).not.toBeInTheDocument()
+  })
+
   it('shows a plain pill to a non-admin when a status applies', () => {
     renderControl({ canEdit: false, ...inherited('off_track') })
     expect(screen.queryByRole('button', { name: /Health status/ })).not.toBeInTheDocument()

@@ -450,7 +450,7 @@ function openOverflowMenu(): HTMLElement {
 function overflowItem(name: RegExp): HTMLElement {
   return within(openOverflowMenu()).getByRole('menuitem', { name })
 }
-// #2435: Export and Settings are toolbar buttons beside the overflow kebab.
+// #2435/#2450: Export and Settings are toolbar buttons; the overflow menu repeats them as items.
 function settingsBtn(): HTMLElement {
   return screen.getByRole('button', { name: 'Settings' })
 }

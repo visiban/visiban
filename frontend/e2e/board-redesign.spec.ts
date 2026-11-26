@@ -193,7 +193,10 @@ test.describe('board redesign baseline', () => {
   // Known remaining divergence from the reference (#2450, #2389 landed): the offline banner stays amber
   // while reconnecting on purpose (#2342, danger only once failed), and the Filter panel's second active
   // filter is Overdue, not the reference's APAC lane rule. Column names truncate on one line with the
-  // collapse chevron shown on hover or focus, as the reference draws them.
+  // collapse chevron shown on hover or focus, as the reference draws them. Known baseline limit: bold lead-ins
+  // ("View only.", "The board didn't load.", the no-match line) and font-semibold column names render at regular
+  // weight, because the CI image's `system-ui` resolves to WenQuanYi Zen Hei, which has no bold face
+  // (`fc-match 'system-ui:bold'`). Bold is asserted by unit tests; the baselines cannot show it.
   test.describe('desktop 1440 board states', () => {
     test.use({ viewport: { width: 1440, height: 900 } })
 
