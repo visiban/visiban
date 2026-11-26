@@ -216,6 +216,15 @@ function isOwnerProtectedError(err: unknown): boolean {
   return data?.code === OWNER_PROTECTED_CODE;
 }
 
+const GROUP_ADMIN_FLOOR_CODE = "group_admin_role_floor";
+
+/** The server's `detail` for a refused role change that carries the group-admin code, else null. */
+function groupAdminFloorDetail(err: unknown): string | null {
+  const data = (err as { response?: { data?: { code?: unknown; detail?: unknown } } })?.response?.data;
+  if (data?.code !== GROUP_ADMIN_FLOOR_CODE) return null;
+  return typeof data.detail === "string" && data.detail ? data.detail : null;
+}
+
 /** One line of copy for a refused add: the server's `detail` when it sent one. */
 function addMemberErrorMessage(err: unknown): string {
   const data = (err as { response?: { data?: { detail?: unknown } } })?.response?.data;
@@ -815,7 +824,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       });
     } catch (err) {
       // Defensive: the owner row is locked, so this is a stale client or a race (#1828).
-      setMemberActionError(isOwnerProtectedError(err) ? `Failed to update role. ${OWNER_MEMBERSHIP_NOTE}` : "Failed to update role. Please try again.");
+      const floorDetail = groupAdminFloorDetail(err);
+      setMemberActionError(
+        isOwnerProtectedError(err)
+          ? `Failed to update role. ${OWNER_MEMBERSHIP_NOTE}`
+          : floorDetail ?? "Failed to update role. Please try again.",
+      );
     } finally {
       setSaving(null);
     }
@@ -2821,7 +2835,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {tab === "members" && (
           <div className="px-6 py-3 border-t border-line text-xs text-fg-muted">
-            Members inherited from group membership are shown here. Assigning a direct role overrides group access.
+            Members inherited from group membership are shown here. A direct role can raise group access; it cannot lower a group admin's role.
           </div>
         )}
         </div>

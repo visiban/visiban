@@ -344,6 +344,16 @@ describe('BoardSettingsModal — Members tab', () => {
       await user.click(screen.getByRole('option', { name: 'Viewer' }))
       expect(await screen.findByText(/Failed to update role\. The board owner is always an admin/)).toBeInTheDocument()
     })
+
+    it('shows the server detail when a role change is refused with group_admin_role_floor', async () => {
+      const user = userEvent.setup()
+      mockSetBoardMember.mockRejectedValueOnce({ response: { status: 400, data: { detail: 'This role is lower than the group role.', code: 'group_admin_role_floor' } } })
+      render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+      await user.click(screen.getAllByRole('combobox')[1])
+      await user.click(screen.getByRole('option', { name: 'Viewer' }))
+      expect(await screen.findByText('This role is lower than the group role.')).toBeInTheDocument()
+      expect(screen.queryByText(/Please try again/)).toBeNull()
+    })
   })
 
   it('confirm remove calls removeBoardMember and removes the member from the list', async () => {
