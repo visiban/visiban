@@ -196,7 +196,11 @@ if [ "$MODE" = host ]; then
   # included) except `db`, and certbot, which touches neither. Stopping valkey
   # also empties its tmpfs cache, which is keyed to the replaced data.
   # `--profile '*'` needs Docker Compose 2.20 or newer.
-  running="$(compose --profile '*' ps --services --status running | grep -vx -e db -e certbot || true)"
+  # `ps` failing is not "nothing running": a restore with writers still up
+  # would race them, so stop here. Only the filter's no-match may pass.
+  svcs="$(compose --profile '*' ps --services --status running)" \
+    || die "cannot list the running services (docker compose ps failed) — nothing changed"
+  running="$(printf '%s\n' "$svcs" | grep -vx -e db -e certbot -e '' || true)"
   if [ -n "$running" ]; then
     log "stopping: $(echo "$running" | tr '\n' ' ')"
     # shellcheck disable=SC2086 # word-splitting the service list is intended

@@ -180,7 +180,12 @@ teardown() {
   log "tearing down (down -v)"
   compose down -v --remove-orphans >/dev/null 2>&1 || true
   rm -f .env nginx/active.conf.template "${JAR:-}" "${BODY:-}"
-  rm -rf "${BACKUP_DRILL_DIR:-/nonexistent-2626}"
+  rm -rf "${BACKUP_DRILL_DIR:-/nonexistent-2626}" "${container_set_parent:-/nonexistent-2626}"
+  # Step 9's Compose backup service writes ./.backup-drill-container as root
+  # (on the daemon's filesystem under dind); a failure mid-step leaves that
+  # copy of the data behind, so remove it the way step 9 does, through a
+  # root container.
+  docker run --rm -v /:/host alpine:3 rm -rf "/host${PWD}/.backup-drill-container" >/dev/null 2>&1 || true
   # init-prod.sh mints the self-signed lineage into the checkout — a
   # generated artifact containing a private key. Leave neither it nor its
   # dirs behind for a later `git add -A`.

@@ -244,16 +244,19 @@ run_backup() {
     fi
   fi
 
+  # The subshell is the left side of an `||`, where `set -e` is off: each step
+  # must exit explicitly, or a failed cd or SHA256SUMS write followed by a
+  # successful MANIFEST would leave the subshell at 0 and the set renamed.
   (
-    cd "$PARTIAL"
-    if [ -f media.tar.gz ]; then sha256sum database.sql.gz media.tar.gz; else sha256sum database.sql.gz; fi > SHA256SUMS
+    cd "$PARTIAL" || exit 1
+    { if [ -f media.tar.gz ]; then sha256sum database.sql.gz media.tar.gz; else sha256sum database.sql.gz; fi; } > SHA256SUMS || exit 1
     {
       echo "created_utc=$stamp"
       echo "mode=$MODE"
       echo "database_dump_bytes=$dump_bytes"
       echo "media_included=$([ "$SKIP_MEDIA" = 1 ] && echo no || echo yes)"
       echo "format=plain-sql-gzip+tar-gzip"
-    } > MANIFEST
+    } > MANIFEST || exit 1
   ) || { log "ERROR: could not write SHA256SUMS/MANIFEST; nothing kept"; cleanup_partial; return 1; }
 
   if ! mv "$PARTIAL" "$final"; then

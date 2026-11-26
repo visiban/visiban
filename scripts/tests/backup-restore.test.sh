@@ -86,7 +86,7 @@ perm="$(stat -c '%a' "$SET/database.sql.gz" 2>/dev/null || stat -f '%Lp' "$SET/d
 [ "$perm" = 600 ] && ok "dump is mode 600" || bad "dump is mode $perm, not 600 (it holds all data)"
 dperm="$(stat -c '%a' "$SET" 2>/dev/null || stat -f '%Lp' "$SET")"
 [ "$dperm" = 700 ] && ok "set dir is mode 700" || bad "set dir is mode $dperm, not 700"
-tar -tzf "$SET/media.tar.gz" | grep -q 'attachments/2026/11/a.txt' && ok "media archive holds the attachment" || bad "media archive lacks the attachment"
+tar -tzf "$SET/media.tar.gz" | grep -c 'attachments/2026/11/a.txt' > /dev/null && ok "media archive holds the attachment" || bad "media archive lacks the attachment"
 if grep -q 'db.invalid' "$WORK/log"; then bad "the log prints the DATABASE_URL"; else ok "DATABASE_URL is not logged"; fi
 
 echo "backup: a dump far larger than a pipe buffer (an early grep match must not SIGPIPE the check)"
@@ -224,9 +224,16 @@ mkdir -p "$WORK/bigtree-link"; ln -s /etc "$WORK/bigtree-link/aaa-link"
 # times a pipe buffer, so an early-exiting grep would leave its producer
 # blocked on a full pipe and SIGPIPE it.
 build_set_with_media "$WORK/set-big-symlink" -cf - -C "$WORK/bigtree-link" aaa-link -C "$WORK/bigtree" files
-gzip -dc "$WORK/set-big-symlink/media.tar.gz" | tar -tvf - | head -1 | grep -c '^l' > /dev/null \
-  && ok "fixture: the link is the first of $(gzip -dc "$WORK/set-big-symlink/media.tar.gz" | tar -tf - | wc -l | tr -d ' ') members" \
-  || bad "fixture: the large archive does not start with the link"
+# This file's own fixture checks obey the same rule as the scripts: never
+# `| head -1` or `| grep -q` after a long listing. `head` closes the pipe and
+# GNU tar exits 141, which pipefail turns into "fixture bad" (or a skipped
+# case). `sed -n 1p` reads to EOF, then `case` on the one saved line.
+first_member() { gzip -dc "$1" | tar -tvf - | sed -n 1p; } # the first `tar -tv` line of a set's media.tar.gz
+first="$(first_member "$WORK/set-big-symlink/media.tar.gz")"
+case "$first" in
+  l*) ok "fixture: the link is the first of $(gzip -dc "$WORK/set-big-symlink/media.tar.gz" | tar -tf - | wc -l | tr -d ' ') members" ;;
+  *)  bad "fixture: the large archive does not start with the link: $first" ;;
+esac
 expect_refused "a symlink first in a 5000-member media archive" "$WORK/set-big-symlink"
 if [ -f "$DOTDOT_SET/media.tar.gz" ] && gzip -dc "$DOTDOT_SET/media.tar.gz" | tar -tf - | grep -c '\.\./' > /dev/null; then
   build_set_with_media "$WORK/set-big-dotdot" -P -cf - -C "$WORK/dotdot/a" ../top.txt -C "$WORK/bigtree" files 2>/dev/null
@@ -236,11 +243,62 @@ else
 fi
 # An absolute member path needs no special tar flag to fake: -P keeps it.
 build_set_with_media "$WORK/set-big-abs" -P -cf - "$WORK/dotdot/top.txt" -C "$WORK/bigtree" files 2>/dev/null
-if gzip -dc "$WORK/set-big-abs/media.tar.gz" | tar -tf - | head -1 | grep -c '^/' > /dev/null; then
-  expect_refused "an absolute path first in a 5000-member media archive" "$WORK/set-big-abs"
+first="$(gzip -dc "$WORK/set-big-abs/media.tar.gz" | tar -tf - | sed -n 1p)"
+case "$first" in
+  /*) expect_refused "an absolute path first in a 5000-member media archive" "$WORK/set-big-abs" ;;
+  *)  echo "  skip: this tar strips the leading / on create, so the absolute-path refusal is not exercised here ($first)" ;;
+esac
+
+echo "restore: a hard link in the media archive is refused (tar lists it as 'h... b link to a')"
+mkdir -p "$WORK/hard"; printf 'x\n' > "$WORK/hard/a.txt"; ln "$WORK/hard/a.txt" "$WORK/hard/b.txt"
+build_set_with_media "$WORK/set-hardlink" -cf - -C "$WORK/hard" .
+# `grep -c` reads the whole listing. GNU tar and bsdtar both type a hard link
+# `h` in column 1 and append ` link to <target>`.
+if gzip -dc "$WORK/set-hardlink/media.tar.gz" | tar -tvf - | grep -c '^h' > /dev/null; then
+  ok "fixture: the archive holds a hard-link member"
 else
-  echo "  skip: this tar strips the leading / on create, so the absolute-path refusal is not exercised here"
+  bad "fixture: the archive holds no hard-link member: $(gzip -dc "$WORK/set-hardlink/media.tar.gz" | tar -tvf -)"
 fi
+expect_refused "a hard link in the media archive" "$WORK/set-hardlink"
+build_set_with_media "$WORK/set-big-hardlink" -cf - -C "$WORK/hard" . -C "$WORK/bigtree" files
+expect_refused "a hard link first in a 5000-member media archive" "$WORK/set-big-hardlink"
+
+echo "restore (host mode): a failed 'compose ps' refuses the restore instead of treating it as 'nothing running'"
+# A docker stub whose `compose ... ps` fails and which records every call: the
+# restore must die before any stop/exec/run/up.
+DOCKER_STUB="$WORK/docker-stub"; mkdir -p "$DOCKER_STUB"
+cat > "$DOCKER_STUB/docker" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$STUB_DOCKER_LOG"
+case " $* " in *" ps "*) echo "Cannot connect to the Docker daemon" >&2; exit 1 ;; esac
+exit 0
+EOF
+chmod +x "$DOCKER_STUB/docker"
+: > "$WORK/stub-compose.yml"
+export STUB_DOCKER_LOG="$WORK/docker.log"; : > "$STUB_DOCKER_LOG"
+if PATH="$DOCKER_STUB:$PATH" VISIBAN_BACKUP_MODE=host sh "$RESTORE" --yes --compose-file "$WORK/stub-compose.yml" "$SET" 2>"$WORK/log"; then
+  bad "host mode: restore ran with 'compose ps' failing"
+else
+  ok "host mode: a failed 'compose ps' refuses the restore"
+fi
+grep -c 'cannot list the running services' "$WORK/log" > /dev/null && ok "host mode: the error names the cause" || bad "host mode: the error does not name the cause: $(cat "$WORK/log")"
+if grep -Ec ' (stop|exec|run|up) ' "$STUB_DOCKER_LOG" > /dev/null; then
+  bad "host mode: docker was asked to stop/exec/run/up after 'ps' failed: $(cat "$STUB_DOCKER_LOG")"
+else
+  ok "host mode: nothing was stopped or changed"
+fi
+
+echo "backup: a failing sha256sum is a failure and keeps nothing (the checksum step runs with set -e off)"
+FAILSUM="$WORK/failsum"; mkdir -p "$FAILSUM"
+printf '#!/bin/sh\necho "sha256sum: disk full" >&2\nexit 1\n' > "$FAILSUM/sha256sum"; chmod +x "$FAILSUM/sha256sum"
+OUT="$WORK/out-failsum"
+if PATH="$FAILSUM:$PATH" STUB_DUMP=good sh "$BACKUP" --output-dir "$OUT" 2>"$WORK/log"; then
+  bad "a failing sha256sum exited 0: $(cat "$WORK/log")"
+else
+  ok "a failing sha256sum exits non-zero"
+fi
+[ "$(sets "$OUT")" = 0 ] && ok "no visiban-* set kept" || bad "a set was kept without checksums: $(ls -a "$OUT")"
+[ "$(leftovers "$OUT")" = 0 ] && ok "no .partial left" || bad "a .partial was left: $(ls -a "$OUT")"
 
 echo "restore: an unreadable set dir names the cause"
 if [ "$(id -u)" != 0 ]; then
