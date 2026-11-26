@@ -2798,7 +2798,7 @@ export interface FlowCycleTime {
 }
 
 export interface FlowThroughputSample {
-  /** First UTC day of the period (`YYYY-MM-DD`). */
+  /** First day of the period (`YYYY-MM-DD`), dated in the board's `time_zone` (UTC when unset, #2051). */
   start: string;
   count: number;
   card_uids: string[];

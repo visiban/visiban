@@ -20,11 +20,6 @@ export const isTinyDays = (days: number) => days > 0 && days < 0.05;
 const SHORT_DATES = new Map<string, Intl.DateTimeFormat>();
 
 /**
- * A calendar day or instant, in UTC by default, the zone every bucket uses (ADR).
- * A `YYYY-MM-DD` day parses as UTC midnight, so it keeps UTC; pass the board's
- * zone (#2051) only for an instant, such as "now".
- */
-/**
  * The zone to format in: `zone` when this browser's ICU knows it, else UTC.
  * A board zone the server accepts may be missing from an older browser, and
  * `Intl.DateTimeFormat` throws a RangeError on it (#2051).
@@ -38,6 +33,12 @@ export const resolveZone = (zone: string): string => {
   }
 };
 
+/**
+ * A calendar day or instant, in UTC by default. A `YYYY-MM-DD` bucket day
+ * parses as UTC midnight and is already the board's day, so it keeps UTC. An
+ * instant (a completion, a start, a transition, an axis tick, "now") takes the
+ * board's resolved zone (#2051), or it reads a day late or early off UTC.
+ */
 export const formatDate = (value: string | number, timeZone = "UTC") => {
   const zone = resolveZone(timeZone);
   let format = SHORT_DATES.get(zone);

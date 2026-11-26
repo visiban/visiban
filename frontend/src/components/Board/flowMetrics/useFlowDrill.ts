@@ -7,7 +7,7 @@ import type {
   FlowThroughputSample, FlowWipAge,
 } from "../../../types";
 import type { DrillSelection } from "./FlowDrillDrawer";
-import { bandName, formatDate, formatDays } from "./flowFormat";
+import { bandName, formatDate, formatDays, resolveZone } from "./flowFormat";
 
 interface DrillData {
   cycle?: FlowCycleTime;
@@ -30,6 +30,7 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
   // The day list's pending busy retry, canceled whenever that list is superseded (#2428).
   const drillRetry = useRef<AbortController | null>(null);
   const { cycle, throughput, cumulative, wipAge, attention } = data;
+  const zone = resolveZone(timeZone ?? "UTC");
 
   const cards = useMemo(() => {
     const directory = new Map<string, FlowCard>();
@@ -66,8 +67,9 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
       uid: sample.card_uid,
       facts: [
         { label: "Cycle time", value: formatDays(sample.value_days) },
-        { label: "Started", value: formatDate(sample.start) },
-        { label: "Finished", value: formatDate(sample.end) },
+        // Instants, so they read in the board zone; a YYYY-MM-DD bucket day below stays UTC (#2051).
+        { label: "Started", value: formatDate(sample.start, zone) },
+        { label: "Finished", value: formatDate(sample.end, zone) },
         ...(sample.reopened ? [{ label: "Reopened", value: "Yes, after finishing" }] : []),
       ],
     });

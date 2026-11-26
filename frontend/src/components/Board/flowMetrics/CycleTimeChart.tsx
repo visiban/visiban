@@ -14,10 +14,12 @@ interface Props {
   onSelect: (sample: FlowCycleTimeSample) => void;
   /** The isolated group's index under a breakdown (#2268); the rest drop to 20%. */
   isolated?: number | null;
+  /** The board zone the axis dates are read in (#2051): the ticks are instants. Defaults to UTC. */
+  timeZone?: string;
 }
 
 /** One point per completed card, x its completion, y its cycle time. */
-export default function CycleTimeChart({ data, cards, days, labelledBy, onSelect, isolated = null }: Props) {
+export default function CycleTimeChart({ data, cards, days, labelledBy, onSelect, isolated = null, timeZone = "UTC" }: Props) {
   const groups = data.grouping?.groups ?? [];
   const now = Date.now();
   const domain: [number, number] = [now - days * DAY_MS, now];
@@ -32,7 +34,7 @@ export default function CycleTimeChart({ data, cards, days, labelledBy, onSelect
         const x = linearScale(domain, [x0, x1]);
         return [0.1, 0.5, 0.9].map((share) => {
           const at = domain[0] + (domain[1] - domain[0]) * share;
-          return { at: x(at), label: formatDate(at) };
+          return { at: x(at), label: formatDate(at, timeZone) };
         });
       }}
       yTicks={({ y0, y1 }) => {

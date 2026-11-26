@@ -17,6 +17,7 @@ import {
 import { NoHistoryState, NoMatchState, isNarrowed } from "./FlowEmptyStates";
 import FlowDrillDrawer from "./FlowDrillDrawer";
 import FlowSection from "./FlowSection";
+import { resolveZone } from "./flowFormat";
 import { exportCsv, loadViewMode, saveViewMode } from "./heatmap";
 import type { ViewMode } from "./heatmap";
 import HeadlineTiles from "./HeadlineTiles";
@@ -129,6 +130,8 @@ export default function AnalyticsOverview({
   const {
     drill, setDrill, cards, closeDrill, selectCycleSample, selectThroughputSample, selectAgeSample, selectDay,
   } = useFlowDrill(boardId, filters, { cycle, throughput, cumulative, wipAge, attention }, timeZone);
+  // Instants (a completion, a transition, an axis tick) read in the board zone; bucket days stay UTC labels (#2051).
+  const zone = resolveZone(timeZone ?? "UTC");
 
   const setMode = (next: ViewMode) => {
     saveViewMode(boardId, next);
@@ -267,7 +270,7 @@ export default function AnalyticsOverview({
               </RegionSlot>
               <RegionSlot busy={busy}>
                 {cycle
-                  ? <CycleTimePanel {...panelView("cycle")} data={cycle} cards={cards} days={shownDays} onSelect={selectCycleSample} noun={noun} isolated={isolated} />
+                  ? <CycleTimePanel {...panelView("cycle")} data={cycle} cards={cards} days={shownDays} onSelect={selectCycleSample} noun={noun} isolated={isolated} timeZone={zone} />
                   : <PanelPlaceholder title="Cycle time" failed={settled} />}
               </RegionSlot>
             </ChartRow>
@@ -325,6 +328,7 @@ export default function AnalyticsOverview({
           onChange={setDrill}
           onClose={closeDrill}
           onOpenCard={onOpenCard}
+          timeZone={zone}
         />
       )}
     </div>
