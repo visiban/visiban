@@ -324,15 +324,19 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "all of a parent's children share one board, so in practice it is a "
         "one-iteration loop."
     ),
-    "backend/boards/services/planned_children.py::clear_for_deleted_column": (
+    "backend/boards/services/planned_children.py::clear_for_deleted_columns": (
         "One card.parent_changed per CHILD BOARD that held a planned child "
-        "needing the deleted column (#2371). The loop iterates child boards "
-        "(distinct channels), grouped above the loop, and each frame carries "
-        "only that board's own child card ids (ids only, no titles or parent "
-        "data), so they cannot be collapsed into one payload; the same shape "
-        "as announce_parent_changed. record_board_event() defers each publish "
-        "with on_commit. Bounded by the number of boards that planned children "
-        "of one parent's column, in practice a handful."
+        "needing a deleted (or, for a Django admin board edit, detached) column "
+        "(#2371, #2637). The loop iterates child boards (distinct channels), "
+        "grouped above the loop across every column in the call, so a child "
+        "board gets one frame however many of the columns its children needed; "
+        "each frame carries only that board's own child card ids (ids only, no "
+        "titles or parent data), so they cannot be collapsed into one payload; "
+        "the same shape as announce_parent_changed. record_board_event() defers "
+        "each publish with on_commit. The call can span several columns (the "
+        "admin bulk delete), but the loop is still bounded by the number of "
+        "distinct child boards that planned children of those columns, in "
+        "practice a handful."
     ),
     "backend/boards/services/planned_children.py::release_on_reorder": (
         "One card.parent_changed per CHILD BOARD that held a planned child "
@@ -340,7 +344,7 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "(distinct channels), grouped above the loop, and each frame carries "
         "only that board's own child card ids (ids only, no titles or parent "
         "data), so they cannot be collapsed into one payload; the same shape "
-        "as clear_for_deleted_column. record_board_event() defers each publish "
+        "as clear_for_deleted_columns. record_board_event() defers each publish "
         "with on_commit. Bounded by the number of boards holding planned "
         "children of the reordered board's parents, in practice a handful."
     ),
