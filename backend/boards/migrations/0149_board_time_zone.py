@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('boards', '0145_movement_board_moved_card_idx'),
+        ('boards', '0148_card_density_help_text'),
     ]
 
     operations = [
