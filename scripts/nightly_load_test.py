@@ -849,6 +849,16 @@ def _self_test():
                                 f"{found.group(1) if found else 'missing'}, the script mirrors {mine}")
     except OSError as exc:
         failures.append(f"exit run: could not read {_ADMISSION_SOURCE}: {exc}")
+    # The default cap mirrors the server's (#2622); a drift would excuse or fail the wrong refusals.
+    try:
+        with open(_ANALYTICS_LIMITS_SOURCE, encoding="utf-8") as fh:
+            _limits_src = fh.read()
+        _found = re.search(r"^DEFAULT_ANALYTICS_MAX_MOVEMENTS = ([\d_]+)\b", _limits_src, re.MULTILINE)
+        if not _found or int(_found.group(1).replace("_", "")) != EXIT_DEFAULT_MAX_MOVEMENTS:
+            failures.append(f"exit run: analytics_limits.DEFAULT_ANALYTICS_MAX_MOVEMENTS is "
+                            f"{_found.group(1) if _found else 'missing'}, the script mirrors {EXIT_DEFAULT_MAX_MOVEMENTS}")
+    except OSError as exc:
+        failures.append(f"exit run: could not read {_ANALYTICS_LIMITS_SOURCE}: {exc}")
     if EXIT_DEFAULT_CONCURRENT_OPENS <= 1 + EXIT_SERVER_MAX_WAITERS:
         failures.append("exit run: the default burst does not exceed the shipped cap (1) plus the waiting room")
 
@@ -1151,6 +1161,24 @@ def _self_test():
         if (_m_recs[key]["passed"], _m_recs[key]["status"], "expected_refusal" in _m_recs[key]) != (want_pass, STATUS_MEASURED, False):
             failures.append(f"overview measured on an over-cap board: {key}={value} gave {_m_recs[key]}")
 
+    # Burst payload over 1 MB is not hidden by an expected refusal; an absent value passes (#2622).
+    for label, extra, want in (("burst payload at the bar", {"overview_payload_bytes": EXIT_OVERVIEW_PAYLOAD_BYTES}, False),
+                               ("burst payload under the bar", {"overview_payload_bytes": EXIT_OVERVIEW_PAYLOAD_BYTES - 1}, True),
+                               ("no burst payload", {}, True)):
+        _run = {**good, "fixture": _over_fx, **extra}
+        if not extra:
+            _run.pop("overview_payload_bytes")
+        _run.pop("overview_peak_rss_mb")
+        _run["failures"] = {c: _failure(_ov_exc(422, TOO_LARGE_CODE)) for c in EXIT_OVERVIEW_CHECKS}
+        _pr = {r["check"]: r for r in _evaluate_exit_run(_run)}
+        if _pr["overview_payload_bytes"]["passed"] is not want or not _pr["overview_peak_rss_mb"]["passed"]:
+            failures.append(f"overview refusal ({label}): payload passed={_pr['overview_payload_bytes']['passed']}, want {want}")
+
+    # The declared dict run_exit hands the ops carries the cap (#2622).
+    _decl = _exit_declared(argparse.Namespace(fixture_scale=100, fixture_aged_generations=12, exit_max_movements=777))
+    if _decl.get("declared_max_movements") != 777 or _decl.get("declared_scale") != 100:
+        failures.append(f"exit run: _exit_declared gave {_decl}")
+
     # _failure (#2595): each way a measurement can fail names its own status.
     class _HttpResp:
         def __init__(self, status, code, url="https://x/m/"):
@@ -1390,6 +1418,18 @@ def _self_test():
             or (fx["active_cards"], fx["archived_cards"], fx.get("declared_scale"), fx.get("swimlane_count"),
                 fx.get("movement_count")) != (10, 120, 100, 3, 150001):
         failures.append(f"exit run ops: fixture() read {requested} -> {fx}")
+
+    # A movements/ read that raises leaves movement_count None without failing the fixture read (#2622).
+    class _NoMovesSession(_RecSession):
+        def get(self, url, timeout=None):
+            if url.endswith("/movements/"):
+                raise requests.exceptions.ConnectionError("movements down")
+            return super().get(url, timeout=timeout)
+
+    _nm_fx = _ExitOps(_NoMovesSession(), "https://x", 9, _rec_peak, concurrent=None, alive=None, iterations=1,
+                      warmup=0).fixture()
+    if _nm_fx.get("movement_count", "absent") is not None or _nm_fx.get("active_cards") != 10:
+        failures.append(f"exit run ops: a failing movements read gave {_nm_fx}")
 
     # The scale-100 summary probe (#2430): measured / refused / timeout / error / not-applicable,
     # and only measured passes; it never moves the run's own pass/fail and never runs on a small fixture.
@@ -1715,11 +1755,13 @@ EXIT_PROBE_DETAIL_CHARS = 200
 EXIT_IDLE_PROBE_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, 30)
 _EXIT_IDLE_PROBE_PATH = "metrics/wip-age/"
 # What each exit-run record's ``status`` says (#2595), so a refusal is never read as an error or a
-# timeout, nor any of them as a measurement. Only ``measured`` can pass a bar.
+# timeout, nor any of them as a measurement. Only ``measured`` can pass a bar, except the overview open's
+# expected refusal (#2622).
 #   measured: the figure was measured (it may still be over its bar).
 #   refused:  a documented refusal, 422 analytics_too_large: the board is over the movement cap
 #             (ANALYTICS_MAX_MOVEMENTS). Recorded with value null and still FAILS the bar: the bar is
-#             about this board, and the server did not answer for it.
+#             about this board, and the server did not answer for it. The one exception is the
+#             overview open's expected refusal (#2622), which passes.
 #   timeout:  no response within EXIT_READ_TIMEOUT_SECONDS.
 #   error:    anything else, including a 503 analytics_busy on a single-request check (it runs alone,
 #             after the idle wait, so a busy there is a defect, not the cap working), a measurement
@@ -1738,8 +1780,11 @@ STATUS_NOT_APPLICABLE = "not-applicable"
 EXIT_MIN_SWIMLANES = 1000
 # The server's ANALYTICS_MAX_MOVEMENTS default (150,000), used only to decide whether a 422
 # analytics_too_large on the overview open is the cap working as designed (#2622). Pass
-# --exit-max-movements if the exit run's server sets another value.
+# --exit-max-movements if the exit run's server sets another value. --self-test reads
+# backend/visiban/analytics_limits.py and fails if this default drifts from DEFAULT_ANALYTICS_MAX_MOVEMENTS.
 EXIT_DEFAULT_MAX_MOVEMENTS = 150000
+_ANALYTICS_LIMITS_SOURCE = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir,
+                                        "backend", "visiban", "analytics_limits.py")
 # The two records fed by the one overview open (#2622).
 EXIT_OVERVIEW_CHECKS = ("overview_peak_rss_mb", "overview_payload_bytes")
 EXIT_SUMMARY_PROBE = "summary_scale100_p95_ms"
@@ -1860,7 +1905,8 @@ def _failure(exc, timeout=EXIT_REQUEST_TIMEOUT):
     """``(status, detail)`` for a measurement that raised *exc* (#2595): a refusal, a timeout or an error.
 
     Names a documented refusal as itself, and never as a figure. See the STATUS_* constants for
-    what each status means and why a refusal still fails its bar. *timeout* is the requests
+    what each status means and why a refusal still fails its bar (except the overview open's
+    expected refusal, #2622). *timeout* is the requests
     timeout the failed call used (a number, or a (connect, read) tuple), so a timeout's detail names
     the limit that actually applied, and a ConnectTimeout is not reported as a read timeout.
     """
@@ -1959,6 +2005,12 @@ def _wait_for_analytics_slot(probe, budget_s=EXIT_IDLE_WAIT_SECONDS, poll_s=EXIT
         sleep(poll_s)
 
 
+def _exit_declared(args):
+    """The fixture facts the operator declared on the command line, recorded beside what was read."""
+    return {"declared_scale": args.fixture_scale, "declared_aged_generations": args.fixture_aged_generations,
+            "declared_max_movements": args.exit_max_movements}
+
+
 def _overview_refusal_expected(fixture):
     """(expected, reason): is a 422 analytics_too_large on the overview open the cap working (#2622)?
 
@@ -1984,7 +2036,7 @@ def _evaluate_exit_run(m):
     measurement could not run (refused, timed out, errored, not run). Such a check is recorded
     as failed with that status and reason; the others are still evaluated, so one failure never
     hides the rest. Every record carries a ``status`` (the STATUS_* constants); only a
-    ``measured`` record can pass.
+    ``measured`` record can pass, except the overview open's expected refusal (#2622).
     """
     failures = m.get("failures", {})
     over_ok, over_detail = m.get("over_cap", (False, "not measured"))
@@ -2025,6 +2077,10 @@ def _evaluate_exit_run(m):
                 expected, why = _overview_refusal_expected(m.get("fixture"))
                 r["expected_refusal"] = expected
                 r["passed"] = expected
+                if expected and r["check"] == "overview_payload_bytes":
+                    # The burst can still measure a payload (m[...] is max(open, burst)): an over-1-MB
+                    # one must not hide behind the refused open. An absent value passes.
+                    r["passed"] = not (m.get(r["check"]) or 0) >= EXIT_OVERVIEW_PAYLOAD_BYTES
                 if expected:
                     # The generic refusal text says the bar fails; here it does not, so say what happened.
                     r["detail"] = f"422 {TOO_LARGE_CODE}: refused by design, not measured. Expected refusal: {why}"
@@ -2481,8 +2537,7 @@ def run_exit(args):
         concurrent=lambda: _concurrent_overview(base_url, burst_headers, poll_headers, board["id"], args.exit_rounds),
         alive=lambda: _server_alive(base_url),
         iterations=args.aged_iterations, warmup=args.aged_warmup,
-        declared={"declared_scale": args.fixture_scale, "declared_aged_generations": args.fixture_aged_generations,
-                  "declared_max_movements": args.exit_max_movements},
+        declared=_exit_declared(args),
         wait_idle=wait_idle, log=lambda msg: print(msg, flush=True),
     )
     out_path = resolve_within(cli_roots(), args.exit_output)
