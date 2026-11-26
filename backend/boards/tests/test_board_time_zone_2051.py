@@ -27,10 +27,17 @@ def at(*args):
 
 
 class ZoneRangeTests(FlowFixture):
+    def test_zone_is_required_so_a_caller_cannot_default_to_utc(self):
+        # #2633: a forgotten zone must fail loudly, not bucket in UTC.
+        with self.assertRaises(TypeError):
+            fm.rolling_range(7, now=at(2026, 7, 15))
+        with self.assertRaises(TypeError):
+            fm.date_range(datetime.date(2026, 7, 1), datetime.date(2026, 7, 2), now=at(2026, 8, 1))
+
     def test_rolling_range_buckets_local_days_and_keeps_the_elapsed_window(self):
         # 03:00Z on July 15 is still July 14 in Los Angeles.
         now = at(2026, 7, 15, 3, 0)
-        utc, local = fm.rolling_range(7, now=now), fm.rolling_range(7, now=now, zone=LA)
+        utc, local = fm.rolling_range(7, now=now, zone=UTC), fm.rolling_range(7, now=now, zone=LA)
         self.assertEqual((utc.first_day, utc.last_day), (datetime.date(2026, 7, 8), datetime.date(2026, 7, 14)))
         self.assertEqual((local.first_day, local.last_day), (datetime.date(2026, 7, 7), datetime.date(2026, 7, 13)))
         self.assertEqual((local.start, local.end), (utc.start, utc.end))

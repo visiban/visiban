@@ -324,13 +324,16 @@ def zone_of(board):
         return _UTC
 
 
-def rolling_range(days=DEFAULT_RANGE_DAYS, *, now=None, zone=_UTC):
+def rolling_range(days=DEFAULT_RANGE_DAYS, *, now=None, zone):
     """``days=N``: samples in ``[now - N×24h, now)``, buckets in the N whole days before today.
 
     Today is still running, so it is never a bucket: a partial last day would
     enter #1100's simulation as a slow day and bias every forecast later.
     "Today" and the bucketed days are dates in ``zone`` (#2051); the sample
     window is elapsed time, the same N × 24 hours in every zone.
+
+    ``zone`` is required (#2633): a caller that forgot it would bucket a
+    non-UTC board in UTC and no test would notice. Pass ``zone_of(board)``.
     """
     now = now or timezone.now()
     today = _local_date(now, zone)
@@ -343,11 +346,11 @@ def rolling_range(days=DEFAULT_RANGE_DAYS, *, now=None, zone=_UTC):
     )
 
 
-def date_range(from_date, to_date, *, now=None, zone=_UTC):
+def date_range(from_date, to_date, *, now=None, zone):
     """Dates in ``zone``, inclusive at both ends: ``[from_date 00:00, to_date + 1 day 00:00)``.
 
-    UTC unless the board sets a time zone (#2051), so by default
-    ``[from_date 00:00Z, to_date + 1 day 00:00Z)``.
+    ``zone`` is required (#2633), as for ``rolling_range``: pass
+    ``zone_of(board)``.
     """
     now = now or timezone.now()
     yesterday = _local_date(now, zone) - datetime.timedelta(days=1)

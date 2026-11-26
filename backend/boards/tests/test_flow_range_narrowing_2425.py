@@ -15,6 +15,8 @@ from boards.services import flow_metrics as fm
 from boards.tests import test_flow_metrics
 from boards.tests.test_flow_metrics import ARCHIVED, UNARCHIVED, EndpointFixture, FlowFixture
 
+UTC = datetime.timezone.utc
+
 
 def _full_range_load(board, flow_range, *, now, swimlane_id=None, label_id=None, columns=None):
     """The pre-#2425 load: every card the filter selects, with its whole history."""
@@ -251,7 +253,7 @@ class RangeNarrowingEquivalenceTests(AgedBoardMixin, EndpointFixture):
 
     def test_old_archived_history_is_not_loaded(self):
         cards = self.aged_board()
-        flow_range = fm.rolling_range(90, now=self.now)
+        flow_range = fm.rolling_range(90, now=self.now, zone=UTC)
         narrowed = fm.load_range_flow(self.board, flow_range, now=self.now)
         full = fm.load_board_flow(self.board, now=self.now)
         loaded = {card.uid for card in narrowed.cards}
@@ -264,7 +266,7 @@ class RangeNarrowingEquivalenceTests(AgedBoardMixin, EndpointFixture):
 
     def test_cumulative_flow_counts_skipped_finished_work_in_its_band(self):
         self.aged_board()
-        flow_range = fm.rolling_range(90, now=self.now)
+        flow_range = fm.rolling_range(90, now=self.now, zone=UTC)
         flow = fm.load_cumulative_flow(self.board, flow_range, now=self.now)
         # 48 archived done cards from the generations, the imported one, the
         # restored one and the one with no movement rows; the generations
@@ -283,7 +285,7 @@ class RangeNarrowingServiceTests(AgedBoardMixin, FlowFixture):
         full = fm.load_board_flow(self.board, now=self.now)
         lanes = list(self.board.swimlanes.order_by("position", "id"))
         for days in (1, 7, 30, 90, 120, 365):
-            flow_range = fm.rolling_range(days, now=self.now)
+            flow_range = fm.rolling_range(days, now=self.now, zone=UTC)
             narrowed = fm.load_range_flow(self.board, flow_range, now=self.now)
             with self.subTest(days=days):
                 self.assertEqual(fm.lead_time(narrowed, flow_range), fm.lead_time(full, flow_range))
@@ -312,7 +314,7 @@ class RangeNarrowingServiceTests(AgedBoardMixin, FlowFixture):
         for i, name in enumerate(("Work", "Wait")):
             SubColumn.objects.create(column=build, position=i, name=name)
         self.path(self.backlog, 300, build, 200, self.done, 150, archived=140)
-        flow_range = fm.rolling_range(30, now=self.now)
+        flow_range = fm.rolling_range(30, now=self.now, zone=UTC)
         narrowed = fm.load_range_flow(self.board, flow_range, now=self.now)
         full = fm.load_board_flow(self.board, now=self.now)
         self.assertEqual(narrowed.cards, [])
@@ -320,7 +322,7 @@ class RangeNarrowingServiceTests(AgedBoardMixin, FlowFixture):
         self.assertEqual(fm.completed_dwell(narrowed, flow_range), fm.completed_dwell(full, flow_range))
 
     def test_an_empty_board_stays_empty(self):
-        flow_range = fm.rolling_range(30, now=self.now)
+        flow_range = fm.rolling_range(30, now=self.now, zone=UTC)
         narrowed = fm.load_cumulative_flow(self.board, flow_range, now=self.now)
         self.assertEqual(narrowed.gate_last, {})
         self.assertEqual(
@@ -342,7 +344,7 @@ class RangeNarrowingServiceTests(AgedBoardMixin, FlowFixture):
             )
             Card.objects.filter(pk=card.pk).update(created_at=self.ago(days), archived_at=self.ago(days - 1))
             self.row(card, None, other_done, days)
-        flow_range = fm.rolling_range(30, now=self.now)
+        flow_range = fm.rolling_range(30, now=self.now, zone=UTC)
         flow = fm.load_cumulative_flow(self.board, flow_range, now=self.now)
         self.assertEqual(flow.cards, [])
         self.assertEqual(flow.settled_placements, {self.done.uid: 1})
@@ -359,7 +361,7 @@ class CumulativeFlowRaceTests(AgedBoardMixin, FlowFixture):
             rows = list(real(qs, **kwargs))
             return rows + [(stray.pk, rows[0][1])] if rows else rows
 
-        flow_range = fm.rolling_range(30, now=self.now)
+        flow_range = fm.rolling_range(30, now=self.now, zone=UTC)
         with mock.patch.object(fm, "_deciding_rows", with_stray):
             flow = fm.load_cumulative_flow(self.board, flow_range, now=self.now)
         self.assertEqual(flow.settled_placements, {self.done.uid: 1})

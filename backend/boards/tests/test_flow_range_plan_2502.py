@@ -18,7 +18,7 @@ from django.test.utils import CaptureQueriesContext
 
 from boards.models import Board, Card, CardMovement, Column, Swimlane
 from boards.services import flow_metrics as fm
-from boards.tests.test_flow_metrics import FlowFixture
+from boards.tests.test_flow_metrics import UTC, FlowFixture
 
 _CORRELATED_MOVEMENTS = re.compile(r'EXISTS\s*\(\s*SELECT[^()]*FROM\s+"card_movements"', re.IGNORECASE)
 # The correlation itself, however the subquery is phrased (EXISTS, IN, a scalar):
@@ -28,7 +28,7 @@ _OUTER_CARD_REF = re.compile(r'U\d+\."card_id"\s*=\s*\(?"cards"\."id"\)?')
 
 def _range_cards(case):
     """Shared by both shape suites, on a ``FlowFixture``."""
-    case.flow_range = fm.rolling_range(30, now=case.now)
+    case.flow_range = fm.rolling_range(30, now=case.now, zone=UTC)
     # Live, archived inside the range, created inside it, archived long ago
     # with a recent movement (only the movement term keeps it), and finished
     # work the range load skips.
@@ -284,7 +284,7 @@ class _BoardScopedFixture(FlowFixture):
     def setUp(self):
         super().setUp()
         _range_cards(self)
-        self.flow_range = fm.rolling_range(30, now=self.now)
+        self.flow_range = fm.rolling_range(30, now=self.now, zone=UTC)
         # Archived generations: finished work quarters back, none in the range.
         self.generations = [
             self.path(self.backlog, 100 + g * 90, self.doing, 95 + g * 90, self.done, 90 + g * 90,
