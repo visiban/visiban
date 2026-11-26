@@ -290,13 +290,12 @@ export function childBoardSwitchLabel(boardName: string, rows: ChildrenViewRow[]
 }
 
 /**
- * The switch's accessible name: "Show Onboarding columns, 2 children". The design owner chose this wording over the
- * visible order ("Onboarding · 2 children · Columns ›") because it reads naturally aloud; it knowingly departs from
- * WCAG 2.5.3 word order (the visible words are all present, "columns" just comes earlier). Do not "fix" it back.
+ * The switch's accessible name: "Show Onboarding, 2 children, columns". It keeps the visible words in order
+ * ("Onboarding · 2 children · Columns ›") so WCAG 2.5.3 label-in-name holds.
  */
 export function childBoardSwitchName(boardName: string, rows: ChildrenViewRow[]): string {
   const n = rows.reduce((sum, r) => sum + (r.rollup.visible ? r.rollup.total : 0), 0);
-  return `Show ${boardName} columns, ${n} ${n === 1 ? "child" : "children"}`;
+  return `Show ${boardName}, ${n} ${n === 1 ? "child" : "children"}, columns`;
 }
 
 /** Days since a manual block started, for the "⊘ 4d" line; null when not blocked or unknown. */

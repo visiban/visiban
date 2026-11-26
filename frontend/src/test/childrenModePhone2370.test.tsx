@@ -80,7 +80,7 @@ describe('Children mode phone layout (#2370 item 12)', () => {
     expect(phoneColumnCount(rows, { id: 32, is_done: false }, { ...DEFAULT_CHILDREN_OPTIONS, planned: 'only' })).toBe(0)
     expect(phoneColumnCount([row({ rollup: { visible: false, total: 4 } })], { id: 33, is_done: true }, DEFAULT_CHILDREN_OPTIONS)).toBe(0)
     expect(childBoardSwitchLabel('Onboarding', [view().rows[2]])).toBe('Onboarding · 2 children')
-    expect(childBoardSwitchName('Onboarding', [view().rows[2]])).toBe('Show Onboarding columns, 2 children')
+    expect(childBoardSwitchName('Onboarding', [view().rows[2]])).toBe('Show Onboarding, 2 children, columns')
     expect(childBoardSwitchLabel('Onboarding', [row({ rollup: { visible: true, total: 1, done: 0, doing: 1, todo: 0, blocked: 0, last_moved_at: null } }), row({ rollup: { visible: false, total: 3 } })])).toBe('Onboarding · 1 child')
   })
 
@@ -167,7 +167,7 @@ describe('Children mode phone layout (#2370 item 12)', () => {
     await screen.findByRole('group', { name: 'Columns on Delivery' })
     expect(screen.queryByRole('group', { name: 'Columns on Onboarding' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Acme: training pack' })).toBeNull()
-    const sw = screen.getByRole('button', { name: 'Show Onboarding columns, 2 children' })
+    const sw = screen.getByRole('button', { name: 'Show Onboarding, 2 children, columns' })
     expect(sw).toHaveTextContent('Onboarding · 2 childrenColumns ›')
     fireEvent.click(sw)
     expect(screen.queryByRole('group', { name: 'Columns on Delivery' })).toBeNull()
@@ -176,7 +176,7 @@ describe('Children mode phone layout (#2370 item 12)', () => {
     expect(screen.getByRole('heading', { level: 4, name: 'Acme: training pack' })).toBeInTheDocument()
     // A viewer on Onboarding has no Move.
     expect(screen.queryByRole('button', { name: 'Move Kickoff deck' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Show Delivery columns, 7 children' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Delivery, 7 children, columns' })).toBeInTheDocument()
   })
 
   it('keeps the desktop grid with every child board above the phone breakpoint', async () => {
