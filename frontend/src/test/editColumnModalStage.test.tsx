@@ -21,6 +21,7 @@ const column: Column = {
 const lanes = [{ id: 3, name: 'APAC', not_applicable_field_ids: [41] }] as unknown as Swimlane[]
 const defs = [{ id: 41, name: 'Technical', is_dimension: true }] as unknown as CustomFieldDefinition[]
 
+const SAVED_NOTE = 'Stage saved. Your Settings and Policy changes are not saved yet.'
 const renderModal = (over: Partial<Parameters<typeof EditColumnModal>[0]> = {}) => render(
   <EditColumnModal boardId={9} column={column} cardCount={0} onUpdated={vi.fn()} onRequestDelete={vi.fn()} onClose={vi.fn()} {...over} />,
 )
@@ -79,8 +80,18 @@ describe('EditColumnModal Stage tab (#2278)', () => {
     fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'Discovery 2' } })
     fireEvent.click(screen.getByRole('tab', { name: 'Stage' }))
     fireEvent.change(screen.getByLabelText('Sub-column 1 name'), { target: { value: 'Building' } })
+    screen.getByRole('button', { name: 'Save stage' }).focus()
+    // Focus as of the DOM change that first shows the notice (#2609): the remount has just destroyed the
+    // focused Save stage button, so a focus move left to a passive effect is still on <body> here.
+    let focusedWithNotice: Element | null = null
+    const observer = new MutationObserver(() => {
+      if (!focusedWithNotice && screen.queryByText(SAVED_NOTE)) focusedWithNotice = document.activeElement
+    })
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true })
     fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
-    expect(await screen.findByText('Stage saved. Your Settings and Policy changes are not saved yet.')).toBeInTheDocument()
+    expect(await screen.findByText(SAVED_NOTE)).toBeInTheDocument()
+    observer.disconnect()
+    expect(focusedWithNotice).toBe(screen.getByRole('tab', { name: 'Stage' }))
     expect(onClose).not.toHaveBeenCalled()
     expect(onUpdated).not.toHaveBeenCalled()
     expect(screen.getByRole('tab', { name: 'Stage' })).toHaveFocus()

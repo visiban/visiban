@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import CardChildrenTab from '../components/Card/CardChildrenTab'
 import { childrenCount, describeChildrenChange, moveTargetState, useCardChildren, type ChildrenState } from '../components/Card/cardChildren'
 import { ToastContext } from '../contexts/useToast'
+import { ToastProvider } from '../contexts/ToastContext'
 import ChildCardPicker from '../components/Card/ChildCardPicker'
 import { childCandidateReason } from '../components/Card/cardParent'
 import {
@@ -929,5 +930,116 @@ describe('Unlink child focus (#2608)', () => {
     await screen.findByText("Couldn't unlink Pen-test scoping call. Try again.")
     rerender(tab(state({ data: read(kids.slice(1)) })))
     expect(screen.getByRole('link', { name: /^Kickoff/ })).not.toHaveFocus()
+  })
+})
+
+describe('Move and Undo child focus (#2611)', () => {
+  const tab = (st: ChildrenState) => (
+    <CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={st} onExitToTabs={vi.fn()} />
+  )
+  const moved = () => read([{ ...kids[0], column_id: 102, column_name: 'Done' }, ...kids.slice(1)])
+  const link = () => screen.getByRole('link', { name: /^Pen-test scoping call/ })
+  const moveToDone = async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'Move Pen-test scoping call' }))
+    await userEvent.click(screen.getByRole('radio', { name: /^Done/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+  }
+
+  it('focuses the card in the update that closes the picker and again in the one that moves its row', async () => {
+    vi.mocked(moveCard).mockResolvedValue({ card: {} as never })
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload })))
+    await moveToDone()
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(link()).toHaveFocus()
+    })
+    rerender(tab(state({ data: moved(), reload })))
+    // No waitFor: a deferred focus move leaves focus on <body> here.
+    expect(link()).toHaveFocus()
+  })
+
+  it('leaves focus where the user went before the re-read landed', async () => {
+    vi.mocked(moveCard).mockResolvedValue({ card: {} as never })
+    const { rerender } = render(tab(state({ data: read(kids) })))
+    await moveToDone()
+    await waitFor(() => expect(link()).toHaveFocus())
+    screen.getByRole('button', { name: 'Add child' }).focus()
+    rerender(tab(state({ data: moved() })))
+    expect(screen.getByRole('button', { name: 'Add child' })).toHaveFocus()
+  })
+
+  it('shows the column the child moved to when only one column is on screen', async () => {
+    const original = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      private cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) { this.cb = cb }
+      observe() { this.cb([{ contentRect: { width: 320 } } as ResizeObserverEntry], this as unknown as ResizeObserver) }
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+    try {
+      vi.mocked(moveCard).mockResolvedValue({ card: {} as never })
+      const { rerender } = render(tab(state({ data: read(kids) })))
+      await moveToDone()
+      await waitFor(() => expect(link()).toHaveFocus())
+      rerender(tab(state({ data: moved() })))
+      expect(link()).toHaveFocus()
+    } finally {
+      globalThis.ResizeObserver = original
+    }
+  })
+
+  it('holds focus on the tab when the re-read no longer has the moved child', async () => {
+    vi.mocked(moveCard).mockResolvedValue({ card: {} as never })
+    const { rerender } = render(tab(state({ data: read(kids) })))
+    await moveToDone()
+    await waitFor(() => expect(link()).toHaveFocus())
+    rerender(tab(state({ data: read(kids.slice(1)) })))
+    expect(screen.getByTestId('card-children-tab')).toHaveFocus()
+    // The tabindex is only lent, so a later click on blank space does not ring the tab.
+    screen.getByTestId('card-children-tab').blur()
+    expect(screen.getByTestId('card-children-tab')).not.toHaveAttribute('tabindex')
+  })
+
+  async function undoFromToast(remaining: CardChildRow[]) {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const view = render(<ToastProvider>{tab(state({ data: read(kids.slice(0, 1)) }))}</ToastProvider>)
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
+    view.rerender(<ToastProvider>{tab(state({ data: read(remaining) }))}</ToastProvider>)
+    const undo = await screen.findByRole('button', { name: 'Undo' })
+    // Reach the toast with nothing to go back to, as a mouse user does.
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    undo.focus()
+    return view
+  }
+
+  it('Undo parks focus on the tab as the toast goes, then focuses the row that returns', async () => {
+    vi.mocked(linkCardParent).mockResolvedValue({ parent_id: 5, child_id: 10 })
+    const view = await undoFromToast([])
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument())
+    expect(screen.getByTestId('card-children-tab')).toHaveFocus()
+    view.rerender(<ToastProvider>{tab(state({ data: read(kids.slice(0, 1)) }))}</ToastProvider>)
+    expect(link()).toHaveFocus()
+  })
+
+  it('a failed Undo takes its button away too, and parks focus on the tab', async () => {
+    vi.mocked(linkCardParent).mockRejectedValue(new Error('gone'))
+    await undoFromToast([])
+    await userEvent.keyboard('{Enter}')
+    await screen.findAllByText(/Couldn't link Pen-test scoping call again/)
+    expect(screen.getByTestId('card-children-tab')).toHaveFocus()
+  })
+})
+
+describe('Children tab Try again focus (#2575)', () => {
+  it.each([
+    ['the first read failed', state({ error: true })],
+    ['a refresh failed', state({ error: true, data: read(kids) })],
+  ])('hands focus to the tab before the re-read when %s', async (_name, st) => {
+    renderTab(st)
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(screen.getByTestId('card-children-tab')).toHaveFocus()
   })
 })

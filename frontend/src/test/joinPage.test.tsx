@@ -266,6 +266,7 @@ describe('JoinPage', () => {
     renderJoinPage(fakeUser)
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('This invite was sent to a different email address.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveFocus()
   })
 
   it('a 403 without the mismatch code keeps the generic group message', async () => {

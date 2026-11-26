@@ -191,7 +191,7 @@ export default function BoardInvitesTab({ onPendingCount }: { onPendingCount?: (
       ) : error ? (
         <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-danger/40 bg-danger/10 px-4 py-3">
           <p role="alert" className="text-sm text-danger-on-tint">Failed to load board invites.</p>
-          <Button variant="secondary" onClick={() => void fetchRows(statusFilter, offset)}>Try again</Button>
+          <Button variant="secondary" onClick={() => { headingRef.current?.focus(); void fetchRows(statusFilter, offset); }}>Try again</Button>
         </div>
       ) : rows.length === 0 ? (
         <EmptyState title={emptyMessage} headingLevel="h3" />

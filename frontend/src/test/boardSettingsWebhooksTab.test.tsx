@@ -122,8 +122,11 @@ describe('Webhooks tab — load states', () => {
   it('a load failure offers Retry', async () => {
     const user = setup()
     m.status.mockRejectedValueOnce(axiosError(500))
-    await renderTab()
-    await user.click(screen.getByRole('button', { name: 'Retry' }))
+    // The tab lives in the settings modal; stand one in around it.
+    render(<div role="dialog" tabIndex={-1}><BoardSettingsWebhooksTab boardId={3} /></div>)
+    await user.click(await screen.findByRole('button', { name: 'Retry' }))
+    // The settings dialog outlives the swapped tab body (#2575).
+    expect(screen.getByRole('dialog')).toHaveFocus()
     expect(await screen.findByText('No webhooks yet')).toBeInTheDocument()
   })
 

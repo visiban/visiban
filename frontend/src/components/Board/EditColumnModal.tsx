@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import StageSettingsPanel from "./StageSettingsPanel";
 import { useOptionalBoardContext } from "../../contexts/BoardContext";
@@ -141,8 +141,9 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   };
   // Derived, so it clears if the other drafts are reverted.
   const stageSavedNote = pendingStage && otherTabsDirty ? "Stage saved. Your Settings and Policy changes are not saved yet." : "";
-  // The remount destroys the focused Save stage button: put focus on the Stage tab.
-  useEffect(() => {
+  // The remount destroys the focused Save stage button: put focus on the Stage tab. A layout effect, so the
+  // same commit does it; a passive one leaves focus on <body> until React gets round to it (#2608, #2609).
+  useLayoutEffect(() => {
     if (stageKey > 0) tabRefs.current.get("stage")?.focus();
   }, [stageKey]);
 

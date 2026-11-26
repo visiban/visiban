@@ -10,6 +10,7 @@ import LensGrid from "./LensGrid";
 import LensFocusBanner from "./LensFocusBanner";
 import LensFilterBar, { type LensState } from "./LensFilterBar";
 import LensProvenanceBanner from "./LensProvenanceBanner";
+import { focusSurvivor } from "../../../utils/focusSurvivor";
 import {
   COLUMN_DIM_KEYS,
   DEFAULT_LENS_CLOSED_LIMIT,
@@ -254,6 +255,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
   // Shared with the Row-2 Filters badge (LensToolbar) — one implementation so the
   // badge and the row can never disagree about how many filters are active.
   const activeCount = lensFilterActiveCount(searchParams);
+  const rootRef = useRef<HTMLDivElement>(null);
   const filtersActive =
     stateFilter !== "all" || milestone !== "" || labels.length > 0 || assignee !== "";
 
@@ -278,7 +280,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
   }, [data, q]);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div ref={rootRef} className="flex-1 flex flex-col min-h-0 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis">
       {/* Filter row — toggled by the Filters button on the shared Row 2; shown
           above the banners (inputs then status). */}
       {data && showFilters && (
@@ -337,7 +339,8 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
           <Spinner size="lg" label="Loading issues" />
         </div>
       ) : error && !data ? (
-        <LensErrorState error={error} onRetry={refresh} provider={connection.provider} />
+        // The loading spinner replaces the error: the view itself takes focus first (#2575).
+        <LensErrorState error={error} onRetry={() => { focusSurvivor(rootRef.current); refresh(); }} provider={connection.provider} />
       ) : filteredData ? (
         <LensGrid
           data={filteredData}

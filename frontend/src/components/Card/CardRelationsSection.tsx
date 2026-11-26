@@ -103,6 +103,7 @@ export default function CardRelationsSection({
   // also catches `relates_to`-only cards that the seed cannot see.
   const [open, setOpen] = useState(() => card.blocker_count > 0);
   const addButtonRef = useRef<HTMLButtonElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const selectInFlight = useRef(false);
   const removeInFlight = useRef(false);
 
@@ -205,6 +206,7 @@ export default function CardRelationsSection({
     <>
       <div>
         <button
+          ref={toggleRef}
           className="max-sm:min-h-11 flex items-center justify-between w-full mb-2 group/rel focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
@@ -244,7 +246,8 @@ export default function CardRelationsSection({
                 <p className="text-sm text-danger">
                   Failed to load relations.
                   <button
-                    onClick={load}
+                    // The reload removes this button: the section toggle takes focus first (#2575).
+                    onClick={() => { toggleRef.current?.focus(); load(); }}
                     className="max-sm:min-h-11 max-sm:min-w-11 text-xs text-info hover:underline font-medium ml-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                   >
                     Retry

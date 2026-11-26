@@ -648,6 +648,7 @@ describe('InviteLinkPanel', () => {
     mockListInviteLinks.mockResolvedValueOnce([fakeExistingLink])
     await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('Existing link')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Invite links' })).toHaveFocus()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 

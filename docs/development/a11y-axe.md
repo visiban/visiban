@@ -1,9 +1,10 @@
 # Accessibility scans (axe-core)
 
 `frontend/e2e/a11y.spec.ts` runs [axe-core](https://github.com/dequelabs/axe-core) through
-`@axe-core/playwright` at WCAG 2.1 A and AA on seven states: board view, card detail dialog,
+`@axe-core/playwright` at WCAG 2.1 A and AA on nine states: board view, card detail dialog,
 command palette, filter bar (expanded), settings page, member management modal (Board Settings,
-Members tab), and mobile navigation (375 px). It runs inside the existing `playwright-e2e` CI job,
+Members tab), mobile navigation (375 px), the group tree (the nav drawer's nested Groups list), and a group
+detail page with its subgroup boards and Load more footer. It runs inside the existing `playwright-e2e` CI job,
 so there is no separate job to find.
 
 ## What fails the job

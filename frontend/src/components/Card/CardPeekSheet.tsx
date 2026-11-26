@@ -154,13 +154,14 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const [moveError, setMoveError] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
   const [moveRefusal, setMoveRefusal] = useState<LimitRefusal | null>(null);
-  const forcingRef = useRef(false);
+  // One move at a time. A ref, because pending buttons stay focusable (aria-disabled) and so stay clickable.
+  const inFlightRef = useRef(false);
 
   useFocusTrap(panelRef, true, () =>
     findBoardCardElement(card.id) ?? document.querySelector<HTMLElement>(BOARD_SCROLL_SELECTOR));
   useEscapeStack(() => {
     if (moveOpen) {
-      setMoveOpen(false);
+      closeMoveForm();
       return;
     }
     onClose();
@@ -170,19 +171,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     openRef.current?.focus();
   }, []);
 
-  // The socket dropping while the Move form is open: moves are paused, so close the form
-  // (it would otherwise keep a live "Move card" / "Move anyway" on a stale board), clear its
-  // error, and hand focus back to the Move button once it remounts (#2325).
   const moveBtnRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!movesPaused || !moveOpen) return;
-    setMoveOpen(false);
-    setMoveError(null);
-    setMoveRefusal(null);
-    const t = setTimeout(() => moveBtnRef.current?.focus(), 0);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires on the pause edge only
-  }, [movesPaused]);
 
   // Refetch when the card moves (its own Move, or a remote one) so history and
   // the bar stay current. `version` changes on every server write.
@@ -317,28 +306,56 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const [reasonOpen, setReasonOpen] = useState(false);
   const overrideLinkRef = useRef<HTMLButtonElement>(null);
   const refusalId = useId();
-  // Counts successful forced moves. A layout effect, so the commit that closes the form (and drops its focused
-  // control) also focuses the remounted Move button (#2608).
-  const [forcedMoves, setForcedMoves] = useState(0);
+  // Counts closes of the Move form (a move, a same-place no-op, Cancel, Escape). A layout effect, so the commit
+  // that closes the form (and drops its focused control) also focuses the remounted Move button (#2608, #2611).
+  const [formCloses, setFormCloses] = useState(0);
   useLayoutEffect(() => {
-    if (forcedMoves > 0) moveBtnRef.current?.focus();
-  }, [forcedMoves]);
+    if (formCloses > 0) moveBtnRef.current?.focus();
+  }, [formCloses]);
+  const closeMoveForm = () => {
+    setMoveOpen(false);
+    setFormCloses((n) => n + 1);
+  };
+
+  // The socket dropping while the Move form is open: moves are paused, so close the form
+  // (it would otherwise keep a live "Move card" / "Move anyway" on a stale board), clear its
+  // error, and hand focus back to the Move button in the commit that remounts it (#2325, #2611).
+  useEffect(() => {
+    if (!movesPaused || !moveOpen) return;
+    closeMoveForm();
+    setMoveError(null);
+    setMoveRefusal(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires on the pause edge only
+  }, [movesPaused]);
 
   useEffect(() => {
     if (!moveOpen) setReasonOpen(false);
   }, [moveOpen]);
 
-  // Counts hard refusals of a forced move. That commit drops the focused control (the override link or the
-  // reason form's submit) and re-enables "Move card", which takes focus in it (#2608).
+  // After an await, focus moves only if it is still in the form or was lost: never from where the user went
+  // meanwhile (Open card, Escape, a toast).
+  const moveFormRef = useRef<HTMLDivElement>(null);
+  const focusStayed = () => {
+    const active = document.activeElement;
+    return !active || active === document.body || !!moveFormRef.current?.contains(active);
+  };
+  const closeMoveFormAfterWrite = () => {
+    if (focusStayed()) closeMoveForm();
+    else setMoveOpen(false);
+  };
+  // Counts forced-move failures that remove the focused control: a hard refusal (the override link or the reason
+  // form's submit), and any non-limit failure from the link. "Move card" takes focus
+  // in that commit, as CardDetail's Move does (#2608, #2611).
   const moveSubmitRef = useRef<HTMLButtonElement>(null);
-  const [hardRefusals, setHardRefusals] = useState(0);
+  const [submitFocusRequests, setSubmitFocusRequests] = useState(0);
+  const focusMoveSubmit = () => { if (focusStayed()) setSubmitFocusRequests((n) => n + 1); };
   useLayoutEffect(() => {
-    if (hardRefusals > 0) moveSubmitRef.current?.focus();
-  }, [hardRefusals]);
+    if (submitFocusRequests > 0) moveSubmitRef.current?.focus();
+  }, [submitFocusRequests]);
 
   const forceMove = async (reason?: string) => {
-    if (!onForceMoveCard || forcingRef.current || movesPaused) return;
-    forcingRef.current = true;
+    if (!onForceMoveCard || inFlightRef.current || movesPaused) return;
+    inFlightRef.current = true;
     setMoving(true);
     try {
       const result = reason === undefined
@@ -349,32 +366,34 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         setMoveError(moveFailureMessage(result.error));
         setMoveRefusal(refusal);
         // The typed reason survives any failure but a hard block (#1923).
-        if (refusal !== null && isHardLimit(refusal.code)) {
-          setReasonOpen(false);
-          setHardRefusals((n) => n + 1);
-        }
+        const hard = refusal !== null && isHardLimit(refusal.code);
+        if (hard) setReasonOpen(false);
+        if (hard || (refusal === null && reason === undefined)) focusMoveSubmit();
         return;
       }
       setMoveError(null);
       setMoveRefusal(null);
-      setMoveOpen(false);
-      setForcedMoves((n) => n + 1);
+      closeMoveFormAfterWrite();
     } catch (err) {
+      const refusal = limitRefusal(err);
       setMoveError(moveFailureMessage(err));
-      setMoveRefusal(limitRefusal(err));
+      setMoveRefusal(refusal);
+      // The link stays only for another overridable limit; the reason box stays open on any failure.
+      if (reason === undefined && (refusal === null || isHardLimit(refusal.code))) focusMoveSubmit();
     } finally {
-      forcingRef.current = false;
+      inFlightRef.current = false;
       setMoving(false);
     }
   };
 
   const submitMove = async () => {
-    if (movesPaused) return;
+    if (movesPaused || inFlightRef.current) return;
     // Only a true no-op closes quietly: a different sub-column of the same stage is a move.
     if (targetKey === ownKey && targetSwimlane === card.swimlane) {
-      setMoveOpen(false);
+      closeMoveForm();
       return;
     }
+    inFlightRef.current = true;
     setMoving(true);
     setMoveError(null);
     setMoveRefusal(null);
@@ -386,11 +405,12 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         setMoveRefusal(limitRefusal(result.error));
         return;
       }
-      setMoveOpen(false);
+      closeMoveFormAfterWrite();
     } catch (err) {
       setMoveError(moveFailureMessage(err));
       setMoveRefusal(limitRefusal(err));
     } finally {
+      inFlightRef.current = false;
       setMoving(false);
     }
   };
@@ -400,7 +420,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     // The endpoint's raw slot for the step (`cellOrderOf`), not index + 1:
     // a same-cell move does not compact the slot the card leaves.
     const position = !cellOrder ? null : dir === -1 ? cellOrder.earlier : cellOrder.later;
-    if (position === null || moving) return;
+    if (position === null || inFlightRef.current) return;
+    inFlightRef.current = true;
     setMoving(true);
     setReorderError(null);
     try {
@@ -409,6 +430,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     } catch (err) {
       setReorderError(moveFailureMessage(err));
     } finally {
+      inFlightRef.current = false;
       setMoving(false);
     }
   };
@@ -659,7 +681,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
 
       <div className="border-t border-line px-4 py-3">
         {moveOpen && (
-          <div className="mb-3 space-y-2" data-testid="card-peek-move-form">
+          <div ref={moveFormRef} className="mb-3 space-y-2" data-testid="card-peek-move-form">
             <label className="block text-xs text-fg-secondary">
               Column
               <select className={selectClass} value={targetKey} onChange={(e) => { setTargetKey(e.target.value); setMoveError(null); setMoveRefusal(null); setReasonOpen(false); }}>
@@ -701,8 +723,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
               />
             )}
             {!reasonOpen && <div className="flex gap-2">
-              <button ref={moveSubmitRef} type="button" disabled={moving} onClick={submitMove} aria-describedby={forceHint ? `${refusalId}-hint` : undefined} className="disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">{moving ? "Moving..." : "Move card"}</button>
-              <button type="button" disabled={moving} onClick={() => setMoveOpen(false)} className="disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary-emphasis text-fg-secondary hover:text-fg rounded-md px-3 py-2 text-sm min-h-[44px] sm:min-h-0 hover:bg-surface-hover">Cancel</button>
+              <button ref={moveSubmitRef} type="button" aria-disabled={moving || undefined} onClick={submitMove} aria-describedby={forceHint ? `${refusalId}-hint` : undefined} className="aria-disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-button-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">{moving ? "Moving..." : "Move card"}</button>
+              <button type="button" disabled={moving} onClick={closeMoveForm} className="disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary-emphasis text-fg-secondary hover:text-fg rounded-md px-3 py-2 text-sm min-h-[44px] sm:min-h-0 hover:bg-surface-hover">Cancel</button>
             </div>}
           </div>
         )}
@@ -722,10 +744,11 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
             </button>
           )}
         </div>
+        {/* Never native `disabled`: a pending or just-emptied step keeps focus; `reorder` guards the press (#2611). */}
         {canReorder && (
           <div className="mt-2 flex gap-2" data-testid="card-peek-reorder">
-            <button type="button" disabled={moving || cellOrder.earlier === null} aria-disabled={movesPaused || undefined} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
-            <button type="button" disabled={moving || cellOrder.later === null} aria-disabled={movesPaused || undefined} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
+            <button type="button" aria-disabled={movesPaused || moving || cellOrder.earlier === null || undefined} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(-1)} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move earlier</button>
+            <button type="button" aria-disabled={movesPaused || moving || cellOrder.later === null || undefined} aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(1)} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded-md px-4 py-2 text-sm min-h-[44px]">Move later</button>
           </div>
         )}
         {reorderError && <p role="alert" className="mt-2 text-sm text-danger">{reorderError}</p>}

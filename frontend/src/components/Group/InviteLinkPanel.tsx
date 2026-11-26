@@ -808,7 +808,7 @@ export default function InviteLinkPanel({
             <div className="py-2">
               <p role="alert" className="text-xs text-danger mb-2">Failed to load invites.</p>
               <button
-                onClick={() => void fetchLinks()}
+                onClick={() => { headingRef.current?.focus(); void fetchLinks(); }}
                 className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Try again
@@ -959,7 +959,7 @@ export default function InviteLinkPanel({
       ) : loadError ? (
         <div className="text-center py-2">
           <p role="alert" className="text-sm text-danger mb-2">Failed to load invite links.</p>
-          <Button variant="quiet" onClick={() => void fetchLinks()}>Try again</Button>
+          <Button variant="quiet" onClick={() => { headingRef.current?.focus(); void fetchLinks(); }}>Try again</Button>
         </div>
       ) : links.length === 0 ? (
         <EmptyState title="No invite links." description="Create one to let people join this group." headingLevel="h4" />

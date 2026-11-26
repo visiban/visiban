@@ -180,6 +180,8 @@ export default function JoinPage({ user }: Props) {
   }, [user, groupId, token, groupName, navigate, isBoardInvite]);
 
   const handleRetry = () => {
+    // "Joining…" replaces the button: the heading takes focus first (#2575).
+    titleRef.current?.focus();
     autoJoinFired.current = false;
     setJoinError(null);
     setJoining(true);

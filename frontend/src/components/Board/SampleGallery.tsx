@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { SampleBoardInclude, SampleBoardSummary } from "../../types";
+import { focusSurvivor } from "../../utils/focusSurvivor";
 
 export type SampleListState = "loading" | "ready" | "unavailable";
 
@@ -196,7 +197,12 @@ export default function SampleGallery({
           <button
             ref={retryRef}
             type="button"
-            onClick={onRetryList}
+            onClick={(e) => {
+              // The banner goes while the list reloads. On the dialog, the effect above still counts focus as
+              // lost and moves it to the first card (or back to Retry) when the list answers (#2575).
+              focusSurvivor(e.currentTarget.closest<HTMLElement>('[role="dialog"]'));
+              onRetryList();
+            }}
             className="shrink-0 border border-line-strong text-fg-secondary hover:text-fg hover:bg-surface-hover text-xs font-medium px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Retry

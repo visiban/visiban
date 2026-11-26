@@ -1,3 +1,4 @@
+import { focusSurvivor } from "../../utils/focusSurvivor";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import HelpLink from "../Common/HelpLink";
 import { Link, useInRouterContext } from "react-router-dom";
@@ -107,8 +108,13 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   const [moving, setMoving] = useState<CardChildRow | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  // After a write unmounts the focused control, focus goes back to the card (or Add child) once the re-read lands.
-  const pendingFocus = useRef<number | "add" | null>(focusChildId);
+  // The child a Back link returns to, focused once the first read lands.
+  const pendingFocus = useRef<number | null>(focusChildId);
+  // The child a Move or Undo wrote, with the read on screen when the write answered: its card takes focus in each
+  // commit that removes the focused control, until a newer read has placed the row (#2611).
+  const writeFocus = useRef<{ id: number; since: typeof data } | null>(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
   // An Unlink in flight: the child whose row (and focused button) will go, and where focus goes then.
   const unlinkFocus = useRef<{ gone: number; to: number | "add" } | null>(null);
   // A re-read after this tab's own write is announced by that write; any other re-read (a
@@ -121,6 +127,8 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   const localWrite = useRef(false);
   const beginWrite = () => { localWrite.current = true; };
   const reloadAfterWrite = () => { localWrite.current = true; reload(); };
+  // "Try again" goes with the error (at once, or when the re-read answers): the tab takes focus first (#2575).
+  const retryRead = () => { focusSurvivor(rootRef.current); reload(); };
   const tgt = wide ? "" : "min-h-11";
 
   useLayoutEffect(() => {
@@ -221,17 +229,26 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
           beginWrite();
           try {
             await linkCardParent(childBoardId, child.id, cardId);
+            parkToastFocus();
             dismiss(key);
             setAnnouncement(`Linked ${child.title} again.`);
-            pendingFocus.current = child.id;
+            writeFocus.current = { id: child.id, since: dataRef.current };
             reloadAfterWrite();
           } catch {
             localWrite.current = false;
+            parkToastFocus();
             notify({ key, variant: "danger", title: `Couldn't link ${child.title} again`, message: "Link it again with Link existing." });
           }
         },
       },
     });
+  };
+
+  // The Undo button goes with its toast (dismissed, or replaced by the failure) before the child row is back, so
+  // focus on it moves to the tab itself first. A closed sheet has no ref: the toast region restores focus then.
+  const parkToastFocus = () => {
+    const active = document.activeElement;
+    if (!active || active === document.body || active.closest('[data-testid="unlink-child-toast"]')) focusSurvivor(rootRef.current);
   };
 
   const move = async (child: CardChildRow, col: CardChildrenColumn, reason?: string) => {
@@ -245,10 +262,9 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
         + (col.is_done ? 1 : 0)
         - (columns.find((c) => c.id === child.column_id)?.is_done ? 1 : 0);
       setAnnouncement(`${child.title} moved to ${col.name}. ${doneLine(doneAfter)}.`);
+      writeFocus.current = { id: child.id, since: dataRef.current };
       setMoving(null);
       setActiveId(child.id);
-      pendingFocus.current = child.id;
-      focusCard(child.id);
       reloadAfterWrite();
     } catch (err) {
       localWrite.current = false;
@@ -300,7 +316,11 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     if (msg) setAnnouncement(msg);
   }, [data]);
   // A failed re-read leaves the data as it was; the next change is someone else's.
-  useEffect(() => { if (error) localWrite.current = false; }, [error]);
+  useEffect(() => {
+    if (!error) return;
+    localWrite.current = false;
+    writeFocus.current = null;
+  }, [error]);
 
   // Stale text must not linger for a screen reader's virtual cursor; the visible default-not-set notice stays.
   useEffect(() => {
@@ -313,9 +333,36 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     const target = pendingFocus.current;
     if (target === null || !data) return;
     pendingFocus.current = null;
-    if (target === "add") addRef.current?.focus();
-    else focusCard(target);
+    focusCard(target);
   }, [data]);
+
+  // A layout effect, for the same reason as Unlink's below: closing the Move picker, or a re-read that moves the
+  // row to another column, drops the focused node, and focus must land in that commit (#2611).
+  useLayoutEffect(() => {
+    const write = writeFocus.current;
+    if (!write || moving || !data) return;
+    const row = data.visible ? data.results.find((c) => c.id === write.id) : undefined;
+    const active = document.activeElement;
+    if (!row) {
+      // A newer read without the child (unlinked elsewhere, access lost): its card is gone, so the tab holds focus.
+      if (data === write.since) return;
+      writeFocus.current = null;
+      if (!active || active === document.body) focusSurvivor(rootRef.current);
+      return;
+    }
+    const card = gridRef.current?.querySelector<HTMLElement>(`[data-child-id="${row.id}"]`);
+    // Only recover lost or parked focus: never pull the user back from where they went meanwhile.
+    if (!active || active === document.body || active === rootRef.current || active === card) {
+      // One column at a time (narrow): show the row's column first; this effect runs again with it on screen.
+      if (!wide && shownColumn && shownColumn.id !== row.column_id) {
+        setShownColumnId(row.column_id);
+        return;
+      }
+      setActiveId(row.id);
+      card?.focus();
+    }
+    if (data !== write.since) writeFocus.current = null;
+  }, [data, moving, wide, shownColumn]);
 
   // A layout effect, not a passive one: the commit that removes the unlinked row (and its focused button)
   // must also move focus, or it sits on <body> in between (#2608).
@@ -336,6 +383,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     e.preventDefault();
     const i = columns.findIndex((c) => c.id === shownColumn?.id);
     const next = columns[(i + (e.key === "ArrowRight" ? 1 : columns.length - 1)) % columns.length];
+    writeFocus.current = null; // The user chose a column: do not switch it back.
     setShownColumnId(next.id);
     queueMicrotask(() => rootRef.current?.querySelector<HTMLElement>(`[data-column-button="${next.id}"]`)?.focus());
   };
@@ -383,7 +431,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
         <div role="alert" className="flex flex-col gap-2 items-start">
           <p className="text-sm font-medium text-fg">The children didn&apos;t load</p>
           <p className="text-xs text-fg-muted">Check your connection and try again. The rollup on the card face stays as last known.</p>
-          <button type="button" onClick={reload} className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Try again</button>
+          <button type="button" onClick={retryRead} className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Try again</button>
         </div>
       );
     }
@@ -455,7 +503,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
                 data-column-button={c.id}
                 aria-pressed={c.id === shownColumn?.id}
                 tabIndex={c.id === shownColumn?.id ? 0 : -1}
-                onClick={() => setShownColumnId(c.id)}
+                onClick={() => { writeFocus.current = null; setShownColumnId(c.id); }}
                 className={`min-h-11 inline-flex items-center gap-1.5 px-3 text-sm rounded border focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${c.id === shownColumn?.id ? "border-info text-fg" : "border-line text-fg-secondary"}`}
               >
                 <span aria-hidden="true" className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
@@ -559,12 +607,12 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   })();
 
   return (
-    <div ref={rootRef} className="flex flex-col gap-4" data-testid="card-children-tab">
+    <div ref={rootRef} className="flex flex-col gap-4 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis" data-testid="card-children-tab">
       {body}
       {error && data && (
         <div role="alert" className="flex items-center gap-2 text-xs text-danger">
           <span>Couldn&apos;t refresh the children.</span>
-          <button type="button" onClick={reload} className={`${tgt} px-2 text-xs text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Try again</button>
+          <button type="button" onClick={retryRead} className={`${tgt} px-2 text-xs text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Try again</button>
         </div>
       )}
       {linkError && <p role="alert" className="text-xs text-danger">{linkError}</p>}

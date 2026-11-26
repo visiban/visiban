@@ -49,7 +49,8 @@ describe("SectionErrorBoundary", () => {
     const { rerender } = render(
       <SectionErrorBoundary section="Board Grid">
         <MaybeBroken />
-      </SectionErrorBoundary>
+      </SectionErrorBoundary>,
+      { container: document.body.appendChild(document.createElement("main")) },
     );
     expect(screen.getByText("Board Grid failed to load")).toBeInTheDocument();
 
@@ -65,6 +66,8 @@ describe("SectionErrorBoundary", () => {
       </SectionErrorBoundary>
     );
     expect(screen.getByText("recovered")).toBeInTheDocument();
+    // Retry unmounted with the fallback; the landmark holds focus (#2575).
+    expect(screen.getByRole("main")).toHaveFocus();
   });
 
   it("logs the error with the section name", () => {

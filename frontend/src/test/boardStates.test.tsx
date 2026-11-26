@@ -51,10 +51,15 @@ describe('board states (#2276)', () => {
 
   it('load error offers Try again', async () => {
     const onRetry = vi.fn()
-    render(<BoardLoadError onRetry={onRetry} />)
+    render(<main><BoardLoadError onRetry={onRetry} /></main>)
     expect(screen.getByRole('alert')).toHaveTextContent("The board didn't load.")
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(onRetry).toHaveBeenCalledOnce()
+    // The page landmark takes focus before the reload clears the error (#2575); the tabindex is only lent.
+    const main = screen.getByRole('main')
+    expect(main).toHaveFocus()
+    main.blur()
+    expect(main).not.toHaveAttribute('tabindex')
   })
 
   it('view-only notice renders', () => {

@@ -234,6 +234,7 @@ describe('HealthStatusPopover detailed mode (#2242)', () => {
     expect(await within(dialog).findByText('Could not load history.')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Try again' }))
     expect(await within(dialog).findByText(/No changes recorded yet/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('region', { name: 'Status history' })).toHaveFocus()
   })
 
   it('non-admins open a read-only popover with the history loaded at once', async () => {

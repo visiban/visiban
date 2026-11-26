@@ -307,7 +307,27 @@ describe('ShareBoardPage on the shared look (#2480)', () => {
     expect(screen.queryByText('This board is no longer shared')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByTestId('share-board-page')).toBeInTheDocument()
-    expect(screen.getByRole('main')).toBeInTheDocument()
+    // The retried view's landmark takes the focus the button had (#2575).
+    expect(screen.getByRole('main')).toHaveFocus()
+  })
+  it('announces a retry that fails again', async () => {
+    mockGetPublicBoard.mockRejectedValue(new Error('500'))
+    renderSharePage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText("The board still didn't load.")).toHaveAttribute('role', 'status')
+  })
+  it('keeps Try again mounted and inert while the retry is in flight (#2575)', async () => {
+    mockGetPublicBoard.mockRejectedValueOnce(new Error('500'))
+    renderSharePage()
+    const button = await screen.findByRole('button', { name: 'Try again' })
+    mockGetPublicBoard.mockReturnValueOnce(new Promise(() => {}))
+    button.focus()
+    fireEvent.click(button)
+    fireEvent.click(button)
+    expect(button).toHaveFocus()
+    expect(button).toHaveAttribute('aria-disabled', 'true')
+    expect(button).toHaveTextContent('Retrying')
+    expect(mockGetPublicBoard).toHaveBeenCalledTimes(2)
   })
 
   it('a 404 is the revoked state', async () => {

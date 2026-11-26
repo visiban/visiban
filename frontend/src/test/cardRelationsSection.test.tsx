@@ -265,6 +265,8 @@ describe('CardRelationsSection — load failure', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('Blocker card')).toBeInTheDocument()
+    // The section toggle outlives the reload (#2575).
+    expect(screen.getByRole('button', { name: /^Relations/ })).toHaveFocus()
   })
 })
 
