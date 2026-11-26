@@ -1000,7 +1000,8 @@ def _self_test():
                       ("overview_peak_rss_mb", 222.0), ("analytics_365_ms", 2000.0),
                       ("analytics_365_rss_growth_mb", 77.0), ("overview_payload_bytes", 9000),
                       ("unread_count_p95_ms", 10.0), ("concurrent_peak_rss_mb", 333.0)):
-        if wired.get(key) != want:
+        # math.isclose, not !=: these are floats (python:S1244, #2623); a missing key is nan, never close.
+        if not math.isclose(wired.get(key, math.nan), want):
             failures.append(f"exit run wiring: {key} = {wired.get(key)}, expected {want}")
     wired_records = _evaluate_exit_run(wired)
     if not all(r["passed"] for r in wired_records):
@@ -1086,6 +1087,69 @@ def _self_test():
     enough = {**good, "unread_samples": EXIT_MIN_UNREAD_SAMPLES}
     if not all(r["passed"] for r in _evaluate_exit_run(enough)):
         failures.append("exit run: the minimum number of unread-count samples did not pass")
+
+    # The overview open's refusal (#2622): a 422 analytics_too_large on an over-cap board passes as an
+    # expected refusal; every other way the open does not produce a figure still fails.
+    _cap = EXIT_DEFAULT_MAX_MOVEMENTS
+    _over_fx = {**stress, "movement_count": _cap + 1, "declared_max_movements": _cap}
+    _under_fx = {**stress, "movement_count": _cap, "declared_max_movements": _cap}
+
+    def _ov_records(exc, fx, **extra):
+        run = {**good, "fixture": fx, **extra}
+        if exc is not None:
+            for _k in EXIT_OVERVIEW_CHECKS:
+                run.pop(_k)  # a failed measurement stores no figure
+            run["failures"] = {c: _failure(exc) for c in EXIT_OVERVIEW_CHECKS}
+        return {r["check"]: r for r in _evaluate_exit_run(run)}
+
+    class _OvResp:
+        def __init__(self, status, code):
+            self.status_code, self._code, self.url, self.reason = status, code, "https://x/metrics/overview/", "R"
+
+        def json(self):
+            return {"code": self._code}
+
+    def _ov_exc(status, code):
+        exc = requests.exceptions.HTTPError(str(status))
+        exc.response = _OvResp(status, code)
+        return exc
+
+    for label, exc, fx, want_pass, want_status, want_flag in (
+        ("422 analytics_too_large, board over the cap", _ov_exc(422, TOO_LARGE_CODE), _over_fx, True, STATUS_REFUSED, True),
+        ("422 analytics_too_large, board at the cap", _ov_exc(422, TOO_LARGE_CODE), _under_fx, False, STATUS_REFUSED, False),
+        ("422 analytics_too_large, movement count unread", _ov_exc(422, TOO_LARGE_CODE), dict(stress), False, STATUS_REFUSED, False),
+        ("503 analytics_busy, board over the cap", _ov_exc(503, ANALYTICS_BUSY_CODE), _over_fx, False, STATUS_ERROR, None),
+        ("422 with another code, board over the cap", _ov_exc(422, "other"), _over_fx, False, STATUS_ERROR, None),
+        ("500, board over the cap", _ov_exc(500, None), _over_fx, False, STATUS_ERROR, None),
+        ("timeout, board over the cap", requests.exceptions.ReadTimeout("x"), _over_fx, False, STATUS_TIMEOUT, None),
+        ("connection error, board over the cap", requests.exceptions.ConnectionError("x"), _over_fx, False, STATUS_ERROR, None),
+    ):
+        _recs = _ov_records(exc, fx)
+        for _c in EXIT_OVERVIEW_CHECKS:
+            _r = _recs[_c]
+            if (_r["passed"], _r["status"], _r.get("expected_refusal"), _r["value"]) != (want_pass, want_status, want_flag, None):
+                failures.append(f"overview refusal ({label}): {_c} gave {_r}")
+        if want_pass and ("ANALYTICS_MAX_MOVEMENTS" not in _recs["overview_peak_rss_mb"]["detail"]
+                          or not all(r["passed"] for r in _recs.values())):
+            failures.append(f"overview refusal ({label}): the detail does not name the cap, or the run did not pass: {_recs}")
+        if not want_pass and all(r["passed"] for r in _recs.values()):
+            failures.append(f"overview refusal ({label}): the run still said every bar was met")
+    # A refused overview open does not excuse another check: the expected refusal is the overview's alone.
+    _cf_refused = {r["check"]: r for r in _evaluate_exit_run(
+        {**good, "fixture": _over_fx,
+         "failures": {"cumulative_flow_p95_ms": _failure(_ov_exc(422, TOO_LARGE_CODE)),
+                      "drill_down_peak_rss_mb": _failure(_ov_exc(422, TOO_LARGE_CODE))}})}
+    for _c in ("cumulative_flow_p95_ms", "drill_down_peak_rss_mb"):
+        if _cf_refused[_c]["passed"] or "expected_refusal" in _cf_refused[_c]:
+            failures.append(f"overview refusal: a 422 on {_c} on an over-cap board was excused: {_cf_refused[_c]}")
+    # An overview open that was NOT refused is still held to 512 MB and 1 MB.
+    for key, value, want_pass in (("overview_peak_rss_mb", 511, True), ("overview_peak_rss_mb", 513, False),
+                                  ("overview_peak_rss_mb", CONTAINER_MEMORY_LIMIT_MB, False),
+                                  ("overview_payload_bytes", EXIT_OVERVIEW_PAYLOAD_BYTES - 1, True),
+                                  ("overview_payload_bytes", EXIT_OVERVIEW_PAYLOAD_BYTES, False)):
+        _m_recs = _ov_records(None, _over_fx, **{key: value})
+        if (_m_recs[key]["passed"], _m_recs[key]["status"], "expected_refusal" in _m_recs[key]) != (want_pass, STATUS_MEASURED, False):
+            failures.append(f"overview measured on an over-cap board: {key}={value} gave {_m_recs[key]}")
 
     # _failure (#2595): each way a measurement can fail names its own status.
     class _HttpResp:
@@ -1246,6 +1310,8 @@ def _self_test():
         def json(self):
             if self.url.endswith("/cards/archived/"):
                 return {"count": 120, "results": []}
+            if self.url.endswith("/movements/"):
+                return {"count": 150001, "results": []}
             return {"cards": [{}] * 10, "swimlanes": [{}] * 3}
 
     timeouts_used = []
@@ -1287,7 +1353,7 @@ def _self_test():
     dd = _one_call("drill_down", rec_ops.drill_down,
                    lambda u: u.startswith(f"{root9}/metrics/cumulative-flow/?date=")
                    and re.search(r"date=\d{4}-\d{2}-\d{2}$", u))
-    if dd != hwm_mb:
+    if not math.isclose(dd, hwm_mb):
         failures.append(f"exit run ops: drill_down returned {dd}, not the peak RSS (high-water mark)")
     ov = _one_call("overview_open", rec_ops.overview_open,
                    lambda u: u.startswith(f"{root9}/metrics/overview/?"))
@@ -1303,7 +1369,7 @@ def _self_test():
         failures.append(f"exit run ops: analytics_365 sampled (iterations, warmup) {_365_calls}, not one request, no warm-up [(1, 0)]")
     _one_call("summary_probe", rec_ops.summary_probe, lambda u: u == f"{root9}/summary/")
     conc = rec_ops.concurrent()
-    if conc[4] != hwm_mb or conc[3] != 55:
+    if not math.isclose(conc[4], hwm_mb) or conc[3] != 55:
         failures.append(f"exit run ops: concurrent returned peak {conc[4]}, payload {conc[3]}")
     _fixture_timeouts = {t for u, t in timeouts_used if "/cards/archived/" in u or u.endswith("/full/")}
     _365_timeouts = {t for u, t in timeouts_used if u.endswith("/analytics/?days=365")}
@@ -1320,8 +1386,9 @@ def _self_test():
         failures.append("exit run ops: wait_idle does not run the wired probe")
     del requested[:]
     fx = rec_ops.fixture()
-    if sorted(requested) != sorted([f"{root9}/cards/archived/", f"{root9}/full/"]) \
-            or (fx["active_cards"], fx["archived_cards"], fx.get("declared_scale"), fx.get("swimlane_count")) != (10, 120, 100, 3):
+    if sorted(requested) != sorted([f"{root9}/cards/archived/", f"{root9}/full/", f"{root9}/movements/"]) \
+            or (fx["active_cards"], fx["archived_cards"], fx.get("declared_scale"), fx.get("swimlane_count"),
+                fx.get("movement_count")) != (10, 120, 100, 3, 150001):
         failures.append(f"exit run ops: fixture() read {requested} -> {fx}")
 
     # The scale-100 summary probe (#2430): measured / refused / timeout / error / not-applicable,
@@ -1669,6 +1736,12 @@ STATUS_NOT_APPLICABLE = "not-applicable"
 # until a run shows what the shape costs, so it is reported beside the checks and never changes
 # the run's pass/fail.
 EXIT_MIN_SWIMLANES = 1000
+# The server's ANALYTICS_MAX_MOVEMENTS default (150,000), used only to decide whether a 422
+# analytics_too_large on the overview open is the cap working as designed (#2622). Pass
+# --exit-max-movements if the exit run's server sets another value.
+EXIT_DEFAULT_MAX_MOVEMENTS = 150000
+# The two records fed by the one overview open (#2622).
+EXIT_OVERVIEW_CHECKS = ("overview_peak_rss_mb", "overview_payload_bytes")
 EXIT_SUMMARY_PROBE = "summary_scale100_p95_ms"
 
 
@@ -1886,6 +1959,24 @@ def _wait_for_analytics_slot(probe, budget_s=EXIT_IDLE_WAIT_SECONDS, poll_s=EXIT
         sleep(poll_s)
 
 
+def _overview_refusal_expected(fixture):
+    """(expected, reason): is a 422 analytics_too_large on the overview open the cap working (#2622)?
+
+    The 422 body carries no counts, so the evidence is the fixture's own: the board's movement
+    count (read off ``movements/``) against the configured cap. Over the cap, the refusal is the
+    designed outcome for 1.3 and passes. Either number unread, or the board at or under the cap,
+    is NOT expected: a refusal there is a defect and fails (#1075: absent input never passes).
+    """
+    fixture = fixture or {}
+    count, cap = fixture.get("movement_count"), fixture.get("declared_max_movements")
+    if not isinstance(count, int) or isinstance(count, bool) or not isinstance(cap, int) or isinstance(cap, bool):
+        return False, "the board's movement count or the configured cap was not read, so the refusal cannot be shown to be the cap"
+    if count > cap:
+        return True, (f"the board holds {count} movements, over ANALYTICS_MAX_MOVEMENTS={cap}: the server refuses an "
+                      "overview open on a board this size by design, so it is not measured")
+    return False, f"the board holds {count} movements, not over ANALYTICS_MAX_MOVEMENTS={cap}, so this refusal is not the cap"
+
+
 def _evaluate_exit_run(m):
     """Turn the measured figures *m* into the list of absolute-bar records (pure; self-tested).
 
@@ -1927,6 +2018,18 @@ def _evaluate_exit_run(m):
         if r["check"] in failures:
             r["status"], r["detail"] = failures[r["check"]]
             r["passed"] = False
+            if r["check"] in EXIT_OVERVIEW_CHECKS and r["status"] == STATUS_REFUSED:
+                # #2622: a 422 analytics_too_large on an over-cap fixture is the designed outcome, not a
+                # defect. Only a 422 with that code reaches STATUS_REFUSED (_failure); a 503, another
+                # code, a timeout or an error stays a failure, as does a refusal on an under-cap board.
+                expected, why = _overview_refusal_expected(m.get("fixture"))
+                r["expected_refusal"] = expected
+                r["passed"] = expected
+                if expected:
+                    # The generic refusal text says the bar fails; here it does not, so say what happened.
+                    r["detail"] = f"422 {TOO_LARGE_CODE}: refused by design, not measured. Expected refusal: {why}"
+                else:
+                    r["detail"] += f". Unexpected refusal: {why}"
         elif r["check"] == "over_cap_refused_cleanly":
             r["status"] = STATUS_MEASURED if "over_cap" in m else STATUS_ERROR
         elif r["value"] is None:
@@ -2227,9 +2330,18 @@ class _ExitOps:
         full = self.session.get(f"{self.root}/full/", timeout=EXIT_FIXTURE_TIMEOUT_SECONDS)
         full.raise_for_status()
         body = full.json()
+        # The board's movement count, to tell an over-cap refusal from a defect (#2622). Best effort:
+        # unread means None, and an unread count never makes a refusal "expected".
+        try:
+            moves = self.session.get(f"{self.root}/movements/", timeout=EXIT_FIXTURE_TIMEOUT_SECONDS)
+            moves.raise_for_status()
+            movement_count = moves.json().get("count")
+        except Exception:  # noqa: BLE001 -- recorded as None, never fails the fixture read
+            movement_count = None
         return {**self.declared, "active_cards": len(body.get("cards", [])),
                 "swimlane_count": len(body.get("swimlanes", [])),
-                "archived_cards": _count_of(archived.json())}
+                "archived_cards": _count_of(archived.json()),
+                "movement_count": movement_count}
 
     def wait_idle(self):
         # Absent input never passes (#1075): with no probe wired there is no idle wait to skip to.
@@ -2369,7 +2481,8 @@ def run_exit(args):
         concurrent=lambda: _concurrent_overview(base_url, burst_headers, poll_headers, board["id"], args.exit_rounds),
         alive=lambda: _server_alive(base_url),
         iterations=args.aged_iterations, warmup=args.aged_warmup,
-        declared={"declared_scale": args.fixture_scale, "declared_aged_generations": args.fixture_aged_generations},
+        declared={"declared_scale": args.fixture_scale, "declared_aged_generations": args.fixture_aged_generations,
+                  "declared_max_movements": args.exit_max_movements},
         wait_idle=wait_idle, log=lambda msg: print(msg, flush=True),
     )
     out_path = resolve_within(cli_roots(), args.exit_output)
@@ -2752,6 +2865,10 @@ def main():
                         help="How many times that burst is repeated (default: 3).")
     parser.add_argument("--exit-max-concurrent", type=int, default=1,
                         help="The server's ANALYTICS_MAX_CONCURRENT (default 1, the shipped value); the burst must exceed it.")
+    parser.add_argument("--exit-max-movements", type=int, default=EXIT_DEFAULT_MAX_MOVEMENTS,
+                        help="The exit-run server's ANALYTICS_MAX_MOVEMENTS (default 150000, the shipped value): "
+                             "a 422 analytics_too_large on the overview open passes as an expected refusal only "
+                             "when the board's movement count is over it (#2622).")
     parser.add_argument(
         "--measure-only",
         action="store_true",
