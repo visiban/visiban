@@ -131,6 +131,8 @@ import { firstNotDoneColumn, wouldBecomeIntakeColumn } from "../../utils/intakeC
 import { parseParentFilterParam } from "../../utils/parentFilter";
 import { countUnusableLaneRules, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam, withHideUnmatched, withLaneItems } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
+import ChildrenModeView from "./ChildrenModeView";
+import { loadChildrenOptions, loadShowMode, parseLaneParam, saveChildrenOptions, saveShowMode, type BoardShowMode, type ChildrenModeOptions, type PlannedOption } from "../../utils/childrenMode";
 
 interface Props {
   onBoardDeleted?: () => void;
@@ -2512,11 +2514,45 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Show chips (#2272): a quick view in the URL (`?show=`), deliberately not in
   // the persisted or saved filter state. It narrows the Filter panel's result
   // further, so both apply; column and lane counts keep reading the whole board.
+  // `?show=children` is Children mode (#2370), not a chip: parseShowChip reads it as
+  // "all", and the chip setter never clears it, so the two share the param.
   const showChip = parseShowChip(searchParams.get("show"));
   const setShowChip = useCallback((next: ShowChipKey) => {
     setSearchParams((prev) => {
-      if (next === "all") prev.delete("show");
+      if (next === "all") { if (prev.get("show") !== "children") prev.delete("show"); }
       else prev.set("show", next);
+      return prev;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Children mode (#2370): `?show=children&lane=<lane id>`, remembered per board. Only where cards can have
+  // children; BoardView never renders on a public share link, so a shared board has no Show control.
+  const childrenModeAvailable = board.cards_can_have_children === true;
+  const showParam = searchParams.get("show");
+  const childrenMode = childrenModeAvailable && showParam === "children";
+  const childrenLane = parseLaneParam(searchParams.get("lane"));
+  const [childrenOptions, setChildrenOptionsState] = useState<ChildrenModeOptions>(() => loadChildrenOptions(board.id));
+  const setChildrenOptions = useCallback((next: ChildrenModeOptions) => {
+    setChildrenOptionsState(next);
+    saveChildrenOptions(board.id, next);
+  }, [board.id]);
+  useEffect(() => {
+    if (!childrenModeAvailable || searchParams.get("show") !== null || loadShowMode(board.id) !== "children") return;
+    setSearchParams((prev) => { prev.set("show", "children"); return prev; }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restore the remembered mode once per board, not per URL change
+  }, [board.id, childrenModeAvailable]);
+  const setShowMode = useCallback((mode: BoardShowMode) => {
+    saveShowMode(board.id, mode);
+    setSearchParams((prev) => {
+      if (mode === "children") prev.set("show", "children");
+      else { prev.delete("show"); prev.delete("lane"); }
+      return prev;
+    }, { replace: true });
+  }, [board.id, setSearchParams]);
+  const setChildrenLane = useCallback((laneId: number | null) => {
+    setSearchParams((prev) => {
+      if (laneId === null) prev.delete("lane");
+      else prev.set("lane", String(laneId));
       return prev;
     }, { replace: true });
   }, [setSearchParams]);
@@ -3341,6 +3377,24 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <ViewTabStrip view={view}>
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </ViewTabStrip>
+          {childrenModeAvailable && view === "board" && (
+            <div role="group" aria-label="Show" data-testid="show-mode" className="flex items-center gap-1.5 max-sm:order-first max-sm:shrink-0">
+              <span className="text-xs text-fg-secondary max-sm:sr-only">Show</span>
+              <div className="flex border border-line-strong rounded overflow-hidden">
+                {(["cards", "children"] as const).map((m, i) => (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={(m === "children") === childrenMode}
+                    onClick={() => setShowMode(m)}
+                    className={`text-sm px-3 h-8 max-sm:h-11 ${i ? "border-l border-line-strong" : ""} ${(m === "children") === childrenMode ? "bg-primary text-on-primary font-medium" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"} focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis`}
+                  >
+                    {m === "cards" ? "Cards" : "Children"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex-1 max-sm:hidden" />
           <div className="flex items-center gap-2 flex-wrap max-sm:order-2 max-sm:flex-nowrap max-sm:gap-1 max-sm:shrink-0">
             <FilterPanel
@@ -3364,6 +3418,39 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               <BoardViewMenu
                 icon={ViewMenuIcon}
                 phoneHandoff={isPhone ? { openRequest: viewOpenRequest, anchorRef: filterTriggerRef } : undefined}
+                childrenOptions={childrenMode ? (
+                  <div role="group" aria-label="Children" className="space-y-2 border-b border-line pb-3">
+                    <span className="block text-xs font-medium text-fg-secondary">Children</span>
+                    <SingleSelectDropdown<number>
+                      label="Lanes"
+                      ariaLabel="Lanes"
+                      portalMenu
+                      className="w-full"
+                      escapePriority={26}
+                      options={[{ value: 0, label: "All lanes" }, ...board.swimlanes.map((l) => ({ value: l.id, label: l.name }))]}
+                      selected={childrenLane ?? 0}
+                      onChange={(v) => setChildrenLane(v ? v : null)}
+                    />
+                    <label className="flex items-center gap-2 text-sm text-fg min-h-8">
+                      <input type="checkbox" checked={childrenOptions.showDone} onChange={(e) => setChildrenOptions({ ...childrenOptions, showDone: e.target.checked })} />
+                      Show done cards
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-fg min-h-8">
+                      <input type="checkbox" checked={childrenOptions.blockedOnly} onChange={(e) => setChildrenOptions({ ...childrenOptions, blockedOnly: e.target.checked })} />
+                      Blocked only
+                    </label>
+                    <SingleSelectDropdown<PlannedOption>
+                      label="Planned"
+                      ariaLabel="Planned"
+                      portalMenu
+                      className="w-full"
+                      escapePriority={26}
+                      options={[{ value: "any", label: "Any" }, { value: "hide", label: "Hide planned" }, { value: "only", label: "Only planned" }]}
+                      selected={childrenOptions.planned}
+                      onChange={(v) => setChildrenOptions({ ...childrenOptions, planned: v ?? "any" })}
+                    />
+                  </div>
+                ) : undefined}
                 presetPicker={
                   <SingleSelectDropdown<BoardPresetId>
                     label="Preset"
@@ -3676,6 +3763,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         />
       )}
 
+      {childrenMode ? (
+        <SectionErrorBoundary section="Children mode">
+          <ChildrenModeView
+            boardId={board.id}
+            laneId={childrenLane}
+            options={childrenOptions}
+            onOptionsChange={setChildrenOptions}
+            onOpenParent={(id) => { const c = board.cards.find((x) => x.id === id); if (c) handleCardClick(c); }}
+            phone={isPhone}
+          />
+        </SectionErrorBoundary>
+      ) : (
       <SectionErrorBoundary section="Board grid">
       <DndContext sensors={selectedCard || peekCardId !== null || isPhone || movesPaused ? noSensors : sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
@@ -4027,6 +4126,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </DragOverlay>
       </DndContext>
       </SectionErrorBoundary>
+      )}
 
       {cardMenu && (() => {
         const menuCards = cardMenu.cardIds.map((id) => board.cards.find((c) => c.id === id)).filter((c): c is Card => !!c);

@@ -144,11 +144,11 @@ for (const width of [880, 540, 390]) {
           await expect(tab.getByRole('link', { name: 'Open on Delivery' })).toHaveAttribute('href', `/boards/7?f_parent=${CARD.id}`)
           await expect(tab.getByRole('img', { name: '2 done, 1 doing, 1 blocked, 1 to do' })).toBeVisible()
           // The card sheet is 540px at every viewport above the phone and full screen at or below 640px
-          // (useCardSheetPlacement), so the tab never gets the 800px of container the side-by-side layout
+          // (useCardSheetPlacement), so the tab never gets the 880px of container the side-by-side layout
           // needs: asserted, not recorded. The side-by-side layout is pinned in cardChildrenTab2209.test.tsx
-          // at a measured 840px container (no sheet is that wide today).
+          // at a measured 880px container (no sheet is that wide today).
           const box = await tab.boundingBox()
-          expect(box!.width, `tab width at ${width}px`).toBeLessThan(800)
+          expect(box!.width, `tab width at ${width}px`).toBeLessThan(880)
           await expect(tab.getByRole('region')).toHaveCount(1)
           await expect(tab.getByRole('group', { name: 'Columns on Delivery' })).toBeVisible()
           await expect(tab.getByTestId('children-limit-line')).toContainText("are this card's")

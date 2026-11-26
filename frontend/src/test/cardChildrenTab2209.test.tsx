@@ -616,7 +616,7 @@ describe('Children tab review fixes (#2209)', () => {
     }
   })
 
-  it.each([[840, true], [800, true], [799, false], [500, false]])('lays the columns side by side from a measured 800px container (%ipx: %s)', (px, wide) => {
+  it.each([[1000, true], [880, true], [879, false], [800, false], [500, false]])('lays the columns side by side from a measured 880px container (%ipx: %s)', (px, wide) => {
     const RO = globalThis.ResizeObserver
     globalThis.ResizeObserver = class {
       cb: ResizeObserverCallback

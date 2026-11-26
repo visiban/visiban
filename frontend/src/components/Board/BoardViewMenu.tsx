@@ -57,6 +57,11 @@ interface Props {
    * `anchorRef` (the Filter trigger), which also takes focus back on Escape or Tab-off.
    */
   phoneHandoff?: { openRequest: number; anchorRef: React.RefObject<HTMLButtonElement | null> };
+  /**
+   * Children mode's options (#2370): Lanes, Show done cards, Blocked only, Planned. Passed only while Children is
+   * shown, and drawn first, so they live in the View menu (and, on phones, behind Filters through the handoff).
+   */
+  childrenOptions?: React.ReactNode;
 }
 
 const PANEL_WIDTH = 320
@@ -225,6 +230,8 @@ export default function BoardViewMenu(props: Props) {
       className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-3 overflow-y-auto max-sm:[&_button]:min-h-11"
     >
       <h2 className="text-sm font-semibold text-fg">View</h2>
+
+      {props.childrenOptions}
 
       <div>
         <span className={SECTION_LABEL}>Preset</span>

@@ -1,5 +1,5 @@
 import client from "./client";
-import type { CardChildrenRollup, Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions, ChildCandidate, CardChildrenRead, CardOverrideInfo } from "../types";
+import type { CardChildrenRollup, Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions, ChildCandidate, CardChildrenRead, CardOverrideInfo, ChildrenView } from "../types";
 import { pickPlannedFields, type CardPlannedFields } from "../utils/plannedFields";
 
 export interface CardPatch {
@@ -329,6 +329,21 @@ export const addChild = (boardId: number, cardId: number, data: { board_id: numb
 /** `GET /boards/{b}/cards/{id}/children/`: one page of a parent's children, per viewer (#1104, #2209). */
 export const getCardChildren = (boardId: number, cardId: number, offset = 0, signal?: AbortSignal) =>
   client.get<CardChildrenRead>(`/api/v1/boards/${boardId}/cards/${cardId}/children/`, { params: offset ? { offset } : undefined, signal }).then((r) => r.data);
+
+/** Children mode on the Board tab (#2370): lane rollups and 20 parent rows a page, all per viewer. */
+export const getChildrenView = (
+  boardId: number,
+  params: { lane?: number | null; cursor?: string | null; done?: boolean },
+  signal?: AbortSignal,
+) =>
+  client.get<ChildrenView>(`/api/v1/boards/${boardId}/children-view/`, {
+    params: {
+      ...(params.lane != null ? { lane: params.lane } : {}),
+      ...(params.cursor ? { cursor: params.cursor } : {}),
+      ...(params.done ? { done: "true" } : {}),
+    },
+    signal,
+  }).then((r) => r.data);
 
 /** Up to 20 cards on child board `childBoardId` that could be linked under this card: Link existing (#2209). */
 export const getChildCandidates = (

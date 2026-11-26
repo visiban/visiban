@@ -1,0 +1,385 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getChildrenView } from "../../api/cards";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
+import type { ChildrenView, ChildrenViewBoard, ChildrenViewChild, ChildrenViewLane, ChildrenViewRow } from "../../types";
+import {
+  CHILDREN_MODE_ESCAPE_PRIORITY, LARGE_LANE_PARENTS, blockedDays, cellName, childCardName, compactRowLabel, foldLabel,
+  isFoldedRow, laneBandName, laneBlockedLabel, laneLink, laneSubtitle, laneTotalLabel, lockedRowText, moreParentsLabel,
+  parentsLabel, rowDoneLabel, shownInProgress, visibleChildren, type ChildrenModeOptions,
+} from "../../utils/childrenMode";
+import Avatar from "../Common/Avatar";
+
+/**
+ * Children mode on the Board tab (#2370, planned sections #2550; canvas 6a/6b/7/8 §3): one row per parent, grouped
+ * under its lane, with the parent's children in their real columns on the child board. Read-only here: Move and the
+ * live-update pill are not built yet. Every count is the server's per-viewer count; a locked row is a count only.
+ */
+
+interface Props {
+  boardId: number;
+  /** `?lane=`: that lane expanded and the others collapsed; null for every lane. */
+  laneId: number | null;
+  options: ChildrenModeOptions;
+  onOptionsChange: (next: ChildrenModeOptions) => void;
+  /** Opens the parent's sheet on this board. */
+  onOpenParent: (parentId: number) => void;
+  /** Bumped by the host on a board change, to re-read in place. */
+  refreshKey?: number;
+  phone?: boolean;
+}
+
+const tgt = "min-h-11 sm:min-h-8";
+const FOCUS = "focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+
+function LaneBar({ lane }: { lane: Pick<ChildrenViewLane, "done" | "doing" | "blocked" | "todo" | "total"> }) {
+  if (lane.total === 0) return null;
+  const seg = (n: number, cls: string, pattern?: string) =>
+    n > 0 ? <span className={`block h-full ${cls}`} style={{ width: `${(n / lane.total) * 100}%`, ...(pattern ? { backgroundImage: pattern } : {}) }} /> : null;
+  return (
+    <span aria-hidden="true" className="flex h-1.5 w-32 overflow-hidden rounded bg-surface-active">
+      {seg(lane.done, "bg-success")}
+      {seg(lane.doing, "bg-primary")}
+      {seg(lane.blocked, "bg-danger", "repeating-linear-gradient(45deg, transparent 0 3px, rgb(0 0 0 / 0.3) 3px 5px)")}
+      {seg(lane.todo, "bg-fg-tertiary")}
+    </span>
+  );
+}
+
+interface Stop { r: number; c: number; i: number; key: string }
+
+export default function ChildrenModeView({ boardId, laneId, options, onOptionsChange, onOpenParent, refreshKey = 0, phone = false }: Props) {
+  const [data, setData] = useState<ChildrenView | null>(null);
+  const [error, setError] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  const [foldOpen, setFoldOpen] = useState<Set<number>>(new Set());
+  const [plannedOpen, setPlannedOpen] = useState<Set<number>>(new Set());
+  const [rowOpen, setRowOpen] = useState<Map<number, boolean>>(new Map());
+  const [active, setActive] = useState<Record<string, string>>({});
+  const [copied, setCopied] = useState<string>("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const laneParamRef = useRef(laneId);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    setError(false);
+    getChildrenView(boardId, { lane: laneId, done: options.showDone }, ctrl.signal)
+      .then((d) => {
+        setData(d);
+        if (laneParamRef.current !== laneId || collapsed.size === 0) {
+          laneParamRef.current = laneId;
+          // A linked lane opens expanded with the others collapsed.
+          setCollapsed(new Set(laneId == null ? [] : d.lanes.filter((l) => l.id !== laneId).map((l) => l.id)));
+        }
+      })
+      .catch((e: unknown) => { if (!ctrl.signal.aborted && (e as { name?: string })?.name !== "CanceledError") setError(true); });
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- collapsed is read once per fetch, not a trigger
+  }, [boardId, laneId, options.showDone, refreshKey]);
+
+  const loadMore = useCallback(async () => {
+    if (!data?.next_cursor) return;
+    setLoadingMore(true);
+    try {
+      const next = await getChildrenView(boardId, { lane: laneId, cursor: data.next_cursor, done: options.showDone });
+      setData((d) => d && {
+        ...next,
+        rows: [...d.rows, ...next.rows],
+        child_boards: [...d.child_boards, ...next.child_boards.filter((b) => !d.child_boards.some((x) => x.id === b.id))],
+      });
+    } catch {
+      setError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [boardId, laneId, data, options.showDone]);
+
+  // Escape leaves the grid (board tier, below the View menu's 25): focus goes to the lane's collapse button.
+  useEscapeStack(() => {
+    const el = document.activeElement as HTMLElement | null;
+    const grid = el?.closest<HTMLElement>("[data-children-grid]");
+    if (!grid || !rootRef.current?.contains(grid)) return false;
+    rootRef.current.querySelector<HTMLElement>(`[data-lane-toggle="${grid.dataset.childrenGrid}"]`)?.focus();
+    return true;
+  }, CHILDREN_MODE_ESCAPE_PRIORITY);
+
+  const boards = useMemo(() => new Map((data?.child_boards ?? []).map((b) => [b.id, b])), [data]);
+
+  if (error && !data) {
+    return <div role="alert" className="p-4 text-sm text-danger">Children didn&apos;t load. Reload the page to try again.</div>;
+  }
+  if (!data) {
+    return <div role="status" aria-label="Loading children" className="p-4 text-sm text-fg-secondary">Loading children…</div>;
+  }
+
+  const copyLink = async (lane: ChildrenViewLane) => {
+    try {
+      await navigator.clipboard.writeText(laneLink(window.location.origin, boardId, lane.id));
+      setCopied(`Link to ${lane.name} copied`);
+    } catch {
+      setCopied("Couldn't copy the link");
+    }
+  };
+  const toggle = <T,>(set: Set<T>, v: T) => { const n = new Set(set); if (n.has(v)) n.delete(v); else n.add(v); return n; };
+
+  const lanes = laneId == null ? data.lanes : data.lanes.filter((l) => l.id === laneId);
+  const loadedPerLane = new Map<number, number>();
+  data.rows.forEach((r) => loadedPerLane.set(r.swimlane_id, (loadedPerLane.get(r.swimlane_id) ?? 0) + 1));
+  const lastLaneWithRows = data.rows.length ? data.rows[data.rows.length - 1].swimlane_id : null;
+
+  const renderChild = (child: ChildrenViewChild, colName: string, stop: Stop, gridKey: string, focusProps: (s: Stop) => object, row: ChildrenViewRow) => {
+    const days = blockedDays(child);
+    return (
+      <a
+        key={child.id}
+        href={`/boards/${row.child_board_id}?card=${child.id}&from_parent=${row.id}`}
+        aria-label={childCardName(child, colName)}
+        {...focusProps(stop)}
+        data-grid={gridKey}
+        className={`${FOCUS} block rounded border bg-surface px-2 py-1 text-xs text-fg hover:bg-surface-hover ${child.planned ? "border-dashed border-line-strong" : "border-line"}`}
+      >
+        <span className="block font-medium leading-snug">{child.title}</span>
+        <span className="mt-0.5 flex items-center gap-1 text-fg-secondary">
+          {child.assignee && <Avatar user={child.assignee} size="sm" />}
+          {child.planned && <span>Planned</span>}
+          {child.blocked && <span className="text-danger font-medium">⊘{days != null ? ` ${days}d` : " Blocked"}</span>}
+        </span>
+      </a>
+    );
+  };
+
+  const renderSection = (lane: ChildrenViewLane, board: ChildrenViewBoard, rows: ChildrenViewRow[], maxCols: number, large: boolean) => {
+    const gridKey = `${lane.id}-${board.id}`;
+    const cols = board.columns;
+    const firstColId = cols[0]?.id;
+    // The roving stops in reading order: each row's parent cell, then each column's cards (or the cell).
+    const stops: Stop[] = [];
+    const cellsByRow = rows.map((row, r) => {
+      const open = !large || (rowOpen.get(row.id) ?? (row.rollup.visible && row.rollup.blocked > 0));
+      stops.push({ r, c: 0, i: 0, key: `${gridKey}:${r}:0:0` });
+      if (!open) return { row, open, cells: [] as { col: typeof cols[number]; kids: ChildrenViewChild[]; planned: ChildrenViewChild[] }[] };
+      const shown = visibleChildren(row.children, options);
+      const cells = cols.map((col, ci) => {
+        const inCol = shown.filter((k) => k.column_id === col.id);
+        const planned = col.id === firstColId && options.planned === "any" && !plannedOpen.has(row.id) ? inCol.filter((k) => k.planned) : [];
+        const kids = inCol.filter((k) => !planned.includes(k));
+        const n = Math.max(1, kids.length + (planned.length ? 1 : 0));
+        for (let i = 0; i < n; i++) stops.push({ r, c: ci + 1, i, key: `${gridKey}:${r}:${ci + 1}:${i}` });
+        return { col, kids, planned };
+      });
+      return { row, open, cells };
+    });
+    const activeKey = active[gridKey] && stops.some((s) => s.key === active[gridKey]) ? active[gridKey] : stops[0]?.key;
+    const focusProps = (s: Stop) => ({
+      "data-stop": s.key,
+      tabIndex: s.key === activeKey ? 0 : -1,
+      onFocus: () => setActive((a) => ({ ...a, [gridKey]: s.key })),
+    });
+    const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const key = (e.target as HTMLElement).dataset.stop;
+      const cur = stops.find((s) => s.key === key);
+      if (!cur) return;
+      let next: Stop | undefined;
+      if (e.key === "ArrowDown") next = stops.find((s) => s.c === cur.c && (s.r > cur.r || (s.r === cur.r && s.i > cur.i)));
+      else if (e.key === "ArrowUp") next = [...stops].reverse().find((s) => s.c === cur.c && (s.r < cur.r || (s.r === cur.r && s.i < cur.i)));
+      else if (e.key === "ArrowRight") next = stops.find((s) => s.r === cur.r && s.c > cur.c);
+      else if (e.key === "ArrowLeft") next = [...stops].reverse().find((s) => s.r === cur.r && s.c < cur.c);
+      else return;
+      e.preventDefault();
+      if (!next) return;
+      setActive((a) => ({ ...a, [gridKey]: next!.key }));
+      e.currentTarget.querySelector<HTMLElement>(`[data-stop="${next.key}"]`)?.focus();
+    };
+    const template = `minmax(14rem, 18rem) repeat(${maxCols}, minmax(9rem, 1fr))`;
+    return (
+      <div key={board.id} className="overflow-x-auto">
+        <div className="min-w-max" style={{ display: "grid", gridTemplateColumns: template }}>
+          <div className="px-2 py-1 text-xs text-fg-secondary">
+            <span className="block font-medium text-fg">Parent · column on this board</span>
+            <span>Children on {board.name}</span>
+          </div>
+          {cols.map((col) => (
+            <div key={col.id} className="px-2 py-1 text-xs border-l border-line">
+              <span className="block font-medium text-fg">{col.name}</span>
+              {!col.is_done && (
+                <span className="text-fg-secondary">
+                  {rows.reduce((n, r) => n + r.children.filter((k) => k.column_id === col.id).length, 0)} of {col.card_count} on {board.name}
+                  {col.wip_limit != null ? ` · limit ${col.wip_limit}` : ""}
+                </span>
+              )}
+            </div>
+          ))}
+          {Array.from({ length: maxCols - cols.length }, (_, i) => <div key={`pad-${i}`} aria-hidden="true" />)}
+        </div>
+        <div
+          role="grid"
+          aria-label={`${lane.name} children on ${board.name}, by parent`}
+          data-children-grid={lane.id}
+          onKeyDown={onKeyDown}
+          className="min-w-max"
+        >
+          {cellsByRow.map(({ row, open, cells }, r) => {
+            const blocked = row.rollup.visible && row.rollup.blocked > 0;
+            return (
+              <div
+                role="row"
+                key={row.id}
+                className={`border-t border-line ${blocked ? "border-l-[3px] border-l-danger" : "border-l-[3px] border-l-transparent"}`}
+                style={{ display: "grid", gridTemplateColumns: template }}
+              >
+                <div role="rowheader" className="px-2 py-1.5 flex flex-col gap-1 min-w-0">
+                  <button
+                    type="button"
+                    {...focusProps({ r, c: 0, i: 0, key: `${gridKey}:${r}:0:0` })}
+                    onClick={() => (large ? setRowOpen((m) => new Map(m).set(row.id, !open)) : onOpenParent(row.id))}
+                    onKeyDown={(e) => { if (large && e.key === "Enter" && e.shiftKey) { e.preventDefault(); onOpenParent(row.id); } }}
+                    {...(large ? { "aria-expanded": open } : {})}
+                    className={`${FOCUS} ${tgt} text-left text-sm font-medium text-link hover:underline rounded`}
+                  >
+                    {row.title}
+                  </button>
+                  <span className="flex items-center gap-1.5 text-xs text-fg-secondary">
+                    <span className="rounded border border-line px-1">{row.column_name}</span>
+                    {row.assignee && <Avatar user={row.assignee} size="sm" />}
+                    <span className={blocked && large ? "text-danger font-medium" : ""}>{large ? compactRowLabel(row) : rowDoneLabel(row)}</span>
+                  </span>
+                </div>
+                {open && cells.map(({ col, kids, planned }, ci) => {
+                  const base = { r, c: ci + 1 };
+                  const count = kids.length + planned.length;
+                  return (
+                    <div role="gridcell" key={col.id} aria-label={cellName(row.title, col.name, count)} className="px-2 py-1.5 border-l border-line flex flex-col gap-1">
+                      {col.is_done && !options.showDone ? (
+                        row.rollup.visible && row.rollup.done > 0 ? (
+                          <button
+                            type="button"
+                            {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })}
+                            aria-label={`${row.rollup.done} done. Show done cards`}
+                            onClick={() => onOptionsChange({ ...options, showDone: true })}
+                            className={`${FOCUS} ${tgt} text-left text-xs text-fg-secondary hover:text-fg rounded`}
+                          >
+                            {row.rollup.done} done · <span className="text-link">Show</span>
+                          </button>
+                        ) : (
+                          <span {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })} className={`${FOCUS} text-xs text-fg-secondary rounded`}>0 done</span>
+                        )
+                      ) : (
+                        <>
+                          {kids.map((k, i) => renderChild(k, col.name, { ...base, i, key: `${gridKey}:${r}:${ci + 1}:${i}` }, gridKey, focusProps, row))}
+                          {planned.length > 0 && (
+                            <button
+                              type="button"
+                              {...focusProps({ ...base, i: kids.length, key: `${gridKey}:${r}:${ci + 1}:${kids.length}` })}
+                              aria-expanded={false}
+                              onClick={() => setPlannedOpen((s) => toggle(s, row.id))}
+                              className={`${FOCUS} ${tgt} text-left rounded border border-dashed border-line-strong px-2 text-xs text-fg-secondary hover:text-fg`}
+                            >
+                              {planned.length} planned · <span className="text-link">Show</span>
+                            </button>
+                          )}
+                          {kids.length === 0 && planned.length === 0 && (
+                            <span {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })} className={`${FOCUS} block min-h-6 rounded`} />
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div ref={rootRef} data-testid="children-mode" className="flex-1 min-h-0 overflow-y-auto bg-surface-sunken">
+      <div className="flex items-center gap-3 px-4 py-2 text-sm text-fg-secondary">
+        <span data-testid="children-board-total"><span className="font-semibold text-fg">{shownInProgress(data.board_total)}</span> in progress</span>
+        <span role="status" aria-live="polite" className="sr-only">{copied}</span>
+      </div>
+      {lanes.map((lane) => {
+        const isCollapsed = collapsed.has(lane.id);
+        const laneRows = data.rows.filter((r) => r.swimlane_id === lane.id);
+        const large = lane.parents > LARGE_LANE_PARENTS;
+        const unfolded = laneRows.filter((r) => r.rollup.visible && !isFoldedRow(r, options.planned));
+        const folded = laneRows.filter((r) => isFoldedRow(r, options.planned));
+        const locked = laneRows.filter((r) => !r.rollup.visible);
+        const foldShown = foldOpen.has(lane.id);
+        const drawn = [...unfolded, ...(foldShown ? folded : [])]
+          .filter((r) => !options.blockedOnly || (r.rollup.visible && r.rollup.blocked > 0));
+        const sectionIds = [...new Set(drawn.map((r) => r.child_board_id).filter((id): id is number => id != null))];
+        const maxCols = Math.max(0, ...sectionIds.map((id) => boards.get(id)?.columns.length ?? 0));
+        const remaining = lane.parents - (loadedPerLane.get(lane.id) ?? 0);
+        const plannedOnlyFolded = options.planned === "only" ? 0 : lane.planned_only;
+        return (
+          <section key={lane.id} aria-label={`${lane.name} lane`} className="mx-3 mb-3 rounded-lg border border-line bg-surface">
+            <div role="group" aria-label={laneBandName(lane)} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 bg-surface-raised rounded-t-lg">
+              <h3 className="m-0">
+                <button
+                  type="button"
+                  data-lane-toggle={lane.id}
+                  aria-expanded={!isCollapsed}
+                  aria-label={phone
+                    ? `${isCollapsed ? "Expand" : "Collapse"} lane ${lane.name}, ${shownInProgress(lane)} in progress of ${lane.total}`
+                    : `${isCollapsed ? "Expand" : "Collapse"} ${lane.name}`}
+                  onClick={() => setCollapsed((s) => toggle(s, lane.id))}
+                  className={`${FOCUS} ${tgt} flex items-center gap-2 rounded text-[17px] font-semibold text-fg`}
+                >
+                  <span aria-hidden="true">{isCollapsed ? "▸" : "▾"}</span>
+                  {lane.name}
+                </button>
+              </h3>
+              <span className="text-xs text-fg-secondary">{isCollapsed ? parentsLabel(lane.parents) : laneSubtitle(lane)}</span>
+              <span className="text-sm text-fg">{laneTotalLabel(lane)}</span>
+              <LaneBar lane={lane} />
+              <span className={`text-sm ${lane.blocked > 0 ? "text-danger font-medium" : "text-fg-secondary"}`}>{laneBlockedLabel(lane)}</span>
+              {lane.hidden > 0 && <span className="text-sm text-fg-secondary"><span aria-hidden="true">🔒 </span>+{lane.hidden} on a board you can&apos;t open</span>}
+              <span className="flex-1" />
+              <button type="button" onClick={() => void copyLink(lane)} className={`${FOCUS} ${tgt} px-2 text-xs text-fg-secondary rounded hover:bg-surface-hover hover:text-fg`}>
+                Copy link
+              </button>
+            </div>
+            {!isCollapsed && (
+              <div className="pb-2">
+                {sectionIds.map((id) => {
+                  const b = boards.get(id);
+                  return b ? renderSection(lane, b, drawn.filter((r) => r.child_board_id === id), maxCols, large) : null;
+                })}
+                {locked.map((row) => (
+                  <div key={row.id} className="mx-2 mt-2 flex items-center gap-2 rounded border border-dashed border-line-strong px-3 py-2 text-sm text-fg-secondary">
+                    <span aria-hidden="true">🔒</span>
+                    <span className="font-medium text-fg">{row.title}</span>
+                    <span>{lockedRowText(row.rollup.total)}</span>
+                  </div>
+                ))}
+                {folded.length > 0 && (
+                  <button
+                    type="button"
+                    aria-expanded={foldShown}
+                    onClick={() => setFoldOpen((s) => toggle(s, lane.id))}
+                    className={`${FOCUS} ${tgt} mx-2 mt-2 px-3 text-sm text-fg-secondary rounded border border-line hover:bg-surface-hover`}
+                  >
+                    {foldLabel(lane.folded, plannedOnlyFolded)}
+                  </button>
+                )}
+                {remaining > 0 && lastLaneWithRows === lane.id && data.next_cursor && (
+                  <button
+                    type="button"
+                    disabled={loadingMore}
+                    onClick={() => void loadMore()}
+                    className={`${FOCUS} ${tgt} mx-2 mt-2 px-3 text-sm text-link rounded hover:bg-surface-hover`}
+                  >
+                    {moreParentsLabel(remaining, phone)}
+                  </button>
+                )}
+                {laneRows.length === 0 && lane.parents === 0 && <p className="px-3 py-2 text-sm text-fg-secondary">No parents in this lane.</p>}
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
