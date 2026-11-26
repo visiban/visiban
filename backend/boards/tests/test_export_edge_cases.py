@@ -38,7 +38,7 @@ class CsvSpecialCharacterTests(TestCase):
         )
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
+        reader = csv.reader(io.StringIO(r.getvalue().decode("utf-8")))
         rows = list(reader)
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[1][1], "Fix bug, refactor code, deploy")
@@ -49,7 +49,7 @@ class CsvSpecialCharacterTests(TestCase):
             title='Update "README" file', created_by=self.owner, position=0,
         )
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
+        reader = csv.reader(io.StringIO(r.getvalue().decode("utf-8")))
         rows = list(reader)
         self.assertEqual(rows[1][1], 'Update "README" file')
 
@@ -60,7 +60,7 @@ class CsvSpecialCharacterTests(TestCase):
             created_by=self.owner, position=0,
         )
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
+        reader = csv.reader(io.StringIO(r.getvalue().decode("utf-8")))
         rows = list(reader)
         self.assertEqual(len(rows), 2)
         self.assertIn("Line 1", rows[1][2])
@@ -75,7 +75,7 @@ class CsvSpecialCharacterTests(TestCase):
             title="=SUM(A1:A10)", created_by=self.owner, position=0,
         )
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
+        reader = csv.reader(io.StringIO(r.getvalue().decode("utf-8")))
         rows = list(reader)
         # The leading = must be stripped to neutralize the formula injection vector.
         self.assertEqual(rows[1][1], "SUM(A1:A10)")
@@ -128,7 +128,7 @@ class ExportEmptyBoardTests(TestCase):
     def test_csv_empty_board_has_header_only(self):
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
+        reader = csv.reader(io.StringIO(r.getvalue().decode("utf-8")))
         rows = list(reader)
         self.assertEqual(len(rows), 1)  # header only
 
@@ -159,7 +159,7 @@ class ExportFieldCompletenessTests(TestCase):
 
     def test_csv_header_contains_all_expected_fields(self):
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
+        reader = csv.reader(io.StringIO(r.getvalue().decode("utf-8")))
         header = next(reader)
         expected = [
             "Card ID", "Title", "Description", "Column", "Swimlane",

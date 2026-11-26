@@ -390,7 +390,7 @@ This is the delivery source for OSS webhooks — see [Open-core boundary § Outg
 
 ### BoardExportLog
 
-Records a successful board export (#842): actor, the role they held at export time, format, and row count. Only successful exports are logged; a denied attempt never reached the data. `actor` is `SET_NULL` so the row survives the user's later deactivation, and `role_at_export` is captured verbatim so a later role change doesn't rewrite history.
+Records a successful board export (#842): actor, the role they held at export time, format, and row count. Only successful exports are logged, with one exception since 1.3 (#2585): a streamed CSV download is recorded before its first byte is sent, so one that is interrupted partway is logged too, with the board's card count as `row_count`. A denied attempt never reached the data and is not logged. `actor` is `SET_NULL` so the row survives the user's later deactivation, and `role_at_export` is captured verbatim so a later role change doesn't rewrite history.
 
 ### BoardTemplate
 

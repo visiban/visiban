@@ -841,7 +841,7 @@ class SwimlaneCustomFieldExportTests(SwimlaneCustomFieldTestBase):
 
     def test_csv_uses_a_distinct_header_prefix(self):
         r = self.client.get(self.export_url)
-        header = r.content.decode().splitlines()[0]
+        header = r.getvalue().decode().splitlines()[0]
         self.assertIn("Swimlane Custom: Region", header)
         # The card-field namespace must not be reused — a board may define a
         # card field and a row field with the same name.
@@ -849,14 +849,14 @@ class SwimlaneCustomFieldExportTests(SwimlaneCustomFieldTestBase):
 
     def test_csv_denormalizes_the_value_onto_the_card_row(self):
         r = self.client.get(self.export_url)
-        body = r.content.decode()
+        body = r.getvalue().decode()
         self.assertIn("EMEA", body)
 
     def test_csv_withholds_an_admin_only_column_from_a_member(self):
         r = self._client_for(self.member).get(self.export_url)
         if r.status_code != status.HTTP_200_OK:
             self.skipTest("board export is admin-restricted in this configuration")
-        body = r.content.decode()
+        body = r.getvalue().decode()
         self.assertNotIn("Swimlane Custom: ARR", body)
         self.assertNotIn("250000", body)
 
@@ -962,6 +962,7 @@ class SwimlaneCustomFieldQueryCountTests(SwimlaneCustomFieldTestBase):
             _make_card(column, lane, title=f"Export card {i}")
         with CaptureQueriesContext(connection) as ctx:
             r = self.client.get(url)
+            r.getvalue()  # streamed (#2585): the card queries run here
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         baseline = len(ctx.captured_queries)
 
@@ -969,6 +970,7 @@ class SwimlaneCustomFieldQueryCountTests(SwimlaneCustomFieldTestBase):
             _make_card(column, lane, title=f"Extra export card {i}")
         with CaptureQueriesContext(connection) as ctx:
             r = self.client.get(url)
+            r.getvalue()
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(ctx.captured_queries), baseline)
 
@@ -1310,7 +1312,7 @@ class SwimlaneCustomFieldMultiSelectTypeTests(SwimlaneCustomFieldTestBase):
             value='["EMEA","APAC"]',
         )
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        rows = list(csv.reader(io.StringIO(r.content.decode())))
+        rows = list(csv.reader(io.StringIO(r.getvalue().decode())))
         col = rows[0].index("Swimlane Custom: Markets")
         self.assertEqual(rows[1][col], "EMEA; APAC")
 
@@ -1536,7 +1538,7 @@ class SwimlaneCustomFieldNumberFormatTests(SwimlaneCustomFieldTestBase):
             (schema["number_prefix"], schema["number_suffix"], schema["number_decimals"]),
             ("$", "", 2),
         )
-        rows = list(csv.reader(io.StringIO(self.client.get(export_url).content.decode())))
+        rows = list(csv.reader(io.StringIO(self.client.get(export_url).getvalue().decode())))
         self.assertEqual(rows[1][rows[0].index("Swimlane Custom: ARR")], "250000")
 
 

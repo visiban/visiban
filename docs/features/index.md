@@ -468,7 +468,7 @@ The **moderator** entitlement lets a board admin delegate content-moderation rig
 
 ## Board export and per-board threshold
 
-By default any board member (including Collaborators and Viewers) can export the full CSV or JSON dump. Board admins can restrict exports to a higher minimum role via the `export_min_role` board setting, which limits only the export action and file formats, not ordinary reads. A per-board export history log records every successful export and is visible to board admins.
+By default any board member (including Collaborators and Viewers) can export the full CSV or JSON dump. Board admins can restrict exports to a higher minimum role via the `export_min_role` board setting, which limits only the export action and file formats, not ordinary reads. A per-board export history log records every successful export (and, since 1.3, a CSV download interrupted partway) and is visible to board admins.
 
 → [Board & Cards — Export](board.md#export-import)
 

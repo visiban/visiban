@@ -1,5 +1,6 @@
 """BoardViewSet mixin for CSV/JSON import and export actions."""
 
+import asyncio
 import collections
 import contextlib
 import csv
@@ -17,12 +18,14 @@ import reprlib
 import traceback
 import zoneinfo
 
+from asgiref.sync import sync_to_async
 from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import DataError, IntegrityError, transaction
+from django.core.handlers.asgi import ASGIRequest
 from django.db.models import Prefetch
-from django.http import HttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 from rest_framework import serializers as drf_serializers
@@ -372,8 +375,12 @@ def _deleted_card_history_export(board, exported_uids=frozenset()):
     oldest first. A gate transition's ``movement_index`` points into the same
     entry's ``movements``. ``card_title`` is the newest snapshot among the
     card's rows. Read by the rows' own ``board``, as Board History reads them:
-    four queries whatever the size (each served by a ``(board, ...)`` index),
-    no per-card query.
+    four queries for fewer than ``_EXPORT_CHUNK_SIZE`` rows of each type, no
+    per-card query. Each type is read in chunks like the live cards
+    (:func:`_iter_export_rows`, #2581), so the model instances held are
+    bounded however many deleted cards a long-lived board has; the entries
+    themselves are still built whole. Movements and activities, the two large
+    types, each have a partial ``card IS NULL`` index (migrations 0146, 0147).
 
     Not in the CSV export: a CSV row is a card, and the CSV importer creates a
     card from every row, so a deleted card there would come back to life
@@ -385,25 +392,23 @@ def _deleted_card_history_export(board, exported_uids=frozenset()):
     each card once (an import would otherwise restore it twice, live and
     deleted).
     """
-    movements = (
+    movements = _iter_export_rows(
         CardMovement.objects.filter(board=board, card__isnull=True)
-        .select_related("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by")
-        .order_by("moved_at", "id")
+        .select_related("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"),
+        ("moved_at", "id"),
     )
-    activities = (
-        CardActivity.objects.filter(board=board, card__isnull=True)
-        .select_related("actor", "assigned_by")
-        .order_by("created_at", "id")
+    activities = _iter_export_rows(
+        CardActivity.objects.filter(board=board, card__isnull=True).select_related("actor", "assigned_by"),
+        ("created_at", "id"),
     )
-    blocks = (
+    blocks = _iter_export_rows(
         CardBlock.objects.filter(board=board, card__isnull=True)
-        .select_related("blocked_by", "unblocked_by")
-        .order_by("blocked_at", "id")
+        .select_related("blocked_by", "unblocked_by"),
+        ("blocked_at", "id"),
     )
-    gate_transitions = (
-        CardGateTransition.objects.filter(board=board, card__isnull=True)
-        .select_related("actor")
-        .order_by("created_at", "id")
+    gate_transitions = _iter_export_rows(
+        CardGateTransition.objects.filter(board=board, card__isnull=True).select_related("actor"),
+        ("created_at", "id"),
     )
     entries = {}
     newest = {}
@@ -451,15 +456,23 @@ def _deleted_card_history_export(board, exported_uids=frozenset()):
     )
 
 
-# Cards per chunk of the board export (#1962). Each chunk is one card query
+# Rows per chunk of the board export (#1962), cards and deleted-card history. Each chunk is one card query
 # plus one query per prefetch; a board of fewer than this many cards exports in
-# the same queries as before chunking (see _iter_export_cards). A full first
+# the same queries as before chunking (see _iter_export_rows). A full first
 # page, exactly this many cards, takes the id-list path and adds one query.
 _EXPORT_CHUNK_SIZE = 500
 
 
 def _iter_export_cards(queryset):
-    """Yield the export's cards in ``(position, id)`` order, one chunk at a time (#1962).
+    """Yield the export's cards in ``(position, id)`` order, one chunk at a time (#1962)."""
+    return _iter_export_rows(queryset, ("position", "id"))
+
+
+def _iter_export_rows(queryset, order):
+    """Yield ``queryset`` in ``order`` (ending in ``id``), one chunk at a time (#1962).
+
+    Cards, and since #2581 each record type of ``deleted_card_history``;
+    "card" below means any row of ``queryset``.
 
     The first chunk is a plain ``LIMIT`` page. A board of fewer than
     ``_EXPORT_CHUNK_SIZE`` cards is wholly in a not-full page, so it exports in one card
@@ -495,7 +508,7 @@ def _iter_export_cards(queryset):
     ``relations`` indexes, reproducible.
     """
     size = _EXPORT_CHUNK_SIZE
-    ordered = queryset.order_by("position", "id")
+    ordered = queryset.order_by(*order)
     first_page = list(ordered[:size])
     if len(first_page) < size:
         yield from first_page
@@ -511,6 +524,61 @@ def _iter_export_cards(queryset):
             card = held.pop(pk, None) or by_pk.get(pk)
             if card is not None:
                 yield card
+
+
+def _csv_export_chunks(header, rows, emitted):
+    """Yield the CSV export's text, ``_EXPORT_CHUNK_SIZE`` rows at a time (#2585).
+
+    One ``csv.writer`` buffer, emptied after each chunk, so the pieces join to
+    the same text a single buffer would hold. The header leads the first chunk,
+    so there is always one, even for an empty board. ``emitted`` is a
+    one-item list counting the rows written, for the audit row.
+    """
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(header)
+    for row in rows:
+        writer.writerow(row)
+        emitted[0] += 1
+        if emitted[0] % _EXPORT_CHUNK_SIZE == 0:
+            yield buf.getvalue()
+            buf.seek(0)
+            buf.truncate()
+    if buf.tell():
+        yield buf.getvalue()
+
+
+async def _stream_under_asgi(chunks, board_id):
+    """Hand a sync chunk generator to an ASGI server one chunk at a time (#2585).
+
+    Django consumes a synchronous iterator whole before sending it under ASGI,
+    which would put the body back in memory. Each ``next`` runs on the
+    request's sync thread, where its database connection lives. This bounds
+    the rows being built, not the bytes: daphne applies no backpressure, so
+    what a slow client has not read waits in the proxy's or server's buffer.
+    The caller's permissions were decided when the request was made.
+
+    A failure after the response started must not escape: under daphne it
+    stops the loop that reaps every application instance in the process, and
+    ending the iteration normally would send a truncated file as a complete
+    one. ``CancelledError`` is what Django's handler treats as "stop sending":
+    the body is never terminated, so the client or proxy sees a failed
+    download once it times out.
+    """
+    done = object()
+    pull = sync_to_async(next)
+    while True:
+        try:
+            chunk = await pull(chunks, done)
+            # Encoded here so that an encoding error is caught too.
+            if chunk is not done:
+                chunk = chunk.encode("utf-8")
+        except Exception:
+            logger.exception("CSV export of board %s failed after the response started", board_id)
+            raise asyncio.CancelledError
+        if chunk is done:
+            return
+        yield chunk
 
 
 def _relations_export(board, card_index):
@@ -4115,21 +4183,18 @@ class BoardImportExportMixin:
         # Not materialized (#1962): both branches read it through
         # _iter_export_cards, in chunks, so the model instances and
         # their prefetched history are bounded per chunk however large the
-        # board. The output text is still assembled in memory.
+        # board. The CSV body is streamed a chunk at a time (#2585); the JSON
+        # document is still assembled in memory.
         cards = (
             Card.objects.filter(board=board)
-            .select_related("column", "swimlane", "assignee", "created_by", "external_ref")
+            .select_related("column", "swimlane", "assignee", "created_by")
+            # Only what both formats read; the JSON branch adds the rest, so a
+            # CSV chunk does not also load comments and activities (#2585).
             .prefetch_related(
                 "labels",
                 "movements__from_column",
                 "movements__to_column",
-                "movements__from_swimlane",
-                "movements__to_swimlane",
                 "movements__moved_by",
-                "comments__author",
-                "checklist_items__assignee",
-                # assigned_by (#2594) joined into the same activity query.
-                Prefetch("activities", queryset=CardActivity.objects.select_related("actor", "assigned_by")),
                 # Custom field values (#371) — one query for the whole export,
                 # with the definition joined so neither branch below resolves a
                 # per-card FK.
@@ -4141,10 +4206,6 @@ class BoardImportExportMixin:
                 "swimlane__custom_field_values__field_definition",
             )
         )
-        # Row count for the audit log (#842), counted by each branch as it
-        # walks the cards (no extra COUNT query).
-        row_count = 0
-
         # Custom field definitions for this board, in display order (#371).
         # Materialized once: the CSV branch needs one column per definition and
         # the JSON branch exports the schema alongside the values, and both
@@ -4253,7 +4314,13 @@ class BoardImportExportMixin:
             # Manual block history (#1149): JSON only, so the CSV branch does
             # not pay for queries it never reads. On the queryset, so it runs
             # per chunk like the other prefetches.
-            cards = cards.prefetch_related(
+            cards = cards.select_related("external_ref").prefetch_related(
+                "movements__from_swimlane",
+                "movements__to_swimlane",
+                "comments__author",
+                "checklist_items__assignee",
+                # assigned_by (#2594) joined into the same activity query.
+                Prefetch("activities", queryset=CardActivity.objects.select_related("actor", "assigned_by")),
                 "blocks__blocked_by", "blocks__unblocked_by",
                 # Gate history (#1102), JSON only like blocks.
                 "gate_transitions__actor",
@@ -4521,9 +4588,7 @@ class BoardImportExportMixin:
             )
             return response
 
-        # Default: CSV export
-        buf = io.StringIO()
-        writer = csv.writer(buf)
+        # Default: CSV export, streamed a chunk of cards at a time (#2585).
         # Custom field columns are appended after the fixed set (#371), so every
         # existing column keeps its position and a consumer reading by index
         # still works. The `Custom: ` prefix keeps a field named "Title" or
@@ -4548,18 +4613,18 @@ class BoardImportExportMixin:
             _sanitize_csv_field(f"Swimlane Custom: {sf.name}")
             for sf in swimlane_field_definitions
         ]
-        writer.writerow([
+        header = [
             "Card ID", "Title", "Description", "Column", "Swimlane",
             "Priority", "Assignee", "Labels", "Due Date", "Weight",
             "Created At", "Created By", "Last Moved At", "Movement Count",
             "Movement History",
             *custom_field_headers,
             *swimlane_field_headers,
-        ])
+        ]
 
-        s = _sanitize_csv_field  # local alias for brevity in the writerow calls below
-        for card in _iter_export_cards(cards):
-            row_count += 1
+        s = _sanitize_csv_field  # local alias for brevity in the row below
+
+        def _csv_row(card):
             movements = sorted(card.movements.all(), key=lambda m: (m.moved_at, m.id))
             # Sorted in Python, not .order_by(): labels are prefetched, and Label has no
             # Meta.ordering, so the DB returns them in arbitrary order. A stable
@@ -4603,7 +4668,7 @@ class BoardImportExportMixin:
                 for sf in swimlane_field_definitions
             ]
 
-            writer.writerow([
+            return [
                 card.id,
                 s(card.title),
                 s(card.description),
@@ -4621,19 +4686,38 @@ class BoardImportExportMixin:
                 history,
                 *custom_cells,
                 *swimlane_cells,
-            ])
+            ]
 
-        response = HttpResponse(buf.getvalue(), content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="{safe_name}-{stamp}.csv"'
-        response["Cache-Control"] = "no-store"
-        # #842: audit-log the successful export (see note in JSON branch).
-        BoardExportLog.objects.create(
+        emitted = [0]
+        chunks = _csv_export_chunks(header, map(_csv_row, _iter_export_cards(cards)), emitted)
+        # The first chunk is built here, so a failure in it is still a 500 and
+        # not a cut-off 200.
+        first = next(chunks)
+        # #842: the audit row is written before the first byte leaves, because
+        # an interrupted download has still sent data. It carries the board's
+        # card count until the stream completes, then the rows actually sent.
+        audit = BoardExportLog.objects.create(
             board=board,
             actor=request.user,
             role_at_export=_role_at_export(board, request.user, role),
             export_format="csv",
-            row_count=row_count,
+            row_count=Card.objects.filter(board=board).count(),
         )
+
+        def _body(head):
+            yield from head
+            yield from chunks
+            if emitted[0] != audit.row_count:
+                BoardExportLog.objects.filter(pk=audit.pk).update(row_count=emitted[0])
+
+        # iter() over a one-item list drops the first chunk once it is sent.
+        body = _body(iter([first]))
+        del first
+        if isinstance(request._request, ASGIRequest):
+            body = _stream_under_asgi(body, board.pk)
+        response = StreamingHttpResponse(body, content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{safe_name}-{stamp}.csv"'
+        response["Cache-Control"] = "no-store"
         return response
 
     @extend_schema(

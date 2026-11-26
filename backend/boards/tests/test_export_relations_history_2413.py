@@ -139,7 +139,7 @@ class _Fixture(TestCase):
 
     def export(self, fmt="json"):
         resp = self.client.get(f"/api/v1/boards/{self.board.pk}/export/", {"format": fmt})
-        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.status_code, 200)
         return resp
 
     def export_json(self):
@@ -451,7 +451,7 @@ class ChunkedExportTests(_Fixture):
 
     def _exports(self):
         cache.clear()
-        return self.export("json").content, self.export("csv").content
+        return self.export("json").getvalue(), self.export("csv").getvalue()
 
     def test_output_is_the_same_whatever_the_chunk_size(self):
         self.build_rich_board()
@@ -477,7 +477,7 @@ class ChunkedExportTests(_Fixture):
         self.build_rich_board()
         with mock.patch.object(ie, "_EXPORT_CHUNK_SIZE", 3):
             self.export("json")
-            self.export("csv")
+            self.export("csv").getvalue()
         self.assertEqual(
             list(BoardExportLog.objects.order_by("id").values_list("export_format", "row_count")),
             [("json", 4), ("csv", 4)],
@@ -485,7 +485,7 @@ class ChunkedExportTests(_Fixture):
 
     def test_empty_board_exports(self):
         self.assertEqual(self.export_json()["cards"], [])
-        self.assertEqual(len(self.export("csv").content.decode().splitlines()), 1)
+        self.assertEqual(len(self.export("csv").getvalue().decode().splitlines()), 1)
 
     def test_chunk_queries_grow_with_chunks_not_cards(self):
         self.build_rich_board()
@@ -493,7 +493,8 @@ class ChunkedExportTests(_Fixture):
         def count(size):
             cache.clear()
             with mock.patch.object(ie, "_EXPORT_CHUNK_SIZE", size), CaptureQueriesContext(connection) as ctx:
-                self.export("csv")
+                # Streamed (#2585): the card queries run as the body is read.
+                self.export("csv").getvalue()
             return len(ctx.captured_queries)
 
         # 4 cards: at 5 (or 500) one page, as before chunking.

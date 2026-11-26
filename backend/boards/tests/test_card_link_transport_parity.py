@@ -122,6 +122,10 @@ class ExportLinkParityTests(_LinkedBoards, TestCase):
     def _export(self, board, fmt):
         with CaptureQueriesContext(connection) as ctx:
             res = self.client.get(f"/api/v1/boards/{board.pk}/export/?format={fmt}")
+            # The CSV is streamed (#2585), so its queries run as the body is
+            # read: read it here, then hand the same bytes back to the caller.
+            if res.streaming:
+                res.streaming_content = [_body(res)]
         self.assertEqual(res.status_code, 200)
         self.assertEqual(_link_queries(ctx), [], f"{fmt} export of {board.name} read the link table")
         return res

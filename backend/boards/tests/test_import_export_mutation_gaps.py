@@ -2456,7 +2456,7 @@ class ExportCsvShapeTests(ExportBase):
     ]
 
     def rows(self, **kw):
-        return list(csv.reader(io.StringIO(self.export("csv", **kw).content.decode())))
+        return list(csv.reader(io.StringIO(self.export("csv", **kw).getvalue().decode())))
 
     def test_header_row_without_cards(self):
         self.assertEqual(self.rows(), [self.HEADER])
@@ -3163,7 +3163,7 @@ class ExportGapTests(ExportBase):
         )
         CardMovement.objects.filter(pk=mv.pk).update(moved_at=when)
         rows = list(
-            csv.reader(io.StringIO(self.export("csv").content.decode()))
+            csv.reader(io.StringIO(self.export("csv").getvalue().decode()))
         )
         history_idx = rows[0].index("Movement History")
         self.assertEqual(rows[1][history_idx], f"{when.isoformat()}|Todo||owner")

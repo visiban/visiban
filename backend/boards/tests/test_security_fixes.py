@@ -84,7 +84,7 @@ class SanitizeCsvFieldTests(TestCase):
         client.force_authenticate(owner)
         r = client.get(f"/api/v1/boards/{board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        content = r.content.decode("utf-8")
+        content = r.getvalue().decode("utf-8")
         # The leading = must be stripped in the CSV output.
         self.assertNotIn("=HYPERLINK", content)
         # Python's csv module escapes double-quotes by doubling them, so the

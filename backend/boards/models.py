@@ -213,15 +213,20 @@ class Board(models.Model):
         max_length=20,
         default="comfortable",
         help_text=(
-            "Per-board card layout density (#961). Drives how much metadata "
-            "renders on the card face: ``comfortable`` shows one urgency badge "
-            "and one primary label, ``standard`` adds due date and weight, "
-            "``dense`` shows everything (today's pre-1.1 layout). New boards "
-            "default to ``comfortable`` so first-time users get the cleaner "
-            "scan; existing boards are migrated to ``dense`` to preserve their "
-            "current visual. The middle tier is named ``standard`` rather than "
-            "``compact`` to avoid colliding with the per-user *Card layout: "
-            "Compact / Expanded* toolbar pref. Validated at the serializer layer."
+            "Per-board card layout density (#961): how much the card face "
+            "draws. ``comfortable``: the title on up to two lines with its "
+            "subtitle, one label plus an overflow count, and the status line "
+            "(overdue, due soon or stale) on its own row. ``standard``: a "
+            "one-line title and a second label, with the status line sharing "
+            "the metadata row, plus a due date not already in the status line, "
+            "a weight above 1, the attachment count and the reference link "
+            "text. ``dense``: a single row with the title, a short status and "
+            "the first pinned field with a value, and the assignee avatar. New "
+            "boards default to ``comfortable``; boards that existed at 1.1 "
+            "were set to ``dense``. The middle tier is named ``standard`` "
+            "rather than ``compact`` to avoid colliding with the per-user "
+            "*Card layout: Compact / Expanded* toolbar pref. Validated at the "
+            "serializer layer."
         ),
     )
     # ``db_default`` keeps the DB-level default so an old pod's INSERT that omits
@@ -1376,6 +1381,15 @@ class CardMovement(models.Model):
                 fields=["board", "moved_at", "card"],  # pragma: no mutate -- schema constant (migration-check)
                 name="movement_board_moved_card_idx",  # pragma: no mutate -- schema constant (migration-check)
             ),
+            # The JSON export's deleted_card_history (#2581): a board's
+            # card-less rows, oldest first. Without it the read walks every
+            # board's rows. Partial, so a live card's movement costs nothing.
+            # Built concurrently in migration 0146.
+            models.Index(
+                fields=["board", "moved_at", "id"],  # pragma: no mutate -- schema constant (migration-check)
+                condition=models.Q(card__isnull=True),  # pragma: no mutate -- schema constant (migration-check)
+                name="movement_deleted_board_idx",  # pragma: no mutate -- schema constant (migration-check)
+            ),
         ]
 
     def save(self, *args, **kwargs):
@@ -1703,6 +1717,13 @@ class CardActivity(models.Model):
                 fields=["assigned_by"],  # pragma: no mutate -- schema constant (migration-check)
                 name="activity_assigned_by_idx",  # pragma: no mutate -- schema constant (migration-check)
                 condition=models.Q(assigned_by__isnull=False),
+            ),
+            # The export's card-less read (#2581), as movement_deleted_board_idx.
+            # Built concurrently in migration 0147.
+            models.Index(
+                fields=["board", "created_at", "id"],  # pragma: no mutate -- schema constant (migration-check)
+                condition=models.Q(card__isnull=True),  # pragma: no mutate -- schema constant (migration-check)
+                name="activity_deleted_board_idx",  # pragma: no mutate -- schema constant (migration-check)
             ),
         ]
 
@@ -2113,10 +2134,12 @@ class SavedFilter(models.Model):
 class BoardExportLog(models.Model):
     """Audit entry for a successful board export (#842).
 
-    Written by ``BoardImportExportMixin.export`` after the response body is
-    assembled. Deliberately records only successful exports — a denied
-    attempt never reached the data, so it is not an exfiltration event.
-    Failed-export logging is tracked as a 1.2 follow-up.
+    Written by ``BoardImportExportMixin.export``: after the response body is
+    assembled for JSON, and before the first byte is sent for the streamed
+    CSV (#2585), where ``row_count`` is the board's card count until the
+    stream completes. A CSV download that is cut off therefore still has its
+    row, since data left the server. A denied attempt never reached the data,
+    so it is not an exfiltration event and is not recorded.
 
     The ``actor`` FK is SET_NULL so the audit row survives user
     deactivation — admins investigating a past export must still be able to
