@@ -10,7 +10,8 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { BoardFull, CardChildRow, CardChildrenColumn } from "../../types";
 import { formatBlockedDuration } from "../../utils/blockedState";
 import { colorChipStyle } from "../../utils/colorContrast";
-import { formatDueDate, formatRelativeTime, todayInTimezone } from "../../utils/date";
+import { formatDueDate, todayInTimezone } from "../../utils/date";
+import { shortAge } from "./childrenRollup";
 import { buildPlannedStatusLine } from "../../utils/cardStatusLine";
 import PlannedMoveWarning, { plannedMoveWarningText } from "./PlannedMoveWarning";
 import { useSharedMinuteClock } from "../../hooks/useSharedMinuteClock";
@@ -483,8 +484,8 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
               <span className="text-base font-semibold text-fg">{doneLine(counts.done)}</span>
               {counts.blocked > 0 && <span className="text-sm text-danger"><span aria-hidden="true">⊘ </span>{counts.blocked} blocked</span>}
               {counts.planned > 0 && <span className="text-sm text-fg-tertiary" data-testid="children-planned-count">{counts.planned} planned</span>}
-              {lastMovedAt && formatRelativeTime(lastMovedAt, clock) && (
-                <span className="text-sm text-fg-tertiary" data-testid="children-work-moved">Work moved {formatRelativeTime(lastMovedAt, clock)}</span>
+              {lastMovedAt && !Number.isNaN(new Date(lastMovedAt).getTime()) && (
+                <span className="text-sm text-fg-tertiary" data-testid="children-work-moved">Work moved {shortAge(lastMovedAt, clock)}</span>
               )}
             </div>
             <div
