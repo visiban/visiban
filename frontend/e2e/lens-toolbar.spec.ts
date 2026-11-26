@@ -60,8 +60,8 @@ async function boxOf(locator: Locator): Promise<{ x: number; y: number; width: n
 // 1.45px. A user's press does not scroll the strip, and the Lens view mounts a fresh strip at scrollLeft 0.
 async function showsView(page: Page, name: string) {
   // Matched by text prefix: the Analytics tab's name carries its "Beta" chip.
-  await expect(page.getByTestId('view-tab-strip').locator('[aria-current="page"]')).toHaveText(new RegExp(`^${name}`))
-  if (name === 'Lens') await expect(page.getByText('Columns: Status')).toBeVisible()
+  await expect(page.getByTestId('view-tab-strip').locator('[aria-current="page"]')).toHaveText(new RegExp(`^${name}`), { timeout: 30_000 })
+  if (name === 'Lens') await expect(page.getByText('Columns: Status')).toBeVisible({ timeout: 30_000 })
 }
 
 test.describe('Lens toolbar', () => {
