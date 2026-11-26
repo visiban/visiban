@@ -427,9 +427,6 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello,
     >
         {/* Body */}
         <div className="px-4 sm:px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
-          <p className="text-xs">
-            <HelpLink topic="board.import" variant="text" />
-          </p>
           {!source && (
             <SampleGallery
               samples={samples}
@@ -507,7 +504,10 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello,
             <>
               <div className="flex gap-2.5 bg-surface-hover/50 border border-line-strong rounded-lg px-3 py-2.5 text-xs text-fg-secondary">
                 <span className="shrink-0 text-fg-tertiary mt-px" aria-hidden="true">ℹ</span>
-                <span>Imports are limited to <strong className="text-fg">500 cards</strong>, <strong className="text-fg">50 columns</strong>, and <strong className="text-fg">100 swimlanes</strong>. For larger boards, split into smaller boards before importing.</span>
+                <div>
+                  <p>Imports are limited to <strong className="text-fg">500 cards</strong>, <strong className="text-fg">50 columns</strong>, and <strong className="text-fg">100 swimlanes</strong>. For larger boards, split into smaller boards before importing.</p>
+                  <p><HelpLink topic="board.import" variant="text" /></p>
+                </div>
               </div>
 
               {onSwitchToTrello && !submitting && (

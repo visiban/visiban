@@ -95,7 +95,7 @@ export default function SavedFiltersDropdown({
   // Portaled out of the trigger's DOM, so Tab from the trigger would skip the
   // menu: move focus in once it is placed and visible (#1482).
   const focusFirst = useCallback(() => {
-    panelRef.current?.querySelector<HTMLElement>("button:not([disabled]), input")?.focus();
+    panelRef.current?.querySelector<HTMLElement>("button:not([disabled]), input, a[href]")?.focus();
   }, []);
 
   const dismiss = useCallback(() => { setOpen(false); setSaveMode(false); }, [setOpen]);

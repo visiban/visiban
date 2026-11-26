@@ -120,6 +120,8 @@ describe('Needs attention (#2263)', () => {
     const user = userEvent.setup()
     renderIt([item(42)], onOpenCard)
     await user.tab()
+    expect(screen.getByRole('link', { name: /Learn more about needs attention/ })).toHaveFocus()
+    await user.tab()
     expect(screen.getByRole('button', { name: /Card 42/ })).toHaveFocus()
     await user.keyboard('{Enter}')
     await user.keyboard(' ')

@@ -198,6 +198,12 @@ describe("SavedFiltersDropdown menu (#1482)", () => {
     expect(screen.getByText(/save current filters/i).closest("button")).toHaveFocus();
   });
 
+  it("focuses the help link when the empty menu has no enabled control (#2593)", async () => {
+    render(<SavedFiltersDropdown {...props} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: /saved filters/i }));
+    expect(screen.getByRole("link", { name: /learn more about saved filters/i })).toHaveFocus();
+  });
+
   it("closes on an outside scroll and leaves save mode", async () => {
     render(<SavedFiltersDropdown {...props} filters={{ ...EMPTY_FILTER, search: "x" }} />);
     const user = userEvent.setup();
@@ -222,10 +228,10 @@ describe("SavedFiltersDropdown menu (#1482)", () => {
     expect(screen.queryByRole("group", { name: "Saved filters" })).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
     await user.click(trigger);
-    // The last tabbable is the (opacity-0 until hover) delete button.
-    const del = screen.getByRole("button", { name: /delete saved filter/i });
-    del.focus();
-    fireEvent.keyDown(del, { key: "Tab" });
+    // The last tabbable is the footer help link (#2593).
+    const help = screen.getByRole("link", { name: /learn more about saved filters/i });
+    help.focus();
+    fireEvent.keyDown(help, { key: "Tab" });
     expect(screen.queryByRole("group", { name: "Saved filters" })).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
   });
