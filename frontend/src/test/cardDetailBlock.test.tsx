@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
 
@@ -285,8 +285,11 @@ describe('CardDetail planned child (#2549)', () => {
   it('shows the inactive-date helper, wired to the date input, and Needed with Now only for a hidden parent', async () => {
     render(<CardDetail {...props({ card: makeCard({ due_date: '2026-12-04', planned: true, needed_at_column: null, needed_at_column_name: null, parent: { hidden: true } }) })} />)
     const help = await screen.findByTestId('due-planned-help')
-    expect(help).toHaveTextContent('Inactive while planned. It counts once the work is pulled or needed.')
-    expect(help).toHaveTextContent('Counts once needed.')
+    // Three variants (#2549 ruling): hidden parent, visible parent (next test), phone. Desktop and phone spans are
+    // both in the DOM (CSS hides one), so each string is pinned on its own element.
+    expect(within(help).getByText('Inactive while planned.').tagName).toBe('STRONG')
+    expect(within(help).getByText('Counts once the work is pulled or needed.')).toBeInTheDocument()
+    expect(within(help).getByText('Counts once needed.')).toBeInTheDocument()
     expect(screen.getByLabelText('Due date')).toHaveAttribute('aria-describedby', help.id)
     const field = screen.getByTestId('card-needed-field')
     expect(field).toHaveTextContent("The parent is on a board you can't open, so Needed can only be set to Now.")
@@ -295,7 +298,7 @@ describe('CardDetail planned child (#2549)', () => {
 
   it('names the Needed column when the parent is visible, and shows nothing for a card with no parent', () => {
     const { unmount } = render(<CardDetail {...props({ card: makeCard({ due_date: '2026-12-04', planned: true, needed_at_column: 33, needed_at_column_name: 'Proposal' }) })} />)
-    expect(screen.getByTestId('due-planned-help')).toHaveTextContent('It counts once the work is pulled or the parent reaches Proposal.')
+    expect(within(screen.getByTestId('due-planned-help')).getByText('Counts once the work is pulled or the parent reaches Proposal.')).toBeInTheDocument()
     expect(screen.queryByTestId('card-needed-field')).toBeNull()
     unmount()
     render(<CardDetail {...props()} />)

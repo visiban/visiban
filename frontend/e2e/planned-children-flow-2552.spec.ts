@@ -70,7 +70,7 @@ for (const width of [390, 1280]) {
       const help = page.getByTestId('due-planned-help')
       await expect(help).toBeVisible({ timeout: 10_000 })
       await expect(help).toContainText('Inactive while planned.')
-      await expect(help).toContainText(width < 640 ? 'Counts once needed.' : 'It counts once the work is pulled or needed.')
+      await expect(help).toContainText(width < 640 ? 'Counts once needed.' : 'Counts once the work is pulled or needed.')
       const ratio = await help.evaluate(contrast)
       expect(ratio, `helper contrast ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
       const field = page.getByTestId('card-needed-field')

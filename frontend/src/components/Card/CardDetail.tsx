@@ -2124,8 +2124,8 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                       <strong className="font-semibold text-fg-secondary">Inactive while planned.</strong>{" "}
                       <span className="max-sm:hidden">
                         {localCard.needed_at_column_name
-                          ? `It counts once the work is pulled or the parent reaches ${localCard.needed_at_column_name}.`
-                          : "It counts once the work is pulled or needed."}
+                          ? `Counts once the work is pulled or the parent reaches ${localCard.needed_at_column_name}.`
+                          : "Counts once the work is pulled or needed."}
                       </span>
                       <span className="sm:hidden">Counts once needed.</span>
                     </p>
