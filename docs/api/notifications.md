@@ -46,7 +46,7 @@ List the 50 most recent **unread** notifications for the current user. Requires 
 
 Notifications referencing a board the requesting user no longer has access to are filtered from this list (and from `unread-count` below) — see #987.
 
-**Watch out:** since 1.3 (#2081), this request also marks those notifications **read**, so each one leaves your inbox for good instead of staying unread behind the filter. It only ever changes your own notifications. A notification stays read if your access to the board comes back later. A notification on a deleted board is deleted with the board, so the response is the same whether a board was deleted or your access was removed. `unread-count` does not mark anything; it already leaves those rows out.
+**Watch out:** since 1.3 (#2081), this request also marks those notifications **read**, so each one leaves your inbox for good instead of staying unread behind the filter. It only ever changes your own notifications. A notification stays read if your access to the board comes back later. A notification on a deleted board is deleted with the board, so the response is the same whether a board was deleted or your access was removed. `unread-count` does not mark anything; it already leaves those rows out. A [personal access token](authentication.md) with only the `read` scope gets the same filtered list but marks nothing, because marking is a write.
 
 **Response**
 ```json

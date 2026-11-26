@@ -229,3 +229,74 @@ class TargetAvailableAbsentInputTests(TestCase):
         for absent in (None, AnonymousUser()):
             self.assertEqual(_mark_unavailable_targets_read(absent, _target_available_q(absent)), 0)
         self.assertEqual(Notification.objects.filter(read=True).count(), 0)
+
+
+class MarkReadCredentialScopeTests(TestCase):
+    """The mark is a write: only a credential with write authority triggers it."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="cs_user", password="pass")
+        other = User.objects.create_user(username="cs_owner", password="pass")
+        self.notification = _notify(self.user, board=_board(other))  # never accessible
+
+    def _list_with(self, header):
+        resp = self.client.get(LIST_URL, HTTP_AUTHORIZATION=header)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data, [])
+        self.notification.refresh_from_db()
+        return self.notification.read
+
+    def _pat(self, scopes):
+        from accounts.models import PersonalAccessToken
+
+        _, raw = PersonalAccessToken.generate(self.user, "t2081", scopes=scopes)
+        return f"Token {raw}"
+
+    def test_read_only_pat_lists_but_marks_nothing(self):
+        from accounts.models import SCOPE_READ
+
+        self.assertFalse(self._list_with(self._pat([SCOPE_READ])))
+
+    def test_write_scoped_pat_marks(self):
+        from accounts.models import SCOPE_READ, SCOPE_WRITE
+
+        self.assertTrue(self._list_with(self._pat([SCOPE_READ, SCOPE_WRITE])))
+
+    def test_legacy_pat_marks(self):
+        self.assertTrue(self._list_with(self._pat(None)))
+
+    def test_drf_token_marks(self):
+        from rest_framework.authtoken.models import Token
+
+        token = Token.objects.create(user=self.user)
+        self.assertTrue(self._list_with(f"Token {token.key}"))
+
+    def test_unrecognized_credential_marks_nothing(self):
+        """#1075: a credential type this check does not know fails closed."""
+        from types import SimpleNamespace
+
+        from boards.views.notifications import _request_may_write
+
+        self.assertFalse(_request_may_write(SimpleNamespace(auth=object())))
+        self.assertTrue(_request_may_write(SimpleNamespace(auth=None)))
+
+
+class InvalidRoleParityTests(TestCase):
+    """Availability follows get_board_role, including the invalid-role block."""
+
+    def test_invalid_explicit_role_blocks_group_access_and_marks_read(self):
+        from groups.models import Group, GroupMembership
+
+        user = User.objects.create_user(username="ir_user", password="pass")
+        owner = User.objects.create_user(username="ir_owner", password="pass")
+        group = Group.objects.create(name="IR2081", owner=owner)
+        GroupMembership.objects.create(group=group, user=user, role=GroupMembership.Role.MEMBER)
+        board = Board.objects.create(name="IRB2081", owner=owner, group=group)
+        BoardMembership.objects.create(board=board, user=user, role="not-a-role")
+        n = _notify(user, board=board)
+        client = APIClient()
+        client.force_authenticate(user)
+        self.assertEqual(client.get(LIST_URL).data, [])
+        n.refresh_from_db()
+        self.assertTrue(n.read)

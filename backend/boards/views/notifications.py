@@ -1,6 +1,6 @@
 """Notification views — list, mark-read, and unread-count endpoints."""
 
-from django.db.models import BooleanField, Case, Q, Value, When
+from django.db.models import BooleanField, Q, Value
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -128,6 +128,11 @@ def _mark_unavailable_targets_read(user, available_q):
     ``on_delete=CASCADE``, so they are gone, and the response for a deleted
     board and for revoked access is the same (the row is simply absent).
     Returns the number of rows marked read; 0 when there is no user (#1075).
+
+    The user guard below is load-bearing, not belt and braces: for a missing
+    user ``_target_available_q`` returns a match-nothing ``Q``, and
+    ``.exclude()`` of match-nothing is match-*everything*, so without the
+    guard the deny-all predicate would mark every unread row read.
     """
     if user is None or not getattr(user, "is_authenticated", False):
         return 0
@@ -136,6 +141,29 @@ def _mark_unavailable_targets_read(user, available_q):
         .exclude(available_q)
         .update(read=True)
     )
+
+
+def _request_may_write(request):
+    """Whether this request's credential carries write authority (#2081).
+
+    The list endpoint is a GET, and ``PATAuthentication`` lets a ``read``-only
+    personal access token through on a GET. The mark-read side effect is a
+    write (``NotificationMarkReadView`` needs ``write`` for the same change),
+    so a read-only token gets the filtered list but marks nothing. Session
+    auth (``request.auth is None``), a DRF ``Token`` and a legacy unscoped PAT
+    carry the owner's full REST authority. Any other credential type is not
+    recognized here and marks nothing: skipping the cleanup is the safe
+    outcome (#1075), since the list filter hides those rows either way.
+    """
+    from accounts.models import SCOPE_WRITE, PersonalAccessToken
+    from rest_framework.authtoken.models import Token
+
+    auth = request.auth
+    if auth is None or isinstance(auth, Token):
+        return True
+    if isinstance(auth, PersonalAccessToken):
+        return auth.is_legacy or SCOPE_WRITE in (auth.scopes or [])
+    return False
 
 
 def _accessible_unread_notifications(user, available_q=None):
@@ -182,16 +210,17 @@ class NotificationListView(APIView):
         # place in the [:50] window. The select still filters on the same
         # predicate: a board the user loses access to between the two queries
         # is dropped, never serialized with its board_name / card_title (#987).
-        _mark_unavailable_targets_read(user, available_q)
+        # This GET writes on purpose (owner decision, #2081): idempotent, and
+        # only ever the requester's own rows on boards they cannot open, which
+        # the list and the count already hide. A read-only token skips it.
+        if _request_may_write(request):
+            _mark_unavailable_targets_read(user, available_q)
         notifications = list(
             _accessible_unread_notifications(user, available_q)
-            .annotate(
-                _target_available=Case(
-                    When(available_q, then=Value(True)),
-                    default=Value(False),
-                    output_field=BooleanField(),
-                )
-            )
+            # Every row past the WHERE above satisfies ``available_q``, so the
+            # annotation is the predicate's result without repeating its
+            # board-access subquery a third time in the SELECT list.
+            .annotate(_target_available=Value(True, output_field=BooleanField()))
             .select_related("card", "board", "actor")[:50]
         )
         return Response(NotificationSerializer(notifications, many=True).data)
