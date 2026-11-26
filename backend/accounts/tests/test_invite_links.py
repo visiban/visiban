@@ -720,22 +720,24 @@ class InviteRegisterRaceConditionTests(TransactionTestCase):
         def attempt(email):
             # Each thread gets its own client; APIClient is not thread-safe.
             client = APIClient()
-            barrier.wait()  # Both threads start their POST at the same time.
-            r = client.post("/api/v1/auth/registration/", {
-                "email": email,
-                "password1": "Sup3rS3cr3t!xyz",
-                "password2": "Sup3rS3cr3t!xyz",
-                "invite_token": raw,
-            })
-            results.append(r.status_code)
-            # Explicitly close thread-local DB connections. Each thread that
-            # touches the ORM opens its own PostgreSQL connection. Without this,
-            # those connections remain open after the thread exits and
-            # TransactionTestCase.teardown_databases() fails with
-            # "database is being accessed by other users" when it tries to
-            # DROP the test database.
-            from django.db import connections as _conns
-            _conns.close_all()
+            try:
+                barrier.wait()  # Both threads start their POST at the same time.
+                r = client.post("/api/v1/auth/registration/", {
+                    "email": email,
+                    "password1": "Sup3rS3cr3t!xyz",
+                    "password2": "Sup3rS3cr3t!xyz",
+                    "invite_token": raw,
+                })
+                results.append(r.status_code)
+            finally:
+                # Explicitly close thread-local DB connections. Each thread that
+                # touches the ORM opens its own PostgreSQL connection. Without this,
+                # those connections remain open after the thread exits and
+                # TransactionTestCase.teardown_databases() fails with
+                # "database is being accessed by other users" when it tries to
+                # DROP the test database.
+                from django.db import connections as _conns
+                _conns.close_all()
 
         t1 = threading.Thread(target=attempt, args=("race1@example.com",))
         t2 = threading.Thread(target=attempt, args=("race2@example.com",))
@@ -744,6 +746,7 @@ class InviteRegisterRaceConditionTests(TransactionTestCase):
         t1.join()
         t2.join()
 
+        self.assertEqual(len(results), 2, f"A worker raised; got: {results}")
         success_count = sum(
             1 for s in results
             if s in (status.HTTP_201_CREATED, status.HTTP_204_NO_CONTENT)

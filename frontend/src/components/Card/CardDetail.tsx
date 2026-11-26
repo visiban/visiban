@@ -555,6 +555,14 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
   // The assignee override's inline reason box (#1923).
   const [overrideReasonOpen, setOverrideReasonOpen] = useState(false);
   const overrideLinkRef = useRef<HTMLButtonElement>(null);
+  // Cancel or Escape on the reason form: the override link is not in the DOM until that commit, so focus moves
+  // in a layout effect (focus rule 3), never a frame later.
+  const refocusOverride = useRef(false);
+  useLayoutEffect(() => {
+    if (overrideReasonOpen || !refocusOverride.current) return;
+    refocusOverride.current = false;
+    overrideLinkRef.current?.focus();
+  }, [overrideReasonOpen]);
   const checklistHintId = useId();
   // Shown in the panel header (always-mounted status line) when a refresh
   // replaced the card out from under a failed move, because the popover that
@@ -1757,8 +1765,8 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
             {/* Phone (#2359): the peek sheet's reorder, one step earlier or later in the cell, since there is no drag. */}
             {canEdit && onMoveCard && cellOrder !== undefined && cellOrder.count > 1 && (
               <div className="mt-2 flex gap-2 px-1" data-testid="card-detail-reorder">
-                <button type="button" disabled={cellOrder.earlier === null} aria-disabled={movesPaused || reordering || undefined} aria-describedby={movesPaused ? "card-detail-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded px-4 py-2 text-sm min-h-11">Move earlier</button>
-                <button type="button" disabled={cellOrder.later === null} aria-disabled={movesPaused || reordering || undefined} aria-describedby={movesPaused ? "card-detail-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded px-4 py-2 text-sm min-h-11">Move later</button>
+                <button type="button" aria-disabled={movesPaused || reordering || cellOrder.earlier === null || undefined} aria-describedby={movesPaused ? "card-detail-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(-1)} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded px-4 py-2 text-sm min-h-11">Move earlier</button>
+                <button type="button" aria-disabled={movesPaused || reordering || cellOrder.later === null || undefined} aria-describedby={movesPaused ? "card-detail-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(1)} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded px-4 py-2 text-sm min-h-11">Move later</button>
               </div>
             )}
             {reorderError && <p role="alert" className="mt-2 text-sm text-danger px-1">{reorderError}</p>}
@@ -2947,8 +2955,8 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                   escapePriority={36.5}
                   onSubmit={(reason) => void handleForceMove(reason)}
                   onCancel={() => {
+                    refocusOverride.current = true;
                     setOverrideReasonOpen(false);
-                    requestAnimationFrame(() => overrideLinkRef.current?.focus());
                   }}
                 />
               )}

@@ -115,6 +115,9 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   const writeFocus = useRef<{ id: number; since: typeof data } | null>(null);
   const dataRef = useRef(data);
   dataRef.current = data;
+  // Set when Add child succeeds: `{actions}` sits at a different place in the empty, loading and populated
+  // branches, so the Add child button remounts when the first child lands and focus drops to <body> (#2627).
+  const addFocus = useRef<{ since: typeof data } | null>(null);
   // An Unlink in flight: the child whose row (and focused button) will go, and where focus goes then.
   const unlinkFocus = useRef<{ gone: number; to: number | "add" } | null>(null);
   // A re-read after this tab's own write is announced by that write; any other re-read (a
@@ -320,7 +323,18 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     if (!error) return;
     localWrite.current = false;
     writeFocus.current = null;
+    addFocus.current = null;
   }, [error]);
+
+  // A layout effect (focus rule 3, #2608): the commit that remounts Add child must also refocus it, or focus
+  // sits on <body> until paint. Only recovers lost focus; never pulls the user back from where they went.
+  useLayoutEffect(() => {
+    const add = addFocus.current;
+    if (!add || !data || data === add.since) return;
+    addFocus.current = null;
+    const active = document.activeElement;
+    if (!active || active === document.body || active === rootRef.current) addRef.current?.focus();
+  }, [data]);
 
   // Stale text must not linger for a screen reader's virtual cursor; the visible default-not-set notice stays.
   useEffect(() => {
@@ -648,6 +662,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
             // Visible as well as announced: the default-not-set notice is the only word the user gets
             // that the checkbox's second write failed (#2208).
             setAnnouncement(`Added "${title}" to ${b}${defaultNotSet ? "; the default was not changed" : ""}.`);
+            addFocus.current = { since: dataRef.current };
             reloadAfterWrite();
             queueMicrotask(() => addRef.current?.focus());
           }}

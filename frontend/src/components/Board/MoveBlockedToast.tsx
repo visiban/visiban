@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MoveBlockedError } from "../../hooks/useBoard";
 import { useToast } from "../../contexts/useToast";
 import type { ToastInput } from "../../utils/toastQueue";
@@ -94,14 +94,12 @@ function reportedByMovePopover(): boolean {
 
 const notMoved = (err: unknown) => `Card could not be moved: ${failureReason(err)}.`;
 
-/** The moved card re-renders in its new cell, so retry for a few frames. Only
- *  takes focus that would otherwise be lost to `body`. */
-function focusCardSoon(cardId: number, framesLeft = 10) {
-  requestAnimationFrame(() => {
-    const el = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
-    if (el && document.activeElement === document.body) el.focus();
-    else if (!el && framesLeft > 0) focusCardSoon(cardId, framesLeft - 1);
-  });
+/** Takes focus for the moved card only if it would otherwise be lost to `body`. True once the card is in the DOM. */
+function focusMovedCard(cardId: number): boolean {
+  const el = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
+  if (!el) return false;
+  if (document.activeElement === document.body || !document.activeElement) el.focus();
+  return true;
 }
 
 /**
@@ -119,6 +117,14 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
   // The refusal the reason dialog was opened for, so a newer refusal closes it.
   const [reasonFor, setReasonFor] = useState<MoveBlockedError | null>(null);
   const [busy, setBusy] = useState(false);
+  // The card a forced move with a reason just moved. Focus goes back to it in a layout effect (focus rule 3,
+  // #2608), in the commit that closes the dialog, while this toast stays mounted. A success usually clears the
+  // error, so the host unmounts this component in the same batch and that state update is dropped (#2631): the
+  // ref is set before it, outside render, so the unmount cleanup still knows which card to focus.
+  const [restoreFor, setRestoreFor] = useState<number | null>(null);
+  const restoreRef = useRef<number | null>(null);
+  // Whether the unmount cleanup has already run: a host can drop this component while the force is in flight.
+  const mountedRef = useRef(true);
   const [failure, setFailure] = useState("");
   const openReason = (e: MoveBlockedError) => { setFailure(""); setReasonFor(e); };
   const closeReason = () => { setFailure(""); setReasonFor(null); };
@@ -134,7 +140,12 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
         return;
       }
       setReasonFor(null);
-      if (movedId != null) focusCardSoon(movedId);
+      if (movedId != null) {
+        restoreRef.current = movedId;
+        setRestoreFor(movedId);
+        // Already unmounted, so no cleanup is left to run: make the attempt here.
+        if (!mountedRef.current) queueMicrotask(() => focusMovedCard(movedId));
+      }
     } catch (err) {
       setFailure(notMoved(err));
     } finally {
@@ -155,6 +166,29 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
   }, [error, kind, assigneeName, notify]);
 
   useEffect(() => () => dismiss(MOVE_TOAST_KEY), [dismiss]);
+
+  // The moved card can mount after the dialog closes (the board re-renders from the move's response), so when it is
+  // not in the DOM yet, watch for it instead of polling per frame (focus rule 3). Disconnected on cleanup.
+  useLayoutEffect(() => {
+    if (restoreFor === null) return;
+    const done = () => { restoreRef.current = null; setRestoreFor(null); };
+    if (focusMovedCard(restoreFor)) { done(); return; }
+    const observer = new MutationObserver(() => {
+      if (focusMovedCard(restoreFor)) { observer.disconnect(); done(); }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [restoreFor]);
+  // On unmount the closing dialog still holds focus, so wait a microtask for it to leave the DOM (focus falls to
+  // body) before taking it for the moved card. Not requestAnimationFrame (focus rule 3).
+  useLayoutEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const id = restoreRef.current;
+      if (id !== null) queueMicrotask(() => focusMovedCard(id));
+    };
+  }, []);
 
   const column = "column_name" in error ? error.column_name : null;
   return (
