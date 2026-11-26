@@ -284,7 +284,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
             // in the a11y tree. Hover, focus and a no-hover device reveal it (frontend/CLAUDE.md § Column headers).
             // Absolute, in the header's left padding (#2450): it reserves no width, so the name keeps the room the
             // reference gives it and hover does not reflow the row.
-            className="absolute left-0.5 top-2.5 text-[10px] leading-none text-fg-secondary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded opacity-0 group-hover/col:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
+            className="absolute left-px top-2.5 text-[10px] leading-none text-fg-secondary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded opacity-0 group-hover/col:opacity-100 group-focus-within/col:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
             title="Collapse column"
             aria-label="Collapse column"
           >
@@ -391,16 +391,20 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
               {ADD_ICON}
             </button>
           )}
-          {/* Zero width at rest (#2450) so the name keeps the room; no overflow clip, the menu panel must escape. */}
+          {/* Out of the flex row (#2450): absolute, overlaying the end of the name area just left of "+", so
+              revealing it reflows nothing (width never animates under `transition`, and the portal-rendered menu
+              would otherwise drop the wrapper back to zero width mid-use). Fixed w-7 holds the 28px trigger.
+              Stays shown while its menu is open (aria-expanded), on focus, and on no-hover devices. bg-surface
+              masks the name's ellipsis beneath it. right = 10px padding + 24px "+" + 4px gap. */}
           {isAdmin && (
-            <div className="opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition w-0 shrink-0 pointer-events-none group-hover/col:w-6 group-hover/col:pointer-events-auto focus-within:w-6 focus-within:pointer-events-auto [@media(hover:none)]:w-6 [@media(hover:none)]:pointer-events-auto">
+            <div className="absolute right-[38px] top-1.5 w-7 rounded bg-surface opacity-0 pointer-events-none transition-opacity group-hover/col:opacity-100 group-hover/col:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto has-[[aria-expanded=true]]:opacity-100 has-[[aria-expanded=true]]:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto">
               <OverflowMenu items={kebabItems} ariaLabel={`Actions for column "${column.name}"`} />
             </div>
           )}
         </div>
 
         {renameError && (
-          <p className="mt-1 pl-[26px] text-xs text-danger" role="alert">{renameError}</p>
+          <p className="mt-1 pl-[18px] text-xs text-danger" role="alert">{renameError}</p>
         )}
 
         {/* Meter (#2270): 3px, only when the column has a WIP limit. Column color while at or
@@ -426,7 +430,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
 
         {/* Count line. No limit: "2 cards". Limit: "2 / 4", and "8 / 6 over" in warning text
             when over. The word "over" (and the hard-limit glyph) keep it from being color-only. */}
-        <div className={`${hasLimit ? "mt-1.5" : "mt-1"} pl-[26px] text-xs tabular-nums text-fg-secondary`}>
+        <div className={`${hasLimit ? "mt-1.5" : "mt-1"} pl-[18px] text-xs tabular-nums text-fg-secondary`}>
           {overWip ? (
             <span
               data-testid="column-count"

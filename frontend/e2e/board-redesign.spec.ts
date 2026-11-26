@@ -175,6 +175,56 @@ test.describe('board redesign baseline', () => {
       await expectShot(page, 'board-menu-filter.png', SHOT)
     })
 
+    // Column header reveals (#2450, #2389): the chevron and kebab appear on hover and focus without moving
+    // anything. The structural assertions run on every platform; the captures only on Linux.
+    function firstHeader(page: Page) {
+      return page.getByTestId('column-add-card').first().locator('xpath=ancestor::div[contains(@class,"group/col")][1]')
+    }
+
+    test('column header hover reveals the kebab without moving "+"', async ({ page }) => {
+      await openBoard(page, 'dark')
+      const header = firstHeader(page)
+      const add = header.getByTestId('column-add-card')
+      const name = header.locator('button.truncate').first()
+      await expect(add).toBeVisible()
+      await page.mouse.move(0, 0)
+      const kebab = header.getByRole('button', { name: /^Actions for column/ })
+      await expect(kebab).toHaveCount(1)
+      const before = await add.boundingBox()
+      const nameBefore = await name.boundingBox()
+      expect(Number(await kebab.evaluate((el) => getComputedStyle(el.parentElement as HTMLElement).opacity))).toBe(0)
+      await header.hover()
+      await expect.poll(async () => Number(await kebab.evaluate((el) => getComputedStyle(el.parentElement as HTMLElement).opacity))).toBe(1)
+      expect((await add.boundingBox())!.x).toBe(before!.x)
+      expect((await name.boundingBox())!.width).toBe(nameBefore!.width)
+    })
+
+    test('column header count line shares the name x', async ({ page }) => {
+      await openBoard(page, 'dark')
+      const header = firstHeader(page)
+      const nameBox = await header.locator('button.truncate, span.truncate').first().boundingBox()
+      const countBox = await header.getByTestId('column-count').boundingBox()
+      expect(countBox!.x).toBe(nameBox!.x)
+    })
+
+    test('column header hover', async ({ page }) => {
+      await openBoard(page, 'dark')
+      await firstHeader(page).hover()
+      await expect(firstHeader(page).getByRole('button', { name: 'Collapse column' })).toBeVisible()
+      await expectShot(page, 'board-header-hover.png', SHOT)
+    })
+
+    test('column header keyboard focus shows the chevron', async ({ page }) => {
+      await openBoard(page, 'dark')
+      await page.mouse.move(0, 0)
+      const header = firstHeader(page)
+      const chevron = header.getByRole('button', { name: 'Collapse column' })
+      // The name button is the next tab stop after the chevron; focusing it is focus-within the header.
+      await header.locator('button.truncate').first().focus()
+      await expect.poll(async () => Number(await chevron.evaluate((el) => getComputedStyle(el).opacity))).toBe(1)
+      await expectShot(page, 'board-header-chevron-focus.png', SHOT)
+    })
+
     test('overflow menu', async ({ page }) => {
       await openBoard(page, 'dark')
       await page.getByRole('button', { name: 'More board actions' }).click()

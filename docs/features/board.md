@@ -37,7 +37,7 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 - Column headers stay visible when the board scrolls vertically, and the grid scrolls sideways inside its own box when the window is narrow.
 - Columns share the board's width, with 8 px between them, and the header row, every swimlane and every collapsed swimlane use the same column grid, so columns line up in every row. Below 1240 px of board width, or once a column would get narrower than 160 px (on a board with many columns, or after one column is widened far past the rest), the grid scrolls sideways inside its own box; the page never scrolls sideways. A board nobody has resized splits its width equally; drag a column separator to resize the column to its left (its edge follows the pointer), and the column keeps that width relative to the others (a column dragged to twice the default width stays twice as wide as a default one at any window width). Column widths persist per board in localStorage. *Changed in 1.3 (#2300).*
 - On a board wider than the window, each swimlane's header band stays pinned to the left edge while the grid scrolls sideways, so the lane name, its fields and its counts at the right stay in view. *Changed in 1.3 (#2305).*
-- Each column header is a panel tinted with the column color: color dot, name (it wraps rather than truncating), an add-card button, a thin WIP meter and a count line. With no limit the line reads `2 cards` and there is no meter; under a limit it reads `2 / 4` with the meter in the column color; at the limit `4 / 4` with a full meter; over the limit `8 / 6 over` in warning text with a full warning-colored meter. A weight budget that is exceeded adds `Weight 14/10` to the same line. *Changed in 1.3 (#2270).*
+- Each column header is a panel tinted with the column color: color dot, name (one line, truncated with an ellipsis when long; the full name is its tooltip), an add-card button, a thin WIP meter and a count line. With no limit the line reads `2 cards` and there is no meter; under a limit it reads `2 / 4` with the meter in the column color; at the limit `4 / 4` with a full meter; over the limit `8 / 6 over` in warning text with a full warning-colored meter. A weight budget that is exceeded adds `Weight 14/10` to the same line. *Changed in 1.3 (#2270).*
 - When enforcement is enabled, moves into a full column are blocked (`409` error); board admins (or the card's assignee, when enabled) can override with `?force=true` (soft) or are denied entirely under hard mode.
 
 ### Adding a card to a cell
@@ -269,7 +269,7 @@ Public share links show no parent line. On a phone the picker opens as a full-sc
 
 ## Collapsed columns
 
-Click a column header to collapse it to a narrow vertical strip. When collapsed:
+Click the chevron at the left of a column header (it appears on hover and on keyboard focus) to collapse the column to a narrow vertical strip. When collapsed:
 
 - The column spans the full board height across all swimlanes.
 - Each swimlane cell shows the card count for that specific swimlane.
@@ -627,7 +627,7 @@ The board toolbar (Row 2) is one row that wraps onto a second line on narrow scr
 
 **Export and Settings buttons:** to the right of Activity, **Export** (shown when you are allowed to export) and **Settings** (board admins) open the export dialog and Board settings. On a phone they show only their icons. The shortcuts are `⌘⇧E` and `⌘,`.
 
-**Overflow menu (`...`):** contains Keyboard shortcuts. To replay the onboarding tour, use **Restart tour** in the keyboard shortcuts overlay or **Restart onboarding tour** in Settings. A small first-run dot marks the menu until you open it.
+**Overflow menu (`...`):** lists Export board, Board settings and Keyboard shortcuts. To replay the onboarding tour, use **Restart tour** in the keyboard shortcuts overlay or **Restart onboarding tour** in Settings. A small first-run dot marks the menu until you open it.
 
 ## Card layout
 

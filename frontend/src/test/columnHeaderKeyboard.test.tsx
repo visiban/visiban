@@ -158,8 +158,10 @@ describe('ColumnHeader — kebab touch reveal (#2343)', () => {
     expect(cls).toContain('group-hover/col:opacity-100')
     expect(cls).toContain('focus-within:opacity-100')
     expect(cls).toContain('[@media(hover:none)]:opacity-100')
-    expect(cls).toContain('w-0') // reserves no width at rest (#2450)
-    expect(cls).toContain('group-hover/col:w-6')
+    expect(cls).toContain('absolute') // out of the flex row: hover reflows nothing (#2450)
+    expect(cls).toContain('w-7') // fixed width, opacity-only reveal
+    expect(cls).not.toMatch(/(^|\s)w-0(\s|$)|group-hover\/col:w-/)
+    expect(cls).toContain('has-[[aria-expanded=true]]:opacity-100') // stays while its portal menu is open
   })
 })
 
@@ -172,9 +174,16 @@ describe('ColumnHeader — collapse chevron reveal and name truncation (#2389)',
     expect(cls).toContain('opacity-0')
     expect(cls).toContain('group-hover/col:opacity-100')
     expect(cls).toContain('focus:opacity-100')
+    expect(cls).toContain('group-focus-within/col:opacity-100') // focus anywhere in the header (#2450)
     expect(cls).toContain('[@media(hover:none)]:opacity-100')
     expect(cls).not.toMatch(/\bhidden\b|invisible/)
     expect(cls).toContain('absolute') // out of the flex row: reserves no width (#2450)
+  })
+
+  it('the count line shares the name x: both start 18px in, past the dot (#2450)', () => {
+    renderHeader()
+    expect(screen.getByTestId('column-count').parentElement?.className).toContain('pl-[18px]')
+    expect(screen.getByTestId('column-count').parentElement?.className).not.toContain('26px')
   })
 
   it('Tab reaches the chevron and Enter collapses', async () => {
