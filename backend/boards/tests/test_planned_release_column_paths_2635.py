@@ -76,7 +76,12 @@ class ParentMoveQueuedBehindReorderTests(TransactionTestCase):
     def setUp(self):
         _pipeline(self, "mr2635")
 
-    def _race(self, *, target, needed_at, new_order):
+    def _race(self, *, target, needed_at, new_order=None, admin_edit=None):
+        """Hold a reorder open, then queue a parent move behind it.
+
+        The reorder is the REST endpoint (``new_order``) or, with
+        ``admin_edit=(column, position)``, ``ColumnAdmin.save_model`` (#2637).
+        """
         child, link = _planned(self, needed_at)
         holding, release = threading.Event(), threading.Event()
         errors, results = [], {}
@@ -93,12 +98,26 @@ class ParentMoveQueuedBehindReorderTests(TransactionTestCase):
             c.force_authenticate(self.owner)
             return c
 
+        def admin_reorder():
+            column, position = admin_edit
+            request = RequestFactory().post("/")
+            request.user = self.owner
+            obj = Column.objects.get(pk=column.pk)
+            obj.position = position
+            # changeform_view wraps save_model in one transaction; so do we.
+            with transaction.atomic():
+                ColumnAdmin(Column, django_admin.site).save_model(request, obj, None, True)
+            return type("Resp", (), {"status_code": 200, "content": b""})()
+
         def reorderer():
             try:
-                results["reorder"] = client().post(
-                    f"/api/v1/boards/{self.pboard.pk}/columns/reorder/",
-                    {"order": [c.pk for c in new_order]}, format="json",
-                )
+                if admin_edit is not None:
+                    results["reorder"] = admin_reorder()
+                else:
+                    results["reorder"] = client().post(
+                        f"/api/v1/boards/{self.pboard.pk}/columns/reorder/",
+                        {"order": [c.pk for c in new_order]}, format="json",
+                    )
             except BaseException as exc:  # noqa: BLE001 - surfaced after join
                 errors.append(exc)
             finally:
@@ -158,6 +177,22 @@ class ParentMoveQueuedBehindReorderTests(TransactionTestCase):
             new_order=[self.lead, self.proposal, self.won, self.qualify],
         )
         self.assertIsNone(link.planned_released_at)
+        self.assertEqual(_history(child), [])
+
+    def test_admin_position_change_holds_every_column_against_a_parent_move(self):
+        # #2637: ColumnAdmin.save_model locks the board's columns, not just the
+        # edited one. The move (Lead -> Won) never touches Proposal, so a
+        # single-column lock on Proposal would not queue it. Read before the
+        # lock: Proposal (2) before Won (3), so reached and released. Committed:
+        # Proposal at 10, after Won, so the child stays planned.
+        child, link = self._race(
+            target=self.won, needed_at=self.proposal, admin_edit=(self.proposal, 10),
+        )
+        self.assertEqual(Column.objects.get(pk=self.proposal.pk).position, 10)
+        self.assertIsNone(link.planned_released_at)
+        self.assertEqual(
+            CardActivity.objects.filter(card=child, event_type=EV.PLANNED_RELEASED).count(), 0,
+        )
         self.assertEqual(_history(child), [])
 
 
