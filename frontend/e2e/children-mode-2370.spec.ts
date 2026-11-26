@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, CARD } from './fixtures/board'
+import { contrastRatio, effectiveBackground, fillColor, textColor } from './contrast'
 
 // Children mode on the Board tab (#2370, planned sections #2550), at a phone and a wide window, light and dark:
 // the Show control, the mode and lane surviving a reload and a shared link, the lane band and planned wording,
@@ -103,4 +104,62 @@ for (const width of [390, 1440]) {
       await expect(page).not.toHaveURL(/lane=/)
     })
   }
+}
+
+// Ways in, band actions, column meters, and measured contrast on those surfaces (#2370 items 1, 2, 3, 8, 14).
+async function expectText(loc: import('@playwright/test').Locator, label: string) {
+  await expect(loc).toBeVisible()
+  const ratio = contrastRatio(await textColor(loc), await effectiveBackground(loc))
+  expect(ratio, `${label} text contrast`).toBeGreaterThanOrEqual(4.5)
+}
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`Children ways in, band actions and meters at 1440px, ${scheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.emulateMedia({ colorScheme: scheme })
+    await setup(page)
+    const laneName = BOARD_FULL.swimlanes[0].name
+    await page.goto(`/boards/${BOARD.id}`)
+    // Cards mode: the Children lane action beside Focus, with the server's in-progress count (5 - 1 planned).
+    const action = page.getByRole('button', { name: `Children 4 in progress, ${laneName}` })
+    await action.focus()
+    await expect(action).toHaveCSS('opacity', '1')
+    await expectText(action, 'lane action')
+    await action.click()
+    await expect(page).toHaveURL(new RegExp(`show=children&lane=${LANE_ID}`))
+    const mode = page.getByTestId('children-mode')
+    await expect(mode).toBeVisible()
+
+    // Band: Focus (pressed for the linked lane), Copy link, the admin menu.
+    const focus = mode.getByRole('button', { name: `Focus on ${laneName}` })
+    await expect(focus).toHaveAttribute('aria-pressed', 'true')
+    await expectText(focus, 'Focus')
+    await expectText(mode.getByRole('button', { name: 'Copy link' }), 'Copy link')
+    await mode.getByRole('button', { name: `${laneName} lane menu` }).click()
+    await expect(page.getByRole('menuitem', { name: 'Edit swimlane…' })).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    // Heading names the parent board; column heads carry whole-column counts and the limit meter.
+    await expectText(mode.getByText(`Parent · column on ${BOARD.name}`), 'heading')
+    await expectText(mode.getByRole('link', { name: 'Delivery', exact: true }), 'child board link')
+    await expectText(mode.getByText('1 of 4 on Delivery · limit 5'), 'column caption')
+    const meter = mode.getByRole('meter', { name: 'Doing on Delivery: 4 of limit 5' })
+    await expect(meter).toBeVisible()
+    const fill = meter.locator('span')
+    const nonText = contrastRatio(await fillColor(fill), await effectiveBackground(meter.locator('xpath=..')))
+    expect(nonText, 'meter fill against its surface').toBeGreaterThanOrEqual(3)
+
+    // Home/End inside the grid.
+    const parent = mode.getByRole('button', { name: PARENT.title })
+    await parent.focus()
+    await page.keyboard.press('End')
+    await expect(parent).not.toBeFocused()
+    await page.keyboard.press('Home')
+    await expect(parent).toBeFocused()
+
+    // A lane the viewer was not served is simply absent: every lane, no error.
+    await page.goto(`/boards/${BOARD.id}?show=children&lane=987654`)
+    await expect(page.getByRole('region', { name: `${laneName} lane` })).toBeVisible()
+    await expect(page.getByText("Children didn't load")).toHaveCount(0)
+  })
 }

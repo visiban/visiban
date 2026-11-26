@@ -265,7 +265,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                     aria-valuenow={col.card_count}
                     className="mt-1 block h-1 w-full overflow-hidden rounded bg-surface-active"
                   >
-                    <span className={`block h-full ${col.card_count > (col.wip_limit ?? 0) ? "bg-danger" : "bg-primary"}`} style={{ width: `${pct}%` }} />
+                    <span className={`block h-full ${col.card_count > (col.wip_limit ?? 0) ? "bg-danger" : "bg-primary-emphasis"}`} style={{ width: `${pct}%` }} />
                   </span>
                 )}
               </div>

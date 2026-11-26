@@ -336,3 +336,21 @@ describe('ShareBoardPage on the shared look (#2480)', () => {
     expect(await screen.findByTestId('share-expired-page')).toBeInTheDocument()
   })
 })
+
+describe('ShareBoardPage: no Children mode (#2370 item 13)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetPublicBoard.mockResolvedValue({ ...fakeBoard, cards_can_have_children: true } as BoardPublic)
+  })
+
+  it('a public share link has no Show control and no Children mode, even with ?show=children&lane=', async () => {
+    renderSharePage('valid-token-abc?show=children&lane=1')
+    await waitFor(() => expect(screen.getByTestId('share-board-page')).toBeInTheDocument())
+    expect(screen.queryByTestId('show-mode')).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Show' })).toBeNull()
+    expect(screen.queryByTestId('children-mode')).toBeNull()
+    expect(screen.queryByTestId('lane-children-action')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Children/ })).toBeNull()
+    expect(screen.getByText('My Shared Board')).toBeInTheDocument()
+  })
+})
