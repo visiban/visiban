@@ -4814,6 +4814,16 @@ machine-enforced.</p>
 <td>its unique index can't be turned off; add a <code>ForeignKey</code> and build the unique index separately</td>
 </tr>
 <tr>
+<td><code>AddField</code> of a <code>ForeignKey</code> / <code>OneToOneField</code> with a <code>default=</code> (other than <code>None</code>) or any <code>db_default=</code>, unless it sets <code>db_constraint=False</code> (#2620)</td>
+<td>yes, as its own finding next to any index one</td>
+<td>add the column nullable with no default, or set <code>db_constraint=False</code>, backfill, and add the constraint <code>NOT VALID</code> (see <a href="#adding-a-foreign-key">Adding a foreign key</a>)</td>
+</tr>
+<tr>
+<td><code>AddField</code> of a <code>ForeignKey</code> with no default</td>
+<td><strong>no</strong> for the constraint (the index rows above still apply)</td>
+<td>the new column is all <code>NULL</code>, so PostgreSQL marks the constraint valid without reading a row</td>
+</tr>
+<tr>
 <td><code>AlterField</code> that turns a <code>ForeignKey</code> index from <code>db_index=False</code> back on, or turns a <code>OneToOneField</code> or <code>unique=True</code> key into an indexed <code>ForeignKey</code></td>
 <td>yes</td>
 <td>set <code>db_index=False</code></td>
@@ -4874,7 +4884,11 @@ target model) can flag an operation that changes nothing; use the exemption comm
 <p>Four applied migrations predate these rules and are listed in
 <code>GRANDFATHERED_FOREIGN_KEY</code>: <code>accounts/0011_user_default_board</code>,
 <code>boards/0009_board_group</code>, <code>boards/0017_notification_actor_action_type</code> and
-<code>boards/0044_cardchecklist_created_by</code>. The older rules still apply to them.</p>
+<code>boards/0044_cardchecklist_created_by</code>. The older rules still apply to them. The
+validation rule (#2620) needed no grandfathering: no migration in the tree adds a
+constrained foreign key with a default.</p>
+<p>One exemption comment covers one finding. An <code>AddField</code> that trips both an index rule and the
+validation rule needs two comments if both locks are genuinely harmless.</p>
 <hr />
 <h3 id="a-not-null-column-with-a-default">A NOT NULL column with a default<a class="headerlink" href="#a-not-null-column-with-a-default" title="Permanent link">&para;</a></h3>
 <p>Use <code>db_default=</code> for a <code>NOT NULL</code> column, so the database keeps the default.</p>
@@ -5026,9 +5040,11 @@ anything that isn't a <code>CheckConstraint</code>:</p>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="go">TypeError: AddConstraintNotValid.constraint must be a check constraint.</span>
 </code></pre></div>
 <p><code>check_migration_concurrency</code> flags the index a foreign key builds and an <code>AlterField</code> that
-creates or re-creates its constraint (see <a href="#foreign-keys">Foreign keys</a>), but not the
-validation of a constraint that comes with a new column, so which recipe applies is a judgment call the check can't make for you. It comes
-down to whether the column being constrained already holds data.</p>
+creates or re-creates its constraint (see <a href="#foreign-keys">Foreign keys</a>). For a new column it
+flags the constraint's validation only when the column is added with a default (#2620). When a
+new column is backfilled before it is constrained, which recipe applies is a judgment call the
+check can't make for you. It comes down to whether the column being constrained already holds
+data.</p>
 <h3 id="a-new-nullable-column-on-an-existing-table">A new, nullable column on an existing table<a class="headerlink" href="#a-new-nullable-column-on-an-existing-table" title="Permanent link">&para;</a></h3>
 <p>If the column is brand new, every row gets <code>NULL</code> the instant it's added, and PostgreSQL
 doesn't validate a foreign key against a <code>NULL</code> — there's nothing for the constraint to
@@ -5071,17 +5087,28 @@ are <code>NULL</code> or not. <code>accounts/0031</code> splits it out for exact
 here, then a separate <code>AddIndexConcurrently</code> in <code>accounts/0032_user_pending_email_addr_idx</code>.
 Follow that shape — <code>boards/0044</code> predates the split and left its default index
 inline, which was only harmless because <code>cardchecklist</code> was small at the time.</p>
-<p>The constraint half is cheap for a new column, not free. Even with every row <code>NULL</code>,
-PostgreSQL still emits <code>ADD CONSTRAINT ... FOREIGN KEY</code> and validates the column against the
-target table under a lock on both — a scan that finds nothing to check, but one whose length
-tracks the table's size. On a small table (the two precedents above) that is fine. <strong>On a
-large table — <code>cards</code>, <code>card_movements</code>, <code>card_activities</code>, anything append-only — use the
-<a href="#a-foreign-key-on-a-column-that-already-holds-data"><code>NOT VALID</code> then <code>VALIDATE</code> recipe</a> below
-even when the column starts all <code>NULL</code>.</strong> <code>boards/0119</code>–<code>0122</code> (#1799) is the in-tree
-precedent: <code>0119</code> adds <code>card_activities.board</code> with <code>db_constraint=False, db_index=False</code>,
-<code>0120</code> backfills it in batches, <code>0121</code> adds the constraint <code>NOT VALID</code>, and <code>0122</code> validates
-it once, after the backfill. <a href="#known-gaps-in-the-11-to-12-migrations">Known gaps</a> below
-records the two shipped migrations that did not.</p>
+<p>The constraint half reads no rows, as long as the new column has no default. On PostgreSQL,
+Django writes the column and its constraint as one <code>ADD COLUMN ... REFERENCES</code> statement.
+PostgreSQL skips validating a foreign key on a column added without a default, because every
+existing row is <code>NULL</code>, and marks the constraint valid without reading a row. Measured on
+PostgreSQL 17 for #2620, on a 4-million-row table: about 1 ms, no rows read. The statement
+still takes <code>ACCESS EXCLUSIVE</code> on the table and <code>SHARE ROW EXCLUSIVE</code> on the referenced one,
+like any <code>ADD COLUMN</code>, but only for that long.</p>
+<p>The scan comes back as soon as the column holds values:</p>
+<ul>
+<li><strong>A <code>default=</code> or <code>db_default=</code> on the field.</strong> Django puts the <code>DEFAULT</code> in the same
+  <code>ADD COLUMN</code>, so every existing row holds the value and PostgreSQL validates all of them
+  while it holds both locks (the same 4 million rows: a full scan, about 230 ms). The check
+  fails this (see <a href="#foreign-keys">Foreign keys</a>). <code>preserve_default=False</code> doesn't help,
+  since the default still fills the existing rows first.</li>
+<li><strong>A backfill followed by a plain <code>ADD CONSTRAINT</code>.</strong> A separate <code>ADD CONSTRAINT ... FOREIGN
+  KEY</code> always validates, even on an all-<code>NULL</code> column. When a new foreign key has to be
+  backfilled before it is constrained, use the <a href="#a-foreign-key-on-a-column-that-already-holds-data"><code>NOT VALID</code> then <code>VALIDATE</code>
+  recipe</a> below. <code>boards/0119</code>–<code>0122</code>
+  (#1799) is the in-tree precedent: <code>0119</code> adds <code>card_activities.board</code> with
+  <code>db_constraint=False, db_index=False</code>, <code>0120</code> backfills it in batches, <code>0121</code> adds the
+  constraint <code>NOT VALID</code>, and <code>0122</code> validates it once, after the backfill.</li>
+</ul>
 <h3 id="a-foreign-key-on-a-column-that-already-holds-data">A foreign key on a column that already holds data<a class="headerlink" href="#a-foreign-key-on-a-column-that-already-holds-data" title="Permanent link">&para;</a></h3>
 <p>Once the column already has real, non-<code>NULL</code> values — an existing plain integer column being
 turned into a proper <code>ForeignKey</code>, or a nullable one already backfilled with real
@@ -5196,12 +5223,13 @@ this shape against <code>check_migration_constraint_safety.py</code> yourself be
 <p>The <code># constraint-safe:</code> comment convention used elsewhere on this page doesn't help either. The adjacent-migration exemption suppresses the violation before the scanner reaches the point where it would look for that comment, so writing one on <code>ValidateConstraint</code> in migration 2 has no effect.</p>
 <p><code>VALIDATE CONSTRAINT</code> itself takes <code>SHARE UPDATE EXCLUSIVE</code>, the same weak lock a check constraint's validation takes. That's the whole reason the two-step split is worth doing.</p>
 <h3 id="teaching-the-checker-to-see-this">Teaching the checker to see this<a class="headerlink" href="#teaching-the-checker-to-see-this" title="Permanent link">&para;</a></h3>
-<p>Optional follow-up, out of scope for this page:</p>
+<p><code>check_migration_concurrency</code> now flags the one <code>AddField</code> shape whose constraint is
+validated inline: a constrained foreign key added with a default (#2620, see
+<a href="#foreign-keys">Foreign keys</a>). It still doesn't flag a hand-written <code>ADD CONSTRAINT ...
+FOREIGN KEY</code> without <code>NOT VALID</code> in <code>RunPython</code>/<code>RunSQL</code>; review catches that one
+(<a href="https://gitlab.com/visiban/visiban/-/issues/2639">#2639</a>).</p>
+<p>One optional follow-up remains, out of scope for this page:</p>
 <ul>
-<li><code>check_migration_concurrency</code> could flag an <code>AddField</code> that adds a <code>ForeignKey</code> with
-  <code>db_constraint</code> left at its default (<code>True</code>) on an existing table. Today it flags that
-  field's index, not the constraint's validation. Tracked as
-  <a href="https://gitlab.com/visiban/visiban/-/issues/2620">#2620</a>.</li>
 <li><code>check_migration_constraint_safety</code>'s adjacent-migration exemption can't tell a genuine
   data-repair <code>RunPython</code> from a schema-only one like the <code>NOT VALID</code> step above — both
   satisfy <code>has_top_level_repair()</code> by name alone. Narrowing that exemption would need the
@@ -5210,8 +5238,8 @@ this shape against <code>check_migration_constraint_safety.py</code> yourself be
   not verify a repair step touches the <em>right</em> rows" above) — so this is a real trade-off to
   work out, not a one-line fix.</li>
 </ul>
-<p>No issue is currently filed for the second; file one before picking it up rather than
-inferring scope from this paragraph.</p>
+<p>No issue is currently filed for it; file one before picking it up rather than inferring
+scope from this paragraph.</p>
 <h3 id="changing-an-existing-foreign-keys-nullability">Changing an existing foreign key's nullability<a class="headerlink" href="#changing-an-existing-foreign-keys-nullability" title="Permanent link">&para;</a></h3>
 <p>A plain <code>AlterField</code> that only adds <code>null=True</code> to a <code>ForeignKey</code> looks catalog-only, and it
 isn't. Django's schema editor drops and re-adds the foreign key constraint whenever any
@@ -5589,26 +5617,18 @@ fourteen above, without any of them changing.</p>
 <p>Found by the 1.2 pre-release audit (#1662). The shipped migrations weren't edited, because
 installs have already run them; these are documented instead.</p>
 <ul>
-<li><strong>Foreign-key validation is not flagged by the concurrency checker.</strong> <code>accounts/0031</code> adds a nullable
-  FK (<code>pending_email_address</code>). Even with <code>db_index=False</code>, PostgreSQL emits
-  <code>ADD CONSTRAINT ... FOREIGN KEY</code>, which takes <code>SHARE ROW EXCLUSIVE</code> on <code>users</code> and
-  <code>account_emailaddress</code> briefly. With every row <code>NULL</code> this is fast. For future FKs on large
-  tables use the <code>NOT VALID</code> then <code>VALIDATE</code> pattern above.</li>
-<li><strong><code>boards/0078_cardmovement_board_snapshots</code> adds a foreign key without <code>NOT VALID</code>.</strong> It
-  adds a nullable <code>board</code> FK to <code>card_movements</code>, an append-only table that grows without
-  bound. On PostgreSQL the <code>ADD CONSTRAINT ... FOREIGN KEY</code> validates the new column against
-  <code>boards</code> under a lock on both tables. With every row <code>NULL</code> the scan finds nothing to
-  check, so it is quick, but its cost still tracks the table's size. <code>boards/0079</code> shows the
-  class of fix for the sibling problem: its <code>DropNotNullKeepingForeignKey</code> changes
-  nullability without rebuilding (and re-validating) the existing <code>card_id</code> FK. <code>0078</code> has
-  no such equivalent and has shipped, so it is documented here rather than edited. For a
-  future FK on a large table, use the <a href="#a-foreign-key-on-a-column-that-already-holds-data"><code>NOT VALID</code> then <code>VALIDATE</code>
-  recipe</a> even if the column starts all
-  <code>NULL</code> — <code>boards/0119</code>–<code>0122</code> (<code>card_activities.board</code>, #1799) does. No checker enforces
-  this today: <code>check_migration_concurrency</code> does not inspect foreign-key validation (see
-  above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
-  considered (#1894) and declined for now: a lint cannot tell a large table from a small
-  one, so it would either flag every FK on a small table or miss the ones that matter.</li>
+<li><strong>Foreign-key validation on <code>accounts/0031</code> and <code>boards/0078</code> (corrected by #2620).</strong> The
+  audit recorded both as validating their new foreign key with a scan whose cost tracks the
+  table's size. That was wrong. <code>accounts/0031</code> adds a nullable FK
+  (<code>pending_email_address</code>) to <code>users</code>, and <code>boards/0078_cardmovement_board_snapshots</code> adds
+  a nullable <code>board</code> FK to <code>card_movements</code>. Neither has a default, so Django emits
+  <code>ADD COLUMN ... REFERENCES</code> and PostgreSQL marks the constraint valid without reading a
+  row (see <a href="#adding-a-foreign-key">Adding a foreign key</a>). Each takes <code>ACCESS EXCLUSIVE</code> on
+  its own table and <code>SHARE ROW EXCLUSIVE</code> on the referenced one for a catalog-only change,
+  the same as any <code>ADD COLUMN</code>. #1894 declined a lint for this because a lint can't tell a
+  large table from a small one. The shape that really scans, a constrained FK added with a
+  default, scans every row of any existing table. <code>check_migration_concurrency</code> now flags it
+  regardless of table size, the same as its index rules.</li>
 <li><strong>NOT NULL columns first shipped with a Python-only <code>default=</code>.</strong> <code>accounts/0027</code>,
   <code>accounts/0030</code>, <code>accounts/0034</code> and <code>boards/0052</code> added <code>NOT NULL</code> columns with
   <code>default=</code> but no <code>db_default=</code>, which is the rolling-deploy hazard described under
@@ -5644,6 +5664,15 @@ installs have already run them; these are documented instead.</p>
   <code>account.0009_emailaddress_unique_primary_email</code>. 1.1.0 and 1.2 both pin
   <code>django-allauth==65.14.3</code>, which ships it;
   <code>accounts/tests/test_migration_upgrade_path_1662.py</code> fails if a pin change drops it.</li>
+<li><strong>Comments in <code>boards/0119</code>, <code>0134</code> and <code>0141</code> overstate the cost of a plain FK
+  <code>AddField</code> (found by #2620, after the audit above).</strong> <code>0119</code> says it emits
+  <code>ADD CONSTRAINT ... FOREIGN KEY</code>, which validates the new column under a lock on both
+  tables at a cost that tracks the size of <code>card_activities</code>. <code>0134</code> and <code>0141</code> say adding
+  the constraint valid would scan <code>cards</code> and <code>card_activities</code> respectively under
+  <code>SHARE ROW EXCLUSIVE</code>. Neither holds for a nullable column with no default, which all
+  three describe: PostgreSQL skips validation (measured on 16 and 17; see
+  <a href="#adding-a-foreign-key">Adding a foreign key</a>). Don't cite those comments as a reason to
+  split such an <code>AddField</code>. Applied migrations are left unedited.</li>
 </ul>
 <hr />
 <h2 id="when-migrations-are-squashed">When migrations are squashed<a class="headerlink" href="#when-migrations-are-squashed" title="Permanent link">&para;</a></h2>
