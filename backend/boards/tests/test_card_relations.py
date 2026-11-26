@@ -1104,18 +1104,20 @@ class CardRelationConcurrencyTests(TransactionTestCase):
         def attempt(from_id, to_id):
             client = APIClient()
             client.force_authenticate(self.owner)
-            barrier.wait()  # Both threads reach the lock simultaneously.
-            r = client.post(
-                f"/api/v1/boards/{self.board.id}/cards/{from_id}/relations/",
-                {"to_card": to_id, "direction": "blocks"},
-                format="json",
-            )
-            results.append(r.status_code)
-            # Release thread-local DB connection. Without this,
-            # TransactionTestCase.teardown_databases() fails with
-            # "database is being accessed by other users" on DROP.
-            from django.db import connections as _conns
-            _conns.close_all()
+            try:
+                barrier.wait()  # Both threads reach the lock simultaneously.
+                r = client.post(
+                    f"/api/v1/boards/{self.board.id}/cards/{from_id}/relations/",
+                    {"to_card": to_id, "direction": "blocks"},
+                    format="json",
+                )
+                results.append(r.status_code)
+            finally:
+                # Release thread-local DB connection. Without this,
+                # TransactionTestCase.teardown_databases() fails with
+                # "database is being accessed by other users" on DROP.
+                from django.db import connections as _conns
+                _conns.close_all()
 
         with patch("boards.broadcast.broadcast_board_event"):
             t1 = threading.Thread(target=attempt, args=(self.card_a.id, self.card_b.id))
@@ -1125,8 +1127,13 @@ class CardRelationConcurrencyTests(TransactionTestCase):
             t1.join()
             t2.join()
 
-        success_count = sum(1 for s in results if s == status.HTTP_201_CREATED)
-        self.assertEqual(success_count, 1, f"Expected exactly 1 success, got: {results}")
+        # Both statuses, not just the success count: a loser that raises (500,
+        # deadlock) appends nothing and would leave exactly one 201 behind.
+        self.assertEqual(
+            sorted(results),
+            [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST],
+            f"expected one 201 and one 400, got: {results}",
+        )
         self.assertEqual(
             CardRelation.objects.filter(relation_type=T.BLOCKS).count(), 1,
             "a mutual block committed — the row lock did not serialize the two "
@@ -1142,15 +1149,17 @@ class CardRelationConcurrencyTests(TransactionTestCase):
         def attempt():
             client = APIClient()
             client.force_authenticate(self.owner)
-            barrier.wait()
-            r = client.post(
-                f"/api/v1/boards/{self.board.id}/cards/{self.card_a.id}/relations/",
-                {"to_card": self.card_b.id, "direction": "blocks"},
-                format="json",
-            )
-            results.append(r.status_code)
-            from django.db import connections as _conns
-            _conns.close_all()
+            try:
+                barrier.wait()
+                r = client.post(
+                    f"/api/v1/boards/{self.board.id}/cards/{self.card_a.id}/relations/",
+                    {"to_card": self.card_b.id, "direction": "blocks"},
+                    format="json",
+                )
+                results.append(r.status_code)
+            finally:
+                from django.db import connections as _conns
+                _conns.close_all()
 
         with patch("boards.broadcast.broadcast_board_event"):
             threads = [threading.Thread(target=attempt) for _ in range(2)]
