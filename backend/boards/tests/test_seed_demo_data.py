@@ -2452,6 +2452,14 @@ class DemoSiteConnectedBoardsTests(TestCase):
         self.assertEqual(released.count(), 1)
         link = released.get()
         self.assertLessEqual(link.needed_at_column.position, link.parent.column.position)
+        # The release cannot precede the parent reaching the needed column, and the
+        # child is not moved before it was released.
+        arrival = link.parent.movements.filter(to_column=link.needed_at_column).order_by("-moved_at").first()
+        row = link.child.activities.get(event_type=CardActivity.EventType.PLANNED_RELEASED)
+        self.assertGreaterEqual(link.planned_released_at, arrival.moved_at)
+        self.assertGreaterEqual(row.created_at, arrival.moved_at)
+        first_move = link.child.movements.filter(movement_type="move", from_column__isnull=False).order_by("moved_at").first()
+        self.assertGreater(first_move.moved_at, link.planned_released_at)
 
     def test_links_leave_history_on_both_cards_and_one_pair_was_relinked(self):
         ET = CardActivity.EventType
@@ -2565,12 +2573,19 @@ class DemoSiteFlagshipOverlayTests(TestCase):
         self.assertTrue(self.board.enforce_wip_limits)
 
     def test_lanes_carry_wip_limits_and_some_are_over(self):
-        from django.db.models import Count
+        from django.db.models import Count, Q
 
-        lanes = list(self.board.swimlanes.exclude(wip_limit=None).annotate(n=Count("cards")))
+        # The product counts open cards in non-done columns (services/cards.py).
+        lanes = {
+            lane.name: (lane.n, lane.wip_limit)
+            for lane in self.board.swimlanes.exclude(wip_limit=None).annotate(
+                n=Count("cards", filter=Q(cards__archived_at__isnull=True, cards__column__is_done=False))
+            )
+        }
         self.assertGreaterEqual(len(lanes), 3)
-        self.assertTrue(any(lane.n > lane.wip_limit for lane in lanes), "no lane is over its limit")
-        self.assertTrue(any(lane.n <= lane.wip_limit for lane in lanes), "every limited lane is over")
+        self.assertEqual(lanes["Harborview Bank"], (8, 4))
+        self.assertEqual(lanes["Copperline Telecom"], (8, 5))
+        self.assertEqual(lanes["Granite Peak Energy"], (8, 12))
 
     def test_weight_is_the_deal_size(self):
         from boards.management.commands._demo_site_connected import _weight_for
@@ -2591,15 +2606,15 @@ class DemoSiteFlagshipOverlayTests(TestCase):
         def waited(card):
             return (now - card.movements.order_by("-moved_at").first().moved_at).days
 
-        stuck = [c for c in Card.objects.filter(board=self.board, column__name="Commercial") if waited(c) >= 14]
-        self.assertGreaterEqual(len(stuck), 3)
-        fresh = [
-            c for c in Card.objects.filter(
-                board=self.board, column__name__in=["Identify", "Discover", "Qualify"], created_by__username="admin",
-            ).exclude(title__in=[x["title"] for x in _sample("sales_overlay")["cards"]])
-            if waited(c) >= 14
-        ]
-        self.assertEqual(fresh, [])
+        open_cards = Card.objects.filter(board=self.board, archived_at__isnull=True, column__is_done=False)
+        commercial = [waited(c) for c in open_cards.filter(column__name="Commercial")]
+        self.assertGreaterEqual(len([w for w in commercial if w >= 14]), 3)
+        others = [(c.column.name, c.title, waited(c)) for c in open_cards.exclude(column__name="Commercial")]
+        self.assertTrue(others)
+        for column, title, days in others:
+            self.assertLess(days, max(commercial), f"{column}: {title} has waited as long as Commercial's oldest")
+        # Commercial's oldest deal is the oldest open card on the whole board.
+        self.assertEqual(max(commercial), max(days for _, _, days in others + [("Commercial", "", max(commercial))]))
 
     def test_seeded_text_names_no_internal_codename(self):
         from boards.models import Label

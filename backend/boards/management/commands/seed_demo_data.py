@@ -1214,7 +1214,8 @@ class Command(BaseCommand):
         for col_name, (wip, weight) in structure["wip"].items():
             Column.objects.filter(pk=by_name[col_name].pk).update(wip_limit=wip, weight_limit=weight)
 
-        # Per-lane (per account director) WIP limits (#2599).
+        # Per-lane WIP limits (#2599). The limit is on the account lane, not on the
+        # account director: AD is a lane field, and a limit belongs to the lane.
         for lane_name, lane_wip in structure.get("lane_wip", {}).items():
             Swimlane.objects.filter(board=board, name=lane_name).update(wip_limit=lane_wip)
 

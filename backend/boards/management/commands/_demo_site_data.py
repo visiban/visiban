@@ -908,12 +908,12 @@ BOARDS = [
         "trello": "trello_export.json",
     },
     # The dead-simple first-run board (#2600): one swimlane, the Simple Kanban
-    # template's columns minus Review, ten cards, nothing else. Appended LAST on
-    # purpose, for two reasons that look like they conflict and do not: the
-    # reset restarts the id sequences, so the order here is each board's URL and
-    # appending keeps Sales Territory (Overlay) at /boards/6; and the board list
-    # is ordered by -updated_at, so the board created last is listed first, which
-    # is where a new visitor should land. Empty extras on purpose: no custom
+    # template's columns minus Review, ten cards, nothing else. The connected
+    # boards (#2598) are appended after it. The reset restarts the id sequences,
+    # so the order here is each board's URL and appending keeps Sales Territory
+    # (Overlay) at /boards/6. The board list is ordered by -updated_at, and this
+    # board is listed first because keep_first_run_board_first touches it last,
+    # which is where a new visitor should land. Empty extras on purpose: no custom
     # fields, checklists, relations or links, because simple is the feature.
     {
         "name": SIMPLE_BOARD_NAME,
@@ -992,7 +992,7 @@ BOARDS = [
             ("Billing interface design review", "Review the interface design with the finance team.", 0, 1, "medium", "jordan", ("Integration",), [], 2, 24),
             ("Security control mapping workshop", "Map the customer's controls to the review checklist.", 0, 3, "medium", None, ("Integration",), [], 4, 21),
             ("Claims data validation", "Validate a sample extract before the renewal term begins.", 0, 5, "low", "maya", ("Data migration",), [], 5, 35),
-            ("Reporting template build", "Build the compliance report templates agreed in the order.", 1, 4, "medium", "jordan", ("Integration",), [], 2, 9),
+            ("Reporting template build", "Build the compliance report templates agreed in the order.", 1, 4, "medium", "jordan", ("Integration",), [], 1, 9),
             ("Standard onboarding checklist", "The checklist every implementation starts from.", 0, 0, "low", "admin", ("Training",), [], 6, None),
             ("Quarterly health check", "A standing review of usage and open requests.", 4, 0, "low", "maya", ("Go-live",), [], 1, None),
             ("Sandbox environment request", "A customer asked for a second sandbox.", 0, 1, "medium", None, ("Integration",), [], 4, 8),

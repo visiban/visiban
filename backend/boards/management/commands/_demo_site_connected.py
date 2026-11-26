@@ -53,17 +53,17 @@ SOFTWARE = "Software Team"
 # --- The overlay board (#2599) ----------------------------------------------
 
 #: How many generated deals land in each column of the overlay board. Validate
-#: and Commercial end over their limits (8 and 3, from the sample); the other
-#: limits below sit above their counts.
+#: and Commercial end over their limits (8 and 3, from the sample); the limits
+#: below sit at or above their counts (Discover holds 12 of its 12).
 OVERLAY_COLUMN_COUNTS = {
     "Identify": 6, "Discover": 8, "Qualify": 8, "Shape": 7,
     "Validate": 3, "Commercial": 3, "Commit": 5, "Won": 15,
 }
 
 #: Days since each generated deal's last move, per column, cycled. Commercial
-#: is the hot spot: its deals have waited two to three weeks, where every other
-#: open column reads under a fortnight. 3 and 7 are avoided for the same reason
-#: as in _demo_site_data (they straddle a staleness boundary at any hour).
+#: is the hot spot: three of its deals have waited 15 to 24 days, the longest on
+#: the board; no other open column holds a card that has waited 15 days or more. 3 and 7
+#: are avoided for the same reason as in _demo_site_data (they straddle a staleness boundary at any hour).
 _OVERLAY_AGES = {
     "Identify": (1, 2, 4, 0, 5, 1), "Discover": (2, 5, 1, 6, 4, 0, 2, 1),
     "Qualify": (1, 4, 6, 2, 5, 0, 2, 1), "Shape": (2, 5, 1, 4, 0, 6, 2),
@@ -124,7 +124,7 @@ OVERLAY_STRUCTURE = {
     ],
     "health": (
         "at_risk",
-        "Commercial is over its limit and its deals have waited about three weeks; Keystone has no overlay coverage.",
+        "Commercial is over its limit and three of its deals have waited 15 to 24 days, the longest on the board; Keystone has no overlay coverage.",
     ),
 }
 
@@ -334,7 +334,11 @@ def _link_boards(seeded, users, acts):
         if kind in ("planned", "relinked"):
             acts.add(child, ET.NEEDED_CHANGED, pair_times[-1] + datetime.timedelta(minutes=10), actor, "manual", "planned")
         if kind == "released":
-            released_at = pair_times[-1] + datetime.timedelta(days=1)
+            # The service releases a planned child in the same transaction as the parent's move
+            # into the needed column, so the release carries that move's own time (never earlier:
+            # a release before the parent arrived is an impossible history).
+            arrival = parent.movements.filter(to_column=needed_column).order_by("-moved_at", "-id").first()
+            released_at = max(arrival.moved_at, pair_times[-1] + datetime.timedelta(minutes=11))
             acts.add(child, ET.NEEDED_CHANGED, pair_times[-1] + datetime.timedelta(minutes=10), actor, "manual", "planned")
             # No actor, as the service writes it (planned_children.py): the parent's mover
             # must stay hidden on a hidden-parent timeline.
