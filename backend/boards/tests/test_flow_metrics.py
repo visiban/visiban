@@ -31,6 +31,8 @@ MOVE = CardMovement.MovementType.MOVE
 ARCHIVED = CardMovement.MovementType.ARCHIVED
 UNARCHIVED = CardMovement.MovementType.UNARCHIVED
 
+UTC = datetime.timezone.utc
+
 
 class FlowFixture(TestCase):
     """A Backlog / Doing / Review / Done / Released board and a history builder."""
@@ -95,7 +97,7 @@ class FlowFixture(TestCase):
         return fm.load_board_flow(self.board, now=self.now, **filters)
 
     def last(self, days=30):
-        return fm.rolling_range(days, now=self.now)
+        return fm.rolling_range(days, now=self.now, zone=UTC)
 
     def by_card(self, payload):
         return {s["card_uid"]: s for s in payload["samples"]}
@@ -427,7 +429,7 @@ class ColumnKeyTests(FlowFixture):
 
 class WindowTests(FlowFixture):
     def test_rolling_range_is_half_open_on_samples_and_whole_days_on_buckets(self):
-        window = fm.rolling_range(7, now=self.now)
+        window = fm.rolling_range(7, now=self.now, zone=UTC)
         self.assertEqual(window.start, self.ago(7))
         self.assertEqual(window.end, self.now)
         self.assertEqual(window.first_day, datetime.date(2026, 7, 8))
@@ -436,7 +438,7 @@ class WindowTests(FlowFixture):
         self.assertTrue(window.contains(self.ago(7)))
 
     def test_date_range_is_inclusive_at_both_ends_and_today_is_never_a_bucket(self):
-        window = fm.date_range(datetime.date(2026, 7, 1), datetime.date(2026, 7, 15), now=self.now)
+        window = fm.date_range(datetime.date(2026, 7, 1), datetime.date(2026, 7, 15), now=self.now, zone=UTC)
         self.assertEqual(window.end, datetime.datetime(2026, 7, 16, tzinfo=datetime.timezone.utc))
         self.assertEqual(window.last_day, datetime.date(2026, 7, 14))
 
@@ -555,10 +557,10 @@ class ThroughputTests(FlowFixture):
         # 2026-06-29 is a Monday and 2026-07-12 a Sunday: whole weeks, so both agree.
         for days_ago in (3, 5, 10, 16):  # Sun 07-12 12:00, 07-10, 07-05, 06-29
             self.path(self.backlog, 60, self.doing, 50, self.done, days_ago)
-        whole = fm.throughput(self.flow(), fm.date_range(datetime.date(2026, 6, 29), datetime.date(2026, 7, 12), now=self.now))
+        whole = fm.throughput(self.flow(), fm.date_range(datetime.date(2026, 6, 29), datetime.date(2026, 7, 12), now=self.now, zone=UTC))
         self.assertEqual((whole["total"], whole["completed_in_range"]), (4, 4))
         # Starting on Tuesday drops the week of 06-29 from total only.
-        partial = fm.throughput(self.flow(), fm.date_range(datetime.date(2026, 6, 30), datetime.date(2026, 7, 12), now=self.now))
+        partial = fm.throughput(self.flow(), fm.date_range(datetime.date(2026, 6, 30), datetime.date(2026, 7, 12), now=self.now, zone=UTC))
         self.assertEqual((partial["total"], partial["completed_in_range"]), (2, 3))
 
 
@@ -687,7 +689,7 @@ class CumulativeFlowTests(FlowFixture):
         self.assertIsNone(fm.cumulative_flow(self.flow(), self.last(10))["bottleneck_column_uid"])
 
     def test_no_bottleneck_and_no_days_before_any_whole_day_exists(self):
-        window = fm.date_range(self.now.date(), self.now.date(), now=self.now)
+        window = fm.date_range(self.now.date(), self.now.date(), now=self.now, zone=UTC)
         payload = fm.cumulative_flow(self.flow(), window)
         self.assertEqual(payload["days"], [])
         self.assertIsNone(payload["bottleneck_column_uid"])
@@ -728,7 +730,7 @@ class CumulativeFlowTests(FlowFixture):
         flow = self.flow()
         payload = fm.cumulative_flow(flow, self.last(12))
         for day in payload["days"]:
-            cards = fm.cumulative_flow_cards(flow, datetime.date.fromisoformat(day["date"]))
+            cards = fm.cumulative_flow_cards(flow, datetime.date.fromisoformat(day["date"]), zone=UTC)
             for column in cards["columns"]:
                 key = column["column_uid"] or fm.NULL_BAND_KEY
                 self.assertEqual(len(column["card_uids"]), day["counts"][key], (day["date"], key))
@@ -743,7 +745,7 @@ class CumulativeFlowTests(FlowFixture):
         flow = self.flow()
         payload = fm.cumulative_flow(flow, self.last(12))
         for day in payload["days"]:
-            cards = fm.cumulative_flow_cards(flow, datetime.date.fromisoformat(day["date"]))
+            cards = fm.cumulative_flow_cards(flow, datetime.date.fromisoformat(day["date"]), zone=UTC)
             for column in cards["columns"]:
                 key = column["column_uid"] or fm.NULL_BAND_KEY
                 self.assertEqual(len(column["card_uids"]), day["counts"][key], (day["date"], key))
@@ -1644,7 +1646,7 @@ class ColumnFlowTests(FlowFixture):
         gone.delete()
         flow = self.flow()
         day = (self.now - datetime.timedelta(days=20)).date()
-        for flow_range in (self.last(30), self.last(7), self.last(2), self.last(90), fm.date_range(day, day + datetime.timedelta(days=9), now=self.now)):
+        for flow_range in (self.last(30), self.last(7), self.last(2), self.last(90), fm.date_range(day, day + datetime.timedelta(days=9), now=self.now, zone=UTC)):
             with self.subTest(flow_range=flow_range):
                 payload = fm.cumulative_flow(flow, flow_range)
                 self.assert_identity(payload)
@@ -1715,7 +1717,7 @@ class ColumnFlowTests(FlowFixture):
     def test_no_whole_day_has_null_counts(self):
         self.path(self.backlog, 40, self.doing, 1)
         today = self.now.date()
-        payload = self.cfd(fm.date_range(today, today, now=self.now))
+        payload = self.cfd(fm.date_range(today, today, now=self.now, zone=UTC))
         self.assertEqual(payload["days"], [])
         for column in payload["columns"]:
             self.assertEqual(
@@ -1763,7 +1765,7 @@ class ColumnFlowTests(FlowFixture):
         payload = self.cfd(self.last(1))
         self.assertEqual((payload["completed"], payload["completed_per_week"]), (0, None))
         today = self.now.date()
-        payload = self.cfd(fm.date_range(today, today, now=self.now))
+        payload = self.cfd(fm.date_range(today, today, now=self.now, zone=UTC))
         self.assertEqual((payload["completed"], payload["completed_per_week"]), (0, None))
 
 
@@ -1847,7 +1849,7 @@ class BlockedSummaryTests(FlowFixture):
         card = self.path(self.backlog, 40, self.doing, 35)
         self.block(card, "Vendor", 20, 5)
         to_day = self.ago(10).date()
-        flow_range = fm.date_range(self.ago(30).date(), to_day, now=self.now)
+        flow_range = fm.date_range(self.ago(30).date(), to_day, now=self.now, zone=UTC)
         expected = (flow_range.end - self.ago(20)).total_seconds() / fm.SECONDS_PER_DAY
         self.assertEqual(expected, 10.5)
         self.assertEqual(self.summary(flow_range)["total"]["days"], expected)

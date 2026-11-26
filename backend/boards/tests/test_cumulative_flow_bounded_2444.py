@@ -281,8 +281,8 @@ class BoundedReadTests(AgedBoardMixin, FlowFixture):
             day = self.ago(days_ago).date()
             with self.subTest(day=day):
                 self.assertEqual(
-                    fm.cumulative_flow_cards(fm.load_cumulative_day(self.board, day, now=self.now), day),
-                    fm.cumulative_flow_cards(full, day),
+                    fm.cumulative_flow_cards(fm.load_cumulative_day(self.board, day, now=self.now), day, zone=_UTC),
+                    fm.cumulative_flow_cards(full, day, zone=_UTC),
                 )
 
 

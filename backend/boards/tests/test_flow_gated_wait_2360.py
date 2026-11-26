@@ -20,6 +20,8 @@ from boards.services import flow_metrics as fm
 
 DAY = datetime.timedelta(days=1)
 
+UTC = datetime.timezone.utc
+
 
 class GatedWaitTests(TestCase):
     def setUp(self):
@@ -106,7 +108,7 @@ class GatedWaitTests(TestCase):
             fm._attach_wait([], Card.objects.filter(board=self.board), {"x": 1}, self.now)
 
     def _range(self):
-        return fm.rolling_range(30, now=self.now)
+        return fm.rolling_range(30, now=self.now, zone=UTC)
 
     def test_completed_dwell_splits_the_gated_visit(self):
         a = self._crosses_reopens_and_recrosses()

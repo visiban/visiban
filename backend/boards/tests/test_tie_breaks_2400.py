@@ -23,6 +23,8 @@ from boards.services import flow_metrics as fm
 
 DAY = datetime.timedelta(days=1)
 
+UTC = datetime.timezone.utc
+
 
 class _Base(TestCase):
     def setUp(self):
@@ -91,7 +93,7 @@ class EmptyFlowGatedStageTests(_Base):
             SubColumn.objects.create(column=self.doing, position=i, name=name)
         other_lane = Swimlane.objects.create(board=self.board, name="Empty", position=1)
         flow = fm.load_board_flow(self.board, swimlane_id=other_lane.pk, now=timezone.now())
-        columns = {c["column_uid"]: c for c in fm.completed_dwell(flow, fm.rolling_range(30))["columns"]}
+        columns = {c["column_uid"]: c for c in fm.completed_dwell(flow, fm.rolling_range(30, zone=UTC))["columns"]}
         # The stage is gated, but with no cards selected its gates are not read.
         self.assertIsNone(columns[self.doing.uid]["work_percentiles"])
         self.assertIsNone(columns[self.doing.uid]["wait_percentiles"])

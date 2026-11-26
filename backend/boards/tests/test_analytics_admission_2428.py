@@ -26,7 +26,7 @@ from boards.models import Board, BoardMembership, CardBlock, CardMovement, Colum
 from boards.services import analytics_admission as admission
 from boards.services import flow_metrics
 from boards.services.analytics_admission import AnalyticsBusy, AnalyticsTooLarge, analytics_slot
-from boards.tests.test_flow_metrics import FlowFixture
+from boards.tests.test_flow_metrics import UTC, FlowFixture
 from boards.views.analytics import BoardAnalyticsMixin
 from visiban.analytics_limits import parse_positive_int
 
@@ -255,7 +255,7 @@ class BlockRowsCountTests(FlowFixture):
 
     def test_block_spans_count_as_held_rows(self):
         self._blocks()
-        last = flow_metrics.rolling_range(30, now=self.now)
+        last = flow_metrics.rolling_range(30, now=self.now, zone=UTC)
         flow = flow_metrics.load_board_flow(self.board, now=self.now)
         with override_settings(ANALYTICS_MAX_MOVEMENTS=2), self.assertRaises(AnalyticsTooLarge):
             list(flow_metrics._block_spans(flow, last))
