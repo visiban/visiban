@@ -263,6 +263,19 @@ Public share links show no parent line. On a phone the picker opens as a full-sc
 - **Parent filter on the child board:** on a board whose cards have parents, the Filter panel has a **Parent** row: Any, Any parent, No parent, or one parent card. It offers only parents on boards you can open; a card whose parent you can't open counts for Any parent and never for a named one. An active Parent filter adds a removable chip, travels in the board URL as `f_parent` (a card id, `any` or `none`), and is kept in saved filters.
 - **Live updates:** when a child moves, is blocked or unblocked, archived, restored, linked or unlinked by someone else, the open tab re-reads its children. A screen reader hears the change once: "Pen-test scoping call moved to Doing. 3 of 5 done." for one move, "Children updated. 3 of 5 done." for anything else. The update itself names no card; the tab re-reads what you may see, so losing access to the child board turns the tab into the count-only line with nothing announced.
 
+## Children mode
+
+*Since 1.3 (#2370, #2550).* On a board where cards can have children, the Board tab has a **Show: Cards | Children** control beside the tabs (on phones, at the left of the toolbar). **Children** shows all work in progress for the whole board, child tasks included: one row per parent, grouped under its lane, with that parent's children in their real columns on the child board. Your choice is remembered per board. A shared board link has no Show control.
+
+- **Linking a lane.** `?show=children&lane=<lane id>` opens Children mode with that lane only. Each lane band has **Copy link**. A lane you can't see is simply absent.
+- **Lane band.** The lane name, "5 parents · 2 child boards", the total ("12 in progress of 16"), a bar of done, doing, blocked and to do, "3 blocked", and "+4 on a board you can't open". In progress means not done and not planned: a lane with planned children reads "2 in progress · 2 planned". Totals count only children you can open; children on a board you can't open, and archived children, never enter the done, doing or blocked counts.
+- **Rows.** Each child board gets its own heading and its own columns, with counts against the whole column ("5 of 9 on Delivery · limit 5"). A parent row shows the parent (opens its card), its column, its owner and "1/6 done" (or "No work started"); its children sit in their columns, blocked ones with "⊘ 4d". The Done column is a count ("3 done · Show"). Rows with blocked children come first, with a red left edge, then the most recent move.
+- **Planned children.** In a row, planned children fold into the To do column as "2 planned · Show". Parents with nothing in progress, and parents whose only children are planned, fold into one button at the end of the lane: "2 parents with nothing in progress · 1 with only planned work".
+- **Locked rows.** A parent whose child board you can't open shows "4 children on a board you can't open. Their columns and titles are not shown."
+- **Large lanes.** Past 8 parents, rows shrink to one line and open on Enter or click; rows with blocked work open by default. The view loads 20 rows at a time ("+9 more parents · loads 20 rows at a time").
+- **Options.** While Children is shown, the **View** menu has Lanes (all or one), Show done cards, Blocked only, and Planned (Any, Hide planned, Only planned). On phones the View options open from Filters.
+- **Keyboard.** Each lane's grid is one Tab stop: arrow keys move between cards and parents, Enter opens a card on its board or a parent's card, and Escape leaves the grid.
+
 ## Extension sections in card details
 
 *New in 1.3, experimental.* An installed extension (for example an Enterprise module) can add a read-only section to a card's **Details** tab, after Weight. Each section has its own heading and shows plain label and value rows. Without an extension nothing is shown, and the tab looks as it always has.
