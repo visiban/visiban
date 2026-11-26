@@ -616,10 +616,14 @@ if ATTACHMENT_MAX_PER_CARD < 0 or ATTACHMENT_MAX_BYTES_PER_CARD < 0:
 # x one request's peak at ANALYTICS_MAX_MOVEMENTS < the pod's memory limit
 # (docs/administration/configuration.md). Unlike the ATTACHMENT_MAX_* quotas,
 # 0 is not "no limit": there is no off switch, and 0, a negative number or a
-# non-integer stops startup. Blank keeps the default.
+# non-integer stops startup. Blank keeps the default. ANALYTICS_MAX_SECONDS
+# bounds how long one admitted request runs (deadline checks between queries
+# and row chunks, and a PostgreSQL statement_timeout of the time left); past
+# it the request is refused with `analytics_timeout` and its slot freed.
 from visiban.analytics_limits import (  # noqa: E402
     DEFAULT_ANALYTICS_MAX_CONCURRENT as _DEFAULT_ANALYTICS_MAX_CONCURRENT,
     DEFAULT_ANALYTICS_MAX_MOVEMENTS as _DEFAULT_ANALYTICS_MAX_MOVEMENTS,
+    DEFAULT_ANALYTICS_MAX_SECONDS as _DEFAULT_ANALYTICS_MAX_SECONDS,
     parse_positive_int as _parse_positive_int,
 )
 
@@ -630,6 +634,10 @@ ANALYTICS_MAX_CONCURRENT = _parse_positive_int(
 ANALYTICS_MAX_MOVEMENTS = _parse_positive_int(
     os.environ.get("ANALYTICS_MAX_MOVEMENTS"), name="ANALYTICS_MAX_MOVEMENTS",
     default=_DEFAULT_ANALYTICS_MAX_MOVEMENTS,
+)
+ANALYTICS_MAX_SECONDS = _parse_positive_int(
+    os.environ.get("ANALYTICS_MAX_SECONDS"), name="ANALYTICS_MAX_SECONDS",
+    default=_DEFAULT_ANALYTICS_MAX_SECONDS,
 )
 
 # Per-card caps on comments and checklist items (#2376), the follow-up to the

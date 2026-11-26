@@ -7,6 +7,10 @@ from django.core.exceptions import ImproperlyConfigured
 
 DEFAULT_ANALYTICS_MAX_CONCURRENT = 1
 DEFAULT_ANALYTICS_MAX_MOVEMENTS = 150_000
+# Wall-clock seconds one admitted analytics request may run. Below the
+# proxy's 90 s read timeout with room for the 8 s wait for a slot, so a
+# client gets the server's own refusal rather than a proxy error.
+DEFAULT_ANALYTICS_MAX_SECONDS = 60
 
 
 def parse_positive_int(raw, *, name, default):

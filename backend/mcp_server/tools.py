@@ -60,7 +60,7 @@ from boards.serializers import (
 )
 from boards.services import cards as card_services
 from boards.services import flow_metrics
-from boards.services.analytics_admission import AnalyticsBusy, AnalyticsTooLarge, analytics_slot
+from boards.services.analytics_admission import AnalyticsBusy, AnalyticsTimedOut, AnalyticsTooLarge, analytics_slot
 from groups.health import build_health_map, resolve_health_origin, valid_health_status
 from boards.services.errors import (
     BoardNotFound, CardNotFound, CardServiceError,
@@ -1504,7 +1504,7 @@ def board_flow_metrics(*, board_id, window_days=90, swimlane_id=None):
                 "blocked": flow_metrics.blocked_time(flow, flow_range),
                 "blocked_summary": flow_metrics.blocked_summary(flow, flow_range),
             }
-    except (AnalyticsBusy, AnalyticsTooLarge) as exc:
+    except (AnalyticsBusy, AnalyticsTimedOut, AnalyticsTooLarge) as exc:
         return _error_payload(exc)
 
 
@@ -1610,5 +1610,5 @@ def aging_cards(*, board_id, percentile=85):
                     for _, card, sample, threshold in page
                 ],
             }
-    except (AnalyticsBusy, AnalyticsTooLarge) as exc:
+    except (AnalyticsBusy, AnalyticsTimedOut, AnalyticsTooLarge) as exc:
         return _error_payload(exc)

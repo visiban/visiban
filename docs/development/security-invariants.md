@@ -1071,8 +1071,14 @@ the board (Rule 7's `404`), validate parameters (`400`), then take the slot, so
 a refusal never answers for a board the caller cannot see. The slot is keyed on
 the user (`user.pk`, never the token), is released in `try`/`finally`, is
 counted in-process and never in the cache, and an absent or anonymous user is
-never admitted. No caller is exempt, site admins included. The refusal bodies
-(`analytics_busy` `503`, `analytics_too_large` `422`) and `Retry-After` are
+never admitted. No caller is exempt, site admins included. An admitted
+request runs at most `ANALYTICS_MAX_SECONDS`: every query it starts inside the
+slot checks the deadline first and, on PostgreSQL, runs under a
+`statement_timeout` of the time left (never looser than the session's own), and
+`Ticket.count_rows` reads the clock every `DEADLINE_CHECK_ROWS` rows; past it
+the request ends with `AnalyticsTimedOut` and the same `finally` frees the slot.
+A direct caller's fresh counter has a deadline too. The refusal bodies
+(`analytics_busy` `503`, `analytics_timeout` `503`, `analytics_too_large` `422`) and `Retry-After` are
 constant: no counts, limits or queue positions.
 
 | Surface | Entry point | Enforcement |

@@ -243,13 +243,15 @@ _ANALYTICS_400 = OpenApiResponse(
 _ADMISSION_ERROR_SERIALIZER = inline_serializer(
     name="AnalyticsAdmissionError",
     fields={
-        "code": serializers.CharField(help_text="`analytics_busy` (503) or `analytics_too_large` (422)."),
+        "code": serializers.CharField(
+            help_text="`analytics_busy` (503), `analytics_timeout` (503) or `analytics_too_large` (422).",
+        ),
         "detail": serializers.CharField(),
     },
 )
 
 # Every action that replays board history is admitted through analytics_slot
-# (#2428); these are its two refusals. The bodies are constant.
+# (#2428); these are its refusals. The bodies are constant.
 _ADMISSION_RESPONSES = {
     422: OpenApiResponse(
         description=(
@@ -261,7 +263,8 @@ _ADMISSION_RESPONSES = {
     503: OpenApiResponse(
         description=(
             "No analytics slot came free in time (`ANALYTICS_MAX_CONCURRENT`; `code: analytics_busy`). "
-            "Retry after the `Retry-After` seconds."
+            "Retry after the `Retry-After` seconds. Or the request ran past the server's time limit "
+            "(`ANALYTICS_MAX_SECONDS`; `code: analytics_timeout`, no `Retry-After`): try a shorter range."
         ),
         response=_ADMISSION_ERROR_SERIALIZER,
     ),
@@ -1670,6 +1673,14 @@ class BoardAnalyticsMixin:
                     stall_cutoff=stall_cutoff, col_id_to_name=col_id_to_name, done_col_ids=done_col_ids,
                 ))
 
+            # A window longer than the default can hold more history than the
+            # size limit allows on an old board; refuse it up front with the
+            # same analytics_too_large rather than after reading up to the
+            # limit (one bounded count, only for these long windows).
+            if days > flow_metrics.DEFAULT_RANGE_DAYS:
+                flow_metrics.refuse_if_range_exceeds_budget(
+                    board, flow_range, swimlane_id=swimlane_filter, label_id=label_filter,
+                )
             extra = _heatmap_extra_term(board, buffer_cutoff, done_col_ids)
             flow = flow_metrics.load_recent_dwell(
                 board, flow_range, columns=columns, swimlane_id=swimlane_filter, label_id=label_filter,

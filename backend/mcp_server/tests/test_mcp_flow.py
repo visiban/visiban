@@ -591,6 +591,17 @@ class FlowToolsAdmissionTests(McpFlowFixture):
                     result = self.call(tool, board_id=self.board.pk, **extra)
                     self.assertEqual(result, {"error": analytics_admission.AnalyticsTooLarge().body()})
 
+    def test_over_the_time_bound_is_a_coded_error(self):
+        from boards.services import analytics_admission
+
+        # A zero budget puts the deadline at admission: the first query is refused.
+        with mock.patch.object(analytics_admission, "time_budget", return_value=0):
+            for tool, extra in self.TOOLS:
+                with self.subTest(tool=tool):
+                    result = self.call(tool, board_id=self.board.pk, **extra)
+                    self.assertEqual(result, {"error": analytics_admission.AnalyticsTimedOut().body()})
+        self.assertEqual(analytics_admission.occupancy(), (0, 0, {}))
+
     @override_settings(ANALYTICS_MAX_CONCURRENT=5)
     def test_every_token_of_one_user_shares_the_per_user_cap(self):
         # The key is user.pk, and every PAT of a user resolves to the same user,
