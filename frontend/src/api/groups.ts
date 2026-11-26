@@ -104,9 +104,6 @@ export const transferGroupOwnership = (groupId: number, newOwnerId: number, conf
 // Group labels (shared label library)
 // ------------------------------------------------------------------
 
-export const getGroupLabels = (id: number) =>
-  client.get<GroupLabel[]>(`/api/v1/groups/${id}/labels/`).then((r) => r.data);
-
 export const createGroupLabel = (id: number, data: { name: string; color: string }) =>
   client.post<GroupLabel>(`/api/v1/groups/${id}/labels/`, data).then((r) => r.data);
 

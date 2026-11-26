@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
 
 vi.mock('../api/gitLens', () => ({
   getLensBoard: vi.fn(),
@@ -136,5 +136,42 @@ describe('useLensData', () => {
     expect(result.current.loading).toBe(false)
     await waitFor(() => expect(result.current.data?.total_count).toBe(7))
     expect(result.current.refetching).toBe(false)
+  })
+
+  // #1759
+  it('refresh asks the server to bypass its cache (refresh=1)', async () => {
+    mockGetLensBoard.mockResolvedValue(sampleData)
+    const { result } = renderHook(() => useLensData(5))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => { result.current.refresh() })
+    await waitFor(() => expect(result.current.refetching).toBe(false))
+    expect(mockGetLensBoard).toHaveBeenCalledTimes(2)
+    expect(mockGetLensBoard.mock.calls[1][1]).toMatchObject({ refresh: 1 })
+  })
+
+  it('ignores a slow earlier response that lands after a newer one', async () => {
+    let resolveFirst!: (d: LensData) => void
+    mockGetLensBoard
+      .mockReturnValueOnce(new Promise<LensData>((r) => { resolveFirst = r }))
+      .mockResolvedValueOnce({ ...sampleData, total_count: 2 })
+    const { result, rerender } = renderHook(
+      ({ state }) => useLensData(5, { filters: { state } }),
+      { initialProps: { state: 'open' } },
+    )
+    rerender({ state: 'closed' })
+    await waitFor(() => expect(result.current.data?.total_count).toBe(2))
+    await act(async () => { resolveFirst({ ...sampleData, total_count: 1 }) })
+    expect(result.current.data?.total_count).toBe(2)
+  })
+
+  it.each([
+    ['a 404 without a code', axiosError(404, {}), 'repo_not_found'],
+    ['an unrecognized code', axiosError(500, { code: 'brand_new' }), 'unknown'],
+    ['a non-HTTP error', new Error('offline'), 'unknown'],
+  ])('maps %s', async (_name, rejection, code) => {
+    mockGetLensBoard.mockRejectedValue(rejection)
+    const { result } = renderHook(() => useLensData(5))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error?.code).toBe(code)
   })
 })

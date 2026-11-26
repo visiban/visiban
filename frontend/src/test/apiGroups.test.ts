@@ -19,6 +19,7 @@ import {
   starGroup, unstarGroup, listStarredGroups,
   updateGroupBoardDefaults,
   createGroupLabel, updateGroupLabel, deleteGroupLabel,
+  sendInviteLinkEmail, transferGroupOwnership,
 } from '../api/groups'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock client cast; the real client type is broader than any single test needs
@@ -259,5 +260,24 @@ describe('groups API', () => {
     mockClient.delete.mockResolvedValue({})
     await deleteGroupLabel(1, 7)
     expect(mockClient.delete).toHaveBeenCalledWith('/api/v1/groups/1/labels/7/')
+  })
+})
+
+// #1759: request shape for wrappers that were only ever mocked by component tests.
+describe('groups API: emailed invite and ownership transfer (#1759)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('sendInviteLinkEmail POSTs email and role to the send route', async () => {
+    mockClient.post.mockResolvedValue({ data: { detail: 'sent' } })
+    await expect(sendInviteLinkEmail(4, { email: 'a@b.co', role: 'viewer' })).resolves.toEqual({ detail: 'sent' })
+    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/groups/4/invite-links/send/', { email: 'a@b.co', role: 'viewer' })
+  })
+
+  it('transferGroupOwnership POSTs new_owner_id and the typed confirmation', async () => {
+    mockClient.post.mockResolvedValue({ data: { id: 4 } })
+    await expect(transferGroupOwnership(4, 17, 'Design')).resolves.toEqual({ id: 4 })
+    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/groups/4/transfer-ownership/', {
+      new_owner_id: 17, confirmation: 'Design',
+    })
   })
 })

@@ -1,6 +1,6 @@
 import HelpLink from "../Common/HelpLink";
 import type { SocketStatus } from "../../hooks/useBoardSocket";
-import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
@@ -585,6 +585,21 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const commitmentOptions = [...board.columns].filter((c) => !c.is_done).sort((a, b) => a.position - b.position);
   const commitmentColumn = commitmentOptions.find((c) => c.uid === board.commitment_column_uid) ?? null;
   const commitmentIsStale = !!board.commitment_column_uid && commitmentColumn === null;
+  // #2051 — the board's flow-metric time zone. The browser's IANA list; a stored
+  // name it lacks is still offered so the current value always shows.
+  // Guarded: a browser without Intl.supportedValuesOf (pre-2022) still opens the modal.
+  const timeZoneOptions = useMemo(() => {
+    const names = (typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [])
+      .filter((n) => n !== "UTC");
+    if (board.time_zone && board.time_zone !== "UTC" && !names.includes(board.time_zone)) {
+      names.unshift(board.time_zone);
+    }
+    return [
+      { value: "none", label: "UTC (default)" },
+      ...names.map((n) => ({ value: n, label: n.replace(/_/g, " ") })),
+    ];
+  }, [board.time_zone]);
+  const timeZoneValue = board.time_zone && board.time_zone !== "UTC" ? board.time_zone : "none";
   const rollupField = resolveRollupField(board.swimlane_rollup_field, board.custom_field_definitions);
   const rollupFieldIsStale = board.swimlane_rollup_field != null && rollupField === null;
   const shareExpired = shareExpiresAt !== null && new Date(shareExpiresAt).getTime() <= Date.now();
@@ -2045,6 +2060,33 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <p className="text-sm text-fg-secondary shrink-0" aria-describedby="commitment-column-help">
                       <span className="sr-only">Cycle time starts at: </span>
                       {commitmentColumn ? commitmentColumn.name : "First move (default)"}
+                    </p>
+                  )}
+                </div>
+                {/* #2051 — the zone flow-metric days and weeks are dated in */}
+                <div className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0 pr-4">
+                    {isAdmin
+                      ? <label htmlFor="flow-time-zone-select" className="text-sm text-fg">Time zone for days and weeks</label>
+                      : <span className="text-sm text-fg">Time zone for days and weeks</span>}
+                    <p id="flow-time-zone-help" className="text-xs text-fg-muted mt-0.5">
+                      Throughput, cumulative flow and date ranges count calendar days in this zone, for everyone on the board. Durations do not change.
+                    </p>
+                    <p className="text-xs text-fg-muted mt-0.5">Changing it re-counts past days too; no card data changes.</p>
+                  </div>
+                  {isAdmin ? (
+                    <SelectDropdown
+                      id="flow-time-zone-select"
+                      ariaDescribedBy="flow-time-zone-help"
+                      value={timeZoneValue}
+                      onChange={(v) => onUpdateBoardSettings?.({ time_zone: v === "none" ? null : v })}
+                      options={timeZoneOptions}
+                      className="shrink-0 max-w-[14rem]"
+                    />
+                  ) : (
+                    <p className="text-sm text-fg-secondary shrink-0" aria-describedby="flow-time-zone-help">
+                      <span className="sr-only">Time zone for days and weeks: </span>
+                      {timeZoneValue === "none" ? "UTC (default)" : timeZoneValue.replace(/_/g, " ")}
                     </p>
                   )}
                 </div>

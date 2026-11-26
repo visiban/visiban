@@ -10,6 +10,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 import { REFERENCE_LABEL_MARGIN } from '../components/Common/Chart'
 import WipAgeChart from '../components/Board/flowMetrics/WipAgeChart'
+import CycleTimeChart from '../components/Board/flowMetrics/CycleTimeChart'
 import AnalyticsOverview from '../components/Board/flowMetrics/AnalyticsOverview'
 import { useAnalyticsFilters } from '../components/Board/flowMetrics/useAnalyticsFilters'
 import {
@@ -1554,5 +1555,71 @@ describe('FlowMetricsDashboard docs links (#2593)', () => {
     const panel = await screen.findByTestId('analytics-blocked')
     expect(within(panel).getByTestId('analytics-blocked-empty')).toBeInTheDocument()
     expect(within(panel).getByRole('link', { name: 'Learn more about block reasons, opens docs' })).toHaveAttribute('href', docsUrl('analytics.blocked'))
+  })
+})
+
+// #2051: an instant (a completion, a start, a transition, an axis tick) reads in
+// the board zone. 2026-11-20T01:30Z is still Nov 19 in Los Angeles (UTC-8).
+describe('instants read in the board time zone (#2051)', () => {
+  const LA = 'America/Los_Angeles'
+  const lateUtc = '2026-11-20T01:30:00Z'
+  const zoned: FlowCycleTime = {
+    ...cycle,
+    samples: [{ card_uid: cardA.uid, value_days: 3, start: '2026-11-17T02:00:00Z', end: lateUtc, reopened: false }],
+    cards: [cardA],
+  }
+
+  it('dates the drill-down Started, Finished and transitions in the board zone', async () => {
+    mockAll({ cycle: zoned })
+    movementsMock.mockResolvedValue([
+      { id: 1, from_column_name: 'Doing', to_column_name: 'Done', movement_type: 'move', moved_at: lateUtc, moved_by: null },
+    ] as never)
+    await renderLoaded({ timeZone: LA })
+    await userEvent.click(within(screen.getByTestId('flow-cycle-time')).getByRole('button', { name: /^Fix the login/ }))
+    const dialog = within(await screen.findByRole('dialog', { name: 'Fix the login' }))
+    expect(dialog.getByText('Finished').nextElementSibling).toHaveTextContent('Nov 19')
+    expect(dialog.getByText('Started').nextElementSibling).toHaveTextContent('Nov 16')
+    const transitions = await dialog.findByRole('list', { name: 'Transitions' })
+    expect(within(transitions).getByRole('listitem')).toHaveTextContent('Nov 19')
+    expect(transitions).not.toHaveTextContent('Nov 20')
+  })
+
+  it('dates the cycle-time table Finished column in the board zone', async () => {
+    mockAll({ cycle: zoned })
+    await renderLoaded({ timeZone: LA })
+    const panel = within(screen.getByTestId('flow-cycle-time'))
+    await userEvent.click(panel.getByRole('button', { name: 'table' }))
+    expect(panel.getByRole('cell', { name: 'Nov 19' })).toBeInTheDocument()
+    expect(panel.queryByRole('cell', { name: 'Nov 20' })).not.toBeInTheDocument()
+  })
+
+  it('keeps UTC for a board with no zone', async () => {
+    mockAll({ cycle: zoned })
+    await renderLoaded()
+    const panel = within(screen.getByTestId('flow-cycle-time'))
+    await userEvent.click(panel.getByRole('button', { name: 'table' }))
+    expect(panel.getByRole('cell', { name: 'Nov 20' })).toBeInTheDocument()
+  })
+
+  it('dates the cycle-time x-axis ticks in the board zone', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      // Ticks sit at 10%, 50% and 90% of a 10-day domain ending now: the middle one is 2026-11-20T01:30Z.
+      vi.setSystemTime(new Date('2026-11-25T01:30:00Z'))
+      const axis = (timeZone?: string) => {
+        const { container, unmount } = render(
+          <CycleTimeChart data={zoned} cards={new Map()} days={10} labelledBy="x" onSelect={() => {}} timeZone={timeZone} />,
+        )
+        const labels = [...container.querySelectorAll('text')].map((t) => t.textContent)
+        unmount()
+        return labels
+      }
+      const la = axis(LA)
+      expect(la).toEqual(expect.arrayContaining(['Nov 15', 'Nov 19', 'Nov 23']))
+      expect(la).not.toContain('Nov 20')
+      expect(axis()).toEqual(expect.arrayContaining(['Nov 16', 'Nov 20', 'Nov 24']))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

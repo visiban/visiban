@@ -824,3 +824,71 @@ describe('SelectDropdown option keyboard parity (#1376)', () => {
     expect(onChange).toHaveBeenCalledWith(options[1].value)
   })
 })
+
+describe('SelectDropdown type-to-jump (#2051)', () => {
+  const zones = ['Africa/Cairo', 'America/Chicago', 'America/Denver', 'Asia/Tokyo', 'Pacific/Auckland'].map((z) => ({ value: z, label: z }))
+  const setup = (onChange = vi.fn()) => {
+    render(<SelectDropdown value="Africa/Cairo" onChange={onChange} options={zones} />)
+    return { onChange, trigger: screen.getByRole('combobox') }
+  }
+
+  it('moves the highlight to the first label that starts with the typed text, then Enter selects it', async () => {
+    const user = userEvent.setup()
+    const { onChange, trigger } = setup()
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    await user.keyboard('asia')
+    expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'Asia/Tokyo' }).id)
+    await user.keyboard('{Enter}')
+    expect(onChange).toHaveBeenCalledWith('Asia/Tokyo')
+  })
+
+  it('opens the menu on the match when a letter is typed while closed', async () => {
+    const user = userEvent.setup()
+    const { trigger } = setup()
+    trigger.focus()
+    await user.keyboard('p')
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'Pacific/Auckland' }).id)
+  })
+
+  it('cycles through matches on a repeated letter and ignores a miss', async () => {
+    const user = userEvent.setup()
+    const { trigger } = setup()
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    await user.keyboard('a')
+    expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'America/Chicago' }).id)
+    await user.keyboard('a')
+    expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'America/Denver' }).id)
+    await user.keyboard('zzz')
+    expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'America/Denver' }).id)
+  })
+
+  it('keeps typed letters from reaching document-level shortcuts, closed and open', async () => {
+    const user = userEvent.setup()
+    const { trigger } = setup()
+    const spy = vi.fn()
+    document.addEventListener('keydown', spy)
+    try {
+      trigger.focus()
+      await user.keyboard('p')
+      expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'Pacific/Auckland' }).id)
+      await user.keyboard('a')
+      expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'Pacific/Auckland' }).id)
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      document.removeEventListener('keydown', spy)
+    }
+  })
+
+  it('does not hijack a modified key, and Space still opens when nothing was typed', async () => {
+    const user = userEvent.setup()
+    const { trigger } = setup()
+    trigger.focus()
+    await user.keyboard('{Control>}a{/Control}')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await user.keyboard(' ')
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  })
+})

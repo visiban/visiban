@@ -18,6 +18,7 @@ import {
   updateChecklistItem, deleteChecklistItem,
   archiveCard, unarchiveCard, getArchivedCards,
   blockCard, unblockCard, getCardBlocks, setNeeded, getCardParentState,
+  getCardRelations, addCardRelation, deleteCardRelation, searchCards, getCardTimeline, getCardStatus,
 } from '../api/cards'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock client cast; the real client type is broader than any single test needs
@@ -272,5 +273,57 @@ describe('cards API — parent link, child side (#1104)', () => {
     const signal = new AbortController().signal
     expect(await getParentCandidates(3, 5, 12, 'Ini', signal)).toEqual([])
     expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/3/cards/5/parent-candidates/', { params: { board: 12, search: 'Ini' }, signal })
+  })
+})
+
+// #1759: request shape for wrappers that were only ever mocked by component tests.
+describe('cards API: relations, search, timeline, status (#1759)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('getCardRelations GETs the card relations', async () => {
+    mockClient.get.mockResolvedValue({ data: [{ id: 3 }] })
+    await expect(getCardRelations(5, 9)).resolves.toEqual([{ id: 3 }])
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/5/cards/9/relations/')
+  })
+
+  it('addCardRelation POSTs to_card and direction', async () => {
+    mockClient.post.mockResolvedValue({ data: { id: 3 } })
+    await expect(addCardRelation(5, 9, 12, 'blocked_by')).resolves.toEqual({ id: 3 })
+    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/5/cards/9/relations/', {
+      to_card: 12, direction: 'blocked_by',
+    })
+  })
+
+  it('deleteCardRelation DELETEs by relation id under the card', async () => {
+    mockClient.delete.mockResolvedValue({})
+    await deleteCardRelation(5, 9, 3)
+    expect(mockClient.delete).toHaveBeenCalledWith('/api/v1/boards/5/cards/9/relations/3/')
+  })
+
+  it('searchCards GETs the board card list with the search param and abort signal', async () => {
+    const { signal } = new AbortController()
+    mockClient.get.mockResolvedValue({ data: [{ id: 1 }] })
+    await expect(searchCards(5, 'a & b', signal)).resolves.toEqual([{ id: 1 }])
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/5/cards/', { params: { search: 'a & b' }, signal })
+  })
+
+  it('getCardTimeline GETs the timeline with the query params and abort signal', async () => {
+    const { signal } = new AbortController()
+    const params = { limit: 20, offset: 40, event_types: 'move,comment', include_counts: true }
+    const page = { count: 0, next: null, previous: null, results: [] }
+    mockClient.get.mockResolvedValue({ data: page })
+    await expect(getCardTimeline(5, 9, params, signal)).resolves.toEqual(page)
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/5/cards/9/timeline/', { params, signal })
+  })
+
+  it('getCardStatus GETs the status route', async () => {
+    mockClient.get.mockResolvedValue({ data: { archived: true } })
+    await expect(getCardStatus(5, 9)).resolves.toEqual({ archived: true })
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/5/cards/9/status/')
+  })
+
+  it('getCardStatus resolves null instead of rejecting on an error', async () => {
+    mockClient.get.mockRejectedValue(new Error('404'))
+    await expect(getCardStatus(5, 9)).resolves.toBeNull()
   })
 })

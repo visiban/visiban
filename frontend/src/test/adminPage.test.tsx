@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
 import type { User, AdminUser, SiteSettings, SiteEmailSettings } from '../types'
@@ -1997,6 +1997,79 @@ describe('AdminPage — Email (SMTP) settings', () => {
       expect(screen.getByText('Enter your real sending address.')).toBeInTheDocument()
     })
     expect(screen.getByText('Failed to save email settings.')).toBeInTheDocument()
+  })
+
+  // #1759: the encryption choice and the test-send paths not covered above.
+  it.each([
+    ['STARTTLS', { use_tls: false, use_ssl: false }, { use_tls: true, use_ssl: false }],
+    ['None', { use_tls: true, use_ssl: false }, { use_tls: false, use_ssl: false }],
+  ])('saves %s as the matching use_tls / use_ssl pair', async (label, stored, wire) => {
+    mockPatchAdminEmailSettings.mockResolvedValue({ ...fakeEmailSettings, ...wire })
+    await renderEmailSection(stored)
+    fireEvent.click(screen.getByRole('radio', { name: label }))
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() =>
+      expect(mockPatchAdminEmailSettings).toHaveBeenCalledWith(expect.objectContaining(wire))
+    )
+  })
+
+  it.each([
+    ['STARTTLS', { use_tls: true, use_ssl: false }],
+    ['SSL/TLS', { use_tls: false, use_ssl: true }],
+    ['SSL/TLS', { use_tls: true, use_ssl: true }],
+    ['None', { use_tls: false, use_ssl: false }],
+  ])('checks %s for the stored flags %o', async (label, stored) => {
+    await renderEmailSection(stored)
+    expect(screen.getByRole('radio', { name: label })).toBeChecked()
+  })
+
+  it('disables the encryption choices for a site admin who is not a superuser', async () => {
+    await renderAdminPageSettled(adminUser, 'email')
+    for (const name of ['STARTTLS', 'SSL/TLS', 'None']) {
+      expect(screen.getByRole('radio', { name })).toBeDisabled()
+    }
+  })
+
+  it('blocks the test send after an unsaved encryption change', async () => {
+    await renderEmailSection()
+    fireEvent.click(screen.getByRole('radio', { name: 'SSL/TLS' }))
+    fireEvent.click(screen.getByRole('button', { name: /Send test email/ }))
+    expect(screen.getByText('Save your changes before testing.')).toBeInTheDocument()
+    expect(mockSendAdminTestEmail).not.toHaveBeenCalled()
+  })
+
+  it('is busy while sending and ignores a second click', async () => {
+    let resolve!: (value: unknown) => void
+    mockSendAdminTestEmail.mockReturnValue(new Promise((r) => { resolve = r }))
+    await renderEmailSection()
+    const button = screen.getByRole('button', { name: 'Send test email' })
+    fireEvent.click(button)
+    expect(button).toHaveAttribute('aria-busy', 'true')
+    expect(button).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(button)
+    expect(mockSendAdminTestEmail).toHaveBeenCalledTimes(1)
+    await act(async () => { resolve({ success: true, code: null, sent_to: 'a@b.co' }) })
+    expect(screen.getByText('Test email sent to a@b.co.')).toBeInTheDocument()
+    expect(button).not.toHaveAttribute('aria-busy')
+    expect(button).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('names the signed-in address when a success carries no sent_to', async () => {
+    mockSendAdminTestEmail.mockResolvedValue({ success: true, code: null })
+    await renderEmailSection()
+    fireEvent.click(screen.getByText('Send test email'))
+    expect(await screen.findByText(`Test email sent to ${superuserActor.email}.`)).toBeInTheDocument()
+  })
+
+  it.each([
+    ['a 4xx without a code', { response: { status: 403, data: { detail: 'no' } } }, 'The test failed.'],
+    ['a 5xx', { response: { status: 502, data: {} } }, 'Couldn’t reach Visiban to run the test.'],
+    ['no response at all', new Error('Network Error'), 'Couldn’t reach Visiban to run the test.'],
+  ])('reports %s from the test send', async (_name, rejection, headline) => {
+    mockSendAdminTestEmail.mockRejectedValue(rejection)
+    await renderEmailSection()
+    fireEvent.click(screen.getByText('Send test email'))
+    expect(await screen.findByText(headline)).toBeInTheDocument()
   })
 })
 

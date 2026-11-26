@@ -43,7 +43,7 @@ function settle<T>(outcome: PromiseSettledResult<T>): Result<T> {
  * and remount, and a keyboard user would lose their place. `results` is null
  * only before the first answer, which is the only time panels show skeletons.
  */
-export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, attempt: number, grouping?: FlowGroupingParams) {
+export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, attempt: number, grouping?: FlowGroupingParams, timeZone?: string | null) {
   // The filters travel with the answers they fetched, swapped in together, so period-labelled copy
   // never names a period the numbers on screen were not computed for.
   const [settled, setSettled] = useState<{ results: OverviewResults; filters: FlowFilters } | null>(null);
@@ -95,7 +95,8 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
       setLoading(false);
     });
     return () => { current = false; controller.abort(); };
-  }, [boardId, filters, attempt, grouping]);
+    // timeZone is a refetch key only: a board.updated frame that changes the zone re-buckets every series (#2051).
+  }, [boardId, filters, attempt, grouping, timeZone]);
 
   const results = settled?.results ?? null;
   const fetchedFilters = settled?.filters ?? null;

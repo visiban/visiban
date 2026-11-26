@@ -10,7 +10,9 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, resetSiteConfigShare, listTokens, createToken, revokeToken, getAdminInviteLinks, getAdminInviteLinksPage, createAdminInviteLink, revokeAdminInviteLink, getAdminBoardInviteLinks, revokeAdminBoardInviteLink, deactivateAdminUser, clearAdminUserLockout, getAdminUsers, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, listConnectedAccounts, disconnectAccount, dismissPendingConnect, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, resetSiteConfigShare, listTokens, createToken, revokeToken, getAdminInviteLinks, getAdminInviteLinksPage, createAdminInviteLink, revokeAdminInviteLink, getAdminBoardInviteLinks, revokeAdminBoardInviteLink, deactivateAdminUser, clearAdminUserLockout, getAdminUsers, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, listConnectedAccounts, disconnectAccount, dismissPendingConnect, completeTour, resetTour, updateDefaultBoard, searchUsers,
+  requestPasswordReset, confirmPasswordReset, chooseUsername, getAdminSettings, patchAdminSettings, getAdminEmailSettings, patchAdminEmailSettings, sendAdminTestEmail, createAdminUser, patchAdminUser, sendAdminInviteEmail,
+} from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -374,5 +376,86 @@ describe('getSiteConfig request sharing (#1913)', () => {
     mockGet.mockResolvedValue({ data: { registration_open: true } })
     await expect(getSiteConfig()).resolves.toEqual({ registration_open: true })
     expect(mockGet).toHaveBeenCalledTimes(2)
+  })
+})
+
+// #1759: request shape for wrappers that were only ever mocked by component tests.
+// URLs and body keys are the backend's (accounts/urls.py, visiban/urls.py, serializers).
+describe('password reset and username API (#1759)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('requestPasswordReset POSTs the email and resolves with nothing', async () => {
+    mockPost.mockResolvedValue({ data: { detail: 'sent' } })
+    await expect(requestPasswordReset('a@b.co')).resolves.toBeUndefined()
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/auth/password/reset/', { email: 'a@b.co' })
+  })
+
+  it('confirmPasswordReset POSTs uid, token and both passwords under the dj-rest-auth keys', async () => {
+    mockPost.mockResolvedValue({ data: {} })
+    await expect(confirmPasswordReset('MQ', 'tok-1', 'first-pass', 'second-pass')).resolves.toBeUndefined()
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/auth/password/reset/confirm/', {
+      uid: 'MQ', token: 'tok-1', new_password1: 'first-pass', new_password2: 'second-pass',
+    })
+  })
+
+  it('chooseUsername POSTs the username and returns the user', async () => {
+    mockPost.mockResolvedValue({ data: { id: 1, username: 'newname' } })
+    await expect(chooseUsername('newname')).resolves.toEqual({ id: 1, username: 'newname' })
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/auth/choose-username/', { username: 'newname' })
+  })
+})
+
+describe('admin settings, email and user API (#1759)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('getAdminSettings GETs the site settings', async () => {
+    mockGet.mockResolvedValue({ data: { uploads_enabled: true } })
+    await expect(getAdminSettings()).resolves.toEqual({ uploads_enabled: true })
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/admin/settings/')
+  })
+
+  it('patchAdminSettings PATCHes only the fields given', async () => {
+    mockPatch.mockResolvedValue({ data: { uploads_enabled: false } })
+    await expect(patchAdminSettings({ uploads_enabled: false })).resolves.toEqual({ uploads_enabled: false })
+    expect(mockPatch).toHaveBeenCalledWith('/api/v1/admin/settings/', { uploads_enabled: false })
+  })
+
+  it('getAdminEmailSettings GETs the email settings', async () => {
+    mockGet.mockResolvedValue({ data: { config_source: 'env' } })
+    await expect(getAdminEmailSettings()).resolves.toEqual({ config_source: 'env' })
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/admin/email-settings/')
+  })
+
+  it('patchAdminEmailSettings PATCHes the patch body unchanged', async () => {
+    const patch = { host: 'smtp.example.com', port: 465, use_tls: false, use_ssl: true }
+    mockPatch.mockResolvedValue({ data: { host: 'smtp.example.com' } })
+    await expect(patchAdminEmailSettings(patch)).resolves.toEqual({ host: 'smtp.example.com' })
+    expect(mockPatch).toHaveBeenCalledWith('/api/v1/admin/email-settings/', patch)
+  })
+
+  it('sendAdminTestEmail POSTs an empty body to the test route', async () => {
+    const result = { success: true, code: null, sent_to: 'a@b.co' }
+    mockPost.mockResolvedValue({ data: result })
+    await expect(sendAdminTestEmail()).resolves.toEqual(result)
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/admin/email-settings/test/', {})
+  })
+
+  it('createAdminUser POSTs the new account', async () => {
+    const data = { username: 'bo', email: 'bo@b.co', password: 'long-password', force_password_reset: true }
+    mockPost.mockResolvedValue({ data: { id: 9 } })
+    await expect(createAdminUser(data)).resolves.toEqual({ id: 9 })
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/admin/users/', data)
+  })
+
+  it('patchAdminUser PATCHes the one user', async () => {
+    mockPatch.mockResolvedValue({ data: { id: 9, is_active: false } })
+    await expect(patchAdminUser(9, { is_active: false })).resolves.toEqual({ id: 9, is_active: false })
+    expect(mockPatch).toHaveBeenCalledWith('/api/v1/admin/users/9/', { is_active: false })
+  })
+
+  it('sendAdminInviteEmail POSTs the address to the send route', async () => {
+    mockPost.mockResolvedValue({ data: { detail: 'sent', sent_to: 'a@b.co' } })
+    await expect(sendAdminInviteEmail({ email: 'a@b.co' })).resolves.toEqual({ detail: 'sent', sent_to: 'a@b.co' })
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/admin/invite-links/send/', { email: 'a@b.co' })
   })
 })

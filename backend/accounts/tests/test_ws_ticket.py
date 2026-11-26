@@ -242,15 +242,17 @@ class WSTicketConcurrencyTests(TransactionTestCase):
         barrier = threading.Barrier(2)
 
         def redeem():
-            barrier.wait()  # Both threads redeem at the same instant.
-            outcome = consume_ws_ticket(ticket)
-            with lock:
-                results.append(outcome)
-            # Release the thread-local DB connection. Without this,
-            # TransactionTestCase.teardown_databases() fails with
-            # "database is being accessed by other users" on DROP.
-            from django.db import connections as _conns
-            _conns.close_all()
+            try:
+                barrier.wait()  # Both threads redeem at the same instant.
+                outcome = consume_ws_ticket(ticket)
+                with lock:
+                    results.append(outcome)
+            finally:
+                # Release the thread-local DB connection. Without this,
+                # TransactionTestCase.teardown_databases() fails with
+                # "database is being accessed by other users" on DROP.
+                from django.db import connections as _conns
+                _conns.close_all()
 
         threads = [threading.Thread(target=redeem) for _ in range(2)]
         for t in threads:

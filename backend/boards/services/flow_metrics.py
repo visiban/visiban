@@ -22,6 +22,8 @@ so a transport serializes the result as it stands.
 
 import bisect
 import datetime
+import logging
+import zoneinfo
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
@@ -121,6 +123,7 @@ def committed_column_uids(board, columns):
     return {c.uid for c in columns if not c.is_done and c.position >= anchor.position}
 
 _UTC = datetime.timezone.utc
+logger = logging.getLogger(__name__)
 _MOVE = CardMovement.MovementType.MOVE
 _ARCHIVED = CardMovement.MovementType.ARCHIVED
 _UNARCHIVED = CardMovement.MovementType.UNARCHIVED
@@ -253,7 +256,8 @@ class FlowRange:
 
     ``start``/``end`` is the half-open window samples fall in (a sample belongs
     to the window its completion, or visit close, falls in). ``first_day`` and
-    ``last_day`` are the inclusive whole UTC days a bucketed output covers;
+    ``last_day`` are the inclusive whole days a bucketed output covers, dates
+    in ``zone`` (UTC unless the board sets ``time_zone``, #2051);
     ``first_day > last_day`` means no whole day is available yet.
     """
 
@@ -261,9 +265,18 @@ class FlowRange:
     end: datetime.datetime
     first_day: datetime.date
     last_day: datetime.date
+    zone: datetime.tzinfo = datetime.timezone.utc
 
     def contains(self, moment):
         return self.start <= moment < self.end
+
+    def local_date(self, moment):
+        """The date ``moment`` falls on in the range's zone: the day it is bucketed in."""
+        return _local_date(moment, self.zone)
+
+    def midnight(self, day):
+        """The UTC instant ``day`` opens at in the range's zone."""
+        return _midnight(day, self.zone)
 
     @property
     def days(self):
@@ -276,35 +289,74 @@ def _utc_date(moment):
     return moment.astimezone(_UTC).date()
 
 
-def _midnight(day):
-    return datetime.datetime(day.year, day.month, day.day, tzinfo=_UTC)
+def _local_date(moment, zone):
+    return moment.astimezone(zone).date()
 
 
-def rolling_range(days=DEFAULT_RANGE_DAYS, *, now=None):
+def _midnight(day, zone=_UTC):
+    """The UTC instant ``day`` opens at in ``zone`` (#2051).
+
+    Built from the local wall clock, never by adding 24 hours to another
+    midnight, so a day across a daylight-saving change is 23 or 25 hours long.
+    In a zone whose clocks skip midnight itself (a spring-forward at 00:00),
+    PEP 495's ``fold=0`` reads the skipped 00:00 with the offset before the
+    change, which is the first instant that exists on ``day``. Returned in
+    UTC so a UTC board's query parameters are exactly what they were.
+    """
+    return datetime.datetime(day.year, day.month, day.day, tzinfo=zone).astimezone(_UTC)
+
+
+def zone_of(board):
+    """The zone a board's flow metrics bucket days in: its ``time_zone``, else UTC (#2051).
+
+    ``None`` (the default) is the ADR's UTC rule. A stored name the installed
+    tz database no longer has reads as UTC rather than failing every analytics
+    request; the serializer only accepts names the database has.
+    """
+    name = getattr(board, "time_zone", None)
+    if not name:
+        return _UTC
+    try:
+        return zoneinfo.ZoneInfo(name)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
+        # The board id only: the name is user-chosen text.
+        logger.warning("Board %s time zone is not in the tz database; bucketing in UTC.", getattr(board, "pk", None))
+        return _UTC
+
+
+def rolling_range(days=DEFAULT_RANGE_DAYS, *, now=None, zone=_UTC):
     """``days=N``: samples in ``[now - N×24h, now)``, buckets in the N whole days before today.
 
     Today is still running, so it is never a bucket: a partial last day would
     enter #1100's simulation as a slow day and bias every forecast later.
+    "Today" and the bucketed days are dates in ``zone`` (#2051); the sample
+    window is elapsed time, the same N × 24 hours in every zone.
     """
     now = now or timezone.now()
-    today = _utc_date(now)
+    today = _local_date(now, zone)
     return FlowRange(
         start=now - datetime.timedelta(days=days),
         end=now,
         first_day=today - datetime.timedelta(days=days),
         last_day=today - datetime.timedelta(days=1),
+        zone=zone,
     )
 
 
-def date_range(from_date, to_date, *, now=None):
-    """UTC dates, inclusive at both ends: ``[from_date 00:00Z, to_date + 1 day 00:00Z)``."""
+def date_range(from_date, to_date, *, now=None, zone=_UTC):
+    """Dates in ``zone``, inclusive at both ends: ``[from_date 00:00, to_date + 1 day 00:00)``.
+
+    UTC unless the board sets a time zone (#2051), so by default
+    ``[from_date 00:00Z, to_date + 1 day 00:00Z)``.
+    """
     now = now or timezone.now()
-    yesterday = _utc_date(now) - datetime.timedelta(days=1)
+    yesterday = _local_date(now, zone) - datetime.timedelta(days=1)
     return FlowRange(
-        start=_midnight(from_date),
-        end=_midnight(to_date + datetime.timedelta(days=1)),
+        start=_midnight(from_date, zone),
+        end=_midnight(to_date + datetime.timedelta(days=1), zone),
         first_day=from_date,
         last_day=min(to_date, yesterday),
+        zone=zone,
     )
 
 
@@ -1339,11 +1391,11 @@ def range_boundary(flow_range, now):
 
     The window's ``start``, or the midnight its first bucketed day opens at
     when that is earlier (a rolling range starts mid-day, and throughput and
-    cumulative flow bucket whole UTC days), and never later than ``now``, so a
+    cumulative flow bucket whole days in the range's zone), and never later than ``now``, so a
     row dated after the request (counted as an exclusion in every range) is
     always on the near side of it.
     """
-    return min(flow_range.start, _midnight(flow_range.first_day), now)
+    return min(flow_range.start, flow_range.midnight(flow_range.first_day), now)
 
 
 def can_affect_range(board, boundary):
@@ -1386,11 +1438,21 @@ def can_affect_range(board, boundary):
     and created, before ``boundary``), so the subquery reads only those
     cards of this board and their recent movements: the same cards kept,
     by the same rule.
+
+    WHY ``movements_on_board`` (#2630). Bounded only by ``card__board``, the
+    subquery had no board-scoped movement index to drive from, so on the aged
+    nightly board it read every board's movements since ``boundary`` (an
+    index read with only ``moved_at`` in its condition: 14,714 rows at 30
+    days, 50,248 at 90) and hash-joined them to the board's archived cards.
+    Naming the movement's own ``board`` column makes it an index-only range
+    read of this board's slice of ``movement_board_moved_card_idx`` (7,449
+    rows, 41 buffers at 30 days). The term is redundant with ``card__board``
+    (see ``movements_on_board``), so the kept set is unchanged
+    (``RangeLoadBoardScopedMovementTests``).
     """
-    moved = CardMovement.objects.filter(
-        card__board=board, card__archived_at__lt=boundary, card__created_at__lt=boundary,
-        moved_at__gte=boundary,
-    ).values("card_id")
+    moved = movements_on_board(
+        board, card__archived_at__lt=boundary, card__created_at__lt=boundary, moved_at__gte=boundary,
+    )
     return (
         Q(archived_at__isnull=True)
         | Q(archived_at__gte=boundary)
@@ -1490,7 +1552,7 @@ def load_cumulative_day(board, day, *, now, swimlane_id=None, label_id=None, col
     selected = _base_cards(board, swimlane_id, label_id)
     cards = _card_flows(selected)
     by_id = {card.id: card for card in cards}
-    as_of = _midnight(day + datetime.timedelta(days=1))
+    as_of = _midnight(day + datetime.timedelta(days=1), zone_of(board))
 
     def place(card, history):
         live, _ = _live_rows(history, now)
@@ -2155,7 +2217,7 @@ def _periods(flow_range, period):
 
 
 def throughput(flow, flow_range, period="week"):
-    """Completions per whole UTC day or ISO week. Zero periods count toward the median.
+    """Completions per whole day or ISO week, in the range's zone (UTC by default). Zero periods count toward the median.
 
     ``total`` sums the whole periods, so a partial week at either end of the
     range is in neither. ``completed_in_range`` (#2288) counts the first
@@ -2173,7 +2235,7 @@ def throughput(flow, flow_range, period="week"):
     started = [0] * len(periods)
     for card in flow.cards:
         if card.cycle_start is not None:
-            index = index_of_day.get(_utc_date(card.cycle_start))
+            index = index_of_day.get(flow_range.local_date(card.cycle_start))
             if index is not None:
                 started[index] += 1
     completed = sorted(
@@ -2181,7 +2243,7 @@ def throughput(flow, flow_range, period="week"):
         key=lambda card: card.completion_at,
     )
     for card in completed:
-        index = index_of_day.get(_utc_date(card.completion_at))
+        index = index_of_day.get(flow_range.local_date(card.completion_at))
         if index is not None:
             buckets[index].append(card.uid)
     samples = [
@@ -2227,7 +2289,7 @@ def _bottleneck(flow, first_counts, last_counts):
 
 
 def cumulative_flow(flow, flow_range):
-    """Cards per column at the end of each whole UTC day, plus the bottleneck.
+    """Cards per column at the end of each whole day (in the range's zone), plus the bottleneck.
 
     Each card contributes one ``+1``/``-1`` pair per placement to a difference
     array, and one pass turns those into daily counts. So the cost grows with
@@ -2271,7 +2333,7 @@ def cumulative_flow(flow, flow_range):
         for i, (moment, placement) in enumerate(stops):
             band = None if placement is _OFF_DIAGRAM else _band(flow, placement)
             if band != prev_band:
-                if days and flow_range.first_day < _utc_date(moment) <= flow_range.last_day:
+                if days and flow_range.first_day < flow_range.local_date(moment) <= flow_range.last_day:
                     if prev_band is not None:
                         left[prev_band] += 1
                     if band is not None:
@@ -2279,8 +2341,8 @@ def cumulative_flow(flow, flow_range):
                 prev_band = band
             if band is None:
                 continue
-            start = to_index(_utc_date(moment))
-            end = to_index(_utc_date(stops[i + 1][0])) if i + 1 < len(stops) else len(days)
+            start = to_index(flow_range.local_date(moment))
+            end = to_index(flow_range.local_date(stops[i + 1][0])) if i + 1 < len(stops) else len(days)
             if start < end:
                 deltas[band][start] += 1
                 deltas[band][end] -= 1
@@ -2309,7 +2371,7 @@ def cumulative_flow(flow, flow_range):
     completed = sum(
         1 for card in flow.cards
         if days and card.completion_at is not None
-        and flow_range.first_day < _utc_date(card.completion_at) <= flow_range.last_day
+        and flow_range.first_day < flow_range.local_date(card.completion_at) <= flow_range.last_day
     )
     return {
         "definition": DEFINITIONS["cumulative_flow"],
@@ -2323,14 +2385,17 @@ def cumulative_flow(flow, flow_range):
     }
 
 
-def cumulative_flow_cards(flow, day):
-    """The cards behind one cumulative-flow day: the same placement rule, read at its end."""
+def cumulative_flow_cards(flow, day, zone=_UTC):
+    """The cards behind one cumulative-flow day: the same placement rule, read at its end.
+
+    ``day`` is a date in ``zone``, the board's (``zone_of``, #2051).
+    """
     per_band: dict[str, list] = {c.uid: [] for c in flow.columns}
     per_band[NULL_BAND_KEY] = []
     for card in flow.cards:
         at_day_end = None
         for moment, placement in card.placements:
-            if _utc_date(moment) <= day:
+            if _local_date(moment, zone) <= day:
                 at_day_end = placement
         if at_day_end is not None and at_day_end is not _OFF_DIAGRAM:
             per_band[_band(flow, at_day_end)].append(card.uid)
@@ -2354,8 +2419,9 @@ def swimlane_completion_rollup(flow):
     bounces or moves Done → Released counts once. ``avg_cycle_days`` stays a
     mean because its documented name says average; 1.x clients read it rounded.
     """
-    last_7 = rolling_range(7, now=flow.now)
-    last_30 = rolling_range(30, now=flow.now)
+    # Elapsed-time windows (``contains``); the zone only keeps the range whole.
+    last_7 = rolling_range(7, now=flow.now, zone=zone_of(flow.board))
+    last_30 = rolling_range(30, now=flow.now, zone=zone_of(flow.board))
     rollup: dict[int, dict] = {}
     cycles: dict[int, list] = {}
     for card in flow.cards:

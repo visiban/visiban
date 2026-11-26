@@ -67,6 +67,7 @@ import {
   updateSwimlaneCustomFieldDefinition,
   deleteSwimlaneCustomFieldDefinition,
   reorderSwimlaneCustomFields,
+  getBoardExportHistory, listCustomFieldDefinitions, createCustomFieldDefinition, updateCustomFieldDefinition, deleteCustomFieldDefinition, reorderCustomFields,
 } from '../api/boards'
 import { moveCard, createCard } from '../api/cards'
 
@@ -687,5 +688,47 @@ describe('getCustomFieldDefinition (#2202)', () => {
     vi.mocked(client.get).mockResolvedValueOnce({ data: { id: 7, has_values: false } })
     await expect(getCustomFieldDefinition(3, 7)).resolves.toEqual({ id: 7, has_values: false })
     expect(client.get).toHaveBeenCalledWith('/api/v1/boards/3/custom-fields/7/')
+  })
+})
+
+// #1759: request shape for wrappers that were only ever mocked by component tests.
+describe('export history and card custom field definitions (#1759)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('getBoardExportHistory GETs the board export history with the paging params', async () => {
+    const page = { results: [], count: 0, next: null, previous: null }
+    vi.mocked(client.get).mockResolvedValueOnce({ data: page })
+    await expect(getBoardExportHistory(3, { page: 2 })).resolves.toEqual(page)
+    expect(client.get).toHaveBeenCalledWith('/api/v1/boards/3/export-history/', { params: { page: 2 } })
+  })
+
+  it('listCustomFieldDefinitions GETs the card custom-fields route', async () => {
+    vi.mocked(client.get).mockResolvedValueOnce({ data: [{ id: 7 }] })
+    await expect(listCustomFieldDefinitions(3)).resolves.toEqual([{ id: 7 }])
+    expect(client.get).toHaveBeenCalledWith('/api/v1/boards/3/custom-fields/')
+  })
+
+  it('createCustomFieldDefinition POSTs the definition', async () => {
+    const data = { name: 'Stage', field_type: 'dropdown' as const, choices: ['a', 'b'] }
+    vi.mocked(client.post).mockResolvedValueOnce({ data: { id: 7 } })
+    await expect(createCustomFieldDefinition(3, data)).resolves.toEqual({ id: 7 })
+    expect(client.post).toHaveBeenCalledWith('/api/v1/boards/3/custom-fields/', data)
+  })
+
+  it('updateCustomFieldDefinition PATCHes the one field', async () => {
+    vi.mocked(client.patch).mockResolvedValueOnce({ data: { id: 7 } })
+    await expect(updateCustomFieldDefinition(3, 7, { show_on_card: true })).resolves.toEqual({ id: 7 })
+    expect(client.patch).toHaveBeenCalledWith('/api/v1/boards/3/custom-fields/7/', { show_on_card: true })
+  })
+
+  it('deleteCustomFieldDefinition DELETEs the one field', async () => {
+    await deleteCustomFieldDefinition(3, 7)
+    expect(client.delete).toHaveBeenCalledWith('/api/v1/boards/3/custom-fields/7/')
+  })
+
+  it('reorderCustomFields POSTs the id order', async () => {
+    vi.mocked(client.post).mockResolvedValueOnce({ data: [{ id: 2 }, { id: 1 }] })
+    await expect(reorderCustomFields(3, [2, 1])).resolves.toEqual([{ id: 2 }, { id: 1 }])
+    expect(client.post).toHaveBeenCalledWith('/api/v1/boards/3/custom-fields/reorder/', { order: [2, 1] })
   })
 })

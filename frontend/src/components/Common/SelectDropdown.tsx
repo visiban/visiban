@@ -43,6 +43,8 @@ interface Props<T extends string> {
 }
 
 const MIN_MENU_WIDTH = 96;
+/** Typed characters count as one search until this long passes without a key. */
+const TYPEAHEAD_RESET_MS = 700;
 
 export default function SelectDropdown<T extends string>({
   value,
@@ -69,6 +71,11 @@ export default function SelectDropdown<T extends string>({
   const [anchor, setAnchor] = useState<{ top: number; bottom: number; left: number; minWidth: number } | null>(null);
   const listboxId = useId();
   const optionIdPrefix = useId();
+  // Type-to-jump: the characters typed so far, and the match to land on when the
+  // first keystroke is what opened the menu (the open effect would otherwise
+  // reset the highlight to the selected option).
+  const typeaheadRef = useRef<{ text: string; timer: ReturnType<typeof setTimeout> | null }>({ text: "", timer: null });
+  const pendingIndexRef = useRef<number | null>(null);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -112,7 +119,8 @@ export default function SelectDropdown<T extends string>({
   // Initialize activeIndex to the currently selected option when opening
   useEffect(() => {
     if (open) {
-      const idx = options.findIndex((o) => o.value === value);
+      const idx = pendingIndexRef.current ?? options.findIndex((o) => o.value === value);
+      pendingIndexRef.current = null;
       setActiveIndex(idx >= 0 ? idx : 0);
     }
   }, [open, value, options]);
@@ -124,6 +132,29 @@ export default function SelectDropdown<T extends string>({
     document.getElementById(`${optionIdPrefix}-${activeIndex}`)?.scrollIntoView?.({ block: "nearest" });
   }, [open, activeIndex, optionIdPrefix]);
 
+  useEffect(() => () => {
+    if (typeaheadRef.current.timer) clearTimeout(typeaheadRef.current.timer);
+  }, []);
+
+  /** Jump to the first option whose label starts with the typed text (#2051: a ~400-entry list). */
+  const typeahead = (char: string) => {
+    const state = typeaheadRef.current;
+    if (state.timer) clearTimeout(state.timer);
+    state.text += char.toLowerCase();
+    state.timer = setTimeout(() => { state.text = ""; state.timer = null; }, TYPEAHEAD_RESET_MS);
+    // One repeated character cycles through the options starting with it, like a native select.
+    const repeated = state.text.length > 1 && [...state.text].every((c) => c === state.text[0]);
+    const needle = repeated ? state.text[0] : state.text;
+    const from = repeated || state.text.length === 1 ? activeIndex + 1 : Math.max(activeIndex, 0);
+    for (let n = 0; n < options.length; n++) {
+      const i = (Math.max(from, 0) + n) % options.length;
+      if (options[i].label.toLowerCase().startsWith(needle)) {
+        if (open) setActiveIndex(i); else { pendingIndexRef.current = i; openMenu(); }
+        return;
+      }
+    }
+  };
+
   const handleSelect = (val: T) => {
     onChange(val);
     close();
@@ -134,6 +165,14 @@ export default function SelectDropdown<T extends string>({
 
   const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (disabled) return;
+    // A printable key (a space counts only mid-word) jumps to the matching option.
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key !== " " || typeaheadRef.current.text)) {
+      e.preventDefault();
+      // Keep the letter from reaching the board's document-level shortcuts.
+      e.stopPropagation();
+      typeahead(e.key);
+      return;
+    }
     switch (e.key) {
       case "ArrowDown":
       case "ArrowUp": {

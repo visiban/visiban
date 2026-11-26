@@ -564,3 +564,23 @@ describe('MentionTextarea visualViewport (#2138)', () => {
     expect(remove.mock.calls.map((c) => c[0]).sort()).toEqual(['resize', 'scroll'])
   })
 })
+
+describe('MentionTextarea keyboard insertion (#1759)', () => {
+  function Controlled({ onSubmit }: { onSubmit: () => void }) {
+    const [v, setV] = useState('')
+    return <MentionTextarea value={v} onChange={setV} onSubmit={onSubmit} members={members} />
+  }
+
+  it.each(['{Enter}', '{Tab}'])('%s inserts the highlighted mention instead of submitting', async (key) => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    render(<Controlled onSubmit={onSubmit} />)
+    const ta = screen.getByRole('combobox')
+    await user.type(ta, 'hey @')
+    await user.keyboard('{ArrowDown}')
+    await user.keyboard(key)
+    expect(ta).toHaveValue('hey @alice ')
+    expect(ta).toHaveFocus()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+})
