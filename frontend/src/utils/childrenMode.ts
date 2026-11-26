@@ -108,7 +108,38 @@ export function columnHeadCaption(
   shownHere: number, boardName: string, showDone: boolean,
 ): string {
   if (col.is_done && !showDone) return "Count per row · Show opens them";
-  return `${shownHere} of ${col.card_count} on ${boardName}${col.wip_limit != null ? ` · limit ${col.wip_limit}` : ""}`;
+  return `${shownHere} of ${col.card_count} on ${boardName}${col.wip_limit != null ? ` · limit ${col.wip_limit}${columnOverLimit(col) ? " over" : ""}` : ""}`;
+}
+
+/** A column past its WIP limit (#2370 ruling): warning tone and the word "over", never danger (frontend/CLAUDE.md § Column headers). */
+export function columnOverLimit(col: { card_count: number; wip_limit: number | null }): boolean {
+  return col.wip_limit != null && col.wip_limit > 0 && col.card_count > col.wip_limit;
+}
+
+/**
+ * Live updates (#2370 item 9): rows never re-sort under a viewer whose focus is in the grid. The fresh rows are
+ * drawn in the order already on screen (counts and cards update in place); rows new to the page go last and rows
+ * the server dropped go away.
+ */
+export function holdRowOrder<T extends { id: number }>(shown: T[], fresh: T[]): T[] {
+  const byId = new Map(fresh.map((r) => [r.id, r]));
+  const kept = shown.filter((r) => byId.has(r.id)).map((r) => byId.get(r.id)!);
+  const seen = new Set(kept.map((r) => r.id));
+  return [...kept, ...fresh.filter((r) => !seen.has(r.id))];
+}
+
+/** How many of a lane's row slots differ between the order on screen and the server's: the pill's "N changes". */
+export function pendingRowChanges(shown: { id: number; swimlane_id: number }[], fresh: { id: number; swimlane_id: number }[], laneId: number): number {
+  const a = shown.filter((r) => r.swimlane_id === laneId).map((r) => r.id);
+  const b = fresh.filter((r) => r.swimlane_id === laneId).map((r) => r.id);
+  let n = 0;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) if (a[i] !== b[i]) n++;
+  return n;
+}
+
+/** The live pill (#2370 clarifications): desktop "3 changes in Acme Corp · Show", phone "3 changes · Show" (the "· Show" is drawn). */
+export function changesPillText(n: number, laneName: string, phone: boolean): string {
+  return `${n} ${n === 1 ? "change" : "changes"}${phone ? "" : ` in ${laneName}`}`;
 }
 
 /** The column meter's fill, the whole column against its WIP limit (0-100), or null with no limit. */

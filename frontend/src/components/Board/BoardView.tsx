@@ -377,6 +377,17 @@ const MEMBER_ECHO_MS = 2000;
 const FIRST_OPEN_RESYNC_MS = 1000;
 
 
+/**
+ * Board events that can change a Children mode lane or row count (#2370 item 9). The child board's own column
+ * changes reach this board as `card.children_changed` / `card.children_bulk_changed`; parent cards and lanes
+ * changing here are the rest. Not `card.updated`: it fires on every comment and changes no count.
+ */
+const CHILDREN_VIEW_EVENTS = new Set([
+  "card.children_changed", "card.children_bulk_changed", "card.parent_changed", "card.created", "card.moved",
+  "card.archived", "card.unarchived", "card.deleted", "swimlane.created", "swimlane.updated", "swimlane.deleted", "swimlane.reordered",
+]);
+/** At most one children-view re-read per this many ms, trailing: a burst of pings is one read (#2370 item 9). */
+export const CHILDREN_VIEW_REFETCH_MS = 2000;
 /** Above this many ids, a `card.parent_changed` re-reads the board, not each card (#1104). */
 const PARENT_REFETCH_MAX_CARDS = 20;
 
@@ -924,8 +935,24 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     window.addEventListener(CARD_PARENT_REFETCH_EVENT, onRefetch);
     return () => window.removeEventListener(CARD_PARENT_REFETCH_EVENT, onRefetch);
   }, [refetchCardParents]);
+  // Children mode live updates (#2370 item 9): the children view and the Cards-mode lane counts re-read on a
+  // board event that can change a count, throttled (trailing) so a burst never becomes a refetch storm.
+  const [childrenViewTick, setChildrenViewTick] = useState(0);
+  const childrenTickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const childrenTickLast = useRef(0);
+  const bumpChildrenView = useCallback(() => {
+    if (boardRef.current?.cards_can_have_children !== true || childrenTickTimer.current) return;
+    const wait = Math.max(0, childrenTickLast.current + CHILDREN_VIEW_REFETCH_MS - Date.now());
+    childrenTickTimer.current = setTimeout(() => {
+      childrenTickTimer.current = null;
+      childrenTickLast.current = Date.now();
+      setChildrenViewTick((n) => n + 1);
+    }, wait);
+  }, []);
+  useEffect(() => () => { if (childrenTickTimer.current) clearTimeout(childrenTickTimer.current); }, []);
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
+    if (CHILDREN_VIEW_EVENTS.has(event.event)) bumpChildrenView();
     // Order matters: notify the archived panel BEFORE the branches below evict
     // or archive the card from board.cards. Its card.deleted guard checks
     // board.cards to tell an active card (not its concern) from an archived
@@ -1161,7 +1188,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [refetchCardParents, refetchSiblingParents, refetchChildrenRollup, refetchRollupIfParentTier, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, onFieldSetsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [bumpChildrenView, refetchCardParents, refetchSiblingParents, refetchChildrenRollup, refetchRollupIfParentTier, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, onFieldSetsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.
@@ -2541,7 +2568,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // A `?lane=` that names no lane the viewer was served (deleted, another board's) is simply absent (#2370 item 1).
   const childrenLane = resolveLaneParam(searchParams.get("lane"), board.swimlanes.map((l) => l.id));
   // The Children lane action's counts (#2370 way in 1), read only in Cards mode on the Board tab.
-  const childrenLaneCounts = useChildrenLaneCounts(board.id, childrenModeAvailable && !childrenMode && view === "board");
+  const childrenLaneCounts = useChildrenLaneCounts(board.id, childrenModeAvailable && !childrenMode && view === "board", null, childrenViewTick);
   const [childrenEditLaneId, setChildrenEditLaneId] = useState<number | null>(null);
   const childrenEditLane = childrenMode && isAdmin ? board.swimlanes.find((l) => l.id === childrenEditLaneId) ?? null : null;
   const [childrenOptions, setChildrenOptionsState] = useState<ChildrenModeOptions>(() => loadChildrenOptions(board.id));
@@ -3794,6 +3821,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onFocusLane={setChildrenLane}
             onEditLane={isAdmin ? setChildrenEditLaneId : undefined}
             onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
+            refreshKey={childrenViewTick}
+            currentUserId={currentUser?.id ?? null}
+            userTimezone={userTimezone}
           />
           {childrenEditLane && (
             <EditSwimlaneModal
@@ -3886,6 +3916,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onAddSwimlane={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
               focusedSwimlaneId={focusedSwimlaneId}
               onFocusLane={enterFocus}
+              childrenAction={childrenModeAvailable ? { counts: childrenLaneCounts, onOpen: openChildrenLane } : undefined}
               onExitFocus={exitFocus}
               addRequest={phoneAddRequest}
               onAddRequestHandled={clearPhoneAddRequest}

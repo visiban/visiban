@@ -351,3 +351,51 @@ describe('BoardView — card.children_bulk_changed (#2500)', () => {
     spy.mockRestore()
   })
 })
+
+describe('BoardView — Children lane counts re-read live, throttled (#2370 item 9)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('re-reads the children view once for a burst of count-changing events, and not for card.updated', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
+    const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
+    vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
+    try {
+      mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: true, cards: [makeCard({ id: 7 })] }) })
+      render(<BoardView />)
+      await act(async () => {})
+      const before = spy.mock.calls.length
+      expect(before).toBeGreaterThan(0)
+      await act(async () => {
+        getOnEvent.dispatch({ event: 'card.children_bulk_changed', data: { parent_ids: [7] } })
+        getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } })
+        getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [7] } })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+      expect(spy.mock.calls.length).toBe(before + 1)
+      // Within the window a second burst waits for its trailing read.
+      await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+      expect(spy.mock.calls.length).toBe(before + 1)
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+      expect(spy.mock.calls.length).toBe(before + 2)
+      await act(async () => { getOnEvent.dispatch({ event: 'card.updated', data: makeCard({ id: 7 }) as never }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+      expect(spy.mock.calls.length).toBe(before + 2)
+    } finally {
+      vi.useRealTimers()
+      spy.mockRestore()
+    }
+  })
+
+  it('never re-reads on a board where cards cannot have children', async () => {
+    const spy = vi.spyOn(cardsApi, 'getChildrenView')
+    mockBoardContextValue = makeContext({ board: makeBoard({ cards: [makeCard({ id: 7 })] }) })
+    render(<BoardView />)
+    await act(async () => {})
+    await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+})

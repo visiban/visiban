@@ -914,3 +914,21 @@ describe('PhoneBoard lane default team (#2211)', () => {
     expect(createCard).toHaveBeenLastCalledWith(1, { column: 1, swimlane: 2, title: 'Two' })
   })
 })
+
+describe('PhoneBoard Children lane action (#2370 way in 1, item 12)', () => {
+  it('shows on every lane band for everyone, with the count once it lands, at 44px, and opens Children mode', async () => {
+    const onOpen = vi.fn()
+    setup({ canEdit: false, childrenAction: { counts: new Map([[1, 12]]), onOpen } })
+    const north = screen.getByRole('button', { name: 'Children 12 in progress, North' })
+    expect(north).toHaveClass('min-h-11')
+    // No count yet for APAC: the action shows without one.
+    expect(screen.getByRole('button', { name: 'Children, APAC' })).toBeInTheDocument()
+    await userEvent.click(north)
+    expect(onOpen).toHaveBeenCalledWith(1)
+  })
+
+  it('is absent where cards cannot have children', () => {
+    setup({ canEdit: false })
+    expect(screen.queryByTestId('phone-lane-children-action')).toBeNull()
+  })
+})

@@ -486,7 +486,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               controls keep their space (opacity, never display:none) so nothing shifts on hover. */}
           <button type="button"
             onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
-            className={`relative inline-flex items-center justify-center min-w-6 min-h-6 rounded shrink-0 hover:bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
+            className={`relative inline-flex items-center justify-center min-w-6 min-h-6 [@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:min-h-11 rounded shrink-0 hover:bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
             title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
             // Stable label: aria-pressed carries the state, so a swapped name would announce it twice.
             aria-label={`Focus on ${swimlane.name}`}
@@ -508,7 +508,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               onClick={childrenAction.onOpen}
               aria-label={`Children${childrenAction.inProgress != null ? ` ${inProgressChip(childrenAction.inProgress)}` : ""}, ${swimlane.name}`}
               data-testid="lane-children-action"
-              className="inline-flex items-center gap-1 min-h-6 px-1.5 rounded shrink-0 text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="inline-flex items-center gap-1 min-h-6 [@media(pointer:coarse)]:min-h-11 px-1.5 rounded shrink-0 text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Children
               {childrenAction.inProgress != null && (

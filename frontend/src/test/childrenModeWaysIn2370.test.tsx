@@ -111,7 +111,7 @@ describe('Children mode ways in and band (#2370 items 1, 2, 3, 8, 10)', () => {
     expect(focus).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(focus)
     expect(onFocusLane).toHaveBeenCalledWith(3)
-    expect(screen.queryByRole('button', { name: 'Acme Corp lane menu' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Actions for swimlane "Acme Corp"' })).toBeNull()
     unmount()
     render(<ChildrenModeView {...base} laneId={3} onFocusLane={onFocusLane} onEditLane={onEditLane} onEditFieldOrder={onEditFieldOrder} />)
     const pressed = await screen.findByRole('button', { name: 'Focus on Acme Corp' })
@@ -120,7 +120,7 @@ describe('Children mode ways in and band (#2370 items 1, 2, 3, 8, 10)', () => {
     expect(onFocusLane).toHaveBeenLastCalledWith(null)
     // Order beside the name: Focus, Copy link, ⋮.
     const copy = screen.getByRole('button', { name: 'Copy link to Acme Corp' })
-    const menu = screen.getByRole('button', { name: 'Acme Corp lane menu' })
+    const menu = screen.getByRole('button', { name: 'Actions for swimlane "Acme Corp"' })
     expect(pressed.compareDocumentPosition(copy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(copy.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await userEvent.click(menu)

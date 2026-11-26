@@ -735,8 +735,11 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   );
 }
 
+/** What the Move picker reads of a child: the Children tab's row, or a Children mode card (#2370 item 11). */
+export type MovableChild = Pick<CardChildRow, "id" | "title" | "column_id" | "assignee" | "due_date"> & Partial<Pick<CardChildRow, "assigned_by" | "planned">>;
+
 interface MoveProps {
-  child: CardChildRow;
+  child: MovableChild;
   boardName: string;
   columns: CardChildrenColumn[];
   board: { role: string; enforce_wip_limits?: boolean; enforce_wip_hard?: boolean; allow_assignee_override?: boolean };
@@ -753,7 +756,7 @@ interface MoveProps {
  * child board's counts, at-limit columns disabled with their reason. The server re-checks the limit; its
  * refusal is shown as the tab's error line.
  */
-function ChildMovePopover({ child, boardName, columns, board, currentUserId, error, userTimezone = "", onMove, onClose }: MoveProps) {
+export function ChildMovePopover({ child, boardName, columns, board, currentUserId, error, userTimezone = "", onMove, onClose }: MoveProps) {
   const [choice, setChoice] = useState<number>(child.column_id);
   const firstRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);

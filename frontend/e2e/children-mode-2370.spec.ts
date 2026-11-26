@@ -135,7 +135,7 @@ for (const scheme of ['light', 'dark'] as const) {
     await expect(focus).toHaveAttribute('aria-pressed', 'true')
     await expectText(focus, 'Focus')
     await expectText(mode.getByRole('button', { name: `Copy link to ${laneName}` }), 'Copy link')
-    await mode.getByRole('button', { name: `${laneName} lane menu` }).click()
+    await mode.getByRole('button', { name: `Actions for swimlane "${laneName}"` }).click()
     await expect(page.getByRole('menuitem', { name: 'Edit swimlane…' })).toBeVisible()
     await page.keyboard.press('Escape')
 
@@ -163,3 +163,76 @@ for (const scheme of ['light', 'dark'] as const) {
     await expect(page.getByText("Children didn't load")).toHaveCount(0)
   })
 }
+
+// Move (item 11), the over-limit column head (warning, never danger), and 44px lane actions under touch (#2370).
+test('Children mode Move changes the column only and returns focus to the moved card', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await setup(page)
+  const moves: unknown[] = []
+  await page.route(/\/api\/v1\/boards\/7\/cards\/20\/move\/?(\?.*)?$/, async (route) => {
+    moves.push(route.request().postDataJSON())
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+  })
+  await page.goto(`/boards/${BOARD.id}?show=children`)
+  const mode = page.getByTestId('children-mode')
+  const card = mode.getByRole('link', { name: /^Usage export spec/ })
+  await card.focus()
+  // Move lives inside the card's stop: Right reaches it, Tab never stops on it.
+  await expect(mode.getByRole('button', { name: 'Move Usage export spec' })).toHaveAttribute('tabindex', '-1')
+  await page.keyboard.press('ArrowRight')
+  await expect(mode.getByRole('button', { name: 'Move Usage export spec' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'Move Usage export spec' })
+  await dialog.getByRole('radio', { name: /^Doing/ }).check()
+  await dialog.getByRole('button', { name: 'Move', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  expect(moves).toEqual([expect.objectContaining({ column_id: 101, swimlane_id: 1 })])
+  await expect(mode.getByRole('link', { name: /^Usage export spec/ })).toBeFocused()
+  // No parent change and no drag here: the grid has no draggable card.
+  await expect(mode.locator('[draggable="true"]')).toHaveCount(0)
+})
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`Children mode over-limit column head is warning, with the word over, ${scheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.emulateMedia({ colorScheme: scheme })
+    await routeAuth(page)
+    await routeBoard(page, BOARD as typeof BOARD_FULL)
+    const over = { ...view, child_boards: [{ ...view.child_boards[0], columns: view.child_boards[0].columns.map((c) => (c.id === 101 ? { ...c, card_count: 7 } : c)) }] }
+    await page.route(/\/api\/v1\/boards\/\d+\/children-view\/(\?.*)?$/, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(over) }),
+    )
+    await page.goto(`/boards/${BOARD.id}?show=children`)
+    const caption = page.getByTestId('children-mode').getByText('1 of 7 on Delivery · limit 5 over')
+    await expectText(caption, 'over-limit caption (warning on surface)')
+    const fill = page.getByRole('meter', { name: 'Doing on Delivery: 7 of limit 5' }).locator('span')
+    await expect(fill).toHaveClass(/bg-primary-emphasis/)
+  })
+}
+
+test.describe('lane actions under a coarse pointer (#2370 ruling)', () => {
+  test.use({ hasTouch: true })
+  test('the Children lane action and Focus are 44px high at 1024px with touch', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 900 })
+    await setup(page)
+    await page.goto(`/boards/${BOARD.id}`)
+    const laneName = BOARD_FULL.swimlanes[0].name
+    const action = page.getByRole('button', { name: `Children 4 in progress, ${laneName}` })
+    await expect(action).toBeVisible({ timeout: 10_000 })
+    expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    const focus = page.getByRole('button', { name: `Focus on ${laneName}` }).first()
+    expect((await focus.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  })
+})
+
+test('the phone lane band has the Children lane action at 44px (390px)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 })
+  await setup(page)
+  await page.goto(`/boards/${BOARD.id}`)
+  const laneName = BOARD_FULL.swimlanes[0].name
+  const action = page.getByRole('button', { name: `Children 4 in progress, ${laneName}` })
+  await expect(action).toBeVisible({ timeout: 10_000 })
+  expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  await action.click()
+  await expect(page).toHaveURL(new RegExp(`show=children&lane=${LANE_ID}`))
+})
