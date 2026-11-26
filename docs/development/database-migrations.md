@@ -482,7 +482,8 @@ The `# constraint-safe:` comment convention used elsewhere on this page doesn't 
 `check_migration_concurrency` now flags the one `AddField` shape whose constraint is
 validated inline: a constrained foreign key added with a default (#2620, see
 [Foreign keys](#foreign-keys)). It still doesn't flag a hand-written `ADD CONSTRAINT ...
-FOREIGN KEY` without `NOT VALID` in `RunPython`/`RunSQL`; review catches that one.
+FOREIGN KEY` without `NOT VALID` in `RunPython`/`RunSQL`; review catches that one
+([#2639](https://gitlab.com/visiban/visiban/-/issues/2639)).
 
 One optional follow-up remains, out of scope for this page:
 
@@ -846,6 +847,15 @@ installs have already run them; these are documented instead.
   `account.0009_emailaddress_unique_primary_email`. 1.1.0 and 1.2 both pin
   `django-allauth==65.14.3`, which ships it;
   `accounts/tests/test_migration_upgrade_path_1662.py` fails if a pin change drops it.
+- **Comments in `boards/0119`, `0134` and `0141` overstate the cost of a plain FK
+  `AddField` (found by #2620, after the audit above).** `0119` says it emits
+  `ADD CONSTRAINT ... FOREIGN KEY`, which validates the new column under a lock on both
+  tables at a cost that tracks the size of `card_activities`. `0134` and `0141` say adding
+  the constraint valid would scan `cards` and `card_activities` respectively under
+  `SHARE ROW EXCLUSIVE`. Neither holds for a nullable column with no default, which all
+  three describe: PostgreSQL skips validation (measured on 16 and 17; see
+  [Adding a foreign key](#adding-a-foreign-key)). Don't cite those comments as a reason to
+  split such an `AddField`. Applied migrations are left unedited.
 
 ---
 
