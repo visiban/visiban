@@ -4774,8 +4774,9 @@ links, and board invites — administrative endpoints, restricted to site admins
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">"maintenance_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">"maintenance_message"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">"pat_max_lifetime_days"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">"pat_default_lifetime_days"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">"pat_default_lifetime_days"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">"docs_base_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -4816,6 +4817,11 @@ links, and board invites — administrative endpoints, restricted to site admins
 <td>integer|null</td>
 <td><em>(1.3+, #1572)</em> Expiry the token form pre-fills, in days from today (1-365). Must not be greater than <code>pat_max_lifetime_days</code> when both are set. <code>null</code> (the default) pre-fills nothing. The API does not apply it to a create that omits <code>expires_at</code>.</td>
 </tr>
+<tr>
+<td><code>docs_base_url</code></td>
+<td>string|null</td>
+<td><em>(1.3+, #2604)</em> Base address the in-app help links open, at most 500 characters. Must be <code>http://</code> or <code>https://</code> with a host, and must not contain a user name or password, a query (<code>?</code>) or a fragment (<code>#</code>); anything else returns <code>400</code> keyed by the field. <code>null</code> (the default) means unset: the web app then uses its build-time <code>VITE_DOCS_BASE_URL</code>, else <code>docs.visiban.com</code>. Published to anonymous callers on <a href="../authentication/#site-configuration"><code>GET /api/v1/auth/site-config/</code></a>.</td>
+</tr>
 </tbody>
 </table>
 <h3 id="patch-apiv1adminsettings"><code>PATCH /api/v1/admin/settings/</code><a class="headerlink" href="#patch-apiv1adminsettings" title="Permanent link">&para;</a></h3>
@@ -4824,13 +4830,13 @@ links, and board invites — administrative endpoints, restricted to site admins
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"invite_only"</span><span class="p">,</span><span class="w"> </span><span class="nt">"uploads_enabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <p>Changes take effect within approximately 60 seconds (server-side cache TTL) — no restart required.</p>
-<p>A <code>PATCH</code> that sends <code>null</code> for <code>pat_max_lifetime_days</code> or <code>pat_default_lifetime_days</code> clears it; leaving
-the key out keeps the stored value. The default-not-above-maximum rule is checked against the state the
+<p>A <code>PATCH</code> that sends <code>null</code> for <code>pat_max_lifetime_days</code>, <code>pat_default_lifetime_days</code> or <code>docs_base_url</code> clears it
+(for <code>docs_base_url</code>, a blank string also clears it to <code>null</code>); leaving the key out keeps the stored value. The default-not-above-maximum rule is checked against the state the
 <code>PATCH</code> would produce, so lowering the maximum below the stored default returns <code>400</code> with
 <code>{"pat_default_lifetime_days": ["The default expiry (60 days) cannot be longer than the maximum lifetime (30 days)."]}</code>.
 Out-of-range values (below 1, above 365) return <code>400</code> keyed by the field.</p>
 <p>Every change to <code>registration_mode</code>, <code>uploads_enabled</code>, <code>maintenance_mode</code>,
-<code>maintenance_message</code>, <code>pat_max_lifetime_days</code> and <code>pat_default_lifetime_days</code> is recorded in the <a href="#action-log">action log</a>. Submitting a field with
+<code>maintenance_message</code>, <code>pat_max_lifetime_days</code>, <code>pat_default_lifetime_days</code> and <code>docs_base_url</code> is recorded in the <a href="#action-log">action log</a>. Submitting a field with
 the value it already holds is not a change and records nothing.</p>
 <hr />
 <h2 id="action-log">Action log<a class="headerlink" href="#action-log" title="Permanent link">&para;</a></h2>
@@ -4983,6 +4989,10 @@ and an audit log an admin can edit is not evidence of anything.</p>
 <tr>
 <td><code>pat_default_lifetime.changed</code></td>
 <td><code>{"from": 30, "to": null}</code> <em>(1.3+; days, <code>null</code> means unset)</em></td>
+</tr>
+<tr>
+<td><code>docs_base_url.changed</code></td>
+<td><code>{"from": null, "to": "https://docs.example.internal/visiban"}</code> <em>(1.3+; <code>null</code> means unset)</em></td>
 </tr>
 <tr>
 <td><code>email_settings.source_changed</code></td>

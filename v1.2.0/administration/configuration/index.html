@@ -4855,7 +4855,13 @@
 <hr />
 <h2 id="in-app-help-links">In-app help links<a class="headerlink" href="#in-app-help-links" title="Permanent link">&para;</a></h2>
 <p><em>(new in 1.3)</em> The "?" and "Learn more" links in the app open the Visiban docs in a new tab, matched to the version you run: a 1.3.x install links to <code>docs.visiban.com/v1.3/...</code>, a prerelease build to <code>/next/</code>, and a build whose version is missing or not a release number to <code>/latest/</code>. A build from <code>main</code> reports the last released version, so its links point at that version's docs until a 1.3 prerelease is cut.</p>
-<p>To point them at your own documentation mirror (for example on an air-gapped network), set the <code>VITE_DOCS_BASE_URL</code> build argument when you build the frontend image:</p>
+<p>To point them at your own documentation mirror (for example on an air-gapped network), use either setting below. The first one that is set and valid wins:</p>
+<ol>
+<li><strong>Docs address</strong> in <a href="../admin-panel/#help-links">Site admin → General → Help links</a> <em>(1.3+)</em>. A runtime setting, so it works on the prebuilt release images. Changes reach open tabs the next time they reload site settings (on reload, sign-in, or returning to the tab).</li>
+<li>The <code>VITE_DOCS_BASE_URL</code> build argument, for an image you build yourself.</li>
+<li>Neither: <code>https://docs.visiban.com</code>, matched to your version.</li>
+</ol>
+<p>To bake the address into your own frontend image instead, set the build argument:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>build<span class="w"> </span>--build-arg<span class="w"> </span><span class="nv">VITE_DOCS_BASE_URL</span><span class="o">=</span>https://docs.example.internal/visiban<span class="w"> </span>frontend/
 </code></pre></div>
 <table>
@@ -4874,7 +4880,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Watch out:</strong> this is a build-time setting baked into the JavaScript bundle, so it can't be changed on a prebuilt release image. A runtime setting is not part of this release (tracked in #2604), so until then prebuilt images cannot be overridden.</p>
+<p><strong>Watch out:</strong> <code>VITE_DOCS_BASE_URL</code> is baked into the JavaScript bundle, so it can't be changed on a prebuilt release image. Use the Docs address setting there. Both settings take <code>http://</code> or <code>https://</code> only, and the Docs address is shown to anyone who can reach the instance, signed in or not, so it refuses an address with a user name or password in it.</p>
 <hr />
 <h2 id="local-development">Local development<a class="headerlink" href="#local-development" title="Permanent link">&para;</a></h2>
 <p>Copy <code>.env.example</code> to <code>.env</code> in the repository root and fill in the values below.</p>
