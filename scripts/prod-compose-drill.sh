@@ -593,7 +593,7 @@ if [ "${TLS_MODE}" = "none" ]; then
 
   BACKUP_DRILL_DIR="$(mktemp -d)"
   log "BACKUP: scripts/backup.sh (host mode)"
-  bash scripts/backup.sh --output-dir "${BACKUP_DRILL_DIR}" --retention-days 0
+  bash scripts/backup.sh --compose-file "${PROD_COMPOSE_FILE}" --output-dir "${BACKUP_DRILL_DIR}" --retention-days 0
   backup_set="$(find "${BACKUP_DRILL_DIR}" -mindepth 1 -maxdepth 1 -type d -name 'visiban-*' | head -1)"
   [ -n "${backup_set}" ] || fail "scripts/backup.sh exited 0 but wrote no visiban-* set in ${BACKUP_DRILL_DIR}"
   for f in database.sql.gz media.tar.gz SHA256SUMS MANIFEST; do
@@ -603,6 +603,35 @@ if [ "${TLS_MODE}" = "none" ]; then
   tar -tzf "${backup_set}/media.tar.gz" | grep -c 'backup-drill' > /dev/null \
     || fail "media.tar.gz does not contain the seeded attachment"
 
+  # The Compose `backup` service is the scheduled path, and container mode is
+  # what the Helm CronJob runs: prove it against this real PostgreSQL too, as
+  # a one-shot (arguments replace the service's --daily-at command). It
+  # bind-mounts ./scripts/backup.sh and BACKUP_DIR, whose source paths resolve
+  # on the daemon (see the dind caveat above): put the script there, and read
+  # the set back through a helper container, the way sync_checkout_to_daemon
+  # writes nginx/.
+  log "BACKUP: the Compose backup service once (container mode, the scheduler's and the Helm CronJob's path)"
+  container_backup_dir="${PWD}/.backup-drill-container"
+  if ! daemon_shares_checkout; then
+    tar -C "$PWD" -cf - scripts/backup.sh \
+      | docker run --rm -i -v /:/host alpine:3 sh -c "mkdir -p '/host${PWD}' && tar -C '/host${PWD}' -xf -" \
+      >/dev/null
+  fi
+  BACKUP_DIR="${container_backup_dir}" compose --profile backup run --rm --no-deps -T backup --retention-days 0
+  container_set_parent="$(mktemp -d)"
+  docker run --rm -v /:/host:ro alpine:3 tar -C "/host${container_backup_dir}" -cf - . \
+    | tar -C "${container_set_parent}" -xf -
+  docker run --rm -v /:/host alpine:3 rm -rf "/host${container_backup_dir}"
+  container_set="$(find "${container_set_parent}" -mindepth 1 -maxdepth 1 -type d -name 'visiban-*' | head -1)"
+  [ -n "${container_set}" ] || fail "the Compose backup service exited 0 but wrote no visiban-* set"
+  for f in database.sql.gz media.tar.gz SHA256SUMS MANIFEST; do
+    [ -s "${container_set}/${f}" ] || fail "the Compose backup service's set lacks ${f}"
+  done
+  grep -qx 'mode=container' "${container_set}/MANIFEST" \
+    || fail "the Compose backup service's set is not a container-mode set: $(cat "${container_set}/MANIFEST")"
+  tar -tzf "${container_set}/media.tar.gz" | grep -c 'backup-drill' > /dev/null \
+    || fail "the Compose backup service's media.tar.gz does not contain the seeded attachment"
+
   log "NEGATIVE: scripts/restore.sh refuses a truncated dump before touching anything"
   truncated_set="${BACKUP_DRILL_DIR}/truncated"
   mkdir -p "${truncated_set}"
@@ -610,7 +639,7 @@ if [ "${TLS_MODE}" = "none" ]; then
   { gzip -dc "${backup_set}/database.sql.gz" || true; } | head -n 50 | gzip -c > "${truncated_set}/database.sql.gz"
   cp "${backup_set}/media.tar.gz" "${truncated_set}/"
   (cd "${truncated_set}" && sha256sum database.sql.gz media.tar.gz > SHA256SUMS)
-  if bash scripts/restore.sh --yes "${truncated_set}" > /dev/null 2>&1; then
+  if bash scripts/restore.sh --compose-file "${PROD_COMPOSE_FILE}" --yes "${truncated_set}" > /dev/null 2>&1; then
     fail "scripts/restore.sh accepted a truncated dump"
   fi
   [ "$(probe counts | grep '^COUNTS ')" = "${before_counts}" ] \
@@ -629,17 +658,28 @@ if [ "${TLS_MODE}" = "none" ]; then
   [ "${fresh_counts}" != "${before_counts}" ] \
     || fail "the 'fresh' install already holds the seeded data (${fresh_counts}) — the volumes were not destroyed, so a restore would prove nothing"
 
-  log "RESTORE: scripts/restore.sh into the fresh install"
-  bash scripts/restore.sh --yes "${backup_set}"
-  wait_ready_through_nginx "after restore"
-  after_counts="$(probe counts | grep '^COUNTS ')"
-  after_files="$(probe attachments | grep '^ATTACHMENTS ' || true)"
-  [ "${after_counts}" = "${before_counts}" ] \
-    || fail "boards/cards/movements/users did not survive backup and restore: before '${before_counts}', after '${after_counts}'"
-  [ "${after_files}" = "${before_files}" ] \
-    || fail "attachments did not survive backup and restore (rows or file bytes): before '${before_files}', after '${after_files:-probe failed — a row whose file is missing}'"
-  probe login >/dev/null || fail "the user seeded before the backup cannot log in after the restore"
-  log "backup and restore round-trip: ${after_counts}; ${after_files}; seeded user logs in"
+  assert_restored() { # assert_restored <label>
+    wait_ready_through_nginx "after restore ($1)"
+    after_counts="$(probe counts | grep '^COUNTS ')"
+    after_files="$(probe attachments | grep '^ATTACHMENTS ' || true)"
+    [ "${after_counts}" = "${before_counts}" ] \
+      || fail "$1: boards/cards/movements/users did not survive backup and restore: before '${before_counts}', after '${after_counts}'"
+    [ "${after_files}" = "${before_files}" ] \
+      || fail "$1: attachments did not survive backup and restore (rows or file bytes): before '${before_files}', after '${after_files:-probe failed — a row whose file is missing}'"
+    probe login >/dev/null || fail "$1: the user seeded before the backup cannot log in after the restore"
+    log "backup and restore round-trip ($1): ${after_counts}; ${after_files}; seeded user logs in"
+  }
+
+  # The container-mode set first, into the empty install, so the counts it
+  # must reproduce cannot already be there; then the host-mode set over it.
+  # restore.sh drops the schema in the same transaction, so the second restore
+  # proves its own set too.
+  log "RESTORE: scripts/restore.sh with the Compose backup service's set into the fresh install"
+  bash scripts/restore.sh --compose-file "${PROD_COMPOSE_FILE}" --yes "${container_set}"
+  assert_restored "container-mode set"
+  log "RESTORE: scripts/restore.sh with the host-mode set"
+  bash scripts/restore.sh --compose-file "${PROD_COMPOSE_FILE}" --yes "${backup_set}"
+  assert_restored "host-mode set"
 fi
 
 log "prod compose drill passed (TLS_MODE=${TLS_MODE})"
