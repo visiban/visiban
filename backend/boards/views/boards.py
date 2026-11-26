@@ -1833,6 +1833,17 @@ class BoardViewSet(
             membership, created = BoardMembership.objects.get_or_create(
                 board=board, user=target_user, defaults=defaults
             )
+            if created and (
+                member_role != BoardMembership.Role.ADMIN
+                and existing is not None
+                and not (target_user.is_site_admin and not request.user.is_site_admin)
+                and group_derived_board_role(target_user, board) == BoardMembership.Role.ADMIN
+            ):
+                # The row seen before the lock was removed while this request
+                # waited, so the pre-lock floor was skipped as "no change".
+                # Undo the insert and refuse.
+                transaction.set_rollback(True)
+                return _group_admin_floor_refusal()
             if not created:
                 # `existing` was read before the board lock, so a row created
                 # while this request waited is judged here, on the locked row:

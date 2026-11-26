@@ -134,3 +134,24 @@ class GroupDerivedRoleAbsentInputTests(TestCase):
             f"/api/v1/boards/{board.id}/members/", {"user_id": self.user.id, "role": "viewer"}, format="json"
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+
+class TrelloImportFloorTests(TestCase):
+    def test_matched_group_admin_gets_no_direct_row(self):
+        from boards.services.trello_import import ImportPlan, execute_plan
+
+        owner = User.objects.create_user(username="o2", password="pass")
+        gadmin = User.objects.create_user(username="ga2", password="pass")
+        other = User.objects.create_user(username="ot2", password="pass")
+        group = Group.objects.create(name="G2", owner=owner)
+        GroupMembership.objects.create(group=group, user=owner, role=GroupMembership.Role.ADMIN)
+        GroupMembership.objects.create(group=group, user=gadmin, role=GroupMembership.Role.ADMIN)
+        plan = ImportPlan(
+            board_name="T", board_description="", columns=[{"key": "c", "name": "C", "position": 0}],
+            labels=[], swimlanes=[], cards=[], checklist_items={}, comments=[],
+            member_user_ids=[gadmin.pk, other.pk], preview={},
+        )
+        board = execute_plan(plan, owner, group=group)
+        self.assertFalse(BoardMembership.objects.filter(board=board, user=gadmin).exists())
+        self.assertEqual(get_board_role(gadmin, board), "admin")
+        self.assertTrue(BoardMembership.objects.filter(board=board, user=other, role="member").exists())
