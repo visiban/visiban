@@ -371,11 +371,11 @@ describe('BoardView — Children lane counts re-read live, throttled (#2370 item
         getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } })
         getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [7] } })
       })
-      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(510) })
       expect(spy.mock.calls.length).toBe(before + 1)
       // Within the window a second burst waits for its trailing read.
       await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
-      await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(100) })
       expect(spy.mock.calls.length).toBe(before + 1)
       await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
       expect(spy.mock.calls.length).toBe(before + 2)
@@ -384,6 +384,29 @@ describe('BoardView — Children lane counts re-read live, throttled (#2370 item
       expect(spy.mock.calls.length).toBe(before + 2)
     } finally {
       vi.useRealTimers()
+      spy.mockRestore()
+    }
+  })
+
+  it('a hidden tab reads nothing until it is shown again, then reads once', async () => {
+    const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
+    const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
+    vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
+    try {
+      mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: true, cards: [makeCard({ id: 7 })] }) })
+      render(<BoardView />)
+      await act(async () => {})
+      const before = spy.mock.calls.length
+      await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+      await act(async () => { await new Promise((r) => setTimeout(r, 600)) })
+      expect(spy.mock.calls.length).toBe(before)
+      hidden.mockReturnValue(false)
+      await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+      await act(async () => { await new Promise((r) => setTimeout(r, 600)) })
+      expect(spy.mock.calls.length).toBe(before + 1)
+    } finally {
+      hidden.mockRestore()
       spy.mockRestore()
     }
   })

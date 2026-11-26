@@ -312,7 +312,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
         {...focusProps(stop)}
         data-grid={gridKey}
         data-child-card={child.id}
-        className={`${FOCUS} block flex-1 min-w-0 max-sm:min-h-11 rounded border bg-surface px-2 py-1 text-xs text-fg hover:bg-surface-hover ${child.planned ? "border-dashed border-line-strong" : "border-line"}`}
+        className={`${FOCUS} ${tgt} block flex-1 min-w-0 rounded border bg-surface px-2 py-1 text-xs text-fg hover:bg-surface-hover ${child.planned ? "border-dashed border-line-strong" : "border-line"}`}
       >
         <span className="block font-medium leading-snug">{child.title}</span>
         <span className="mt-0.5 flex items-center gap-1 text-fg-secondary">
@@ -328,7 +328,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
           data-move-for={stop.key}
           aria-label={`Move ${child.title}`}
           onClick={() => { setMoveError(null); setMoving({ child, rowId: row.id, board }); }}
-          className={`${FOCUS} min-h-11 min-w-11 sm:min-h-8 sm:min-w-8 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11 px-1 text-xs text-fg-secondary rounded hover:bg-surface-hover hover:text-fg`}
+          className={`${FOCUS} ${tgt} min-w-11 sm:[@media(pointer:fine)]:min-w-8 px-1 text-xs text-fg-secondary rounded hover:bg-surface-hover hover:text-fg`}
         >
           Move
         </button>
@@ -519,7 +519,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                             </button>
                           )}
                           {kids.length === 0 && planned.length === 0 && (
-                            <span {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })} className={`${FOCUS} block min-h-6 rounded`} />
+                            <span {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })} className={`${FOCUS} block min-h-6 rounded`}><span className="sr-only">{cellName(row.title, col.name, 0)}</span></span>
                           )}
                         </>
                       )}

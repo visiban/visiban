@@ -940,16 +940,29 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [childrenViewTick, setChildrenViewTick] = useState(0);
   const childrenTickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const childrenTickLast = useRef(0);
+  // A hidden tab reads nothing; it reads once when shown again (perf-check: no storm from background tabs).
+  const childrenTickMissed = useRef(false);
   const bumpChildrenView = useCallback(() => {
     if (boardRef.current?.cards_can_have_children !== true || childrenTickTimer.current) return;
-    const wait = Math.max(0, childrenTickLast.current + CHILDREN_VIEW_REFETCH_MS - Date.now());
+    if (typeof document !== "undefined" && document.hidden) { childrenTickMissed.current = true; return; }
+    // Up to 500ms of jitter, so viewers of one busy board don't re-read in lockstep (not security-sensitive).
+    const wait = Math.max(0, childrenTickLast.current + CHILDREN_VIEW_REFETCH_MS - Date.now()) + Math.floor(Math.random() * 500);
     childrenTickTimer.current = setTimeout(() => {
       childrenTickTimer.current = null;
       childrenTickLast.current = Date.now();
       setChildrenViewTick((n) => n + 1);
     }, wait);
   }, []);
-  useEffect(() => () => { if (childrenTickTimer.current) clearTimeout(childrenTickTimer.current); }, []);
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden && childrenTickMissed.current) { childrenTickMissed.current = false; bumpChildrenView(); }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      if (childrenTickTimer.current) clearTimeout(childrenTickTimer.current);
+    };
+  }, [bumpChildrenView]);
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
     if (CHILDREN_VIEW_EVENTS.has(event.event)) bumpChildrenView();
@@ -3432,7 +3445,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     type="button"
                     aria-pressed={(m === "children") === childrenMode}
                     onClick={() => setShowMode(m)}
-                    className={`text-sm px-3 h-8 max-sm:h-11 ${i ? "border-l border-line-strong" : ""} ${(m === "children") === childrenMode ? "bg-primary text-on-primary font-medium" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"} focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis`}
+                    className={`text-sm px-3 h-11 sm:[@media(pointer:fine)]:h-8 ${i ? "border-l border-line-strong" : ""} ${(m === "children") === childrenMode ? "bg-primary text-on-primary font-medium" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"} focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis`}
                   >
                     {m === "cards" ? "Cards" : "Children"}
                   </button>
