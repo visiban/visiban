@@ -593,6 +593,14 @@ class ChildrenViewPlannedTests(_ViewFixture, TestCase):
         # The rollup stays the card's children_rollup: planned is not added to it.
         self.assertNotIn("planned", row["rollup"])
 
+    def test_blocked_beats_planned(self):
+        """The card rollup's order: blocked and done beat planned, which beats to do."""
+        self._plan(self.manual)  # manually blocked child
+        body = self._view(self.viewer)
+        row = next(r for r in body["rows"] if r["id"] == self.parent.pk)
+        self.assertEqual(row["planned"], 0)
+        self.assertFalse(next(c for c in row["children"] if c["id"] == self.manual.pk)["planned"])
+
     def test_released_link_is_not_planned(self):
         CardParentLink.objects.filter(child=self.todo).update(
             needed_at_column=self.later, planned_released_at=timezone.now(),
