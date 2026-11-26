@@ -13,8 +13,8 @@ interface Request {
  *
  * `request(find)` records the intent in state; a layout effect then tries `find()` in the commit that renders
  * the request, so focus never rests on `<body>` past paint. While the request is live, a scoped
- * MutationObserver repeats the attempt whenever focus is lost to `<body>` (the target mounted late, or the
- * control focused first was replaced by a re-render). It stops after `WATCH_MS`, on the next request, or on
+ * MutationObserver repeats the attempt only if the target mounted late or the element it focused was
+ * replaced by a re-render and focus fell to `<body>`. It stops after `WATCH_MS`, on the next request, or on
  * unmount. Never poll with `requestAnimationFrame`.
  */
 export function useFocusWhenPresent(): (find: Request["find"]) => void {
@@ -23,11 +23,20 @@ export function useFocusWhenPresent(): (find: Request["find"]) => void {
 
   useLayoutEffect(() => {
     if (!req) return;
-    const attempt = () => { req.find()?.focus(); };
+    let focused: HTMLElement | null = null;
+    const attempt = () => {
+      const el = req.find();
+      if (!el) return;
+      el.focus();
+      focused = el;
+    };
     attempt();
+    // Retry only while the target never mounted, or the element we focused was replaced and focus fell to
+    // <body>. A user who moves focus away (or clicks empty space) afterward is never pulled back.
     const observer = new MutationObserver(() => {
       const active = document.activeElement;
-      if (!active || active === document.body) attempt();
+      const lost = !active || active === document.body;
+      if (lost && (focused === null || !focused.isConnected)) attempt();
     });
     observer.observe(document.body, { childList: true, subtree: true });
     const timer = setTimeout(() => observer.disconnect(), WATCH_MS);

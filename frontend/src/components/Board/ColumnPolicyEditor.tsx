@@ -48,8 +48,9 @@ function CriteriaList({ kind, legend, items, onChange, nextKey, onAnnounce, desc
   useLayoutEffect(() => {
     if (pendingFocus === null) return;
     const el = pendingFocus === "add" ? addRef.current : inputRefs.current.get(pendingFocus);
-    if (!el) return; // The parent has not committed the row yet; items changing re-runs this.
-    el.focus();
+    // The request and the parent's change commit together, so an absent target is gone: drop it rather than
+    // focusing a stale target on a later change.
+    el?.focus();
     setPendingFocus(null);
   }, [pendingFocus, items]);
   const focusInput = (key: number) => setPendingFocus(key);

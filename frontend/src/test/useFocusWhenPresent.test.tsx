@@ -51,3 +51,15 @@ describe('useFocusWhenPresent (#2632)', () => {
     expect(screen.getByText('hide')).toHaveFocus()
   })
 })
+
+describe('useFocusWhenPresent stale focus (#2632)', () => {
+  it('does not pull focus back after the user blurs to body', async () => {
+    render(<Harness />)
+    act(() => screen.getByText('show').click())
+    act(() => screen.getByText('ask').click())
+    expect(screen.getByText('target')).toHaveFocus()
+    act(() => screen.getByText('target').blur())
+    await act(async () => { screen.getByText('show').click(); document.body.appendChild(document.createElement('i')) })
+    expect(document.body).toHaveFocus()
+  })
+})
