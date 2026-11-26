@@ -38,6 +38,12 @@ check() { # check "<description>" <condition-exit-code>
     pass=$((pass + 1))
   else
     echo "  FAIL: $desc"
+    # Print the last gate output so a CI-only failure is diagnosable (OUT/RC are
+    # globals set by run_gate; empty for checks that do not run the gate).
+    if [[ -n "${OUT:-}" ]]; then
+      echo "    last gate rc=${RC:-?}, output:" >&2
+      printf '    | %s\n' "${OUT//$'\n'/$'\n''    | '}" >&2
+    fi
     fail=$((fail + 1))
   fi
 }
