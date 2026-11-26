@@ -2113,6 +2113,8 @@ Since 1.2, a request body that is not a JSON object returns `400 Bad Request` (i
 **Request** `{ "order": [3, 1, 4, 2] }`. `order` must be **exactly** this board's current column IDs: every column once, no duplicates, no ID from another board. A partial list, a duplicate, a foreign ID, or (on a board that has columns) an empty list is rejected with `400` and body `{"order": ["..."]}`, never partially applied. *(Since 1.2, #1302 — same
 rule as checklist-item reorder, #1292.)*
 
+*(1.3+, #2553)* A reorder also releases each [planned child](../features/board.md#planned-child) whose Needed column now sits at or before its parent's current column, as if the parent had reached it, and sends `card.parent_changed` (card ids only) to each affected child board.
+
 *(1.3+, #2500)* A reorder that changes which column is first sends the same `card.children_bulk_changed` to each parent board whose cards have live children in the old or new first column; a reorder that keeps the first column sends none. See [WebSockets](websockets.md).
 
 ---
@@ -2950,6 +2952,8 @@ Returns a read-only board payload identified by its UUID share token. No authent
 **Rate limiting:** 120 requests/hour per IP, plus a 240 requests/hour per-token limit as defense in depth against CGNAT/proxy-pool abuse of a single link. Exceeding either returns `429 Too Many Requests`.
 
 **Caching** *(1.3+, #1965)*: the response body is cached for up to 15 seconds (`SHARE_BOARD_CACHE_TTL_SECONDS`; `0` disables it), so a write that does not broadcast a board event, and time-based fields such as `is_stale`, can lag by up to that window. Revocation, rotation, expiry and enabler deactivation are checked on every request, before the cache, and are never delayed. Suited to read-heavy boards that are shared widely.
+
+**Planned children:** the payload carries no planned field. The share page shows a card's plain `due_date` and never works out Overdue, so a planned child cannot look overdue there.
 
 **Errors:**
 - `404 Not Found` if the token is invalid, has been revoked, or does not exist. *(1.2+, #1865)* Also when the admin who enabled the link is no longer active or no longer an admin of the board; the link is cleared on that read and does not come back if the account regains admin. This is checked before the expiry, so such a link answers `404` even after its expiry has passed. *(1.2+, #1939)* Also when the link has no recorded enabler (enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier)), with the same response; the link is cleared on that read.
