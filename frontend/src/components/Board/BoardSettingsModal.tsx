@@ -1,6 +1,6 @@
 import HelpLink from "../Common/HelpLink";
 import type { SocketStatus } from "../../hooks/useBoardSocket";
-import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
@@ -588,15 +588,17 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // #2051 — the board's flow-metric time zone. The browser's IANA list; a stored
   // name it lacks is still offered so the current value always shows.
   // Guarded: a browser without Intl.supportedValuesOf (pre-2022) still opens the modal.
-  const timeZoneNames = (typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [])
-    .filter((n) => n !== "UTC");
-  if (board.time_zone && board.time_zone !== "UTC" && !timeZoneNames.includes(board.time_zone)) {
-    timeZoneNames.unshift(board.time_zone);
-  }
-  const timeZoneOptions = [
-    { value: "none", label: "UTC (default)" },
-    ...timeZoneNames.map((n) => ({ value: n, label: n.replace(/_/g, " ") })),
-  ];
+  const timeZoneOptions = useMemo(() => {
+    const names = (typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [])
+      .filter((n) => n !== "UTC");
+    if (board.time_zone && board.time_zone !== "UTC" && !names.includes(board.time_zone)) {
+      names.unshift(board.time_zone);
+    }
+    return [
+      { value: "none", label: "UTC (default)" },
+      ...names.map((n) => ({ value: n, label: n.replace(/_/g, " ") })),
+    ];
+  }, [board.time_zone]);
   const timeZoneValue = board.time_zone && board.time_zone !== "UTC" ? board.time_zone : "none";
   const rollupField = resolveRollupField(board.swimlane_rollup_field, board.custom_field_definitions);
   const rollupFieldIsStale = board.swimlane_rollup_field != null && rollupField === null;
@@ -2079,6 +2081,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       value={timeZoneValue}
                       onChange={(v) => onUpdateBoardSettings?.({ time_zone: v === "none" ? null : v })}
                       options={timeZoneOptions}
+                      className="shrink-0 max-w-[14rem]"
                     />
                   ) : (
                     <p className="text-sm text-fg-secondary shrink-0" aria-describedby="flow-time-zone-help">
