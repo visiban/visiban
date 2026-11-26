@@ -4495,9 +4495,10 @@
 
 <h1 id="accessibility-scans-axe-core">Accessibility scans (axe-core)<a class="headerlink" href="#accessibility-scans-axe-core" title="Permanent link">&para;</a></h1>
 <p><code>frontend/e2e/a11y.spec.ts</code> runs <a href="https://github.com/dequelabs/axe-core">axe-core</a> through
-<code>@axe-core/playwright</code> at WCAG 2.1 A and AA on seven states: board view, card detail dialog,
+<code>@axe-core/playwright</code> at WCAG 2.1 A and AA on nine states: board view, card detail dialog,
 command palette, filter bar (expanded), settings page, member management modal (Board Settings,
-Members tab), and mobile navigation (375 px). It runs inside the existing <code>playwright-e2e</code> CI job,
+Members tab), mobile navigation (375 px), the group tree (the nav drawer's nested Groups list), and a group
+detail page with its subgroup boards and Load more footer. It runs inside the existing <code>playwright-e2e</code> CI job,
 so there is no separate job to find.</p>
 <h2 id="what-fails-the-job">What fails the job<a class="headerlink" href="#what-fails-the-job" title="Permanent link">&para;</a></h2>
 <ul>
