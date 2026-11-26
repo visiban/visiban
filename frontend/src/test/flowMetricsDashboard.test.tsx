@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OVERVIEW_LIST_LIMIT } from '../api/analyticsLimits'
 import { chartTint } from '../utils/chartScale'
@@ -1531,5 +1532,17 @@ describe('rounding and wording edge cases (#2297)', () => {
     plain.unmount()
     const withGone = render1([base, { ...base, card_uid: 'gone', column_uid: 'col-deleted', value_days: 400 }])
     expect(withGone.container.textContent).toBe(axisPlain)
+  })
+})
+
+describe('FlowMetricsDashboard docs links (#2593)', () => {
+  it('links a registry topic beside each chart, the bottleneck, blocked and attention headings', async () => {
+    await renderLoaded()
+    const charts = screen.getAllByRole('link', { name: 'Learn more about the flow metric charts, opens docs' })
+    expect(charts).toHaveLength(4)
+    for (const link of charts) expect(link).toHaveAttribute('href', docsUrl('analytics.flow-metrics'))
+    expect(screen.getByRole('link', { name: 'Learn more about bottleneck detection, opens docs' })).toHaveAttribute('href', docsUrl('analytics.bottleneck'))
+    expect(screen.getByRole('link', { name: 'Learn more about block reasons, opens docs' })).toHaveAttribute('href', docsUrl('analytics.blocked'))
+    expect(screen.getByRole('link', { name: 'Learn more about needs attention, opens docs' })).toHaveAttribute('href', docsUrl('analytics.attention'))
   })
 })

@@ -241,14 +241,26 @@ describe('UserMenu', () => {
     }
   })
 
-  it('the Help & docs item opens docs.visiban.com in a new tab', async () => {
+  it('the Help & docs item opens the docs for the current page in a new tab (#2593)', async () => {
     renderNavbar()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
     const link = await screen.findByRole('menuitem', { name: /Help & docs/ })
-    expect(link).toHaveAttribute('href', docsUrl('home'))
+    expect(link).toHaveAttribute('href', docsUrl('board.overview'))
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
+
+  it.each([
+    ['/groups/3', 'groups'],
+    ['/admin', 'admin.panel'],
+    ['/settings', 'home'],
+  ] as const)('Help & docs on %s opens the %s topic, not the docs root (#2593)', async (route, topic) => {
+    renderNavbar({}, route)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
+    const link = await screen.findByRole('menuitem', { name: /Help & docs/ })
+    expect(link).toHaveAttribute('href', docsUrl(topic))
   })
 
   it('the Sign out item uses normal text, not the danger treatment (#2473)', async () => {

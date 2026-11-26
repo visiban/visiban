@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import SampleGallery, { type SampleFocusRequest, type SampleListState } from "./SampleGallery";
@@ -426,6 +427,9 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello,
     >
         {/* Body */}
         <div className="px-4 sm:px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+          <p className="text-xs">
+            <HelpLink topic="board.import" variant="text" />
+          </p>
           {!source && (
             <SampleGallery
               samples={samples}

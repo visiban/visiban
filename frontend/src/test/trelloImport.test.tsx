@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -357,5 +358,15 @@ describe('describeTrelloError', () => {
       "2 attachment files won't be imported (links are added to card descriptions)",
     )
     expect(unmappableLine('mystery_kind', 3)).toBe("3 mystery kind won't be imported")
+  })
+})
+
+describe('TrelloImportModal docs link (#2593)', () => {
+  it('links the Trello import docs on the upload step only', async () => {
+    const user = userEvent.setup()
+    renderModal()
+    expect(screen.getByRole('link', { name: 'Learn more about importing from Trello, opens docs' })).toHaveAttribute('href', docsUrl('import.trello'))
+    await goToReview(user)
+    expect(screen.queryByRole('link', { name: /importing from Trello/ })).not.toBeInTheDocument()
   })
 })

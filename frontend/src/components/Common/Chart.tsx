@@ -1,3 +1,5 @@
+import HelpLink from "./HelpLink";
+import type { HelpTopicKey } from "../../help/topics";
 import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { CHART_COLORS, CHART_HUE, spreadLabels } from "../../utils/chartScale";
@@ -324,11 +326,13 @@ interface ChartPanelProps {
    */
   view?: ChartPanelView;
   onViewChange?: (view: ChartPanelView) => void;
+  /** Registry topic (#2593): one "?" help link beside the heading. */
+  help?: HelpTopicKey;
 }
 
 /** One chart with its heading, Chart | Table toggle and finding sentence. */
 export function ChartPanel({
-  title, summary, notes = [], definition, table, children, testId, view: controlledView, onViewChange,
+  title, summary, notes = [], definition, table, children, testId, view: controlledView, onViewChange, help,
 }: ChartPanelProps) {
   const [localView, setLocalView] = useState<ChartPanelView>("chart");
   const view = controlledView ?? localView;
@@ -346,7 +350,10 @@ export function ChartPanel({
       className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-2 min-w-0"
     >
       <div className="flex items-center justify-between gap-3">
-        <h2 id={headingId} className="text-sm font-semibold text-fg">{title}</h2>
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 id={headingId} className="text-sm font-semibold text-fg">{title}</h2>
+          {help && <HelpLink topic={help} />}
+        </div>
         <div className="flex rounded overflow-hidden border border-line-strong shrink-0" role="group" aria-label={`${title} view`}>
           {(["chart", "table"] as ChartPanelView[]).map((option, index) => (
             <button

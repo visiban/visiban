@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { stubVisualViewport, clearVisualViewport } from './visualViewportStub'
 import { render, screen, waitFor, act, fireEvent, within, cleanup } from '@testing-library/react'
@@ -4533,5 +4534,23 @@ describe('BoardSettingsModal — Find a setting index (#2436)', () => {
 
   it('finds Column policies by policy', () => {
     expect(findSettings('policies', new Set<SettingsSection>(['rules'])).some((e) => e.label === 'Column policies')).toBe(true)
+  })
+})
+
+describe('BoardSettingsModal docs links by section (#2593)', () => {
+  const helpName = (subject: string) => `Learn more about ${subject}, opens docs`
+  it.each([
+    ['display', 'card density and display', 'board.display'],
+    ['rules', 'WIP limits', 'wip-limit'],
+    ['rules', 'stale card detection', 'board.stale'],
+    ['rules', 'flow metric definitions', 'analytics.definitions'],
+    ['rules', 'health review reminders', 'health.review'],
+    ['sharing', 'public sharing', 'board.sharing'],
+    ['export', 'export and import', 'board.export'],
+    ['members', 'board roles', 'permissions'],
+  ] as const)('%s section links %s', async (section, subject, topic) => {
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab={section} onUpdateBoardSettings={vi.fn()} />)
+    const link = await screen.findByRole('link', { name: helpName(subject) })
+    expect(link).toHaveAttribute('href', docsUrl(topic))
   })
 })

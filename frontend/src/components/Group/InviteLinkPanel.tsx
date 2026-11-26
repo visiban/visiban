@@ -855,6 +855,7 @@ export default function InviteLinkPanel({
     <PageHeading
       level="h3"
       title="Invite links"
+      help="groups.invites"
       description="Shareable links and emailed invites that let people join this group."
       headingRef={headingRef}
       actions={allowShareableLinks && !atLimit && !showForm ? (

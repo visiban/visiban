@@ -1130,7 +1130,7 @@ function DocsLinkCard({ settings, busy, onSave }: {
     <SettingsCard title="Help links">
       <Field
         label="Docs address"
-        hint={'Where the "?", "Learn more" and "Help & docs" links open, such as an internal docs mirror. Used as given, with no version added. Anyone can see it without signing in. Blank: docs.visiban.com for your version, unless your build sets its own address.'}
+        hint={'Where the "?", "Learn more" and "Help & docs" links open, such as an internal docs mirror. Used as given, with no version added. Anyone can see it without signing in. Blank: the public Visiban docs for your version, unless your build sets its own address.'}
         error={error}
         type="url"
         inputMode="url"

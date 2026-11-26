@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -35,8 +36,13 @@ describe('LensProvenanceBanner', () => {
 
   it('renders the repo as plain text, with no link, when url is unsafe', () => {
     render(<LensProvenanceBanner {...base} url="javascript:alert(1)" />)
-    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.queryByRole('link', { name: /acme\/widgets/ })).toBeNull()
     expect(screen.getByText('acme/widgets')).toBeInTheDocument()
+  })
+
+  it('links the lens docs section from the banner (#2593)', () => {
+    render(<LensProvenanceBanner {...base} />)
+    expect(screen.getByRole('link', { name: 'Learn more about the Issue Board Lens, opens docs' })).toHaveAttribute('href', docsUrl('lens'))
   })
 
   it('carries the freshness control, not the Row-2 toolbar', () => {
@@ -124,3 +130,4 @@ describe('LensProvenanceBanner closed-issue limit (#1581)', () => {
     expect(screen.getByText(/Showing first 300 open issues/)).toBeInTheDocument()
   })
 })
+

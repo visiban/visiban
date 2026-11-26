@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { User } from "../../types";
 import { userDisplayName } from "../../types";
 import Avatar from "../Common/Avatar";
@@ -10,6 +10,7 @@ import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useTheme } from "../../context/ThemeContext";
 import type { ThemePreference } from "../../context/ThemeContext";
 import { docsUrl } from "../../help/docsUrl";
+import { helpTopicForPath } from "../../help/pageTopic";
 import { openShortcutsHelp } from "./shellNavModel";
 import { ExternalIcon, GearIcon, HelpIcon, KeyboardIcon, MonitorIcon, MoonIcon, ShieldIcon, SignOutIcon, SunIcon } from "./shellIcons";
 
@@ -44,6 +45,7 @@ function Separator() {
  * saves it to the server.
  */
 export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) {
+  const { pathname } = useLocation();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
@@ -170,7 +172,7 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
 
           <a
             {...item(IDX.help)}
-            href={docsUrl("home")}
+            href={docsUrl(helpTopicForPath(pathname))}
             target="_blank"
             rel="noopener noreferrer"
             role="menuitem"

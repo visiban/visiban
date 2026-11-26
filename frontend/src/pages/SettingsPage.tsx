@@ -1,3 +1,4 @@
+import HelpLink from "../components/Common/HelpLink";
 import { useState, useEffect, useCallback, useRef, cloneElement, Fragment } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
@@ -917,6 +918,7 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
       <PageHeading
         level="h3"
         title="Access tokens"
+        help="tokens.personal"
         description="Personal access tokens let you authenticate API requests. Tokens are shown once on creation. All tokens are revoked if you change your password."
       />
 
@@ -997,7 +999,8 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
               );
             })}
             <p className="text-xs text-fg-secondary">
-              An MCP client needs <span className="font-mono">mcp:read</span> to use this token.
+              An MCP client needs <span className="font-mono">mcp:read</span> to use this token.{" "}
+              <HelpLink topic="mcp" variant="text" />
             </p>
             {scopes.length === 0 && (
               <p id="token-scopes-error" role="alert" className="text-xs text-danger" data-testid="token-scopes-error">

@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -417,5 +418,12 @@ describe('BoardSettingsModal — Rules tab column policies', () => {
     await user.click(rowButton('Backlog'))
     expect(rowButton('Backlog')).toHaveAttribute('aria-expanded', 'false')
     expect(mockPatchColumn).not.toHaveBeenCalled()
+  })
+})
+
+describe('BoardSettingsPoliciesSection docs link (#2593)', () => {
+  it('links the column policies docs beside the heading', () => {
+    renderSection()
+    expect(screen.getByRole('link', { name: 'Learn more about entry criteria, opens docs' })).toHaveAttribute('href', docsUrl('column-policies'))
   })
 })

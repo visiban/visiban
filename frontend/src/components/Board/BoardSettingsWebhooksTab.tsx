@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Spinner from "../Common/Spinner";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
@@ -942,14 +943,17 @@ export default function BoardSettingsWebhooksTab({
     body = (
       <section aria-labelledby="webhooks-heading" className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
+<div className="flex-1 flex items-center gap-2 min-w-0">
           <h3
             id="webhooks-heading"
             ref={listHeadingRef}
             tabIndex={-1}
-            className="flex-1 text-xs font-semibold text-fg-tertiary uppercase tracking-wide focus:outline-none"
+            className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide focus:outline-none"
           >
             Webhooks
           </h3>
+          <HelpLink topic="webhooks.setup" />
+          </div>
           {subs.length > 0 && !revealShown && (
             <button
               ref={addButtonRef}

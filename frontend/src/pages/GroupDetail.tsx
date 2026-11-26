@@ -20,6 +20,7 @@ import {
 import Navbar from "../components/Layout/Navbar";
 import UnavailablePage from "./UnavailablePage";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
+import type { HelpTopicKey } from "../help/topics";
 import InviteLinkPanel from "../components/Group/InviteLinkPanel";
 import { useJoinedToast } from "../components/Common/useJoinedToast";
 import BoardGroupPath from "../components/Group/BoardGroupPath";
@@ -1827,13 +1828,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   // ----- Group settings ---------------------------------------------------------------------
 
-  const sectionHead = (title: string, description: string) => (
-    <PageHeading level="h3" title={title} description={description} headingRef={sectionHeadingRef} />
+  const sectionHead = (title: string, description: string, help?: HelpTopicKey) => (
+    <PageHeading level="h3" title={title} description={description} headingRef={sectionHeadingRef} help={help} />
   );
 
   const membersSection = () => (
     <>
-      {sectionHead("Members", "Manage who has access to this group and their roles.")}
+      {sectionHead("Members", "Manage who has access to this group and their roles.", "groups.members")}
       <div>
         <Button variant="secondary" onClick={() => openSettings("invite-links")}>Invite by email</Button>
       </div>
@@ -1952,7 +1953,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   const healthSection = () => (
     <>
-      {sectionHead("Health status review", "Ask for this group’s health status to be confirmed or changed regularly.")}
+      {sectionHead("Health status review", "Ask for this group’s health status to be confirmed or changed regularly.", "health.review")}
       <SettingsCard>
         <HealthReviewDaysInput
           entityKind="group"
@@ -1966,7 +1967,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // "Allowed priorities on new boards" (#1429) is not drawn: it is deprecated and has no effect.
   const defaultsSection = () => (
     <>
-      {sectionHead("Board defaults", "Defaults for boards created in this group. Settings marked “Deprecated” are saved but don't take effect.")}
+      {sectionHead("Board defaults", "Defaults for boards created in this group. Settings marked “Deprecated” are saved but don't take effect.", "groups.defaults")}
       <SettingsCard>
         <label htmlFor="group-default-member-role" className="text-fg-secondary text-sm font-medium block mb-2">Default member role for new boards</label>
         <div className="flex items-center gap-3">
@@ -1999,7 +2000,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   const labelsSection = () => (
     <>
-      {sectionHead("Shared labels", "Labels added here are copied to every new board created in this group.")}
+      {sectionHead("Shared labels", "Labels added here are copied to every new board created in this group.", "groups.labels")}
       <SettingsCard>
         <ul className="flex flex-col gap-1.5 mb-3" aria-label="Shared labels">
           {(group.shared_labels ?? []).map((label) => (

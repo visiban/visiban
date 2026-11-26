@@ -1,3 +1,4 @@
+import HelpLink from "../../Common/HelpLink";
 import type { Column, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowWipAge } from "../../../types";
 import { bottleneckSentence, formatDate, pluralize } from "./flowFormat";
 import { wipCount } from "./flowRowData";
@@ -65,6 +66,7 @@ export default function BottleneckPanel({
           </svg>
         )}
         <span id="analytics-bottleneck-eyebrow" className={uid !== null ? "text-warning" : undefined}>Bottleneck</span>
+        <HelpLink topic="analytics.bottleneck" />
       </p>
       {cumulative && uid !== null ? (
         <>

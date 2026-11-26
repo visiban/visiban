@@ -1,3 +1,4 @@
+import HelpLink from "../../Common/HelpLink";
 import type { LensProvider } from "../../../types";
 import ExternalRefGlyph from "../../Card/ExternalRefGlyph";
 import LensFreshness from "./LensFreshness";
@@ -71,6 +72,7 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
           <span className="font-medium">{repo}</span>
         )}
       </span>
+      <HelpLink topic="lens" />
       {truncated && (
         <span className="text-warning flex items-center gap-1 ml-2 min-w-0">
           <span aria-hidden="true">⚠</span>

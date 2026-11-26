@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import AnchoredMenuPanel from "../Common/AnchoredMenuPanel";
 import { captureMenuAnchor, type MenuAnchor } from "../../utils/menuAnchor";
@@ -290,6 +291,9 @@ export default function SavedFiltersDropdown({
                   </div>
                 </div>
               ))}
+              <div className="px-3 py-1.5 border-t border-line text-xs">
+                <HelpLink topic="saved-filters" variant="text" />
+              </div>
             </>
           )}
         </AnchoredMenuPanel>

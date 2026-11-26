@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi } from 'vitest'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -442,5 +443,16 @@ describe('health review cue (#2244)', () => {
     })
     await user.click(trigger())
     expect(screen.queryByTestId('health-review-cue-text')).not.toBeInTheDocument()
+  })
+})
+
+describe('HealthStatusPopover docs link (#2593)', () => {
+  it('links the health status docs inside the popover, not on the header pill', async () => {
+    const user = userEvent.setup()
+    renderControl(own('on_track'))
+    expect(screen.queryByRole('link', { name: /health status/i })).not.toBeInTheDocument()
+    await user.click(trigger())
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('link', { name: 'Learn more about health status, opens docs' })).toHaveAttribute('href', docsUrl('health.status'))
   })
 })
