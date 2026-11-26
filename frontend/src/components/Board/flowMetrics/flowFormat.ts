@@ -17,10 +17,37 @@ export const formatDays = (days: number) => (isTinyDays(days) ? "<0.1d" : `${day
 /** A real duration that one decimal would show as 0.0. */
 export const isTinyDays = (days: number) => days > 0 && days < 0.05;
 
-const SHORT_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const SHORT_DATES = new Map<string, Intl.DateTimeFormat>();
 
-/** A calendar day or instant, in UTC, the zone every bucket and window uses (ADR). */
-export const formatDate = (value: string | number) => SHORT_DATE.format(new Date(value));
+/**
+ * The zone to format in: `zone` when this browser's ICU knows it, else UTC.
+ * A board zone the server accepts may be missing from an older browser, and
+ * `Intl.DateTimeFormat` throws a RangeError on it (#2051).
+ */
+export const resolveZone = (zone: string): string => {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return zone;
+  } catch {
+    return "UTC";
+  }
+};
+
+/**
+ * A calendar day or instant, in UTC by default. A `YYYY-MM-DD` bucket day
+ * parses as UTC midnight and is already the board's day, so it keeps UTC. An
+ * instant (a completion, a start, a transition, an axis tick, "now") takes the
+ * board's resolved zone (#2051), or it reads a day late or early off UTC.
+ */
+export const formatDate = (value: string | number, timeZone = "UTC") => {
+  const zone = resolveZone(timeZone);
+  let format = SHORT_DATES.get(zone);
+  if (!format) {
+    format = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: zone });
+    SHORT_DATES.set(zone, format);
+  }
+  return format.format(new Date(value));
+};
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 

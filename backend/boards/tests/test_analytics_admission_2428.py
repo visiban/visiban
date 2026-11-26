@@ -494,10 +494,12 @@ class AnalyticsGateConcurrencyTests(TransactionTestCase):
         results = {}
 
         def get(user):
-            client = APIClient()
-            client.force_authenticate(user)
-            results[user.username] = client.get(f"/api/v1/boards/{self.board.pk}/metrics/overview/").status_code
-            _conns.close_all()
+            try:
+                client = APIClient()
+                client.force_authenticate(user)
+                results[user.username] = client.get(f"/api/v1/boards/{self.board.pk}/metrics/overview/").status_code
+            finally:
+                _conns.close_all()
 
         return slow, inside, release, results, get
 

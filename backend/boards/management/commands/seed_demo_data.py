@@ -107,7 +107,7 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -169,6 +169,7 @@ from ._seed_history import (
     record_move,
     write_activity_trail,
 )
+from . import _demo_site_connected as connected
 from ._demo_site_data import (
     BOARDS as DEMO_SITE_BOARDS,
     DEMO_SITE_USERS,
@@ -993,10 +994,14 @@ class Command(BaseCommand):
                 board, cards = self._create_demo_site_board(spec, users)
             seeded[spec["name"]] = (board, cards)
             self.stdout.write(self.style.SUCCESS(f"Seeded '{spec['name']}': {len(cards)} cards."))
+        # The flagship overlay board, the links between boards and the rest of the
+        # activity vocabulary (#2598, #2599, #2607). Builds on the boards above.
+        connected.seed_connected(self, seeded, users, self._demo_site_anchor())
         self._create_demo_site_saved_filters(seeded, users["visitor"])
         n = self._create_demo_site_notifications(seeded, users)
         if n:
             self.stdout.write(self.style.SUCCESS(f"Seeded {n} notifications for the published visitor."))
+        connected.keep_overlay_board_first(seeded)
 
     def _ensure_demo_site_users(self):
         """Create/refresh the admin and member accounts; return {key: User}.
@@ -1091,6 +1096,8 @@ class Command(BaseCommand):
             # the #1843 aging meter are on the card face; the rest keep the
             # Comfortable default a new board gets.
             card_density=spec.get("card_density", "comfortable"),
+            # The parent tier of a connected pair (#2598); off everywhere else.
+            cards_can_have_children=spec.get("cards_can_have_children", False),
         )
         for user_key, user in users.items():
             BoardMembership.objects.create(
@@ -1112,13 +1119,48 @@ class Command(BaseCommand):
             for name, color in spec["labels"]
         }
 
-        today = timezone.localdate()
         anchor = self._demo_site_anchor()
+        cards = self._seed_spec_cards(board, spec["cards"], columns, lanes, labels, users, anchor)
+        self._add_demo_site_extras(board, spec, cards, lanes, users)
+        self._add_demo_site_structure(board, spec, columns, cards, users, anchor)
+        # Last, once each card is in its final state (#1889): every label,
+        # weight, checklist item and comment it holds gets the activity the
+        # API would have written for it.
+        people = [u for key, u in users.items() if key != "visitor"]
+        # A card behind one of the visitor's "assigned" notifications was the
+        # visitor's first, assigned by the notification's actor, and has moved
+        # on since: the API only notifies the person it assigns.
+        assigned = {
+            title: users[by] for board_name, title, kind, by in DEMO_SITE_VISITOR_NOTIFICATIONS
+            if board_name == spec["name"] and kind == Notification.ActionType.ASSIGNED
+        }
+        for title, card in cards.items():
+            if title in assigned:
+                write_activity_trail(card, actors=people, earlier_assignee=users["visitor"],
+                                     earlier_assigned_by=assigned[title])
+            else:
+                write_activity_trail(card, actors=people)
+        return board, cards
+
+    def _seed_spec_cards(self, board, card_specs, columns, lanes, labels, users, anchor, start_idx=0):
+        """Create cards from spec tuples with their history and comments; return ``{title: Card}``.
+
+        Shared by the hand-built boards and the cards the overlay board gets on
+        top of its imported sample (#2599). ``start_idx`` keeps the per-card
+        mover and weight deterministic when cards are added to a board that
+        already holds some. Does not write the activity trail: the caller does
+        that last, once each card is in its final state.
+        """
+        today = timezone.localdate()
         visitor_name = users["visitor"].username
-        positions = {}
+        admin = users["admin"]
+        positions = dict(
+            Card.objects.filter(board=board).order_by().values_list("column").annotate(n=Count("id")).values_list("column", "n")
+        )
         cards = {}
-        for idx, (title, desc, col_i, lane_i, priority, assignee, label_names, comments,
-                  last_moved, due_offset) in enumerate(spec["cards"]):
+        for offset, (title, desc, col_i, lane_i, priority, assignee, label_names, comments,
+                     last_moved, due_offset) in enumerate(card_specs):
+            idx = start_idx + offset
             column, lane = columns[col_i], lanes[lane_i]
             pos = positions.get(column.id, 0)
             positions[column.id] = pos + 1
@@ -1144,26 +1186,7 @@ class Command(BaseCommand):
                     created_at=anchor - datetime.timedelta(days=age)
                 )
             cards[title] = card
-        self._add_demo_site_extras(board, spec, cards, lanes, users)
-        self._add_demo_site_structure(board, spec, columns, cards, users, anchor)
-        # Last, once each card is in its final state (#1889): every label,
-        # weight, checklist item and comment it holds gets the activity the
-        # API would have written for it.
-        people = [u for key, u in users.items() if key != "visitor"]
-        # A card behind one of the visitor's "assigned" notifications was the
-        # visitor's first, assigned by the notification's actor, and has moved
-        # on since: the API only notifies the person it assigns.
-        assigned = {
-            title: users[by] for board_name, title, kind, by in DEMO_SITE_VISITOR_NOTIFICATIONS
-            if board_name == spec["name"] and kind == Notification.ActionType.ASSIGNED
-        }
-        for title, card in cards.items():
-            if title in assigned:
-                write_activity_trail(card, actors=people, earlier_assignee=users["visitor"],
-                                     earlier_assigned_by=assigned[title])
-            else:
-                write_activity_trail(card, actors=people)
-        return board, cards
+        return cards
 
     def _add_demo_site_structure(self, board, spec, columns, cards, users, anchor):
         """1.3 board structure (#2597): limits, stages, tracks, field sets, health.
@@ -1180,8 +1203,21 @@ class Command(BaseCommand):
         by_name = {c.name: c for c in columns}
         last_moved = {card[0]: card[8] for card in spec["cards"]}
 
+        def days_since_last_move(card):
+            # A card the spec does not list (the overlay's imported sample)
+            # is dated by its own last movement.
+            if card.title in last_moved:
+                return last_moved[card.title]
+            moved_at = card.movements.order_by("-moved_at").values_list("moved_at", flat=True).first()
+            return max(0, (anchor - moved_at).days)
+
         for col_name, (wip, weight) in structure["wip"].items():
             Column.objects.filter(pk=by_name[col_name].pk).update(wip_limit=wip, weight_limit=weight)
+
+        # Per-lane WIP limits (#2599). The limit is on the account lane, not on the
+        # account director: AD is a lane field, and a limit belongs to the lane.
+        for lane_name, lane_wip in structure.get("lane_wip", {}).items():
+            Swimlane.objects.filter(board=board, name=lane_name).update(wip_limit=lane_wip)
 
         # Stages split into sub-columns (#1102). A card sits in the sub-column
         # its ``gates_passed`` indexes, and each gate it passed leaves one
@@ -1199,7 +1235,7 @@ class Command(BaseCommand):
                         column_name=column.name, column_uid=column.uid, sub_column_name=subs[gate].name,
                         sub_column_uid=subs[gate].uid, kind=CardGateTransition.Kind.PASS,
                         from_index=gate - 1, to_index=gate, actor=card.assignee or admin,
-                        created_at=anchor - datetime.timedelta(days=last_moved[card.title]),
+                        created_at=anchor - datetime.timedelta(days=days_since_last_move(card)),
                     )
 
         # Tracks (#1920): a dimension field bound to the stage it gates, with

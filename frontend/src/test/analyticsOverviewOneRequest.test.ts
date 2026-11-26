@@ -38,6 +38,19 @@ describe('useAnalyticsOverviewData (#2426)', () => {
     vi.mocked(getBoardAnalytics).mockResolvedValue(null as never)
   })
 
+  it('refetches when the board time zone changes (#2051)', async () => {
+    vi.mocked(flowApi.getFlowOverview).mockResolvedValue(overview)
+    const { result, rerender } = renderHook(({ tz }: { tz: string | null }) => useAnalyticsOverviewData(9, filters, 0, undefined, tz), {
+      initialProps: { tz: null as string | null },
+    })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(flowApi.getFlowOverview).toHaveBeenCalledTimes(1)
+    rerender({ tz: null })
+    expect(flowApi.getFlowOverview).toHaveBeenCalledTimes(1)
+    rerender({ tz: 'Pacific/Auckland' })
+    await waitFor(() => expect(flowApi.getFlowOverview).toHaveBeenCalledTimes(2))
+  })
+
   it('asks for every chart in one overview request, not one request per chart', async () => {
     vi.mocked(flowApi.getFlowOverview).mockResolvedValue(overview)
     const { result } = renderHook(() => useAnalyticsOverviewData(9, filters, 0))
