@@ -349,7 +349,9 @@ class ColumnViewSet(viewsets.ModelViewSet):
             "`order` must be exactly this board's current column IDs — a partial "
             "list, a duplicate, an ID from another board, or an empty list on a "
             "non-empty board is rejected with `400` (#1302, same rule as "
-            "checklist-item reorder, #1292)."
+            "checklist-item reorder, #1292). Since 1.3 (#2553) it also releases planned "
+            "children whose Needed column now sits at or before the parent's current column, "
+            "and sends `card.parent_changed` to the affected child boards."
         ),
         request=inline_serializer(
             name="ColumnReorder",

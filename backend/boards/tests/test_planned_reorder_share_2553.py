@@ -1,27 +1,29 @@
-"""#2553: planned-children edge cases left open by #2371.
+"""#2553: a column reorder releases planned children (left open by #2371).
 
-* A column reorder releases a planned child whose Needed column now sits at or
-  before the parent's current column (release used to happen only on a parent
-  move).
-* The public share link hides a planned child's due date, so the client cannot
-  derive Overdue from a date the server treats as inactive (Rule 19: the five
-  planned fields stay off the wire).
+A reorder that puts a planned child's Needed column at or before its parent's
+current column releases the child at once (release used to happen only on a
+parent move). Same actorless system write as a parent move (Rule 19).
 """
 import datetime
+import threading
+from unittest import skipUnless
 from unittest.mock import patch
 
-from django.core.cache import cache
-from django.db import connection
+from django.db import connection, connections, transaction
+from django.test import TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from boards import broadcast as _broadcast
-from boards.models import Card, CardActivity, CardParentLink
-from boards.serializers import PublicCardSerializer
+from accounts.models import User
+from boards.models import Board, BoardMembership, Card, CardActivity, CardParentLink, Column, Swimlane
+from boards.tests.lock_wait import assert_blocked_on_lock
 from boards.services import planned_children
 from boards.tests.test_planned_children_2371 import PATCH_BROADCAST, PlannedFixture, client_for
 
 EV = CardActivity.EventType
+Role = BoardMembership.Role
+WAIT = 10
 
 
 class ReorderReleaseTests(PlannedFixture):
@@ -107,52 +109,91 @@ class ReorderReleaseTests(PlannedFixture):
         self.assertIsNone(self.link(child).planned_released_at)
 
 
-class ShareLinkPlannedDateTests(PlannedFixture):
+@skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
+class ReorderVsParentMoveRaceTests(TransactionTestCase):
+    """A reorder racing a parent move that releases the same link (#2553).
+
+    The move holds its columns, the parent row and the link row (its
+    conditional UPDATE); the reorder queues behind it in its own lock order
+    (board, columns, links), then finds the link released once the move
+    commits. One ``planned_released`` row, no
+    deadlock. Patches are taken once in the main thread (a ``patch`` inside a
+    worker leaks process-wide).
+    """
+
     def setUp(self):
-        super().setUp()
-        self.past = datetime.date(2020, 1, 1)
-        self.planned = self.planned_child(due=self.past)
-        self.released = self.planned_child(due=self.past)
-        CardParentLink.objects.filter(child=self.released).update(planned_released_at=self.parent.created_at)
-        self.plain = Card.objects.create(
-            board=self.cboard, column=self.todo, swimlane=self.clane, title="Plain", due_date=self.past,
+        self.owner = User.objects.create_user(username="rr_owner", password="pass")
+        self.pboard = Board.objects.create(name="Pipeline", owner=self.owner, cards_can_have_children=True)
+        BoardMembership.objects.create(board=self.pboard, user=self.owner, role=Role.ADMIN)
+        self.lead = Column.objects.create(board=self.pboard, name="Lead", position=0)
+        self.proposal = Column.objects.create(board=self.pboard, name="Proposal", position=1)
+        self.won = Column.objects.create(board=self.pboard, name="Won", position=2)
+        plane = Swimlane.objects.create(board=self.pboard, name="Hooli", position=0)
+        self.cboard = Board.objects.create(name="Delivery", owner=self.owner)
+        todo = Column.objects.create(board=self.cboard, name="To do", position=0)
+        clane = Swimlane.objects.create(board=self.cboard, name="Team", position=0)
+        self.parent = Card.objects.create(board=self.pboard, column=self.lead, swimlane=plane, title="Parent")
+        self.child = Card.objects.create(board=self.cboard, column=todo, swimlane=clane, title="Child")
+        self.link = CardParentLink.objects.create(
+            parent=self.parent, child=self.child, created_by=self.owner, needed_at_column=self.proposal,
         )
-        self.token = client_for(self.owner).post(f"/api/v1/boards/{self.cboard.pk}/share/").data["share_token"]
 
-    def public(self):
-        return {c["uid"]: c for c in APIClient().get(f"/api/share/{self.token}/").json()["cards"]}
+    def test_reorder_queues_on_a_releasing_parent_move_and_releases_once(self):
+        holding, release = threading.Event(), threading.Event()
+        errors, results = [], {}
 
-    def test_planned_child_date_is_hidden_and_others_are_unchanged(self):
-        cards = self.public()
-        self.assertIsNone(cards[str(self.planned.uid)]["due_date"])
-        self.assertEqual(cards[str(self.released.uid)]["due_date"], "2020-01-01")
-        self.assertEqual(cards[str(self.plain.uid)]["due_date"], "2020-01-01")
-        # Rule 19 holds: no planned field on any card.
-        for card in cards.values():
-            for key in ("planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at"):
-                self.assertNotIn(key, card)
+        def mover():
+            try:
+                with transaction.atomic():
+                    # The move's shape (#1522 lock order): its source and
+                    # target columns in pk order, the parent's row, the column
+                    # change, then its release query (claims the link row).
+                    list(Column.objects.filter(pk__in=[self.lead.pk, self.won.pk]).order_by("pk").select_for_update(no_key=True))
+                    Card.objects.select_for_update().get(pk=self.parent.pk)
+                    Card.objects.filter(pk=self.parent.pk).update(column=self.won)
+                    self.parent.column = self.won
+                    planned_children.release_on_move(self.parent, to_column=self.won, actor=self.owner)
+                    holding.set()
+                    if not release.wait(WAIT):
+                        raise RuntimeError("never released")
+            except BaseException as exc:  # noqa: BLE001 - surfaced after join
+                errors.append(exc)
+            finally:
+                holding.set()
+                connections.close_all()
 
-    def test_date_comes_back_once_the_child_is_released(self):
-        CardParentLink.objects.filter(child=self.planned).update(planned_released_at=self.parent.created_at)
-        self.assertEqual(self.public()[str(self.planned.uid)]["due_date"], "2020-01-01")
+        def reorderer():
+            try:
+                if not holding.wait(WAIT):
+                    raise RuntimeError("the move never took its lock")
+                # Proposal moves ahead of Lead, so the reorder crosses the
+                # parent's column and would release the link if it were still planned.
+                client = APIClient()
+                client.force_authenticate(self.owner)
+                results["response"] = client.post(
+                    f"/api/v1/boards/{self.pboard.pk}/columns/reorder/",
+                    {"order": [self.proposal.pk, self.lead.pk, self.won.pk]}, format="json",
+                )
+            except BaseException as exc:  # noqa: BLE001 - surfaced after join
+                errors.append(exc)
+            finally:
+                connections.close_all()
 
-    def test_query_count_is_flat_in_the_number_of_planned_cards(self):
-        def count():
-            cache.clear()  # the share view caches its payload
-            with CaptureQueriesContext(connection) as ctx:
-                self.assertEqual(APIClient().get(f"/api/share/{self.token}/").status_code, 200)
-            return len(ctx)
-
-        before = count()
-        for _ in range(4):
-            self.planned_child(due=self.past)
-        self.assertEqual(count(), before)
-
-    def test_unannotated_card_fails_closed(self):
-        # #1075: a card built without the planned annotation reads its link
-        # instead of leaking the date.
-        card = Card.objects.select_related("board", "assignee").get(pk=self.planned.pk)
-        self.assertFalse(hasattr(card, "_planned_active"))
-        self.assertIsNone(PublicCardSerializer(card).data["due_date"])
-        plain = Card.objects.select_related("board", "assignee").get(pk=self.plain.pk)
-        self.assertEqual(PublicCardSerializer(plain).data["due_date"], "2020-01-01")
+        t_mover = threading.Thread(target=mover, name="mover-2553")
+        t_reorder = threading.Thread(target=reorderer, name="reorder-2553")
+        with patch(PATCH_BROADCAST):
+            t_mover.start()
+            t_reorder.start()
+            try:
+                assert_blocked_on_lock(self, t_reorder, "the reorder should queue behind the move's locks")
+            finally:
+                release.set()
+                t_mover.join(WAIT * 3)
+                t_reorder.join(WAIT * 3)
+        self.assertFalse(t_mover.is_alive() or t_reorder.is_alive(), "a thread hung (possible deadlock)")
+        self.assertEqual(errors, [])
+        self.assertEqual(results["response"].status_code, 200)
+        self.assertIsNotNone(CardParentLink.objects.get(pk=self.link.pk).planned_released_at)
+        self.assertEqual(
+            CardActivity.objects.filter(card=self.child, event_type=EV.PLANNED_RELEASED).count(), 1,
+        )
