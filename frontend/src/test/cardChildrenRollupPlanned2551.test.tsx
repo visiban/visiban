@@ -56,7 +56,9 @@ describe("CardChildrenRollup with planned children (#2551)", () => {
     render(<CardChildrenRollup rollup={r()} density="comfortable" stalenessDays={14} now={NOW} today={TODAY} />);
     const segs = [...screen.getByTestId("rollup-segments").children].map((e) => e.getAttribute("data-segment"));
     expect(segs).toEqual(["planned", "planned", "todo", "doing", "done", "done"]);
-    expect(screen.getByTestId("rollup-segments").firstElementChild).toHaveClass("border-dashed");
+    expect(screen.getByTestId("rollup-segments").firstElementChild).toHaveClass("border-dashed", "flex-1", "h-1.5");
+    // Canvas shape: flex:1 segments with 2px gaps fill the row.
+    expect(screen.getByTestId("rollup-segments")).toHaveClass("gap-0.5");
     expect(screen.getByTestId("rollup-movement")).toHaveTextContent("2 planned · work moved 1d ago");
     expect(screen.getByRole("group")).toHaveAccessibleName(
       "Children: 2 of 6 done, 1 doing, none blocked, 1 to do, 2 planned, work moved 1 day ago",

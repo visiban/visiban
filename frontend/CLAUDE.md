@@ -2029,7 +2029,7 @@ A full-screen phone sheet's footer buttons and text inputs carry `max-sm:min-h-1
 
 ## Child progress footer — segment key (#2210)
 
-A parent card on a board whose cards can have children ends in a footer under a 1px `border-line` hairline (`CardChildrenRollup`). Its segment bar draws one 6px segment per child, in board order (to do, blocked, doing, done); above 8 children it becomes one proportional meter. The key, which never relies on color alone:
+A parent card on a board whose cards can have children ends in a footer under a 1px `border-line` hairline (`CardChildrenRollup`). Its segment bar draws one segment per child, `flex-1` and 6px tall with 2px gaps so the bar fills the row, in board order (planned, to do, blocked, doing, done); above 8 children it becomes one proportional meter. The key, which never relies on color alone:
 
 | Segment | Meaning | Look |
 |---|---|---|

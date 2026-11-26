@@ -186,12 +186,13 @@ export default function CardChildrenRollup({ rollup, density, stalenessDays, now
       })}
     </span>
   ) : (
-    // gap-1 (4px), not gap-0.5: the live ring reaches 3px past a segment (1px offset + 2px ring),
-    // so a 2px gap let it cover an unchanged neighbor's outline.
-    <span data-testid="rollup-segments" className={`flex flex-1 min-w-0 gap-1 rounded-sm`}>
+    // Canvas shape (design ruling, #2551): each segment is flex:1, 6px tall, with 2px gaps, so the bar
+    // fills the row. Trade-off recorded: the 2s live ring reaches 3px past a segment (1px offset + 2px
+    // ring), so with a 2px gap it briefly overlaps a neighbor's outline by 1px; it sits above it (z-10).
+    <span data-testid="rollup-segments" className={`flex flex-1 min-w-0 gap-0.5 rounded-sm`}>
       {segs.map((s, i) => {
         const ringed = isChanged(s, indexInState[i]);
-        return <span key={i} data-segment={s} data-ringed={ringed ? "true" : undefined} className={`h-1.5 w-1.5 shrink-0 rounded-[1px] ${SEGMENT_CLASS[s]}${ringed ? ` ${RING_CLASS}` : ""}`} />;
+        return <span key={i} data-segment={s} data-ringed={ringed ? "true" : undefined} className={`h-1.5 flex-1 min-w-0 rounded-[1px] ${SEGMENT_CLASS[s]}${ringed ? ` ${RING_CLASS}` : ""}`} />;
       })}
     </span>
   );
