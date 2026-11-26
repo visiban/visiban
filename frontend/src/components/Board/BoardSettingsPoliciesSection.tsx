@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { Column, ColumnPolicy } from "../../types";
 import { columnPolicy, policyCountSummary, POLICY_MODE_LABEL } from "../../utils/columnPolicy";
@@ -223,7 +224,12 @@ export default function BoardSettingsPoliciesSection({ columns, isAdmin, hiddenC
     setOpenColumnId(id);
   };
 
-  const heading = <h3 id={headingId} className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Column policies</h3>;
+  const heading = (
+    <div className="flex items-center gap-2 mb-2 min-w-0">
+      <h3 id={headingId} className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Column policies</h3>
+      <HelpLink topic="column-policies" />
+    </div>
+  );
   const intro = (
     <p className="text-xs text-fg-muted mb-2">
       Entry criteria and definition of done for each column. Policies are guidance for the team; they never block a card move.

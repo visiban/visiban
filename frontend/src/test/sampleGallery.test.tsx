@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { render, screen, waitFor, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -475,5 +476,13 @@ describe('SampleGallery — errors', () => {
     expect(screen.getByText('Loading samples…')).toBeInTheDocument()
     unmount()
     expect(signal.aborted).toBe(true)
+  })
+})
+
+describe('SampleGallery docs link (#2593)', () => {
+  it('links the sample boards docs section beside the heading, and the import docs once', async () => {
+    await renderModal()
+    expect(screen.getByRole('link', { name: 'Learn more about sample boards, opens docs' })).toHaveAttribute('href', docsUrl('import.samples'))
+    expect(screen.getByRole('link', { name: /Learn more about importing a board/ })).toHaveAttribute('href', docsUrl('board.import'))
   })
 })

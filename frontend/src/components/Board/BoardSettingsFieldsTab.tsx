@@ -12,6 +12,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
 import { Toggle } from "../Common/Toggle";
+import HelpLink from "../Common/HelpLink";
 import {
   createCustomFieldDefinition,
   updateCustomFieldDefinition,
@@ -497,6 +498,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   if (!isAdmin) {
     return (
       <div>
+        <p className="mb-2"><HelpLink topic="custom-fields" variant="text" /></p>
         <p className="text-sm text-fg-secondary mb-3">Only board admins can add or edit custom fields.</p>
         {fields.length === 0 ? (
           <EmptyState isAdmin={false} />
@@ -521,6 +523,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
 
   return (
     <div ref={tabRef}>
+      <p className="mb-2"><HelpLink topic="custom-fields" variant="text" /></p>
       <div className="flex items-center justify-between mb-2">
         <p ref={headingRef} tabIndex={-1} className="text-xs font-semibold uppercase tracking-wide text-fg-muted focus:outline-none">Custom fields</p>
         <span className={`text-xs ${fields.length >= FIELD_CAP - 2 ? "text-warning" : "text-fg-muted"}`}>

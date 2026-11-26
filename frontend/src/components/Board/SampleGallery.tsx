@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import { useEffect, useRef, useState } from "react";
 import type { SampleBoardInclude, SampleBoardSummary } from "../../types";
 import { focusSurvivor } from "../../utils/focusSurvivor";
@@ -168,9 +169,12 @@ export default function SampleGallery({
     <section aria-labelledby="import-samples-heading" className="space-y-2">
       <div>
         <div className="flex items-baseline justify-between gap-3 mb-1">
-          <h3 id="import-samples-heading" className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">
-            Start from a sample
-          </h3>
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 id="import-samples-heading" className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">
+              Start from a sample
+            </h3>
+            <HelpLink topic="import.samples" />
+          </div>
           {listState === "ready" && <span className="text-xs text-fg-tertiary">{samples.length} {samples.length === 1 ? "sample" : "samples"}</span>}
         </div>
         {listState !== "unavailable" && (

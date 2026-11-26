@@ -109,7 +109,7 @@ test.describe('anchored filter menus (#1482)', () => {
     await expect(trigger).toBeFocused()
     await trigger.click()
     await expect(panel).toBeVisible()
-    const count = await panel.evaluate((n) => n.querySelectorAll('button:not([disabled]),input').length)
+    const count = await panel.evaluate((n) => n.querySelectorAll('button:not([disabled]),input,a[href]').length)
     for (let i = 0; i < count; i++) await page.keyboard.press('Tab')
     await expect(panel).toHaveCount(0)
     await expect(next).toBeFocused()

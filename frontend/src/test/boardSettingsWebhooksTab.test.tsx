@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within, act, fireEvent, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -1985,4 +1986,11 @@ describe('live updates across admin sessions (#2057)', () => {
     expect(screen.queryByTestId('webhooks-away')).not.toBeInTheDocument()
   })
 
+})
+
+describe('Webhooks tab docs link (#2593)', () => {
+  it('links the webhook setup docs beside the section heading', async () => {
+    await renderTab()
+    expect(screen.getByRole('link', { name: 'Learn more about setting up a webhook, opens docs' })).toHaveAttribute('href', docsUrl('webhooks.setup'))
+  })
 })

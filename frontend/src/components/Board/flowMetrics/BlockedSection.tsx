@@ -1,6 +1,7 @@
 import type { FlowBlocked } from "../../../types";
 import { formatBlockedDuration } from "../../../utils/blockedState";
 import { blockedSubtitle } from "./flowFormat";
+import HelpLink from "../../Common/HelpLink";
 import { PanelPlaceholder } from "./FlowChartPanels";
 import type { Result } from "./useAnalyticsOverviewData";
 
@@ -35,7 +36,7 @@ export default function BlockedSection({ blocked, days }: Props) {
         className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-2 min-w-0"
         data-testid="analytics-blocked"
       >
-        <h2 id="analytics-blocked-heading" className="text-sm font-semibold text-fg">Why cards get blocked</h2>
+        <div className="flex items-center gap-2"><h2 id="analytics-blocked-heading" className="text-sm font-semibold text-fg">Why cards get blocked</h2><HelpLink topic="analytics.blocked" /></div>
         <p className="text-sm text-fg-tertiary" data-testid="analytics-blocked-empty">
           No block reasons recorded in this period. Mark a card as blocked and give a reason on the board, and the reasons rank here by time blocked.
         </p>
@@ -57,7 +58,7 @@ export default function BlockedSection({ blocked, days }: Props) {
       data-testid="analytics-blocked"
     >
       <div>
-        <h2 id="analytics-blocked-heading" className="text-sm font-semibold text-fg">Why cards get blocked</h2>
+        <div className="flex items-center gap-2"><h2 id="analytics-blocked-heading" className="text-sm font-semibold text-fg">Why cards get blocked</h2><HelpLink topic="analytics.blocked" /></div>
         <p className="text-xs text-fg-tertiary">{blockedSubtitle(data, days)}</p>
       </div>
       <ol className="flex flex-col gap-3" aria-label="Block reasons">

@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import AnchoredMenuPanel from "../Common/AnchoredMenuPanel";
 import { captureMenuAnchor, type MenuAnchor } from "../../utils/menuAnchor";
@@ -94,7 +95,7 @@ export default function SavedFiltersDropdown({
   // Portaled out of the trigger's DOM, so Tab from the trigger would skip the
   // menu: move focus in once it is placed and visible (#1482).
   const focusFirst = useCallback(() => {
-    panelRef.current?.querySelector<HTMLElement>("button:not([disabled]), input")?.focus();
+    panelRef.current?.querySelector<HTMLElement>("button:not([disabled]), input, a[href]")?.focus();
   }, []);
 
   const dismiss = useCallback(() => { setOpen(false); setSaveMode(false); }, [setOpen]);
@@ -292,6 +293,9 @@ export default function SavedFiltersDropdown({
               ))}
             </>
           )}
+          <div className="px-3 py-1.5 border-t border-line text-xs">
+            <HelpLink topic="saved-filters" variant="text" />
+          </div>
         </AnchoredMenuPanel>
       )}
     </div>

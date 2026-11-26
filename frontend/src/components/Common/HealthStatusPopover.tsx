@@ -12,6 +12,7 @@ import {
 } from "../../utils/healthStatus";
 import { formatDateTimeUser, formatRelativeTime, type UserDatePrefs } from "../../utils/date";
 import type { HealthHistory, HealthStatusChange } from "../../types";
+import HelpLink from "./HelpLink";
 import HealthStatusShape from "./HealthStatusShape";
 import HealthComputedBlock from "./HealthComputedBlock";
 import { AutoGlyph } from "./HealthStatusPill";
@@ -399,7 +400,10 @@ export default function HealthStatusPopover({
         }}
       >
         <div className="px-3 pt-3 pb-2">
-          <p className="text-sm font-medium text-fg">Health status</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-fg">Health status</p>
+            <HelpLink topic="health.status" />
+          </div>
           <p className="text-xs text-fg-tertiary mt-0.5 truncate" title={stateLine(fields, entityKind, parentName)}>
             {stateLine(fields, entityKind, parentName)}
           </p>

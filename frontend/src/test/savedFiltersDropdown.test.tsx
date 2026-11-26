@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -224,5 +225,23 @@ describe('SavedFiltersDropdown', () => {
       fireEvent.mouseDown(screen.getByText(/no saved filters/i))
       expect(screen.getByText(/no saved filters/i)).toBeInTheDocument()
     })
+  })
+})
+
+describe('SavedFiltersDropdown docs link (#2593)', () => {
+  it('links the saved filters docs section inside the open panel, not the toolbar', async () => {
+    render(<SavedFiltersDropdown {...defaultProps} />)
+    expect(screen.queryByRole('link', { name: /saved filters/i })).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: /saved filters/i }))
+    expect(await screen.findByRole('link', { name: /Learn more about saved filters, opens docs/ })).toHaveAttribute('href', docsUrl('saved-filters'))
+  })
+})
+
+describe('SavedFiltersDropdown docs link in the empty state (#2593)', () => {
+  it('shows the link with no saved filters', async () => {
+    render(<SavedFiltersDropdown {...defaultProps} savedFilters={[]} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: /saved filters/i }))
+    expect(await screen.findByText('No saved filters yet.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /saved filters, opens docs/ })).toBeInTheDocument()
   })
 })

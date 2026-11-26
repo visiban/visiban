@@ -104,6 +104,7 @@ export default function FlowSection({
       summary={cumulative ? cumulativeFlowSummary(cumulative) : "Where cards queue and how long they wait."}
       notes={view === "chart" && cumulative ? [flowNote(row)] : []}
       testId="analytics-flow"
+      help="analytics.how-work-flows"
       view={view}
       onViewChange={onViewChange}
       table={<TableBody analytics={analytics} mode={mode} onModeChange={onModeChange} days={filters.days} />}

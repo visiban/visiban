@@ -1,3 +1,4 @@
+import HelpLink from "../../Common/HelpLink";
 import { useState } from "react";
 import type { FlowAttention, FlowAttentionItem } from "../../../types";
 import { PanelPlaceholder } from "./FlowChartPanels";
@@ -71,7 +72,7 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
   return (
     <section aria-labelledby="analytics-attention-heading" className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-3 min-w-0" data-testid="analytics-attention">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="analytics-attention-heading" className="text-sm font-semibold text-fg">Needs attention</h2>
+        <div className="flex items-center gap-2"><h2 id="analytics-attention-heading" className="text-sm font-semibold text-fg">Needs attention</h2><HelpLink topic="analytics.attention" /></div>
         {total > PREVIEW_ROWS && (
           <button
             type="button"

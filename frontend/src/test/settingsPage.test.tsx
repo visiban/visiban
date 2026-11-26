@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -1608,5 +1609,14 @@ describe('SettingsPage leave guard and phone layout (#2477)', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(await screen.findByRole('group', { name: 'Discard' })).toBeInTheDocument()
     expect(mockNavigate).not.toHaveBeenCalled()
+  })
+})
+
+describe('SettingsPage docs links (#2593)', () => {
+  it('Access tokens links the token docs and the MCP server docs', async () => {
+    renderSettings()
+    fireEvent.click(navBtn('Access tokens'))
+    expect(await screen.findByRole('link', { name: 'Learn more about personal access tokens, opens docs' })).toHaveAttribute('href', docsUrl('tokens.personal'))
+    expect(screen.getByRole('link', { name: /Learn more about the MCP server, opens docs/ })).toHaveAttribute('href', docsUrl('mcp'))
   })
 })

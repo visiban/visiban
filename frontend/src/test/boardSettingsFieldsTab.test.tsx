@@ -84,6 +84,8 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     expect(handle).toHaveAttribute("aria-roledescription", "sortable");
     expect(handle).toHaveClass("focus:opacity-100", "focus:ring-2", "focus:ring-primary-emphasis");
     // Reachable by Tab, and the KeyboardSensor picks it up on Space.
+    await user.tab(); // the tab's docs link is the first stop (#2593)
+    expect(screen.getByRole("link", { name: /Learn more about card fields/ })).toHaveFocus();
     await user.tab();
     expect(handle).toHaveFocus();
     await user.keyboard(" ");

@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import KeyboardShortcutsOverlay from '../components/Board/KeyboardShortcutsOverlay'
@@ -157,5 +158,15 @@ describe('KeyboardShortcutsOverlay', () => {
     expect(screen.getByText('Menu / ⇧F10')).toBeInTheDocument()
     expect(screen.getByText("In the command palette, show a card result's actions / go back")).toBeInTheDocument()
     expect(screen.getByText('→ / ←')).toBeInTheDocument()
+  })
+})
+
+describe('KeyboardShortcutsOverlay docs link (#2593)', () => {
+  it('links the keyboard shortcuts docs page, on and off a board', () => {
+    const { unmount } = render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    expect(screen.getByRole('link', { name: /Learn more about keyboard shortcuts, opens docs/ })).toHaveAttribute('href', docsUrl('shortcuts'))
+    unmount()
+    render(<KeyboardShortcutsOverlay onClose={() => {}} onBoard={false} />)
+    expect(screen.getByRole('link', { name: /Learn more about keyboard shortcuts/ })).toBeInTheDocument()
   })
 })

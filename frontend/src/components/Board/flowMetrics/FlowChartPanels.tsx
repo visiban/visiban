@@ -93,6 +93,7 @@ export function CycleTimePanel({
       view={view}
       onViewChange={onViewChange}
       title="Cycle time"
+      help="analytics.cycle-time"
       summary={withMeaning(cycleTimeSummary(data), groups.length > 0 ? noun : undefined, "Dots are colored by")}
       definition={`Cycle time: ${data.definition}`}
       notes={compact([
@@ -145,6 +146,7 @@ export function ThroughputPanel({
       view={view}
       onViewChange={onViewChange}
       title="Throughput"
+      help="analytics.throughput"
       summary={withMeaning(throughputSummary(data), groups.length > 0 ? noun : undefined, "Bars are stacked by")}
       definition={`Throughput: ${data.definition}`}
       notes={compact([
@@ -184,6 +186,7 @@ export function CumulativeFlowPanel({
       view={view}
       onViewChange={onViewChange}
       title="Cumulative flow"
+      help="analytics.cumulative-flow"
       summary={cumulativeFlowSummary(data)}
       definition={`Cumulative flow: ${data.definition}`}
       notes={compact([data.bottleneck_column_uid ? "The hatched band is the bottleneck." : null])}
@@ -233,6 +236,7 @@ export function WipAgePanel({
       view={view}
       onViewChange={onViewChange}
       title="WIP age"
+      help="analytics.wip-age"
       summary={withMeaning(wipAgeSummary(data), groups.length > 0 ? noun : undefined, "Marks are colored by")}
       definition={`Age: ${data.definition}`}
       notes={compact([

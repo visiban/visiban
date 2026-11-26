@@ -8,6 +8,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
 import { Toggle, ToggleField } from "../Common/Toggle";
+import HelpLink from "../Common/HelpLink";
 import {
   createSwimlaneCustomFieldDefinition,
   updateSwimlaneCustomFieldDefinition,
@@ -409,6 +410,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
     // `!onUpdateBoardSettings` fallback.
     return (
       <div>
+        <p className="mb-2"><HelpLink topic="swimlane-fields" variant="text" /></p>
         <RowChipNamesSetting board={board} isAdmin={false} />
         <p className="text-sm text-fg-secondary mb-3">Only board admins can add or edit swimlane fields.</p>
         {fields.some((f) => f.is_admin_only) && (
@@ -434,6 +436,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
 
   return (
     <div ref={tabRef}>
+      <p className="mb-2"><HelpLink topic="swimlane-fields" variant="text" /></p>
       {/* Artboard "4 · Swimlane fields" (#2439), top to bottom: header, row chip names toggle,
           summary bar, field list, the filters line, the help line, the preview. */}
       <div className="flex items-start justify-between gap-3 mb-3">

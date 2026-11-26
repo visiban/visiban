@@ -92,7 +92,7 @@ Click your avatar at the right of the header (or press `g` then `u`). The menu s
 - **Profile & settings**
 - **Site admin** (site admins only)
 - **Keyboard shortcuts**
-- **Help & docs** (opens in a new tab)
+- **Help & docs** (opens in a new tab): the docs for the page you are on (a board, a group or the admin panel), or the docs home on any other page. Section headings across the app also carry a small "?" link to the section that explains them.
 - **Theme**: Dark, Light or System. It applies at once and is saved to your account, the same setting as **Settings › Appearance**.
 - **Sign out**
 

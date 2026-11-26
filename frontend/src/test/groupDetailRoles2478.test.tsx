@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -493,5 +494,28 @@ describe('GroupDetail roles and Group settings (#2478)', () => {
       await h2('Engineering')
       expect(screen.queryByTestId('group-status-set-line')).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('GroupDetail Group settings docs links (#2593)', () => {
+  it('Members links the group member docs from settings and from the overview Members card', async () => {
+    renderPage(setup({}, admin), '/groups/1?tab=settings')
+    await h2('Group settings')
+    expect(screen.getByRole('link', { name: 'Learn more about group members and roles, opens docs' })).toHaveAttribute('href', docsUrl('groups.members'))
+  })
+
+  it('the overview Members card heading carries the group members link', async () => {
+    renderPage(setup({}, admin))
+    await h2('Engineering')
+    const card = await screen.findByTestId('group-members-card')
+    expect(within(card).getByRole('link', { name: 'Learn more about group members and roles, opens docs' })).toHaveAttribute('href', docsUrl('groups.members'))
+  })
+
+  it('each settings section links its own docs section', async () => {
+    renderPage(setup({}, admin), '/groups/1?tab=settings&section=invite-links')
+    await h2('Group settings')
+    expect(await screen.findByRole('link', { name: 'Learn more about group invite links, opens docs' })).toHaveAttribute('href', docsUrl('groups.invites'))
+    fireEvent.click(screen.getByRole('button', { name: 'Board defaults' }))
+    expect(await screen.findByRole('link', { name: /group board defaults, opens docs/ })).toHaveAttribute('href', docsUrl('groups.defaults'))
   })
 })

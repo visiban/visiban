@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import type { SocketStatus } from "../../hooks/useBoardSocket";
 import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
@@ -1605,6 +1606,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 {memberActionError && <span className="text-danger">{memberActionError}</span>}
               </p>
 
+              <p className="text-xs mt-2">
+                <HelpLink topic="permissions" variant="text" />
+              </p>
+
               {isAdmin && (
                 <div className="border-t border-line pt-4 mt-2">
                   <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">Add member</p>
@@ -1778,7 +1783,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               {/* WIP and weight limit enforcement */}
               {isAdmin && onUpdateBoardSettings ? (
                 <section>
-                  <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Limit enforcement</h3>
+                  <div className="flex items-center gap-2 mb-2 min-w-0"><h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Limit enforcement</h3><HelpLink topic="wip-limit" /></div>
                   <div className="flex items-center justify-between py-2 border-b border-line/60">
                     <div className="min-w-0 pr-4">
                       <span className="text-sm text-fg">Enforce WIP limits</span>
@@ -1933,7 +1938,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </section>
               ) : (
                 <section>
-                  <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Limit enforcement</h3>
+                  <div className="flex items-center gap-2 mb-2 min-w-0"><h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Limit enforcement</h3><HelpLink topic="wip-limit" /></div>
                   <div className="flex flex-col gap-1 py-1">
                     <p className="text-sm text-fg-secondary">
                       WIP limits:{" "}
@@ -1964,7 +1969,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
               {/* Card aging settings */}
               <section aria-labelledby="card-aging-heading">
-                <h3 id="card-aging-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Card aging settings</h3>
+                <div className="flex items-center gap-2 mb-2 min-w-0"><h3 id="card-aging-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Card aging settings</h3><HelpLink topic="board.stale" /></div>
                 {isAdmin ? (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-1.5">
@@ -2013,7 +2018,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
               {/* #2050 — flow metrics: where cycle time starts */}
               <section aria-labelledby="flow-metrics-heading">
-                <h3 id="flow-metrics-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Flow metrics</h3>
+                <div className="flex items-center gap-2 mb-2 min-w-0"><h3 id="flow-metrics-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Flow metrics</h3><HelpLink topic="analytics.definitions" /></div>
                 <div className="flex items-center justify-between gap-3 py-2">
                   <div className="min-w-0 pr-4">
                     {isAdmin
@@ -2047,7 +2052,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
               {/* #2208 — two-tier card links: whether this board's cards can have child cards on another board */}
               <section aria-labelledby="child-cards-heading">
-                <h3 id="child-cards-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Child cards</h3>
+                <div className="flex items-center gap-2 mb-2 min-w-0"><h3 id="child-cards-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Child cards</h3><HelpLink topic="child-cards" /></div>
                 {isAdmin ? (
                   <ChildCardsSettings board={board} error={childCardsError} onShowChildCards={onShowChildCards} onUpdate={async (patch) => { if (typeof patch.cards_can_have_children === "boolean") { /* awaited so the turn-off confirm (#2446) stays open, Escape swallowed, until the save settles */ await flipChildCards(patch.cards_can_have_children); return null; } /* ParentNameSettings awaits this result to roll back and show the error */ return await onUpdateBoardSettings?.(patch); }} />
                 ) : (
@@ -2059,7 +2064,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
               {/* #2244 — health review cue, beside the stale-card threshold; #2245 — auto health */}
               <section aria-labelledby="health-review-heading">
-                <h3 id="health-review-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Health status</h3>
+                <div className="flex items-center gap-2 mb-2 min-w-0"><h3 id="health-review-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Health status</h3><HelpLink topic="health.review" /></div>
                 {isAdmin ? (
                   <div className="flex flex-col gap-2 mb-3">
                     <ToggleField
@@ -2114,7 +2119,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
             <div className="flex flex-col gap-5">
               <section>
-                <h3 ref={shareHeadingRef} tabIndex={-1} className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2 focus:outline-none">Public sharing</h3>
+                <div className="flex items-center gap-2 mb-2 min-w-0"><h3 ref={shareHeadingRef} tabIndex={-1} className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide focus:outline-none">Public sharing</h3><HelpLink topic="board.sharing" /></div>
                 <p className="text-xs text-fg-muted mb-4">
                   Anyone with this link can view this board without signing in. They cannot edit, comment, or see member details.
                 </p>
@@ -2271,7 +2276,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             <div className="flex flex-col gap-6">
               {canExport && (
               <section>
-                <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Export</h3>
+                <div className="flex items-center gap-2 mb-2 min-w-0"><h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Export</h3><HelpLink topic="board.export" /></div>
                 <div className="flex flex-col gap-2">
                   {(["json", "csv"] as const).map((fmt) => (
                     <label
@@ -2388,7 +2393,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               {isAdmin && gitLensEnabled && (
                 <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
                 <section>
-                  <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Issue board lens</h3>
+                  <div className="flex items-center gap-2 mb-2 min-w-0"><h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Issue board lens</h3><HelpLink topic="lens.configure" /></div>
                   <p className="text-xs text-fg-muted mb-2">
                     Mirror a public GitHub or GitLab repository's issues as a read-only board.
                   </p>
@@ -2502,7 +2507,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   per-user override (comfortable/standard/dense/follow-default)
                   on top of this board default — see the toggle below. */}
               <section aria-labelledby="card-density-heading">
-                <h3 id="card-density-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Card density</h3>
+                <div className="flex items-center gap-2 mb-2 min-w-0"><h3 id="card-density-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Card density</h3><HelpLink topic="board.display" /></div>
                 {isAdmin && onUpdateBoardSettings ? (
                   <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
                   <fieldset

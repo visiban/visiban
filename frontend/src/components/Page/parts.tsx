@@ -7,6 +7,8 @@
  */
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
 import { buttonClasses, type ButtonSize, type ButtonVariant } from "./buttonClasses";
+import HelpLink from "../Common/HelpLink";
+import type { HelpTopicKey } from "../../help/topics";
 import { STATUS_TONE_LABEL, type StatusControlTone, type StatusTone } from "./model";
 
 // ---------------------------------------------------------------------------
@@ -44,8 +46,10 @@ export function Button({ variant = "secondary", size, fullWidth, className, type
  * header (#2473); pages outside the shell use `CenteredLayout`, which keeps its own `h1`.
  * `accessory` holds the star and status control on the Overview layout, beside the heading.
  */
-export function PageHeading({ title, description, accessory, actions, id, headingRef, level: Tag = "h2" }: {
+export function PageHeading({ title, description, accessory, actions, id, headingRef, level: Tag = "h2", help }: {
   title: ReactNode;
+  /** Registry topic (#2593): one "?" help link beside the heading. */
+  help?: HelpTopicKey;
   description?: ReactNode;
   accessory?: ReactNode;
   actions?: ReactNode;
@@ -60,6 +64,7 @@ export function PageHeading({ title, description, accessory, actions, id, headin
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <Tag id={id} ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="text-2xl font-semibold text-fg break-words focus:outline-none">{title}</Tag>
+          {help && <HelpLink topic={help} />}
           {accessory}
         </div>
         {description && <p className="mt-1 text-sm text-fg-secondary">{description}</p>}
@@ -70,8 +75,10 @@ export function PageHeading({ title, description, accessory, actions, id, headin
 }
 
 /** Card heading, 15/650. Level defaults to `h3` (under the page's `h2`). */
-export function CardHeading({ children, as: Tag = "h3", id }: { children: ReactNode; as?: "h2" | "h3" | "h4"; id?: string }) {
-  return <Tag id={id} className="text-[15px] leading-5 font-semibold text-fg">{children}</Tag>;
+export function CardHeading({ children, as: Tag = "h3", id, help }: { children: ReactNode; as?: "h2" | "h3" | "h4"; id?: string; /** Registry topic (#2593): one "?" help link beside the heading. */ help?: HelpTopicKey }) {
+  const heading = <Tag id={id} className="text-[15px] leading-5 font-semibold text-fg">{children}</Tag>;
+  if (!help) return heading;
+  return <div className="flex items-center gap-2 min-w-0">{heading}<HelpLink topic={help} /></div>;
 }
 
 /** Section label: 13px uppercase, 0.06em tracking, `fg-tertiary`. */
@@ -203,11 +210,11 @@ export function ListRow({ children, as: Tag = "div", interactive = false }: { ch
 // ---------------------------------------------------------------------------
 
 /** Settings card: the panel color, 10px radius, 18px padding. */
-export function SettingsCard({ title, description, children, id, headingAs }: { title?: ReactNode; description?: ReactNode; children: ReactNode; id?: string; /** `h4` when the card sits under a section's `h3` heading (default `h3`). */ headingAs?: "h3" | "h4" }) {
+export function SettingsCard({ title, description, children, id, headingAs, help }: { /** Registry topic (#2593): one "?" help link beside the title. */ help?: HelpTopicKey; title?: ReactNode; description?: ReactNode; children: ReactNode; id?: string; /** `h4` when the card sits under a section's `h3` heading (default `h3`). */ headingAs?: "h3" | "h4" }) {
   const headingId = useId();
   return (
     <section aria-labelledby={title ? (id ?? headingId) : undefined} className="bg-surface border border-line rounded-[10px] p-[18px]">
-      {title && <CardHeading as={headingAs} id={id ?? headingId}>{title}</CardHeading>}
+      {title && <CardHeading as={headingAs} id={id ?? headingId} help={help}>{title}</CardHeading>}
       {description && <p className="mt-1 text-sm text-fg-secondary">{description}</p>}
       <div className={title || description ? "mt-3" : ""}>{children}</div>
     </section>

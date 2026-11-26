@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { FlowFilters } from "../../api/flowMetrics";
@@ -51,7 +52,10 @@ function AnalyticsTitleRow({ boardName, filters, headingRef }: {
 }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 min-w-0">
-      <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-fg focus:outline-none">Analytics</h2>
+      <div className="flex items-center gap-2">
+        <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-fg focus:outline-none">Analytics</h2>
+        <HelpLink topic="analytics.definitions" />
+      </div>
       <span className="text-xs font-medium rounded px-1.5 py-0.5 bg-surface text-warning-on-tint ring-1 ring-inset ring-warning/40">
         Beta
       </span>

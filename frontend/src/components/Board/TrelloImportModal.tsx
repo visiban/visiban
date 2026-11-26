@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import { useEffect, useRef, useState } from "react";
 import type { AxiosProgressEvent } from "axios";
 import ModalWrapper from "../shared/ModalWrapper";
@@ -243,13 +244,16 @@ export default function TrelloImportModal({ groupId, groupName, onCancel, onImpo
         onDrop={(e) => e.preventDefault()}
       >
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
-          <h3
-            ref={headingRef}
-            tabIndex={-1}
-            className={`text-sm font-medium text-fg-tertiary uppercase tracking-wide focus:outline-none ${phase === "creating" ? "sr-only" : ""}`}
-          >
-            {heading}
-          </h3>
+          <div className="flex items-center gap-2 min-w-0">
+            <h3
+              ref={headingRef}
+              tabIndex={-1}
+              className={`text-sm font-medium text-fg-tertiary uppercase tracking-wide focus:outline-none ${phase === "creating" ? "sr-only" : ""}`}
+            >
+              {heading}
+            </h3>
+            {phase === "upload" && <HelpLink topic="import.trello" />}
+          </div>
 
           {phase === "upload" && (
             <>

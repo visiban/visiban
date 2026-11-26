@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import SampleGallery, { type SampleFocusRequest, type SampleListState } from "./SampleGallery";
@@ -503,7 +504,10 @@ export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello,
             <>
               <div className="flex gap-2.5 bg-surface-hover/50 border border-line-strong rounded-lg px-3 py-2.5 text-xs text-fg-secondary">
                 <span className="shrink-0 text-fg-tertiary mt-px" aria-hidden="true">ℹ</span>
-                <span>Imports are limited to <strong className="text-fg">500 cards</strong>, <strong className="text-fg">50 columns</strong>, and <strong className="text-fg">100 swimlanes</strong>. For larger boards, split into smaller boards before importing.</span>
+                <div>
+                  <p>Imports are limited to <strong className="text-fg">500 cards</strong>, <strong className="text-fg">50 columns</strong>, and <strong className="text-fg">100 swimlanes</strong>. For larger boards, split into smaller boards before importing.</p>
+                  <p><HelpLink topic="board.import" variant="text" /></p>
+                </div>
               </div>
 
               {onSwitchToTrello && !submitting && (

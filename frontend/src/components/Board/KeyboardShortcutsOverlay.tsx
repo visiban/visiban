@@ -1,3 +1,4 @@
+import HelpLink from "../Common/HelpLink";
 import { Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { formatShortcut } from "../../utils/platform";
@@ -132,6 +133,9 @@ export default function KeyboardShortcutsOverlay({ onClose, onRestartTour, showL
             </table>
           </section>
         ))}
+        <p className="text-xs">
+          <HelpLink topic="shortcuts" variant="text" />
+        </p>
         {!onBoard && (
           <div className="rounded-md border border-line bg-sunken px-3 py-2.5 text-sm text-fg-secondary">
             <p className="font-medium text-fg">Board shortcuts.</p>
