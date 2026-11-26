@@ -32,7 +32,7 @@ backups/visiban-20261126T021700Z/
 
 The dump is **plain SQL**, so it restores with `psql`, not `pg_restore`. Compose and Helm write the same layout with the same script, so a set from either restores on either.
 
-**A failed backup is a failure, not a file.** The run exits non-zero and keeps nothing if `pg_dump` fails, the dump is empty, the dump lacks pg_dump's completion trailer (truncated), the dump has no Visiban tables, or either archive fails its integrity test. A set is written to a hidden `.partial` directory and renamed only when every check has passed, so any `visiban-*` directory is complete.
+**A failed backup is a failure, not a file.** The run exits non-zero and keeps nothing if `pg_dump` fails, the dump is empty, the dump lacks pg_dump's completion trailer (truncated), the dump has no Visiban tables, or either archive fails its integrity test. A set is written to a hidden `.partial` directory and renamed only when every check has passed, so any `visiban-*` directory is complete. A `.partial` directory left by a run that was killed outright is removed by the first run more than 12 hours later.
 
 **Retention:** after each **successful** run, sets older than `--retention-days` (default 14) are deleted. A failing schedule never prunes the last good sets.
 
@@ -45,6 +45,7 @@ The dump is **plain SQL**, so it restores with `psql`, not `pg_restore`. Compose
 - **Daily** is the default schedule and suits most teams. Back up hourly if losing a day of card moves would hurt; the dump is small next to the media archive.
 - **Before every upgrade**, run a one-off backup ([Upgrading](upgrade.md#1-back-up-the-database)).
 - **Copy every set off the host.** A backup on the same disk as the database is lost with it. Copy `backups/` to another machine or to object storage with `rsync`, `rclone` or your existing backup tool. Visiban does not upload anywhere itself.
+- **Encrypt the off-host copies.** A set is not encrypted: anyone who can read it can read every board, card and attachment. Store the copies encrypted at rest, for example with a bucket's server-side encryption, an `rclone crypt` remote, `restic` or `borg`, or `age`/`gpg` on each set before upload. Keep the decryption key apart from the backups and with your `.env` copy, or a restore is impossible.
 - **Test a restore.** Restore a recent set onto a scratch install once a quarter. A backup you have never restored is a guess.
 
 **RPO and RTO.** With the shipped daily schedule you can lose up to 24 hours of changes (recovery point). A restore takes about as long as the dump took plus a `migrate` and a stack restart: minutes for a typical team (recovery time). For a smaller recovery point, run the backup more often or use [point-in-time recovery](#managed-postgresql-and-point-in-time-recovery).
@@ -93,10 +94,10 @@ The `backup` container runs as root, so the sets it writes to `BACKUP_DIR` are o
 2. Copy the backup set to the host and restore it:
 
     ```bash
-    scripts/restore.sh backups/visiban-20261126T021700Z
+    sudo scripts/restore.sh backups/visiban-20261126T021700Z
     ```
 
-    Type `restore` to confirm, or pass `--yes` in a script.
+    Type `restore` to confirm, or pass `--yes` in a script. Sets are `0700`, and the scheduled `backup` service writes them as root, so run the restore with `sudo` or as the user that owns the set. Otherwise it stops with "cannot read set dir (run as root/owner)".
 
 **How it works:** the script first checks `SHA256SUMS` and the dump's completion trailer, and touches nothing if either fails. It then stops every running service except `db` (the `scheduler` and `backup` profiles included), loads the dump with `psql` in **one transaction** that drops and re-creates the `public` schema, empties the media volume and unpacks the archive into it, and starts the stack again. `backend-init` runs `migrate`, so a backup from an older release is upgraded on the way up. If any SQL statement fails, the whole transaction rolls back and the database is left as it was.
 
@@ -127,12 +128,24 @@ backup:
 
 ### Restore on Kubernetes
 
-Run the restore in a one-off pod that mounts the backup PVC and the media PVC, with the backend scaled to zero. Replace `visiban` with your release name.
+Run the restore in a one-off pod that mounts the backup PVC and the media PVC, with everything that writes stopped. Replace `visiban` with your release name (both the namespace and the `app.kubernetes.io/instance` label).
+
+Everything that writes means: the backend, the backend HorizontalPodAutoscaler if `backendAutoscaling.enabled` is on (it would scale the backend straight back up), the webhook dispatcher if `webhooks.dispatcher.enabled` is on, and every CronJob of the release: the backup CronJob, the `scheduledJobs` maintenance jobs, and the demo reset job if you run one. Suspending a CronJob does not stop a Job it has already started, so wait for those to finish.
 
 ```bash
-# 1. Stop everything that writes (and the backup CronJob)
+# 1. Stop everything that writes
+# The HPA cannot scale to zero, so remove it; `helm upgrade` re-creates it in step 3.
+kubectl -n visiban delete hpa visiban-backend --ignore-not-found
 kubectl -n visiban scale deployment visiban-backend --replicas=0
-kubectl -n visiban patch cronjob visiban-backup -p '{"spec":{"suspend":true}}'
+# The webhook dispatcher, if enabled (NotFound otherwise is fine)
+kubectl -n visiban scale deployment visiban-webhook-dispatcher --replicas=0
+# Every CronJob of the release: backup, scheduledJobs, demo reset
+for cj in $(kubectl -n visiban get cronjob -l app.kubernetes.io/instance=visiban -o name); do
+  kubectl -n visiban patch "$cj" -p '{"spec":{"suspend":true}}'
+done
+# Wait until no Job of the release is still running (ACTIVE is 0 or empty)
+kubectl -n visiban get jobs -l app.kubernetes.io/instance=visiban
+kubectl -n visiban get pods -l app.kubernetes.io/instance=visiban   # only PostgreSQL (and Valkey) left
 
 # 2. List the sets on the backup PVC
 kubectl -n visiban run backup-ls --rm -i --restart=Never --image=postgres:17 \
@@ -195,10 +208,17 @@ kubectl apply -f restore-pod.yaml
 kubectl -n visiban logs -f visiban-restore    # ends with "OK: restored ..."
 kubectl -n visiban delete pod visiban-restore
 
-# 3. Start again: the backend's migrate init container runs first
-kubectl -n visiban scale deployment visiban-backend --replicas=1
-kubectl -n visiban patch cronjob visiban-backup -p '{"spec":{"suspend":false}}'
+# 3. Start again, in reverse: the backend's migrate init container runs first
+kubectl -n visiban scale deployment visiban-backend --replicas=1   # your backendReplicaCount, or the HPA's minReplicas
+kubectl -n visiban scale deployment visiban-webhook-dispatcher --replicas=1   # if enabled
+for cj in $(kubectl -n visiban get cronjob -l app.kubernetes.io/instance=visiban -o name); do
+  kubectl -n visiban patch "$cj" -p '{"spec":{"suspend":false}}'
+done
+# Only if you use backendAutoscaling: re-create the HPA with the same chart version and values
+helm upgrade visiban <chart> --version <the installed chart version> --reuse-values
 ```
+
+If any CronJob was suspended **before** the restore on purpose, leave it suspended in step 3: the loop un-suspends every CronJob of the release.
 
 The Secret holding `database-url` is named after the release (`visiban` here) unless you set `secret.existingSecret`. The same restore runs in one transaction and refuses a damaged set, as on Compose.
 
@@ -212,9 +232,12 @@ A reinstall under the same release name and namespace picks all three up again. 
 
 ## Managed PostgreSQL and point-in-time recovery
 
-The bundled PostgreSQL has no WAL archiving, so its recovery point is your last backup. If you need a recovery point of minutes, run Visiban on a managed PostgreSQL (`externalDatabase` in Helm, your own `DATABASE_URL` in Compose) and turn on the provider's point-in-time recovery, or set up WAL archiving with a tool such as pgBackRest or WAL-G. Keep the media backups either way: point-in-time recovery covers only the database.
+The bundled PostgreSQL has no WAL archiving, so its recovery point is your last backup. If you need a recovery point of minutes, run Visiban on a managed PostgreSQL (`externalDatabase` in Helm) and turn on the provider's point-in-time recovery, or set up WAL archiving with a tool such as pgBackRest or WAL-G. Keep the media backups either way: point-in-time recovery covers only the database.
 
-The backup scripts work against a managed database too. The restore needs only the database owner's rights, not a superuser.
+**What the backup scripts support:**
+
+- **Docker Compose:** the bundled `db` service only. Host mode runs `pg_dump` and `psql` inside `db` as the `visiban` user, and the `backup` service connects to `db`. A Compose install pointed at another database is not covered: back that database up with your provider's tools, and the `mediafiles` volume yourself.
+- **Helm:** the backup CronJob and the restore pod run in container mode against whatever `DATABASE_URL` the chart renders, so the bundled PostgreSQL and `externalDatabase` both work. The restore needs only the database owner's rights, not a superuser.
 
 ## After a restore: checks
 
@@ -222,8 +245,10 @@ The backup scripts work against a managed database too. The restore needs only t
 2. Sign in with an account that existed when the backup was taken.
 3. Open a board: cards are in the expected columns and **History** shows the movements.
 4. Open a card with an attachment and download it.
-5. If you use stored SMTP or webhook secrets, send a test email from **Site admin → Email**. A decryption error means the restored install has a different `VISIBAN_SECRET_ENCRYPTION_KEY` or `DJANGO_SECRET_KEY`.
-6. Turn the backup schedule back on and check that its next run succeeds.
+5. Create a card and move it to another column. That proves the restored database accepts writes.
+6. Open the same board in a second browser tab, move a card in one, and check that the other updates without a reload. That proves the WebSocket connects (through your reverse proxy or Ingress) and that Valkey is reachable.
+7. If you use stored SMTP or webhook secrets, send a test email from **Site admin → Email**. A decryption error means the restored install has a different `VISIBAN_SECRET_ENCRYPTION_KEY` or `DJANGO_SECRET_KEY`.
+8. Turn the backup schedule back on and check that its next run succeeds.
 
 ## Related
 

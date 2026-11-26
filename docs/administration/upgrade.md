@@ -378,6 +378,12 @@ Read the notes for every version between your current release and the target bef
 
 ### Upgrading to 1.3.x
 
+!!! note "Helm: `helm uninstall` now keeps the media PVC"
+    Since 1.3 the chart annotates the `<release>-media` PVC with `helm.sh/resource-policy: keep` (`backend.mediaPersistence.keepOnUninstall`, default `true`, #1464). Before, `helm uninstall` deleted the PVC and every uploaded attachment on it. The `helm upgrade` to 1.3 adds the annotation to your existing PVC; nothing else about it changes.
+
+    - **After an uninstall the PVC stays, and keeps using storage.** A reinstall under the same release name and namespace adopts it again. To delete it for good: `kubectl -n <namespace> delete pvc <release>-media`.
+    - **To keep the old behavior** (uninstall deletes the media), set `backend.mediaPersistence.keepOnUninstall: false` and run `helm upgrade`, which removes the annotation. Do this only if you have another copy of the attachments. See [What `helm uninstall` keeps](backup-and-restore.md#what-helm-uninstall-keeps).
+
 !!! note "The board CSV export is now streamed: check a custom reverse proxy"
     Since 1.3 the board CSV export is sent a chunk of cards at a time (#2585). The file is unchanged, and the JSON export is not streamed.
 
