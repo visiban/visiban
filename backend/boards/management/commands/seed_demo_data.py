@@ -1001,7 +1001,7 @@ class Command(BaseCommand):
         n = self._create_demo_site_notifications(seeded, users)
         if n:
             self.stdout.write(self.style.SUCCESS(f"Seeded {n} notifications for the published visitor."))
-        connected.keep_first_run_board_first(seeded)
+        connected.keep_overlay_board_first(seeded)
 
     def _ensure_demo_site_users(self):
         """Create/refresh the admin and member accounts; return {key: User}.

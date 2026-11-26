@@ -42,7 +42,6 @@ from boards.models import (
 from ._demo_site_data import (
     IMPLEMENTATION_BOARD_NAME,
     PROGRAM_BOARD_NAME,
-    SIMPLE_BOARD_NAME,
     days_from_today,
 )
 from ._seed_history import history_window, write_activity_trail
@@ -489,11 +488,13 @@ def seed_connected(cmd, seeded, users, anchor):
         Board.objects.filter(pk=names[parent_name].pk).update(default_child_board=names[child_name], cards_can_have_children=True)
 
 
-def keep_first_run_board_first(seeded):
-    """Touch the first-run board last (#2600): the board list is ordered by -updated_at.
+def keep_overlay_board_first(seeded):
+    """Touch the flagship overlay board last (#2456): the board list is ordered by -updated_at.
 
-    The boards seeded after it, and everything that writes to a board while the
-    rest of the seed runs, are newer than it; a new visitor still lands on it.
+    The account -> opportunity -> execution story leads, so the overlay is listed
+    first. This deliberately reverses #2600, which listed Simple Kanban first.
+    Everything that writes to a board while the rest of the seed runs is newer
+    than it unless this runs at the very end, which is why it does.
     """
-    if SIMPLE_BOARD_NAME in seeded:
-        Board.objects.filter(pk=seeded[SIMPLE_BOARD_NAME][0].pk).update(updated_at=timezone.now())
+    if OVERLAY in seeded:
+        Board.objects.filter(pk=seeded[OVERLAY][0].pk).update(updated_at=timezone.now())

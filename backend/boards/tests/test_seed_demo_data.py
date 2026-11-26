@@ -2099,15 +2099,17 @@ class DemoSiteSimpleBoardTests(TestCase):
         membership = BoardMembership.objects.get(board=self.board, user__username="visitor")
         self.assertEqual(membership.role, BoardMembership.Role.MEMBER)
 
-    def test_is_created_last_so_it_lists_first_and_other_urls_hold(self):
+    def test_is_appended_after_the_showcase_boards_and_other_urls_hold(self):
         from boards.management.commands._demo_site_data import BOARDS
 
         # The connected boards (#2598) are appended after it, so no earlier id moves.
         self.assertEqual(BOARDS[-3]["name"], "Simple Kanban")
         self.assertEqual(list(Board.objects.order_by("pk").values_list("name", flat=True))[9], "Simple Kanban")
-        # The board list is ordered by -updated_at (Board.Meta), so the seeder
-        # touches the first-run board last: it is the first a new visitor sees.
-        self.assertEqual(Board.objects.first().name, "Simple Kanban")
+        # The board list is ordered by -updated_at (Board.Meta); the seeder touches
+        # the overlay last (#2456), so it is listed first, ahead of Simple Kanban.
+        names = list(Board.objects.values_list("name", flat=True))
+        self.assertEqual(names[0], OVERLAY)
+        self.assertIn("Simple Kanban", names[1:])
 
     def test_reseeding_with_wipe_recreates_it_once(self):
         _seed(demo_site=True, wipe=True)
@@ -2531,8 +2533,9 @@ class DemoSiteConnectedBoardsTests(TestCase):
         self.assertTrue(links.filter(child__blocked_at__isnull=False).exists())  # a blocked child
         self.assertTrue(links.filter(child__column__name="Backlog").exists())  # a to-do child
 
-    def test_simple_kanban_stays_first_in_the_board_list(self):
-        self.assertEqual(Board.objects.first().name, "Simple Kanban")
+    def test_the_overlay_is_first_in_the_board_list(self):
+        # #2456: the flagship leads, ahead of Simple Kanban (reverses #2600).
+        self.assertEqual(Board.objects.first().name, OVERLAY)
 
 
 @override_settings(**_DEMO_SITE_SETTINGS)

@@ -912,8 +912,9 @@ BOARDS = [
     # boards (#2598) are appended after it. The reset restarts the id sequences,
     # so the order here is each board's URL and appending keeps Sales Territory
     # (Overlay) at /boards/6. The board list is ordered by -updated_at, and this
-    # board is listed first because keep_first_run_board_first touches it last,
-    # which is where a new visitor should land. Empty extras on purpose: no custom
+    # overlay is listed first, ahead of this board, because keep_overlay_board_first
+    # touches it last (#2456: the account -> opportunity -> execution story leads;
+    # this reverses #2600, which listed this board first). Empty extras on purpose: no custom
     # fields, checklists, relations or links, because simple is the feature.
     {
         "name": SIMPLE_BOARD_NAME,
