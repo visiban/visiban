@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildSidebarTree } from '../utils/groupTree'
+import { buildGroupTree, buildSidebarTree } from '../utils/groupTree'
 import type { Group, Board, User } from '../types'
 
 const fakeUser: User = {
@@ -98,5 +98,19 @@ describe('buildSidebarTree', () => {
     // board 10 references group 99 which doesn't exist
     const tree = buildSidebarTree([makeGroup(1)], [makeBoard(10, 99)])
     expect(tree[0].boards).toHaveLength(0)
+  })
+})
+
+describe('buildGroupTree', () => {
+  it('nests children under their parent and keeps siblings as roots', () => {
+    const tree = buildGroupTree([makeGroup(1), makeGroup(2, 1), makeGroup(3)])
+    expect(tree.map((n) => n.group.id)).toEqual([1, 3])
+    expect(tree[0].children.map((n) => n.group.id)).toEqual([2])
+  })
+
+  it('treats a group whose parent is not visible as a root', () => {
+    const tree = buildGroupTree([makeGroup(2, 999)])
+    expect(tree).toHaveLength(1)
+    expect(tree[0].group.id).toBe(2)
   })
 })

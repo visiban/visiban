@@ -262,6 +262,7 @@ Before committing a new spec:
 - [ ] No race between a `page.route()` registration and a `page.goto()` that triggers the request — register first
 - [ ] Assertions are keyed on role + name, not class names
 - [ ] Fixtures are imported from `fixtures/board.ts`, not inlined per-test
+- [ ] A before/after layout check (a `boundingBox()` read after a click or view switch) first waits on a signal that only the new state has, such as `aria-current` on the new tab or a control that only the new view renders. A role query's `name` is a substring match, so `name: 'Filters'` also finds the old view's "Filters and view options" button and passes before the switch happens. Under CPU load the "after" box is then read from the outgoing view. Playwright's own click can also scroll a partly clipped target into view by a pixel first, which a real press does not do (#2486, `e2e/lens-toolbar.spec.ts`)
 
 ### Flake-resistance checklist (Vitest unit tests)
 
@@ -384,6 +385,14 @@ SQLite has no row locks, so a `select_for_update()` can be deleted without faili
 3. Assert both that the second couldn't finish before the pause ended and that the final state is consistent (distinct positions, caps respected).
 
 Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` and use `TransactionTestCase`. Every thread that touches the ORM must call `connections.close_all()` in a `finally`. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See `backend/boards/tests/test_concurrent_moves.py` (`ConcurrentMoveLockTests`) and `backend/boards/tests/test_concurrent_lock_sites.py`.
+
+**Lock order** needs a different harness: the pattern above pauses after every lock is held, so it can't see the order they were taken in. Two requests that run the same lock statement can't reliably show it either: they usually lock in the same order even without `order_by("pk")`. They can still differ if the sort column changes between their reads (a card move changes `position`), so pk order is still needed. Instead, force the opposite order from the test (#1556):
+
+1. In the main thread, inside `transaction.atomic()`, lock the lower-pk row with `select_for_update(no_key=True)`, and use the same mode in step 3. A plain `FOR UPDATE` also blocks the `FOR KEY SHARE` that a foreign-key check takes, so a request that inserts a row referencing the locked one would wait even with its own lock removed, and the test would still pass.
+2. Start the request in a thread and call `assert_blocked_on_lock` from `boards.tests.lock_wait`.
+3. Lock the higher-pk row. A pk-ordered request holds neither row, so this succeeds; one that took the higher row first deadlocks.
+
+Set up the rows so the order the query falls back to without `order_by("pk")` (for cards, `Meta.ordering` is `position`) is the reverse of pk order, or removing the call changes nothing. See `CardRelationLockOrderTests` in `test_concurrent_lock_sites.py`.
 
 ### Successful writes assert persisted state, not just a status *(#1404)*
 

@@ -35,3 +35,28 @@ export function buildSidebarTree(groups: Group[], boards: Board[]): SidebarTreeN
   });
   return roots;
 }
+
+export interface GroupTreeNode {
+  group: Group;
+  children: GroupTreeNode[];
+}
+
+/**
+ * The group hierarchy without boards (MoveBoardModal's picker). Same orphan rule as `buildSidebarTree`:
+ * a group whose parent is not in the list is a root.
+ */
+export function buildGroupTree(groups: Group[]): GroupTreeNode[] {
+  const ids = new Set(groups.map((g) => g.id));
+  const map = new Map<number, GroupTreeNode>();
+  groups.forEach((g) => map.set(g.id, { group: g, children: [] }));
+
+  const roots: GroupTreeNode[] = [];
+  groups.forEach((g) => {
+    if (g.parent !== null && ids.has(g.parent)) {
+      map.get(g.parent)!.children.push(map.get(g.id)!);
+    } else {
+      roots.push(map.get(g.id)!);
+    }
+  });
+  return roots;
+}

@@ -177,6 +177,10 @@ describe('NavDrawer (#2473)', () => {
     const groups = within(drawer).getByRole('region', { name: 'Groups' })
     expect(within(groups).getByRole('link', { name: /Team/ })).toHaveTextContent('3 boards')
     expect(within(groups).getByRole('link', { name: /Sub/ })).toHaveTextContent('0 boards')
+    // The #2569 problem (a row named from nested controls) cannot occur here: a row is one plain link whose
+    // name is the group and its board count, with nothing interactive inside it (#2628).
+    expect(within(groups).getByRole('link', { name: 'Sub 0 boards' })).toBeInTheDocument()
+    expect(within(groups).getAllByRole('link').every((l) => l.querySelector('button, a, [role="button"]') === null)).toBe(true)
     // A board whose group isn't visible lands under Personal boards.
     const personal = within(drawer).getByRole('region', { name: 'Personal boards' })
     expect(personal).toHaveTextContent('Solo')

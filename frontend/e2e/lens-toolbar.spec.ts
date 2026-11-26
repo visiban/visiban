@@ -1,6 +1,7 @@
 import { test, expect, type Page, type Locator } from '@playwright/test'
 import { routeAuth } from './helpers'
 import { BOARD_FULL, USER } from './fixtures/board'
+import { ANALYTICS, FLOW_OVERVIEW, LONG_CARD, LONG_LANE, MOVEMENTS, SUMMARY } from './fixtures/toolbar-views'
 
 // #2302: the Lens tab uses the Board tab's wrapping toolbar. #2308: the Show row
 // carries a Collapse all lanes button that drives the same lane state as the View menu.
@@ -35,6 +36,17 @@ async function setup(page: Page) {
   await page.route(`**/api/v1/git-lens/board/${BOARD_FULL.id}/**`, (route) =>
     route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'lens_error' }) }),
   )
+  for (const [path, body] of [
+    ['summary/', SUMMARY],
+    ['movements/', MOVEMENTS],
+    ['analytics/', ANALYTICS],
+    ['metrics/overview/', FLOW_OVERVIEW],
+  ] as const) {
+    // A trailing * covers the query string these reads carry.
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/${path}*`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) }),
+    )
+  }
   await page.routeWebSocket(`**/ws/boards/${BOARD_FULL.id}/`, (ws) => {
     ws.send(JSON.stringify({ event: 'connected', data: {} }))
   })
@@ -52,6 +64,29 @@ async function boxOf(locator: Locator): Promise<{ x: number; y: number; width: n
   return box!
 }
 
+// Wait until the named view's toolbar is the one on screen, so an "after" box is read from it and not from
+// the outgoing view (#2486). The wait must be on a signal only the new view has: the Board view also has a
+// button whose name contains "Filters" ("Filters and view options"), so waiting on `name: 'Filters'` passed
+// before the Lens toolbar mounted. In that outgoing frame the Board tab sat 1px left, because the click's
+// own actionability step scrolled the 122px-wide strip by 1px to show the Lens tab, which was clipped by
+// 1.45px. A user's press does not scroll the strip, and the Lens view mounts a fresh strip at scrollLeft 0.
+async function showsView(page: Page, name: string) {
+  // Matched by text prefix: the Analytics tab's name carries its "Beta" chip.
+  await expect(page.getByTestId('view-tab-strip').locator('[aria-current="page"]')).toHaveText(new RegExp(`^${name}`), { timeout: 30_000 })
+  if (name === 'Lens') await expect(page.getByText('Columns: Status')).toBeVisible({ timeout: 30_000 })
+}
+
+// Wait for content that only a successful load renders: the 390px width check passes trivially on an
+// error or loading screen (#2486).
+async function showsContent(page: Page, view: 'Summary' | 'History' | 'Analytics') {
+  const content = {
+    Summary: page.getByRole('cell', { name: LONG_LANE }),
+    History: page.getByTestId('history-row').filter({ hasText: LONG_CARD }).first(),
+    Analytics: page.getByTestId('flow-wip-age'),
+  }[view]
+  await expect(content).toBeVisible({ timeout: 30_000 })
+}
+
 test.describe('Lens toolbar', () => {
   test('Summary, History and Analytics do not shift the tabs or scroll sideways at 390px (#2321)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
@@ -59,14 +94,30 @@ test.describe('Lens toolbar', () => {
     await page.goto(`/boards/${BOARD_FULL.id}?view=board`, { timeout: 60_000 })
     const boardTab = page.getByRole('button', { name: 'Board', exact: true })
     await expect(boardTab).toBeVisible({ timeout: 30_000 })
+    await showsView(page, 'Board')
     const base = await boxOf(boardTab)
-    for (const view of ['summary', 'history', 'analytics']) {
-      await page.goto(`/boards/${BOARD_FULL.id}?view=${view}`, { timeout: 60_000 })
+    for (const view of ['Summary', 'History', 'Analytics'] as const) {
+      await page.goto(`/boards/${BOARD_FULL.id}?view=${view.toLowerCase()}`, { timeout: 60_000 })
+      await showsView(page, view)
+      await showsContent(page, view)
       const box = await boxOf(page.getByRole('button', { name: 'Board', exact: true }))
       expect(Math.abs(box.y - base.y), `${view} tab y`).toBeLessThanOrEqual(1)
       expect(Math.abs(box.x - base.x), `${view} tab x`).toBeLessThanOrEqual(1)
       const noSideScroll = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
       expect(noSideScroll, `${view} no sideways scroll`).toBe(true)
+      // The app shell is overflow-hidden, so the page check above cannot see view content that is too
+      // wide: it is clipped, not scrolled. The view's own box must fit the viewport too (#2486).
+      const root = {
+        Summary: page.getByRole('table').locator('..'),
+        History: page.getByTestId('movement-history-view'),
+        Analytics: page.getByTestId('analytics-page'),
+      }[view]
+      const rootBox = await boxOf(root)
+      expect(rootBox.x + rootBox.width, `${view} view fits the viewport`).toBeLessThanOrEqual(390)
+      // Summary and History scroll their tables sideways inside the view; Analytics has no such table.
+      if (view === 'Analytics') {
+        expect(await root.evaluate((el) => el.scrollWidth - el.clientWidth), 'Analytics inner sideways scroll').toBeLessThanOrEqual(0)
+      }
     }
   })
 
@@ -76,9 +127,10 @@ test.describe('Lens toolbar', () => {
     await page.goto(`/boards/${BOARD_FULL.id}?view=board`, { timeout: 60_000 })
     const tab = page.getByRole('button', { name: 'Lens', exact: true })
     await expect(tab).toBeVisible({ timeout: 30_000 })
+    await showsView(page, 'Board')
     const boardTabY = await boxOf(page.getByRole('button', { name: 'Board', exact: true }))
     await tab.click()
-    await expect(page.getByRole('button', { name: 'Filters' })).toBeVisible()
+    await showsView(page, 'Lens')
     const after = await boxOf(page.getByRole('button', { name: 'Board', exact: true }))
     expect(Math.abs(after.x - boardTabY.x)).toBeLessThan(1)
     expect(Math.abs(after.y - boardTabY.y)).toBeLessThan(1)
@@ -134,9 +186,10 @@ test.describe('Lens toolbar at 1440px', () => {
     const names = ['Board', 'Lens', 'Summary', 'History']
     const tabBox = (name: string) => boxOf(page.getByRole('button', { name, exact: true }))
     await expect(page.getByRole('button', { name: 'Lens', exact: true })).toBeVisible({ timeout: 30_000 })
+    await showsView(page, 'Board')
     const before = await Promise.all(names.map(tabBox))
     await page.getByRole('button', { name: 'Lens', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Filters' })).toBeVisible()
+    await showsView(page, 'Lens')
     const after = await Promise.all(names.map(tabBox))
     // The active tab's weight changes its own width, so tabs are compared on
     // their origin row (y and height); the first tab also keeps its x.
