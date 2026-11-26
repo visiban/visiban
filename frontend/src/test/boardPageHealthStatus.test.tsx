@@ -193,10 +193,11 @@ describe('BoardPage Row 1 health status (#1133)', () => {
     expect(buttons[1]).toHaveClass('ml-2')
   })
 
-  it('a non-admin with no status sees nothing, and a history trigger when one is inherited (#2242)', () => {
+  it('a non-admin with no status sees the read-only No status pill (#2450), and a history trigger when one is inherited (#2242)', () => {
     const viewer = { ...fakeBoard, current_user_role: 'viewer' as const }
     const { unmount } = renderBoardPage(viewer)
-    expect(screen.queryByText('No status')).not.toBeInTheDocument()
+    expect(screen.getByText('No status')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Set health status/ })).not.toBeInTheDocument()
     unmount()
     renderBoardPage({
       ...viewer, group: 4, group_name: 'Platform',
