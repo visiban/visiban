@@ -3830,6 +3830,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onOptionsChange={setChildrenOptions}
             onOpenParent={(id) => { const c = board.cards.find((x) => x.id === id); if (c) handleCardClick(c); }}
             phone={isPhone}
+            laneColors={isPhone ? Object.fromEntries(board.swimlanes.map((s) => [s.id, s.color])) : undefined}
             boardName={board.name}
             onFocusLane={setChildrenLane}
             onEditLane={isAdmin ? setChildrenEditLaneId : undefined}

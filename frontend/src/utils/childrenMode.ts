@@ -253,6 +253,36 @@ export function cellName(parentTitle: string, columnName: string, count: number)
   return `${parentTitle}, ${columnName}, ${count} ${count === 1 ? "card" : "cards"}`;
 }
 
+/**
+ * Phone (#2370 item 12, canvas 6b): a parent with nothing in the shown column says so in plain words. The canvas
+ * draws only "Nothing blocked" (the Blocked column); every other column reads "Nothing in {column}".
+ */
+export function phoneEmptyCellText(columnName: string): string {
+  return columnName.trim().toLowerCase() === "blocked" ? "Nothing blocked" : `Nothing in ${columnName}`;
+}
+
+/**
+ * A phone column button's count: the children the rows draw in that column under the options. The folded Done
+ * column (Show done cards off) counts the rows' done rollups, the same number its "3 done · Show" cells say.
+ */
+export function phoneColumnCount(
+  rows: ChildrenViewRow[],
+  col: { id: number; is_done: boolean },
+  options: ChildrenModeOptions,
+): number {
+  return rows.reduce((n, r) => {
+    if (!r.rollup.visible) return n;
+    if (col.is_done && !options.showDone) return n + r.rollup.done;
+    return n + visibleChildren(r.children, options).filter((k) => k.column_id === col.id).length;
+  }, 0);
+}
+
+/** The phone switch to a lane's other child board: "Onboarding · 2 children" (its rows' visible rollup totals). */
+export function childBoardSwitchLabel(boardName: string, rows: ChildrenViewRow[]): string {
+  const n = rows.reduce((sum, r) => sum + (r.rollup.visible ? r.rollup.total : 0), 0);
+  return `${boardName} · ${n} ${n === 1 ? "child" : "children"}`;
+}
+
 /** Days since a manual block started, for the "⊘ 4d" line; null when not blocked or unknown. */
 export function blockedDays(child: ChildrenViewChild, now: number = Date.now()): number | null {
   if (!child.blocked || !child.blocked_at) return null;

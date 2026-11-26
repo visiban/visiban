@@ -4,10 +4,11 @@ import { getChildrenView, moveCard } from "../../api/cards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { CardChildrenColumn, ChildrenView, ChildrenViewBoard, ChildrenViewChild, ChildrenViewLane, ChildrenViewRow } from "../../types";
 import {
-  CHILDREN_MODE_ESCAPE_PRIORITY, LARGE_LANE_PARENTS, blockedDays, cellName, changesPillText, childCardName, columnOverLimit, compactRowLabel, foldLabel,
+  CHILDREN_MODE_ESCAPE_PRIORITY, LARGE_LANE_PARENTS, blockedDays, cellName, changesPillText, childBoardSwitchLabel, childCardName, columnOverLimit, compactRowLabel, foldLabel,
   columnHeadCaption, columnMeterPct, holdRowOrder, isFoldedRow, laneBandName, laneBlockedLabel, laneLink, laneSubtitle, laneTotalLabel, lockedRowText, moreParentsLabel,
-  parentsLabel, pendingRowChanges, rowDoneLabel, shownInProgress, visibleChildren, type ChildrenModeOptions,
+  parentsLabel, pendingRowChanges, phoneColumnCount, phoneEmptyCellText, rowDoneLabel, shownInProgress, visibleChildren, type ChildrenModeOptions,
 } from "../../utils/childrenMode";
+import { columnTintStyle } from "../../utils/colorContrast";
 import { ChildMovePopover } from "../Card/CardChildrenTab";
 import { WRITE_ROLES, moveTargetState } from "../Card/cardChildren";
 import Avatar from "../Common/Avatar";
@@ -30,7 +31,13 @@ interface Props {
   onOpenParent: (parentId: number) => void;
   /** Bumped by the host on a board change, to re-read in place. */
   refreshKey?: number;
+  /**
+   * Below the phone breakpoint (#2370 item 12, canvas 6b / 2f g): two-line tinted bands, one child board per lane and
+   * one of its columns at a time (the phone board's column buttons), parent names as headings inside the column.
+   */
   phone?: boolean;
+  /** Lane id → lane color, for the phone band tint (`columnTintStyle`, as `PhoneBoard`'s bands). */
+  laneColors?: Readonly<Record<number, string>>;
   /** This (parent) board's name, for the child-board heading "Parent · column on {board}". */
   boardName?: string;
   /** Focus (everyone): show only that lane (`?lane=`), or every lane on null. */
@@ -106,7 +113,7 @@ const LockIcon = () => (
   </svg>
 );
 
-export default function ChildrenModeView({ boardId, laneId: laneProp, options, onOptionsChange, onOpenParent, refreshKey = 0, phone = false, boardName = "this board", onFocusLane, onEditLane, onEditFieldOrder, currentUserId = null, userTimezone = "" }: Props) {
+export default function ChildrenModeView({ boardId, laneId: laneProp, options, onOptionsChange, onOpenParent, refreshKey = 0, phone = false, laneColors, boardName = "this board", onFocusLane, onEditLane, onEditFieldOrder, currentUserId = null, userTimezone = "" }: Props) {
   // A lane the server no longer finds (deleted since the board loaded) is treated as no lane: Children mode
   // renders with the default expansion, never an error, and a missing lane reads the same as a hidden one (#2370 item 1).
   const [goneLane, setGoneLane] = useState<number | null>(null);
@@ -145,6 +152,9 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
   const [focusTick, setFocusTick] = useState(0);
   const [moving, setMoving] = useState<{ child: ChildrenViewChild; rowId: number; board: ChildrenViewBoard } | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
+  // Phone only: the child board shown per lane (lane id → board id) and the column shown per section (grid key → column id).
+  const [phoneBoard, setPhoneBoard] = useState<Record<number, number>>({});
+  const [phoneCol, setPhoneCol] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -339,8 +349,12 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
 
   const renderSection = (lane: ChildrenViewLane, board: ChildrenViewBoard, rows: ChildrenViewRow[], maxCols: number, large: boolean) => {
     const gridKey = `${lane.id}-${board.id}`;
-    const cols = board.columns;
-    const firstColId = cols[0]?.id;
+    const allCols = board.columns;
+    const firstColId = allCols[0]?.id;
+    // Phone (#2370 item 12): one child-board column at a time, chosen with the column buttons; the first open
+    // column until the viewer picks one (the planned fold lives in the first column).
+    const phoneColumn = phone ? (allCols.find((c) => c.id === phoneCol[gridKey]) ?? allCols.find((c) => !c.is_done) ?? allCols[0]) : undefined;
+    const cols = phone ? (phoneColumn ? [phoneColumn] : []) : allCols;
     // The roving stops in reading order: each row's parent cell, then each column's cards (or the cell).
     const stops: Stop[] = [];
     const cellsByRow = rows.map((row, r) => {
@@ -382,7 +396,9 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
       const cur = stops.find((s) => s.key === key);
       if (!cur) return;
       let next: Stop | undefined;
-      if (e.key === "ArrowDown") next = stops.find((s) => s.c === cur.c && (s.r > cur.r || (s.r === cur.r && s.i > cur.i)));
+      // Phone: one column stacked under each parent heading, so Up and Down follow reading order.
+      if (phone && (e.key === "ArrowDown" || e.key === "ArrowUp")) next = stops[stops.indexOf(cur) + (e.key === "ArrowDown" ? 1 : -1)];
+      else if (e.key === "ArrowDown") next = stops.find((s) => s.c === cur.c && (s.r > cur.r || (s.r === cur.r && s.i > cur.i)));
       else if (e.key === "ArrowUp") next = [...stops].reverse().find((s) => s.c === cur.c && (s.r < cur.r || (s.r === cur.r && s.i < cur.i)));
       else if (e.key === "ArrowRight") next = stops.find((s) => s.r === cur.r && s.c > cur.c);
       else if (e.key === "ArrowLeft") next = [...stops].reverse().find((s) => s.r === cur.r && s.c < cur.c);
@@ -396,40 +412,84 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
       e.currentTarget.querySelector<HTMLElement>(`[data-stop="${next.key}"]`)?.focus();
     };
     const template = `minmax(14rem, 18rem) repeat(${maxCols}, 12rem)`; // fixed tracks: the header and body grids stay aligned
+    // Whole-column counts and the limit meter are the child board's own (artboard 6a); the phone draws the shown column's.
+    const columnHead = (col: CardChildrenColumn) => {
+      const pct = columnMeterPct(col);
+      const shownHere = rows.reduce((n, r) => n + r.children.filter((k) => k.column_id === col.id).length, 0);
+      return (
+        <>
+          {/* Past the limit: warning tone and the word "over", never danger (the board's column-head rule). */}
+          <span className={columnOverLimit(col) ? "text-warning font-semibold" : "text-fg-secondary"}>{columnHeadCaption(col, shownHere, board.name, options.showDone)}</span>
+          {pct != null && !col.is_done && (
+            <span
+              role="meter"
+              aria-label={`${col.name} on ${board.name}: ${col.card_count} of limit ${col.wip_limit}`}
+              aria-valuemin={0}
+              aria-valuemax={col.wip_limit ?? 0}
+              aria-valuenow={Math.min(col.card_count, col.wip_limit ?? 0)}
+              aria-valuetext={`${col.card_count} of limit ${col.wip_limit}${col.card_count > (col.wip_limit ?? 0) ? ", over limit" : ""}`}
+              className="mt-1 block h-1 w-full overflow-hidden rounded bg-surface-active"
+            >
+              <span className="block h-full bg-primary-emphasis" style={{ width: `${pct}%` }} />
+            </span>
+          )}
+        </>
+      );
+    };
+    // The phone board's column buttons (as the Children tab's narrow layout): a group of aria-pressed buttons, one
+    // Tab stop, Left/Right moving the pressed column and wrapping.
+    const showColumn = (id: number, focus: boolean) => {
+      setPhoneCol((m) => ({ ...m, [gridKey]: id }));
+      if (focus) queueMicrotask(() => rootRef.current?.querySelector<HTMLElement>(`[data-column-button="${gridKey}:${id}"]`)?.focus());
+    };
+    const onColumnButtonsKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      e.preventDefault();
+      const i = allCols.findIndex((c) => c.id === phoneColumn?.id);
+      showColumn(allCols[(i + (e.key === "ArrowRight" ? 1 : allCols.length - 1)) % allCols.length].id, true);
+    };
     return (
-      <div key={board.id} className="overflow-x-auto">
+      <div key={board.id} className={phone ? "px-3 pt-2 flex flex-col gap-2" : "overflow-x-auto"}>
+        {phone ? (
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="text-fg-secondary">Children on <a href={`/boards/${board.id}`} className={`${FOCUS} inline-flex items-center min-h-11 text-link hover:underline rounded`}>{board.name}</a></span>
+            <div role="group" aria-label={`Columns on ${board.name}`} data-testid="children-phone-columns" className="flex gap-1 overflow-x-auto" onKeyDown={onColumnButtonsKeyDown}>
+              {allCols.map((c) => {
+                const on = c.id === phoneColumn?.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    data-column-button={`${gridKey}:${c.id}`}
+                    aria-pressed={on}
+                    tabIndex={on ? 0 : -1}
+                    onClick={() => showColumn(c.id, false)}
+                    className={`${FOCUS} shrink-0 inline-flex items-center gap-2 min-h-11 px-3 rounded border text-sm ${on ? "border-info bg-primary/20 text-fg font-semibold" : "border-line bg-surface text-fg-secondary hover:border-line-strong"}`}
+                  >
+                    <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full color-dot" style={{ backgroundColor: c.color }} />
+                    <span className="whitespace-nowrap">{c.name}</span>
+                    <span>{phoneColumnCount(rows, c, options)}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {phoneColumn && <div data-testid="children-column-head" className="flex flex-col">{columnHead(phoneColumn)}</div>}
+          </div>
+        ) : (
         <div className="min-w-max" style={{ display: "grid", gridTemplateColumns: template }}>
           <div className="px-2 py-1 text-xs text-fg-secondary flex flex-col justify-end">
             <span className="block font-medium text-fg">Parent · column on {boardName}</span>
             <span>Children on <a href={`/boards/${board.id}`} className={`${FOCUS} text-link hover:underline rounded`}>{board.name}</a></span>
           </div>
-          {cols.map((col) => {
-            // Whole-column counts and the limit meter are the child board's own (artboard 6a).
-            const pct = columnMeterPct(col);
-            const shownHere = rows.reduce((n, r) => n + r.children.filter((k) => k.column_id === col.id).length, 0);
-            return (
-              <div key={col.id} className="px-2 py-1 text-xs border-l border-line" data-testid="children-column-head">
-                <span className="block font-medium text-fg">{col.name}</span>
-                {/* Past the limit: warning tone and the word "over", never danger (the board's column-head rule). */}
-                  <span className={columnOverLimit(col) ? "text-warning font-semibold" : "text-fg-secondary"}>{columnHeadCaption(col, shownHere, board.name, options.showDone)}</span>
-                {pct != null && !col.is_done && (
-                  <span
-                    role="meter"
-                    aria-label={`${col.name} on ${board.name}: ${col.card_count} of limit ${col.wip_limit}`}
-                    aria-valuemin={0}
-                    aria-valuemax={col.wip_limit ?? 0}
-                    aria-valuenow={Math.min(col.card_count, col.wip_limit ?? 0)}
-                    aria-valuetext={`${col.card_count} of limit ${col.wip_limit}${col.card_count > (col.wip_limit ?? 0) ? ", over limit" : ""}`}
-                    className="mt-1 block h-1 w-full overflow-hidden rounded bg-surface-active"
-                  >
-                    <span className="block h-full bg-primary-emphasis" style={{ width: `${pct}%` }} />
-                  </span>
-                )}
-              </div>
-            );
-          })}
+          {cols.map((col) => (
+            <div key={col.id} className="px-2 py-1 text-xs border-l border-line" data-testid="children-column-head">
+              <span className="block font-medium text-fg">{col.name}</span>
+              {columnHead(col)}
+            </div>
+          ))}
           {Array.from({ length: maxCols - cols.length }, (_, i) => <div key={`pad-${i}`} aria-hidden="true" />)}
         </div>
+        )}
         <div
           role="grid"
           aria-label={`${lane.name} children on ${board.name}, by parent`}
@@ -447,19 +507,11 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
             const to = e.relatedTarget as HTMLElement | null;
             if (to && !to.closest("[data-children-grid]") && !to.hasAttribute("data-changes-pill")) { gridFocus.current = null; applyHeld(); }
           }}
-          className="min-w-max"
+          className={phone ? "flex flex-col rounded border border-line" : "min-w-max"}
         >
           {cellsByRow.map(({ row, open, cells }, r) => {
             const blocked = row.rollup.visible && row.rollup.blocked > 0;
-            return (
-              <div
-                role="row"
-                key={row.id}
-                data-row-id={row.id}
-                className={`border-t border-line ${blocked ? "border-l-[3px] border-l-danger" : "border-l-[3px] border-l-transparent"}`}
-                style={{ display: "grid", gridTemplateColumns: template }}
-              >
-                <div role="rowheader" className="px-2 py-1.5 flex flex-col gap-1 min-w-0">
+            const title = (
                   <button
                     type="button"
                     {...focusProps({ r, c: 0, i: 0, key: `${gridKey}:${r}:0:0` })}
@@ -471,6 +523,18 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                   >
                     {row.title}
                   </button>
+            );
+            return (
+              <div
+                role="row"
+                key={row.id}
+                data-row-id={row.id}
+                className={`${r > 0 || !phone ? "border-t border-line" : ""} ${blocked ? "border-l-[3px] border-l-danger" : "border-l-[3px] border-l-transparent"} ${phone ? "flex flex-col" : ""}`}
+                style={phone ? undefined : { display: "grid", gridTemplateColumns: template }}
+              >
+                <div role="rowheader" className="px-2 py-1.5 flex flex-col gap-1 min-w-0">
+                  {/* Phone: parent names are headings inside the shown column (canvas 6b). */}
+                  {phone ? <h4 className="m-0">{title}</h4> : title}
                   {large && (
                     // A one-line row's title expands it; opening the parent is its own visible control.
                     <button type="button" tabIndex={-1} aria-label={`Open ${row.title}`} onClick={() => onOpenParent(row.id)} className={`${FOCUS} ${tgt} self-start px-2 text-xs text-link rounded hover:bg-surface-hover`}>
@@ -489,7 +553,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                   const base = { r, c: ci + 1 };
                   const count = kids.length + planned.length;
                   return (
-                    <div role="gridcell" key={col.id} aria-label={cellName(row.title, col.name, count)} className="px-2 py-1.5 border-l border-line flex flex-col gap-1">
+                    <div role="gridcell" key={col.id} aria-label={cellName(row.title, col.name, count)} className={`px-2 flex flex-col gap-1 ${phone ? "pb-2" : "py-1.5 border-l border-line"}`}>
                       {col.is_done && !options.showDone ? (
                         row.rollup.visible && row.rollup.done > 0 ? (
                           <button
@@ -519,7 +583,12 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                             </button>
                           )}
                           {kids.length === 0 && planned.length === 0 && (
-                            <span {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })} className={`${FOCUS} block min-h-6 rounded`}><span className="sr-only">{cellName(row.title, col.name, 0)}</span></span>
+                            phone ? (
+                              // Phone: the empty shown column is said in plain words ("Nothing blocked", canvas 6b).
+                              <span {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })} className={`${FOCUS} block py-1 text-xs text-fg-secondary rounded`}>{phoneEmptyCellText(col.name)}</span>
+                            ) : (
+                              <span {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })} className={`${FOCUS} block min-h-6 rounded`}><span className="sr-only">{cellName(row.title, col.name, 0)}</span></span>
+                            )
                           )}
                         </>
                       )}
@@ -567,55 +636,89 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
         const maxCols = Math.max(0, ...sectionIds.map((id) => boards.get(id)?.columns.length ?? 0));
         const remaining = lane.parents - (loadedPerLane.get(lane.id) ?? 0);
         const plannedOnlyFolded = options.planned === "only" ? 0 : lane.planned_only;
+        // Phone: one child board per lane at a time; the others are "Onboarding · 2 children · Columns ›" switches.
+        const phoneBoardId = phone ? (sectionIds.includes(phoneBoard[lane.id]) ? phoneBoard[lane.id] : sectionIds[0]) : undefined;
+        const shownSectionIds = phoneBoardId != null ? [phoneBoardId] : sectionIds;
+        const actions = (
+          <>
+            {/* Lane actions beside the name: Focus (everyone), Copy link (this mode only), the admin ⋮. */}
+            {onFocusLane && (
+              <button
+                type="button"
+                aria-pressed={laneId === lane.id}
+                aria-label={`Focus on ${lane.name}`}
+                onClick={() => onFocusLane(laneId === lane.id ? null : lane.id)}
+                className={`${FOCUS} ${tgt} px-2 text-xs rounded border ${laneId === lane.id ? "border-info text-info-on-tint bg-info/10" : "border-line-strong text-fg-secondary hover:bg-surface-hover hover:text-fg"}`}
+              >
+                Focus
+              </button>
+            )}
+            <button type="button" onClick={() => void copyLink(lane)} aria-label={copiedLane === lane.id ? undefined : `Copy link to ${lane.name}`} className={`${FOCUS} ${tgt} px-2 text-xs text-fg-secondary rounded border border-line-strong hover:bg-surface-hover hover:text-fg`}>
+              {copiedLane === lane.id ? "Link copied" : "Copy link"}
+            </button>
+            {onEditLane && (
+              <OverflowMenu
+                ariaLabel={`Actions for swimlane "${lane.name}"`}
+                triggerClassName={`${FOCUS} inline-flex items-center justify-center min-w-11 sm:min-w-8 ${tgt} rounded text-fg-secondary hover:text-fg hover:bg-surface-hover`}
+                items={[
+                  { id: "edit", label: "Edit swimlane…", onSelect: () => onEditLane(lane.id) },
+                  ...(onEditFieldOrder ? [{ id: "field-order", label: "Change field order…", onSelect: onEditFieldOrder }] : []),
+                ]}
+              />
+            )}
+          </>
+        );
+        const toggleLane = () => { collapseTouched.current = true; setCollapsed((s) => toggle(s, lane.id)); };
         return (
           <section key={lane.id} aria-label={`${lane.name} lane`} className="mx-3 mb-3 rounded-lg border border-line bg-surface">
+            {phone ? (
+              // Phone band (canvas 6b, as PhoneBoard's): tinted with the lane color; line one is the collapse button
+              // with the name and total, line two the blocked count and "+N on a board you can't open", then the
+              // lane actions behind a divider (#2498's placement). Text on the tint is fg / fg-secondary / *-on-tint only.
+              <div role="group" aria-label={laneBandName(lane)} data-testid="children-phone-band" style={columnTintStyle(laneColors?.[lane.id])} className="flex flex-col rounded-t-lg border-b border-line bg-surface-raised">
+                <h3 className="m-0">
+                  <button
+                    type="button"
+                    data-lane-toggle={lane.id}
+                    aria-expanded={!isCollapsed}
+                    aria-label={`${isCollapsed ? "Expand" : "Collapse"} lane ${lane.name}, ${shownInProgress(lane)} in progress of ${lane.total}`}
+                    onClick={toggleLane}
+                    className={`${FOCUS} flex items-center gap-2 min-h-11 w-full text-left rounded px-3 pt-2.5 pb-1`}
+                  >
+                    <svg aria-hidden="true" className={`w-4 h-4 shrink-0 text-fg-secondary ${isCollapsed ? "-rotate-90" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
+                    <span className="text-[17px] font-semibold text-fg min-w-0 break-words">{lane.name}</span>{" "}
+                    <span className="ml-auto text-xs font-semibold text-fg whitespace-nowrap">{laneTotalLabel(lane)}</span>
+                  </button>
+                </h3>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-9 pr-3 pb-2 text-xs">
+                  <span className={lane.blocked > 0 ? "text-danger-on-tint font-semibold" : "text-fg-secondary"}>{laneBlockedLabel(lane)}</span>
+                  {lane.hidden > 0 && <span className="inline-flex items-center gap-1 text-fg-secondary"><LockIcon />+{lane.hidden} on a board you can&apos;t open</span>}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mx-3 py-2 border-t border-line">{actions}</div>
+              </div>
+            ) : (
             <div role="group" aria-label={laneBandName(lane)} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 bg-surface-raised rounded-t-lg">
               <h3 className="m-0">
                 <button
                   type="button"
                   data-lane-toggle={lane.id}
                   aria-expanded={!isCollapsed}
-                  aria-label={phone
-                    ? `${isCollapsed ? "Expand" : "Collapse"} lane ${lane.name}, ${shownInProgress(lane)} in progress of ${lane.total}`
-                    : `${isCollapsed ? "Expand" : "Collapse"} ${lane.name}`}
-                  onClick={() => { collapseTouched.current = true; setCollapsed((s) => toggle(s, lane.id)); }}
+                  aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${lane.name}`}
+                  onClick={toggleLane}
                   className={`${FOCUS} ${tgt} flex items-center gap-2 rounded text-[17px] font-semibold text-fg`}
                 >
                   <span aria-hidden="true">{isCollapsed ? "▸" : "▾"}</span>
                   {lane.name}
                 </button>
               </h3>
-              {/* Lane actions beside the name: Focus (everyone), Copy link (this mode only), the admin ⋮. */}
-              {onFocusLane && (
-                <button
-                  type="button"
-                  aria-pressed={laneId === lane.id}
-                  aria-label={`Focus on ${lane.name}`}
-                  onClick={() => onFocusLane(laneId === lane.id ? null : lane.id)}
-                  className={`${FOCUS} ${tgt} px-2 text-xs rounded border ${laneId === lane.id ? "border-info text-info-on-tint bg-info/10" : "border-line-strong text-fg-secondary hover:bg-surface-hover hover:text-fg"}`}
-                >
-                  Focus
-                </button>
-              )}
-              <button type="button" onClick={() => void copyLink(lane)} aria-label={copiedLane === lane.id ? undefined : `Copy link to ${lane.name}`} className={`${FOCUS} ${tgt} px-2 text-xs text-fg-secondary rounded border border-line-strong hover:bg-surface-hover hover:text-fg`}>
-                {copiedLane === lane.id ? "Link copied" : "Copy link"}
-              </button>
-              {onEditLane && (
-                <OverflowMenu
-                  ariaLabel={`Actions for swimlane "${lane.name}"`}
-                  triggerClassName={`${FOCUS} inline-flex items-center justify-center min-w-11 sm:min-w-8 ${tgt} rounded text-fg-secondary hover:text-fg hover:bg-surface-hover`}
-                  items={[
-                    { id: "edit", label: "Edit swimlane…", onSelect: () => onEditLane(lane.id) },
-                    ...(onEditFieldOrder ? [{ id: "field-order", label: "Change field order…", onSelect: onEditFieldOrder }] : []),
-                  ]}
-                />
-              )}
+              {actions}
               <span className="text-xs text-fg-secondary">{isCollapsed ? parentsLabel(lane.parents) : laneSubtitle(lane)}</span>
               <span className="text-sm text-fg">{laneTotalLabel(lane)}</span>
               <LaneBar lane={lane} />
               <span className={`text-sm ${lane.blocked > 0 ? "text-danger font-medium" : "text-fg-secondary"}`}>{laneBlockedLabel(lane)}</span>
               {lane.hidden > 0 && <span className="inline-flex items-center gap-1 text-sm text-fg-secondary"><LockIcon />+{lane.hidden} on a board you can&apos;t open</span>}
             </div>
+            )}
             {!isCollapsed && (
               <div className="pb-2">
                 <ChangesPill
@@ -624,9 +727,29 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                   phone={phone}
                   onShow={() => { focusLaneGrid.current = lane.id; gridFocus.current = null; applyHeld(); setFocusTick((n) => n + 1); }}
                 />
-                {sectionIds.map((id) => {
+                {shownSectionIds.map((id) => {
                   const b = boards.get(id);
                   return b ? renderSection(lane, b, drawn.filter((r) => r.child_board_id === id), maxCols, large) : null;
+                })}
+                {phone && sectionIds.filter((id) => id !== phoneBoardId).map((id) => {
+                  const b = boards.get(id);
+                  if (!b) return null;
+                  return (
+                    <button
+                      key={`switch-${id}`}
+                      type="button"
+                      data-board-switch={id}
+                      onClick={() => {
+                        setPhoneBoard((m) => ({ ...m, [lane.id]: id }));
+                        // The switch unmounts under the tap: focus goes to that board's pressed column button.
+                        queueMicrotask(() => rootRef.current?.querySelector<HTMLElement>(`[data-column-button^="${lane.id}-${id}:"][aria-pressed="true"]`)?.focus());
+                      }}
+                      className={`${FOCUS} mx-3 mt-2 w-[calc(100%-1.5rem)] min-h-11 px-3 flex items-center justify-between gap-2 text-sm text-fg rounded border border-line-strong hover:bg-surface-hover`}
+                    >
+                      <span className="min-w-0 break-words text-left">{childBoardSwitchLabel(b.name, drawn.filter((r) => r.child_board_id === id))}</span>
+                      <span className="shrink-0 text-xs text-fg-secondary">Columns <span aria-hidden="true">›</span></span>
+                    </button>
+                  );
                 })}
                 {locked.map((row) => (
                   <div key={row.id} className="mx-2 mt-2 flex items-center gap-2 rounded border border-dashed border-line-strong px-3 py-2 text-sm text-fg-secondary">

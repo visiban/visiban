@@ -87,7 +87,7 @@ for (const width of [390, 1440]) {
       await expect(page).toHaveURL(new RegExp(`lane=${LANE_ID}`))
       await expect(page.getByTestId('children-mode')).toBeVisible()
 
-      // The page never scrolls sideways; the grid scrolls inside its own box.
+      // The page never scrolls sideways; on desktop the grid scrolls inside its own box, on phone it fits (item 12).
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
       expect(overflow).toBeLessThanOrEqual(0)
 
@@ -226,6 +226,104 @@ test.describe('lane actions under a coarse pointer (#2370 ruling)', () => {
     expect((await focus.boundingBox())!.height).toBeGreaterThanOrEqual(44)
   })
 })
+
+// Phone at 390px (#2370 item 12, canvas 6b and 2f g): two-line tinted band, one child board and one of its columns
+// at a time, parent headings, "Nothing blocked", the Onboarding switch, no sideways scroll box, 44px, contrast.
+const phoneView = {
+  ...view,
+  lanes: [{ ...view.lanes[0], parents: 3, child_boards: 2 }],
+  rows: [
+    view.rows[0],
+    {
+      ...view.rows[0], id: 901, title: 'Acme: platform renewal',
+      rollup: { visible: true, total: 1, done: 0, doing: 1, todo: 0, blocked: 0, last_moved_at: null }, in_progress: 1, planned: 0,
+      children: [{ id: 30, title: 'Migrate to v4 tenant', column_id: 100, swimlane_id: 1, position: 2, state: 'todo', assignee: null, blocked: false, blocked_at: null, planned: false }],
+    },
+    {
+      ...view.rows[0], id: 902, title: 'Acme: training pack', child_board_id: 8,
+      rollup: { visible: true, total: 2, done: 0, doing: 1, todo: 1, blocked: 0, last_moved_at: null }, in_progress: 2, planned: 0,
+      children: [
+        { id: 40, title: 'Kickoff deck', column_id: 200, swimlane_id: 1, position: 0, state: 'todo', assignee: null, blocked: false, blocked_at: null, planned: false },
+        { id: 41, title: 'Trainer booked', column_id: 201, swimlane_id: 1, position: 0, state: 'doing', assignee: null, blocked: false, blocked_at: null, planned: false },
+      ],
+    },
+    view.rows[1],
+  ],
+  child_boards: [
+    { ...view.child_boards[0], columns: [...view.child_boards[0].columns.slice(0, 2), { id: 103, name: 'Blocked', color: '#EF4444', wip_limit: null, is_done: false, card_count: 2 }, view.child_boards[0].columns[2]] },
+    {
+      id: 8, name: 'Onboarding', role: 'member', enforce_wip_limits: false, enforce_wip_hard: false,
+      columns: [
+        { id: 200, name: 'Booked', color: '#6B7280', wip_limit: null, is_done: false, card_count: 1 },
+        { id: 201, name: 'Running', color: '#3B82F6', wip_limit: null, is_done: false, card_count: 1 },
+      ],
+    },
+  ],
+}
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`Children mode phone layout at 390px, ${scheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 })
+    await page.emulateMedia({ colorScheme: scheme })
+    await routeAuth(page)
+    await routeBoard(page, BOARD as typeof BOARD_FULL)
+    await page.route(/\/api\/v1\/boards\/\d+\/children-view\/(\?.*)?$/, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(phoneView) }),
+    )
+    await page.goto(`/boards/${BOARD.id}?show=children`)
+    const mode = page.getByTestId('children-mode')
+    const laneName = BOARD_FULL.swimlanes[0].name
+    // Two-line tinted band: the collapse button with name and total, then blocked and the hidden count.
+    const band = mode.getByTestId('children-phone-band')
+    await expect(band).toBeVisible({ timeout: 10_000 })
+    await expectText(band.getByRole('button', { name: `Collapse lane ${laneName}, 4 in progress of 6` }).getByText(laneName), 'band name on tint')
+    await expectText(band.getByText('4 in progress · 1 planned'), 'band total on tint')
+    await expectText(band.getByText('1 blocked'), 'blocked on tint')
+    await expectText(band.getByText("+4 on a board you can't open"), 'hidden count on tint')
+    await expectText(band.getByRole('button', { name: `Copy link to ${laneName}` }), 'Copy link on tint')
+
+    // One column at a time, with the phone board's column buttons; parents are headings inside it.
+    const columns = mode.getByRole('group', { name: 'Columns on Delivery' })
+    const todo = columns.getByRole('button', { name: /^To do/ })
+    await expect(todo).toHaveAttribute('aria-pressed', 'true')
+    await expectText(todo, 'pressed column button')
+    await expectText(columns.getByRole('button', { name: /^Doing/ }), 'column button')
+    await expect(mode.getByRole('heading', { level: 4, name: PARENT.title })).toBeVisible()
+    await expect(mode.getByText('Parent · column on')).toHaveCount(0)
+    await todo.focus()
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    const blocked = columns.getByRole('button', { name: /^Blocked/ })
+    await expect(blocked).toBeFocused()
+    await expect(blocked).toHaveAttribute('aria-pressed', 'true')
+    // Neither Delivery parent has a child in the Blocked column (the band's "1 blocked" counts the flag, in Doing).
+    await expect(mode.getByText('Nothing blocked')).toHaveCount(2)
+    await expectText(mode.getByText('Nothing blocked').nth(1), 'Nothing blocked')
+    await expect(mode.getByRole('heading', { level: 4, name: 'Acme: platform renewal' })).toBeVisible()
+
+    // The grid is not a sideways scroll box any more: it fits the viewport and nothing in the page scrolls sideways.
+    const grid = mode.getByRole('grid', { name: /children on Delivery, by parent/ })
+    const gridBox = (await grid.boundingBox())!
+    expect(gridBox.x + gridBox.width).toBeLessThanOrEqual(390)
+    expect(await grid.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
+
+    // A second child board in the lane is one switch; it swaps the column buttons to that board.
+    const toOnboarding = mode.getByRole('button', { name: 'Onboarding · 2 children Columns' })
+    await expectText(toOnboarding, 'board switch')
+    await toOnboarding.click()
+    const onboarding = mode.getByRole('group', { name: 'Columns on Onboarding' })
+    await expect(onboarding.getByRole('button', { name: /^Booked/ })).toBeFocused()
+    await expect(mode.getByRole('group', { name: 'Columns on Delivery' })).toHaveCount(0)
+    await expect(mode.getByRole('heading', { level: 4, name: 'Acme: training pack' })).toBeVisible()
+
+    // Every target is at least 44px high.
+    for (const target of await mode.locator('button, a').all()) {
+      const box = await target.boundingBox()
+      if (box) expect(box.height, await target.innerText()).toBeGreaterThanOrEqual(44)
+    }
+  })
+}
 
 test('the phone lane band has the Children lane action at 44px (390px)', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 })
