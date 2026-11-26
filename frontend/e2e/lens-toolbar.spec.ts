@@ -52,6 +52,18 @@ async function boxOf(locator: Locator): Promise<{ x: number; y: number; width: n
   return box!
 }
 
+// Wait until the named view's toolbar is the one on screen, so an "after" box is read from it and not from
+// the outgoing view (#2486). The wait must be on a signal only the new view has: the Board view also has a
+// button whose name contains "Filters" ("Filters and view options"), so waiting on `name: 'Filters'` passed
+// before the Lens toolbar mounted. In that outgoing frame the Board tab sat 1px left, because the click's
+// own actionability step scrolled the 122px-wide strip by 1px to show the Lens tab, which was clipped by
+// 1.45px. A user's press does not scroll the strip, and the Lens view mounts a fresh strip at scrollLeft 0.
+async function showsView(page: Page, name: string) {
+  // Matched by text prefix: the Analytics tab's name carries its "Beta" chip.
+  await expect(page.getByTestId('view-tab-strip').locator('[aria-current="page"]')).toHaveText(new RegExp(`^${name}`))
+  if (name === 'Lens') await expect(page.getByText('Columns: Status')).toBeVisible()
+}
+
 test.describe('Lens toolbar', () => {
   test('Summary, History and Analytics do not shift the tabs or scroll sideways at 390px (#2321)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
@@ -59,9 +71,11 @@ test.describe('Lens toolbar', () => {
     await page.goto(`/boards/${BOARD_FULL.id}?view=board`, { timeout: 60_000 })
     const boardTab = page.getByRole('button', { name: 'Board', exact: true })
     await expect(boardTab).toBeVisible({ timeout: 30_000 })
+    await showsView(page, 'Board')
     const base = await boxOf(boardTab)
-    for (const view of ['summary', 'history', 'analytics']) {
-      await page.goto(`/boards/${BOARD_FULL.id}?view=${view}`, { timeout: 60_000 })
+    for (const view of ['Summary', 'History', 'Analytics']) {
+      await page.goto(`/boards/${BOARD_FULL.id}?view=${view.toLowerCase()}`, { timeout: 60_000 })
+      await showsView(page, view)
       const box = await boxOf(page.getByRole('button', { name: 'Board', exact: true }))
       expect(Math.abs(box.y - base.y), `${view} tab y`).toBeLessThanOrEqual(1)
       expect(Math.abs(box.x - base.x), `${view} tab x`).toBeLessThanOrEqual(1)
@@ -76,9 +90,10 @@ test.describe('Lens toolbar', () => {
     await page.goto(`/boards/${BOARD_FULL.id}?view=board`, { timeout: 60_000 })
     const tab = page.getByRole('button', { name: 'Lens', exact: true })
     await expect(tab).toBeVisible({ timeout: 30_000 })
+    await showsView(page, 'Board')
     const boardTabY = await boxOf(page.getByRole('button', { name: 'Board', exact: true }))
     await tab.click()
-    await expect(page.getByRole('button', { name: 'Filters' })).toBeVisible()
+    await showsView(page, 'Lens')
     const after = await boxOf(page.getByRole('button', { name: 'Board', exact: true }))
     expect(Math.abs(after.x - boardTabY.x)).toBeLessThan(1)
     expect(Math.abs(after.y - boardTabY.y)).toBeLessThan(1)
@@ -134,9 +149,10 @@ test.describe('Lens toolbar at 1440px', () => {
     const names = ['Board', 'Lens', 'Summary', 'History']
     const tabBox = (name: string) => boxOf(page.getByRole('button', { name, exact: true }))
     await expect(page.getByRole('button', { name: 'Lens', exact: true })).toBeVisible({ timeout: 30_000 })
+    await showsView(page, 'Board')
     const before = await Promise.all(names.map(tabBox))
     await page.getByRole('button', { name: 'Lens', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Filters' })).toBeVisible()
+    await showsView(page, 'Lens')
     const after = await Promise.all(names.map(tabBox))
     // The active tab's weight changes its own width, so tabs are compared on
     // their origin row (y and height); the first tab also keeps its x.

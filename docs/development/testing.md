@@ -262,6 +262,7 @@ Before committing a new spec:
 - [ ] No race between a `page.route()` registration and a `page.goto()` that triggers the request — register first
 - [ ] Assertions are keyed on role + name, not class names
 - [ ] Fixtures are imported from `fixtures/board.ts`, not inlined per-test
+- [ ] A before/after layout check (a `boundingBox()` read after a click or view switch) first waits on a signal that only the new state has, such as `aria-current` on the new tab or a control that only the new view renders. A role query's `name` is a substring match, so `name: 'Filters'` also finds the old view's "Filters and view options" button and passes before the switch happens. Under CPU load the "after" box is then read from the outgoing view. Playwright's own click can also scroll a partly clipped target into view by a pixel first, which a real press does not do (#2486, `e2e/lens-toolbar.spec.ts`)
 
 ### Flake-resistance checklist (Vitest unit tests)
 
