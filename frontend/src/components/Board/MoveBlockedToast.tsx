@@ -162,7 +162,7 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
 
   useLayoutEffect(() => {
     if (restoreFor !== null && focusMovedCard(restoreFor)) setRestoreFor(null);
-  });
+  }, [restoreFor]);
   useLayoutEffect(() => () => {
     if (restoreRef.current !== null) focusMovedCard(restoreRef.current);
   }, []);
