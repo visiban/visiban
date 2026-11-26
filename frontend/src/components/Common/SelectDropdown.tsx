@@ -168,6 +168,8 @@ export default function SelectDropdown<T extends string>({
     // A printable key (a space counts only mid-word) jumps to the matching option.
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key !== " " || typeaheadRef.current.text)) {
       e.preventDefault();
+      // Keep the letter from reaching the board's document-level shortcuts.
+      e.stopPropagation();
       typeahead(e.key);
       return;
     }

@@ -254,6 +254,11 @@ describe('Analytics board time zone (#2051)', () => {
     }
   })
 
+  it('falls back to UTC, without crashing, on a zone this browser does not know', () => {
+    render(<MemoryRouter><AnalyticsView {...props} timeZone="Mars/Olympus_Mons" /></MemoryRouter>)
+    expect(screen.getByText(/Calendar days in UTC, from each card/)).toBeInTheDocument()
+  })
+
   it('reads a missing or UTC zone as UTC', () => {
     for (const timeZone of [null, 'UTC']) {
       const { unmount } = render(<MemoryRouter><AnalyticsView {...props} timeZone={timeZone} /></MemoryRouter>)

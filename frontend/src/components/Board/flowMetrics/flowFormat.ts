@@ -24,11 +24,26 @@ const SHORT_DATES = new Map<string, Intl.DateTimeFormat>();
  * A `YYYY-MM-DD` day parses as UTC midnight, so it keeps UTC; pass the board's
  * zone (#2051) only for an instant, such as "now".
  */
+/**
+ * The zone to format in: `zone` when this browser's ICU knows it, else UTC.
+ * A board zone the server accepts may be missing from an older browser, and
+ * `Intl.DateTimeFormat` throws a RangeError on it (#2051).
+ */
+export const resolveZone = (zone: string): string => {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return zone;
+  } catch {
+    return "UTC";
+  }
+};
+
 export const formatDate = (value: string | number, timeZone = "UTC") => {
-  let format = SHORT_DATES.get(timeZone);
+  const zone = resolveZone(timeZone);
+  let format = SHORT_DATES.get(zone);
   if (!format) {
-    format = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone });
-    SHORT_DATES.set(timeZone, format);
+    format = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: zone });
+    SHORT_DATES.set(zone, format);
   }
   return format.format(new Date(value));
 };

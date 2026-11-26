@@ -865,6 +865,23 @@ describe('SelectDropdown type-to-jump (#2051)', () => {
     expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'America/Denver' }).id)
   })
 
+  it('keeps typed letters from reaching document-level shortcuts, closed and open', async () => {
+    const user = userEvent.setup()
+    const { trigger } = setup()
+    const spy = vi.fn()
+    document.addEventListener('keydown', spy)
+    try {
+      trigger.focus()
+      await user.keyboard('p')
+      expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'Pacific/Auckland' }).id)
+      await user.keyboard('a')
+      expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'Pacific/Auckland' }).id)
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      document.removeEventListener('keydown', spy)
+    }
+  })
+
   it('does not hijack a modified key, and Space still opens when nothing was typed', async () => {
     const user = userEvent.setup()
     const { trigger } = setup()

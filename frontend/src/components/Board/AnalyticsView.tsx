@@ -9,7 +9,7 @@ import { ANALYTICS_PARAM, parseAnalyticsFilters, parseAnalyticsTab, useAnalytics
 import type { AnalyticsUrlSource } from "./flowMetrics/analyticsUrlState";
 import { breakdownFields, breakdownFromParam, breakdownToParam } from "./flowMetrics/breakdown";
 import type { Breakdown } from "./flowMetrics/breakdown";
-import { formatDate } from "./flowMetrics/flowFormat";
+import { formatDate, resolveZone } from "./flowMetrics/flowFormat";
 import { useAnalyticsFilters } from "./flowMetrics/useAnalyticsFilters";
 
 const DAY_MS = 86_400_000;
@@ -90,7 +90,7 @@ export default function AnalyticsView({
   boardId, currentUserRole, onOpenCard, swimlanes = [], labels = [], columns = [], boardName, onGoToBoard, swimlaneFields = [], customFields, urlSource,
   timeZone,
 }: Props) {
-  const zone = timeZone || "UTC";
+  const zone = resolveZone(timeZone || "UTC");
   const url = useAnalyticsUrlParams(urlSource);
   const { params: urlParams, update: updateUrl } = url;
   const { filters: urlFilters, setFilters } = useAnalyticsFilters(url);
