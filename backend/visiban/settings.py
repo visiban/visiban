@@ -721,6 +721,11 @@ WEBHOOKS_ENABLED = env.bool("WEBHOOKS_ENABLED", default=False)
 # Hostname and CIDR entries admit RFC 1918 / CGNAT / ULA addresses; loopback,
 # link-local and cloud-metadata addresses need an exact single-address entry.
 # A /0 or a public range is a startup error (webhooks.E002). See visiban/egress.py.
+# Operator opt-out for the mail host check on the admin-UI SMTP settings (#1878).
+# False refuses a host that is or resolves to loopback, link-local or metadata
+# addresses. Set true if the relay runs on this host. The environment-configured
+# EMAIL_HOST is never checked.
+SMTP_ALLOW_PRIVATE_HOSTS = env.bool("SMTP_ALLOW_PRIVATE_HOSTS", default=False)
 WEBHOOK_ALLOWED_PRIVATE_TARGETS = env("WEBHOOK_ALLOWED_PRIVATE_TARGETS", default="")
 WEBHOOK_CONNECT_TIMEOUT_SECONDS = env.float("WEBHOOK_CONNECT_TIMEOUT_SECONDS", default=3.0)
 WEBHOOK_TIMEOUT_SECONDS = env.float("WEBHOOK_TIMEOUT_SECONDS", default=10.0)

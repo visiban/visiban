@@ -62,6 +62,64 @@ ERROR_BACKEND_PINNED = "backend_pinned"
 
 PLACEHOLDER_FROM_DOMAINS = ("example.com",)
 
+# Fixed text for a refused admin-UI mail host (#1878). Shared by the settings
+# serializer and the send path so the two cannot drift; never interpolated.
+SMTP_HOST_NOT_ALLOWED_DETAIL = (
+    "This mail host is not allowed. Use a mail server that is not on this "
+    "server's own loopback or link-local network, or ask the operator to allow "
+    "local mail hosts."
+)
+
+
+def _resolve_host_addresses(host: str) -> list:
+    """Every address *host* resolves to; empty when it does not resolve.
+
+    Patched in tests. A host that fails to resolve is not refused here: the
+    send itself fails with ``dns_failure``, which is the honest outcome.
+    """
+    import ipaddress
+
+    try:
+        infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except (OSError, UnicodeError):
+        return []
+    found = []
+    for family, _t, _p, _c, sockaddr in infos:
+        if family in (socket.AF_INET, socket.AF_INET6):
+            try:
+                found.append(ipaddress.ip_address(str(sockaddr[0]).split("%", 1)[0]))
+            except ValueError:
+                continue
+    return found
+
+
+def smtp_host_refused(host) -> bool:
+    """True when a mail host entered in the admin UI must not be used (#1878).
+
+    Refuses a host that is, or resolves to, a loopback, link-local, cloud
+    metadata or otherwise non-routable address (``visiban.egress`` classes
+    ``sensitive`` and ``never``). RFC 1918 and other private ranges stay
+    allowed: a LAN relay is a common self-hosted setup. Every resolved record
+    must pass, so a name with one internal record is refused. The operator
+    opt-out ``SMTP_ALLOW_PRIVATE_HOSTS`` admits everything. Blank or absent
+    hosts are not refused here (an incomplete config is rejected elsewhere).
+
+    Applies only to the database-stored configuration. The environment
+    configuration is the operator's own and is never checked.
+    """
+    from visiban import egress
+
+    if getattr(settings, "SMTP_ALLOW_PRIVATE_HOSTS", False):
+        return False
+    host = (host or "").strip().strip("[]")
+    if not host:
+        return False
+    # Checked at save time and again at send time because DNS can change.
+    # Literals skip DNS. The check and the later connect resolve separately, so
+    # a name that changes between them is not caught; accepted for this probe.
+    addresses = _resolve_host_addresses(host)
+    return any(egress.classify_ip(ip) in (egress.SENSITIVE, egress.NEVER) for ip in addresses)
+
 
 class EmailConfigUnusable(Exception):
     """The selected email configuration cannot be used to send mail.
@@ -146,6 +204,8 @@ def _checked(config: ResolvedEmailConfig) -> ResolvedEmailConfig:
     are dropped or spam-foldered, and account recovery silently stops working.
     Failing loudly is strictly better than delivering undeliverable mail.
     """
+    if config.source == "database" and smtp_host_refused(config.host):
+        raise EmailConfigUnusable(ERROR_CONFIG_UNUSABLE, SMTP_HOST_NOT_ALLOWED_DETAIL)
     if sender_is_placeholder(config.from_email):
         raise EmailConfigUnusable(
             ERROR_CONFIG_UNUSABLE,

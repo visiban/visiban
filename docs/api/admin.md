@@ -279,6 +279,7 @@ without re-typing or silently discarding the password.
 | Status | Body | Cause |
 |---|---|---|
 | `400` | `{"use_ssl": ["STARTTLS and implicit SSL cannot both be enabled…"]}` | `use_tls` and `use_ssl` would both be true *after* applying the patch |
+| `400` | `{"host": ["This mail host is not allowed…"]}` | The submitted host is, or resolves to, a loopback, link-local or metadata address. The same check runs when mail is sent from the stored configuration, where it reports `config_unusable`. See `SMTP_ALLOW_PRIVATE_HOSTS` |
 | `400` | `{"from_email": ["Enter your real sending address…"]}` | Sender is still an `example.com` placeholder |
 | `400` | `{"config_source": ["Cannot switch to the stored configuration until it is complete. Missing: …"]}` | Switching to `database` without a host, sender, or (when a username is set) a password |
 | `400` | `{"config_source": ["The stored SMTP password could not be decrypted…"]}` | Switching to `database` after the encryption key changed |

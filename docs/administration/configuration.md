@@ -599,6 +599,7 @@ Configure these in `.env` (Docker Compose) or as environment variables in your H
 | `EMAIL_BACKEND` | Django email backend class. Setting this explicitly pins the backend and **disables** the admin-UI configuration entirely. | *(unset — uses the source selected in the admin UI, falling back to these variables)* |
 | `EMAIL_HOST` | SMTP server hostname | `localhost` |
 | `EMAIL_PORT` | SMTP server port | `587` |
+| `SMTP_ALLOW_PRIVATE_HOSTS` | Mail host check for SMTP settings entered in the admin UI (#1878). By default a host that is, or resolves to, a loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`, `fe80::/10`) or cloud-metadata address is refused when the setting is saved and again when mail is sent. Private LAN ranges (RFC 1918 and similar) stay allowed, because a LAN relay is a common setup. Set to `true` if your relay runs on this host. `EMAIL_HOST` and the other variables above are your own configuration and are never checked. *(new in 1.3)* | `false` |
 | `EMAIL_HOST_USER` | SMTP authentication username | *(empty — no auth)* |
 | `EMAIL_HOST_PASSWORD` | SMTP authentication password | *(empty)* |
 | `EMAIL_USE_TLS` | Use STARTTLS | `true` |
