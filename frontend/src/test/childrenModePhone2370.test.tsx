@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import ChildrenModeView from '../components/Board/ChildrenModeView'
-import { DEFAULT_CHILDREN_OPTIONS, childBoardSwitchLabel, phoneColumnCount, phoneEmptyCellText } from '../utils/childrenMode'
+import { DEFAULT_CHILDREN_OPTIONS, childBoardSwitchLabel, childBoardSwitchName, phoneColumnCount, phoneEmptyCellText } from '../utils/childrenMode'
 import type { ChildrenView, ChildrenViewChild, ChildrenViewRow } from '../types'
 
 // Children mode at phone width (#2370 item 12, canvas 6b and 2f g): two-line tinted bands, one child board per lane
@@ -80,6 +80,7 @@ describe('Children mode phone layout (#2370 item 12)', () => {
     expect(phoneColumnCount(rows, { id: 32, is_done: false }, { ...DEFAULT_CHILDREN_OPTIONS, planned: 'only' })).toBe(0)
     expect(phoneColumnCount([row({ rollup: { visible: false, total: 4 } })], { id: 33, is_done: true }, DEFAULT_CHILDREN_OPTIONS)).toBe(0)
     expect(childBoardSwitchLabel('Onboarding', [view().rows[2]])).toBe('Onboarding · 2 children')
+    expect(childBoardSwitchName('Onboarding', [view().rows[2]])).toBe('Show Onboarding columns, 2 children')
     expect(childBoardSwitchLabel('Onboarding', [row({ rollup: { visible: true, total: 1, done: 0, doing: 1, todo: 0, blocked: 0, last_moved_at: null } }), row({ rollup: { visible: false, total: 3 } })])).toBe('Onboarding · 1 child')
   })
 
@@ -91,6 +92,10 @@ describe('Children mode phone layout (#2370 item 12)', () => {
     expect(within(band).getByText('3 blocked')).toHaveClass('text-danger-on-tint')
     expect(within(band).getByText(/\+4 on a board you can't open/)).toBeInTheDocument()
     expect(within(band).getByRole('button', { name: 'Copy link to Acme Corp' })).toBeInTheDocument()
+    // The lane actions row is PhoneBoard's footer: the band's last line, a subtle divider, px-3 pb-2.5 pt-2.
+    const actionsRow = within(band).getByTestId('children-lane-actions')
+    expect(actionsRow).toHaveClass('border-t', 'border-line-subtle', 'px-3', 'pb-2.5', 'pt-2')
+    expect(actionsRow.contains(within(band).getByRole('button', { name: 'Copy link to Acme Corp' }))).toBe(true)
     // No desktop header grid on phone: one column head, under the column buttons.
     expect(screen.queryByText('Parent · column on Pipeline')).toBeNull()
     expect(screen.getAllByTestId('children-column-head')).toHaveLength(1)
@@ -162,7 +167,9 @@ describe('Children mode phone layout (#2370 item 12)', () => {
     await screen.findByRole('group', { name: 'Columns on Delivery' })
     expect(screen.queryByRole('group', { name: 'Columns on Onboarding' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Acme: training pack' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Show Onboarding · 2 children Columns' }))
+    const sw = screen.getByRole('button', { name: 'Show Onboarding columns, 2 children' })
+    expect(sw).toHaveTextContent('Onboarding · 2 childrenColumns ›')
+    fireEvent.click(sw)
     expect(screen.queryByRole('group', { name: 'Columns on Delivery' })).toBeNull()
     const onboarding = screen.getByRole('group', { name: 'Columns on Onboarding' })
     await waitFor(() => expect(document.activeElement).toBe(within(onboarding).getByRole('button', { name: /^Booked/ })))

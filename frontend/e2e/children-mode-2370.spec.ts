@@ -310,7 +310,7 @@ for (const scheme of ['light', 'dark'] as const) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
 
     // A second child board in the lane is one switch; it swaps the column buttons to that board.
-    const toOnboarding = mode.getByRole('button', { name: 'Show Onboarding · 2 children Columns' })
+    const toOnboarding = mode.getByRole('button', { name: 'Show Onboarding columns, 2 children' })
     await expectText(toOnboarding, 'board switch')
     await toOnboarding.click()
     const onboarding = mode.getByRole('group', { name: 'Columns on Onboarding' })

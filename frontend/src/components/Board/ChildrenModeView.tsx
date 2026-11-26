@@ -4,7 +4,7 @@ import { getChildrenView, moveCard } from "../../api/cards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { CardChildrenColumn, ChildrenView, ChildrenViewBoard, ChildrenViewChild, ChildrenViewLane, ChildrenViewRow } from "../../types";
 import {
-  CHILDREN_MODE_ESCAPE_PRIORITY, LARGE_LANE_PARENTS, blockedDays, cellName, changesPillText, childBoardSwitchLabel, childCardName, columnOverLimit, compactRowLabel, foldLabel,
+  CHILDREN_MODE_ESCAPE_PRIORITY, LARGE_LANE_PARENTS, blockedDays, cellName, changesPillText, childBoardSwitchLabel, childBoardSwitchName, childCardName, columnOverLimit, compactRowLabel, foldLabel,
   columnHeadCaption, columnMeterPct, holdRowOrder, isFoldedRow, laneBandName, laneBlockedLabel, laneLink, laneSubtitle, laneTotalLabel, lockedRowText, moreParentsLabel,
   parentsLabel, pendingRowChanges, isBlockedColumnName, phoneBlockedColumnNote, phoneColumnCount, phoneEmptyCellText, rowDoneLabel, shownInProgress, visibleChildren, type ChildrenModeOptions,
 } from "../../utils/childrenMode";
@@ -675,7 +675,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
             {phone ? (
               // Phone band (canvas 6b, as PhoneBoard's): tinted with the lane color; line one is the collapse button
               // with the name and total, line two the blocked count and "+N on a board you can't open", then the
-              // lane actions behind a divider (#2498's placement). Text on the tint is fg / fg-secondary / *-on-tint only.
+              // lane actions row, styled as PhoneBoard's phone-lane-footer (#2498). Text on the tint is fg / fg-secondary / *-on-tint only.
               <div role="group" aria-label={laneBandName(lane)} data-testid="children-phone-band" style={columnTintStyle(laneColors?.[lane.id])} className={`flex flex-col bg-surface-raised ${isCollapsed ? "rounded-lg" : "rounded-t-lg border-b border-line"}`}>
                 <h3 className="m-0">
                   <button
@@ -696,7 +696,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                   {lane.hidden > 0 && <span className="inline-flex items-center gap-1 text-fg-secondary"><LockIcon />+{lane.hidden} on a board you can&apos;t open</span>}
                 </div>
                 {/* Collapsed, the band is the canvas's two lines; the actions return with the lane. */}
-                {!isCollapsed && <div className="flex flex-wrap items-center gap-2 mx-3 py-2 border-t border-line">{actions}</div>}
+                {!isCollapsed && <div data-testid="children-lane-actions" className="flex flex-wrap items-center gap-2 border-t border-line-subtle px-3 pb-2.5 pt-2">{actions}</div>}
               </div>
             ) : (
             <div role="group" aria-label={laneBandName(lane)} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 bg-surface-raised rounded-t-lg">
@@ -741,6 +741,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                       key={`switch-${id}`}
                       type="button"
                       data-board-switch={id}
+                      aria-label={childBoardSwitchName(b.name, drawn.filter((r) => r.child_board_id === id))}
                       onClick={() => {
                         setPhoneBoard((m) => ({ ...m, [lane.id]: id }));
                         // The switch unmounts under the tap: focus goes to that board's pressed column button.
@@ -748,7 +749,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                       }}
                       className={`${FOCUS} mx-3 mt-2 w-[calc(100%-1.5rem)] min-h-11 px-3 flex items-center justify-between gap-2 text-sm text-fg rounded border border-line-strong hover:bg-surface-hover`}
                     >
-                      <span className="min-w-0 break-words text-left"><span className="sr-only">Show </span>{childBoardSwitchLabel(b.name, drawn.filter((r) => r.child_board_id === id))}</span>
+                      <span className="min-w-0 break-words text-left">{childBoardSwitchLabel(b.name, drawn.filter((r) => r.child_board_id === id))}</span>
                       <span className="shrink-0 text-xs text-fg-secondary">Columns <span aria-hidden="true">›</span></span>
                     </button>
                   );
