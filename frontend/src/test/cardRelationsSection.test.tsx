@@ -425,6 +425,18 @@ describe('CardRelationsSection — add flow', () => {
     expect(await screen.findByRole('option', { name: /Provision cluster/ })).toBeInTheDocument()
   })
 
+  it('excludes a card already related, under relates_to only (#1759)', async () => {
+    mockGet.mockResolvedValue([
+      makeRelation({ direction: 'relates_to', relation_type: 'relates_to', card: { id: 42, uid: 'u42', title: 'Provision cluster', column: 11, archived: false } }),
+    ])
+    mockSearch.mockResolvedValue([candidate])
+    await openPicker()
+    await userEvent.type(screen.getByRole('combobox'), 'prov')
+    expect(await screen.findByRole('option', { name: /Provision cluster/ })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('radio', { name: 'Relates to' }))
+    expect(await screen.findByText('All matching cards are already linked.')).toBeInTheDocument()
+  })
+
   it('reports no matches distinctly from all-excluded', async () => {
     mockSearch.mockResolvedValue([])
     await openPicker()

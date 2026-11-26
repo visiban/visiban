@@ -185,4 +185,28 @@ describe('ResetPasswordPage', () => {
     // Form remains interactive — no token-invalid state
     expect(screen.queryByText('Link expired or invalid')).not.toBeInTheDocument()
   })
+
+  // #1759: the other shapes a refused link arrives in, and a refusal that is not about the link.
+  it.each([
+    ['a uid error', { uid: ['Invalid value'] }],
+    ['a non-field token error', { non_field_errors: ['This link has expired.'] }],
+  ])('treats %s as an invalid link', async (_name, data) => {
+    mockConfirm.mockRejectedValue({ response: { data } })
+    renderPage()
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'NewPassword9876' } })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'NewPassword9876' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Set new password' }))
+    expect(await screen.findByText('Link expired or invalid')).toBeInTheDocument()
+  })
+
+  it('keeps the form for a password refusal that is not about the link', async () => {
+    mockConfirm.mockRejectedValue({ response: { data: { new_password2: ['This password is too common.'] } } })
+    renderPage()
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'NewPassword9876' } })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'NewPassword9876' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Set new password' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong')
+    expect(screen.queryByText('Link expired or invalid')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('New password')).toBeInTheDocument()
+  })
 })
