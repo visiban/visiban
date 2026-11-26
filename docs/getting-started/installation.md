@@ -421,27 +421,14 @@ docker compose -f docker-compose.prod.yml logs backend | tail -20
 
 ### Backing up and restoring
 
-**Database backup:**
+**Set up backups before your team starts using the board.** Visiban keeps none of its own. Back up now, or schedule a daily backup with the `backup` profile:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec db \
-  pg_dump -U visiban visiban > backup_$(date +%Y%m%d).sql
+scripts/backup.sh --output-dir ./backups          # one backup set, now
+docker compose -f docker-compose.prod.yml --profile backup up -d backup   # daily at 02:17 UTC
 ```
 
-**Database restore:**
-
-```bash
-docker compose -f docker-compose.prod.yml exec -T db \
-  psql -U visiban visiban < backup_20260308.sql
-```
-
-**Media files** (card attachments) live in a Docker volume. Back them up with:
-
-```bash
-docker compose -f docker-compose.prod.yml exec backend \
-  tar czf /tmp/media.tar.gz -C /app media/
-docker compose -f docker-compose.prod.yml cp backend:/tmp/media.tar.gz ./media_backup.tar.gz
-```
+Restore a set with `scripts/restore.sh backups/visiban-<timestamp>`. Each set holds the database dump and the media (attachments) archive; your `.env` is **not** in it, so keep a copy of that separately. Cadence, off-host copies, restore steps and post-restore checks: [Back up and restore](../administration/backup-and-restore.md).
 
 ### Certificate renewal
 

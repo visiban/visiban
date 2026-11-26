@@ -6,6 +6,11 @@ metadata:
   labels:
     {{- include "visiban.labels" . | nindent 4 }}
     app.kubernetes.io/component: backend
+  {{- if .Values.backend.mediaPersistence.keepOnUninstall }}
+  annotations:
+    # #1464: `helm uninstall` must not delete every uploaded attachment.
+    helm.sh/resource-policy: keep
+  {{- end }}
 spec:
   accessModes:
     {{- toYaml .Values.backend.mediaPersistence.accessModes | nindent 4 }}

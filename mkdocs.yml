@@ -175,6 +175,7 @@ nav:
     - Container Image Retention: administration/container-image-retention.md
     - Verifying Release Images: administration/image-verification.md
     - Secret Rotation: administration/secret-rotation.md
+    - Back Up and Restore: administration/backup-and-restore.md
     - Upgrading: administration/upgrade.md
     - Zero-Downtime Upgrade Playbook: administration/zero-downtime-upgrade.md
   - Maintainers:

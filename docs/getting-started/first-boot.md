@@ -162,6 +162,10 @@ DJANGO_SUPERUSER_EMAIL=admin@example.com
 
 **On later boots:** `ensure_site_admin` still runs every time. Once a site admin exists the bootstrap does nothing, and credentials are never printed again. The command also re-syncs the Sites framework's domain from `SITE_DOMAIN` on every run, so a changed `SITE_DOMAIN` takes effect as soon as you restart the backend, with no extra step.
 
+## Set up backups
+
+Before you invite anyone, schedule a backup: Visiban keeps none of its own, and board deletion is permanent. On Docker Compose run `docker compose -f docker-compose.prod.yml --profile backup up -d backup`; on Kubernetes set `backup.enabled=true`. See [Back up and restore](../administration/backup-and-restore.md).
+
 ## Inviting your team
 
 Choose how people join **before** you share the URL. Go to **Site admin → General** and set the registration mode:

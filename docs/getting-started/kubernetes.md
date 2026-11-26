@@ -512,6 +512,21 @@ backend:
 
 **Watch out:** If the backend and frontend pods run on **different nodes**, the PVC must support `ReadWriteMany` (RWX), or use a pod affinity rule to put them on the same node.
 
+**Kept on uninstall** *(1.3+)*: the media PVC carries `helm.sh/resource-policy: keep` (`backend.mediaPersistence.keepOnUninstall`, default `true`), so `helm uninstall` no longer deletes your attachments.
+
+## Backups
+
+The chart ships an opt-in backup CronJob: a plain-SQL `pg_dump` plus a media archive, written to its own PVC every day. Turn it on before your team starts using the board:
+
+```yaml
+backup:
+  enabled: true
+  schedule: "17 2 * * *"
+  retentionDays: 14
+```
+
+Copy the backup PVC off-cluster with your own tooling; the chart writes to a PVC only. Restore steps, RPO/RTO for the bundled database versus a managed one, and post-restore checks: [Back up and restore](../administration/backup-and-restore.md#kubernetes-helm).
+
 ## Scaling
 
 Raise replicas for the backend or frontend:
@@ -604,7 +619,7 @@ helm uninstall visiban --namespace visiban
 
 **What's removed:** every Kubernetes resource the chart created. The chart declares no Helm install hooks, and hook resources are the ones Helm would leave behind.
 
-**Yes, but: PersistentVolumeClaims stay.** Delete them by hand to remove all data:
+**Yes, but: PersistentVolumeClaims stay.** The bundled PostgreSQL's PVC comes from its StatefulSet, which Kubernetes never deletes; the media PVC and the backup PVC are annotated `helm.sh/resource-policy: keep` *(1.3+; before 1.3, uninstall deleted the media PVC)*. Delete them by hand to remove all data:
 
 ```bash
 kubectl delete pvc -n visiban -l app.kubernetes.io/instance=visiban

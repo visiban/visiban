@@ -81,6 +81,10 @@ RENDER_ARGS=(
   # database connection: section 7 must see its pod, section 8 its command.
   --set webhooks.dispatcher.enabled=true
   --set backend.settings.webhooksEnabled=true
+  # The backup CronJob (#1464) is off by default and opens a database
+  # connection: section 7 must see its pod, sections 11/12 its image and
+  # hardening, section 22 its wiring.
+  --set backup.enabled=true
 )
 
 # Public demo mode (#1180) renders a second shape of the chart: the shipped
@@ -2186,7 +2190,7 @@ check_postgres_password_guard() {
     # shellcheck disable=SC2086
     rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" $nowire 2>"$errf")" \
       || { fail "render ($nowire) failed: $(head -2 "$errf" | tr '\n' ' ')"; bad=1; continue; }
-    if grep -q 'DATABASE_URL_PASSWORD' <<< "$rendered"; then
+    if grep -q 'name: DATABASE_URL_PASSWORD' <<< "$rendered"; then
       fail "DATABASE_URL_PASSWORD is rendered for '${nowire:-the default}' -- it must only appear for postgresql.auth.existingSecret without secret.existingSecret"
       bad=1
     fi
@@ -2508,6 +2512,60 @@ run_all_checks() {
   check_sweep_webhook_secrets_fallback
   check_dispatcher_egress_policy
   check_share_cache_and_rollout
+  check_backup_job
+}
+
+# ---------------------------------------------------------------------------
+# 22. The backup CronJob runs the shipped scripts and keeps data on uninstall (#1464).
+# ---------------------------------------------------------------------------
+# One backup engine for Compose and Helm (#2626/#1464): the chart ships
+# files/backup.sh and files/restore.sh, which must be byte-identical to
+# scripts/ — a drift would let the two install paths disagree about the dump
+# format or the integrity checks, and only the Compose path is drilled live
+# (scripts/prod-compose-drill.sh step 9). The CronJob must actually run that
+# script in container mode, read media through a READ-ONLY mount, and be absent
+# unless enabled. Both PVCs carry helm.sh/resource-policy: keep by default, so
+# `helm uninstall` deletes neither the attachments nor their backups.
+STRUCTURE_CHECK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+check_backup_job() {
+  section "22. Backup CronJob runs files/backup.sh (== scripts/backup.sh), media read-only, PVCs kept on uninstall (#1464)"
+  local bad=0 f cj got rendered
+  for f in backup.sh restore.sh; do
+    if ! cmp -s "$CHART_UNDER_TEST/files/$f" "$STRUCTURE_CHECK_ROOT/scripts/$f"; then
+      fail "helm/visiban/files/$f differs from scripts/$f — copy it (cp scripts/$f helm/visiban/files/) so Compose and Helm run the same backup code"; bad=1
+    fi
+  done
+  got="$(yq 'select(.kind == "ConfigMap" and (.metadata.name | test("-backup-scripts$"))) | .data."backup.sh"' "$RENDERED")"
+  if [ "$got" != "$(cat "$STRUCTURE_CHECK_ROOT/scripts/backup.sh")" ]; then
+    fail "the rendered backup-scripts ConfigMap's backup.sh is not scripts/backup.sh verbatim"; bad=1
+  fi
+  cj="$(yq 'select(.kind == "CronJob" and (.metadata.name | test("-backup$")))' "$RENDERED")"
+  if [ -z "$cj" ]; then
+    fail "backup.enabled=true renders no backup CronJob"; return 0
+  fi
+  got="$(yq '.spec.jobTemplate.spec.template.spec.containers[0].command | join(" ")' <<< "$cj")"
+  [ "$got" = "/bin/sh /opt/visiban/backup.sh" ] || { fail "the backup CronJob runs '$got', not /bin/sh /opt/visiban/backup.sh"; bad=1; }
+  got="$(yq '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "VISIBAN_BACKUP_MODE") | .value' <<< "$cj")"
+  [ "$got" = "container" ] || { fail "the backup CronJob does not set VISIBAN_BACKUP_MODE=container (got '$got')"; bad=1; }
+  got="$(yq '.spec.jobTemplate.spec.template.spec.containers[0].volumeMounts[] | select(.mountPath == "/app/media") | .readOnly' <<< "$cj")"
+  [ "$got" = "true" ] || { fail "the backup CronJob mounts /app/media read-write (readOnly: '$got') — a backup must never be able to change the data it copies"; bad=1; }
+  got="$(yq '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "DATABASE_URL") | .valueFrom.secretKeyRef.key' <<< "$cj")"
+  [ "$got" = "database-url" ] || { fail "the backup CronJob does not read DATABASE_URL from the database-url secret key (got '$got')"; bad=1; }
+  got="$(yq 'select(.kind == "PersistentVolumeClaim" and (.metadata.name | test("-media$"))) | .metadata.annotations."helm.sh/resource-policy"' "$RENDERED")"
+  [ "$got" = "keep" ] || { fail "the media PVC lacks helm.sh/resource-policy: keep (got '$got') — helm uninstall deletes every attachment"; bad=1; }
+  got="$(yq 'select(.kind == "PersistentVolumeClaim" and (.metadata.name | test("-backup$"))) | .metadata.annotations."helm.sh/resource-policy"' "$RENDERED")"
+  [ "$got" = "keep" ] || { fail "the backup PVC lacks helm.sh/resource-policy: keep (got '$got') — helm uninstall deletes the backups with the data"; bad=1; }
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set backup.includeMedia=false 2>&1)" \
+    || { fail "backup.includeMedia=false does not render: $(head -c 300 <<< "$rendered")"; return 0; }
+  got="$(yq 'select(.kind == "CronJob" and (.metadata.name | test("-backup$"))) | .spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "BACKUP_SKIP_MEDIA") | .value' <<< "$rendered")"
+  [ "$got" = "1" ] || { fail "backup.includeMedia=false does not set BACKUP_SKIP_MEDIA=1 (got '$got')"; bad=1; }
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set backup.enabled=false 2>&1)" \
+    || { fail "backup.enabled=false does not render"; return 0; }
+  if grep -qE 'name: .*-backup(-scripts)?$' <<< "$rendered"; then
+    fail "backup.enabled=false still renders a backup CronJob, PVC or ConfigMap — an upgrade must create nothing"; bad=1
+  fi
+  [ "$bad" -eq 0 ] && pass "the backup CronJob runs the shipped scripts/backup.sh in container mode, mounts media read-only, both PVCs are kept on uninstall, and nothing renders when off"
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -2729,6 +2787,12 @@ selftest_define_fixtures() {
     # 19 (#2119): the missing-key fallback is dropped, so --reuse-values from 1.2
     # silently loses the sweep CronJob.
     "sweep_webhook_secrets_fallback|19 sweep fallback removed|templates/cronjobs.yaml|s/ | default \$job.fallback//"
+    # 22 (#1464): helm uninstall deletes every attachment again.
+    "backup_job|22 media PVC keep annotation removed|templates/media-pvc.yaml|s/helm.sh\/resource-policy: keep/helm.sh\/resource-policy: delete/"
+    # 22: the chart's copy of the backup engine drifts from scripts/backup.sh.
+    "backup_job|22 files/backup.sh drifted from scripts/backup.sh|files/backup.sh|s/^umask 077$/umask 022/"
+    # 22: the backup pod could write to the media it copies.
+    "backup_job|22 backup CronJob media mount loses readOnly|templates/backup.yaml|s/^                  mountPath: \/app\/media$/                  mountPath: \/app\/media-rw/"
   )
 }
 

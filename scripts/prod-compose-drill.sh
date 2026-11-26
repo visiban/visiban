@@ -57,6 +57,16 @@
 #      the SPA and a deep-link fallback, login with the bootstrapped admin
 #      password, the forced password change and re-login, board create, and a
 #      WebSocket upgrade (101) on /ws/boards/<id>/.
+#   9. BACKUP AND RESTORE (#2626, #1464; TLS_MODE=none leg only — the
+#      restore path does not depend on the nginx template): seed boards, cards,
+#      movements and an attachment, back up with scripts/backup.sh, destroy
+#      every volume, boot a FRESH install through init-prod.sh, restore with
+#      scripts/restore.sh, and assert the counts, every attachment's bytes
+#      (read back through Django's storage) and a seeded user's login all came
+#      back. Also asserts a truncated dump is refused before it touches data.
+#      This is the one restore drill for both issues: the Helm side's backup
+#      runs the same scripts/backup.sh, and its chart wiring is asserted by
+#      scripts/helm-structure-check.sh section 22.
 #
 # Images are THIS COMMIT's builds of the exact production Dockerfiles
 # (backend/Dockerfile.prod, frontend/Dockerfile.prod), retagged as the
@@ -170,6 +180,12 @@ teardown() {
   log "tearing down (down -v)"
   compose down -v --remove-orphans >/dev/null 2>&1 || true
   rm -f .env nginx/active.conf.template "${JAR:-}" "${BODY:-}"
+  rm -rf "${BACKUP_DRILL_DIR:-/nonexistent-2626}" "${container_set_parent:-/nonexistent-2626}"
+  # Step 9's Compose backup service writes ./.backup-drill-container as root
+  # (on the daemon's filesystem under dind); a failure mid-step leaves that
+  # copy of the data behind, so remove it the way step 9 does, through a
+  # root container.
+  docker run --rm -v /:/host alpine:3 rm -rf "/host${PWD}/.backup-drill-container" >/dev/null 2>&1 || true
   # init-prod.sh mints the self-signed lineage into the checkout — a
   # generated artifact containing a private key. Leave neither it nor its
   # dirs behind for a later `git add -A`.
@@ -543,5 +559,132 @@ if [ "${ws_status}" != "101" ]; then
 fi
 rm -f "${ws_headers}" "${BODY:-}"
 log "the first-run user journey works through nginx: login, forced change, board create, WebSocket 101"
+
+# ---- 9. backup, wipe, fresh install, restore (#2626, #1464) ---------------
+# The documented operator path end to end: scripts/backup.sh in host mode (it
+# streams both archives out of the containers, so it needs no bind mount and
+# works against CI's dind daemon), then scripts/restore.sh into a brand-new
+# install. COMPOSE_PROJECT_NAME (exported above) is inherited by both scripts,
+# so they act on this drill's stack and nothing else.
+wait_ready_through_nginx() { # wait_ready_through_nginx <label>
+  local deadline
+  deadline=$(( $(date +%s) + READY_TIMEOUT ))
+  until "${CURL[@]}" "${BASE_URL}/api/health/readiness/" 2>/dev/null | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'; do
+    [ "$(date +%s)" -lt "${deadline}" ] || fail "/api/health/readiness/ not ok within ${READY_TIMEOUT}s ($1)"
+    sleep 3
+  done
+}
+
+if [ "${TLS_MODE}" = "none" ]; then
+  # Same probe the upgrade drills pipe into the backend; the password is
+  # prepended on stdin, never argv or env.
+  probe() {
+    { printf 'DRILL_HOST = "%s"\nDRILL_PASSWORD = "%s"\n' "${PROBE_HOST}" "${new_password}"
+      cat scripts/upgrade-drill-probe.py; } \
+      | compose exec -T backend python - "$1"
+  }
+
+  log "BACKUP: seeding boards, cards, movements, a user and an attachment"
+  compose exec -T backend python manage.py seed_demo_data --wipe --force >/dev/null
+  probe create-user >/dev/null
+  probe seed-attachment >/dev/null
+  before_counts="$(probe counts | grep '^COUNTS ')"
+  before_files="$(probe attachments | grep '^ATTACHMENTS ')"
+  case "${before_counts} ${before_files}" in
+    *"boards=0 "*|*"cards=0 "*|*"movements=0 "*|*"count=0 "*)
+      fail "the seed produced an empty dataset (${before_counts}; ${before_files}) — the restore drill would prove nothing" ;;
+  esac
+  log "seeded: ${before_counts}; ${before_files}"
+
+  BACKUP_DRILL_DIR="$(mktemp -d)"
+  log "BACKUP: scripts/backup.sh (host mode)"
+  bash scripts/backup.sh --compose-file "${PROD_COMPOSE_FILE}" --output-dir "${BACKUP_DRILL_DIR}" --retention-days 0
+  backup_set="$(find "${BACKUP_DRILL_DIR}" -mindepth 1 -maxdepth 1 -type d -name 'visiban-*' | head -1)"
+  [ -n "${backup_set}" ] || fail "scripts/backup.sh exited 0 but wrote no visiban-* set in ${BACKUP_DRILL_DIR}"
+  for f in database.sql.gz media.tar.gz SHA256SUMS MANIFEST; do
+    [ -s "${backup_set}/${f}" ] || fail "the backup set lacks ${f}"
+  done
+  # grep -c, not -q: -q exits on the first match and SIGPIPEs tar under pipefail.
+  tar -tzf "${backup_set}/media.tar.gz" | grep -c 'backup-drill' > /dev/null \
+    || fail "media.tar.gz does not contain the seeded attachment"
+
+  # The Compose `backup` service is the scheduled path, and container mode is
+  # what the Helm CronJob runs: prove it against this real PostgreSQL too, as
+  # a one-shot (arguments replace the service's --daily-at command). It
+  # bind-mounts ./scripts/backup.sh and BACKUP_DIR, whose source paths resolve
+  # on the daemon (see the dind caveat above): put the script there, and read
+  # the set back through a helper container, the way sync_checkout_to_daemon
+  # writes nginx/.
+  log "BACKUP: the Compose backup service once (container mode, the scheduler's and the Helm CronJob's path)"
+  container_backup_dir="${PWD}/.backup-drill-container"
+  if ! daemon_shares_checkout; then
+    tar -C "$PWD" -cf - scripts/backup.sh \
+      | docker run --rm -i -v /:/host alpine:3 sh -c "mkdir -p '/host${PWD}' && tar -C '/host${PWD}' -xf -" \
+      >/dev/null
+  fi
+  BACKUP_DIR="${container_backup_dir}" compose --profile backup run --rm --no-deps -T backup --retention-days 0
+  container_set_parent="$(mktemp -d)"
+  docker run --rm -v /:/host:ro alpine:3 tar -C "/host${container_backup_dir}" -cf - . \
+    | tar -C "${container_set_parent}" -xf -
+  docker run --rm -v /:/host alpine:3 rm -rf "/host${container_backup_dir}"
+  container_set="$(find "${container_set_parent}" -mindepth 1 -maxdepth 1 -type d -name 'visiban-*' | head -1)"
+  [ -n "${container_set}" ] || fail "the Compose backup service exited 0 but wrote no visiban-* set"
+  for f in database.sql.gz media.tar.gz SHA256SUMS MANIFEST; do
+    [ -s "${container_set}/${f}" ] || fail "the Compose backup service's set lacks ${f}"
+  done
+  grep -qx 'mode=container' "${container_set}/MANIFEST" \
+    || fail "the Compose backup service's set is not a container-mode set: $(cat "${container_set}/MANIFEST")"
+  tar -tzf "${container_set}/media.tar.gz" | grep -c 'backup-drill' > /dev/null \
+    || fail "the Compose backup service's media.tar.gz does not contain the seeded attachment"
+
+  log "NEGATIVE: scripts/restore.sh refuses a truncated dump before touching anything"
+  truncated_set="${BACKUP_DRILL_DIR}/truncated"
+  mkdir -p "${truncated_set}"
+  # `|| true`: head closing the pipe early SIGPIPEs gzip, which pipefail reports.
+  { gzip -dc "${backup_set}/database.sql.gz" || true; } | head -n 50 | gzip -c > "${truncated_set}/database.sql.gz"
+  cp "${backup_set}/media.tar.gz" "${truncated_set}/"
+  (cd "${truncated_set}" && sha256sum database.sql.gz media.tar.gz > SHA256SUMS)
+  if bash scripts/restore.sh --compose-file "${PROD_COMPOSE_FILE}" --yes "${truncated_set}" > /dev/null 2>&1; then
+    fail "scripts/restore.sh accepted a truncated dump"
+  fi
+  [ "$(probe counts | grep '^COUNTS ')" = "${before_counts}" ] \
+    || fail "a refused restore changed the database"
+
+  log "RESTORE: destroying every volume and booting a FRESH install"
+  compose down -v --remove-orphans >/dev/null
+  sync_checkout_to_daemon
+  bash init-prod.sh
+  compose stop nginx >/dev/null 2>&1 || true
+  sync_checkout_to_daemon
+  assert_template_on_daemon
+  compose up -d --no-deps --force-recreate nginx
+  wait_ready_through_nginx "fresh install before restore"
+  fresh_counts="$(probe counts | grep '^COUNTS ')"
+  [ "${fresh_counts}" != "${before_counts}" ] \
+    || fail "the 'fresh' install already holds the seeded data (${fresh_counts}) — the volumes were not destroyed, so a restore would prove nothing"
+
+  assert_restored() { # assert_restored <label>
+    wait_ready_through_nginx "after restore ($1)"
+    after_counts="$(probe counts | grep '^COUNTS ')"
+    after_files="$(probe attachments | grep '^ATTACHMENTS ' || true)"
+    [ "${after_counts}" = "${before_counts}" ] \
+      || fail "$1: boards/cards/movements/users did not survive backup and restore: before '${before_counts}', after '${after_counts}'"
+    [ "${after_files}" = "${before_files}" ] \
+      || fail "$1: attachments did not survive backup and restore (rows or file bytes): before '${before_files}', after '${after_files:-probe failed — a row whose file is missing}'"
+    probe login >/dev/null || fail "$1: the user seeded before the backup cannot log in after the restore"
+    log "backup and restore round-trip ($1): ${after_counts}; ${after_files}; seeded user logs in"
+  }
+
+  # The container-mode set first, into the empty install, so the counts it
+  # must reproduce cannot already be there; then the host-mode set over it.
+  # restore.sh drops the schema in the same transaction, so the second restore
+  # proves its own set too.
+  log "RESTORE: scripts/restore.sh with the Compose backup service's set into the fresh install"
+  bash scripts/restore.sh --compose-file "${PROD_COMPOSE_FILE}" --yes "${container_set}"
+  assert_restored "container-mode set"
+  log "RESTORE: scripts/restore.sh with the host-mode set"
+  bash scripts/restore.sh --compose-file "${PROD_COMPOSE_FILE}" --yes "${backup_set}"
+  assert_restored "host-mode set"
+fi
 
 log "prod compose drill passed (TLS_MODE=${TLS_MODE})"

@@ -21,6 +21,10 @@
 #   counts       print `COUNTS boards=N cards=N movements=N users=N`
 #   health       GET /api/health/readiness/ must report status ok
 #   login        POST /api/v1/auth/login/ as the drill user must return 200
+#   seed-attachment  attach a fixed file to the first card (backup drill, #2626)
+#   attachments  print `ATTACHMENTS count=N sha256=<digest>`: every attachment
+#                row's file READ BACK through Django's storage, so a restored
+#                row whose file did not come back fails, not just a count
 import json
 import os
 import sys
@@ -83,6 +87,35 @@ def main():
             "users": get_user_model().objects.count(),
         }
         print("COUNTS " + " ".join(f"{k}={v}" for k, v in counts.items()))
+    elif mode == "seed-attachment":
+        _django()
+        from django.apps import apps
+        from django.core.files.base import ContentFile
+
+        card = apps.get_model("boards", "Card").objects.order_by("pk").first()
+        if card is None:
+            print("no card to attach to; seed first", file=sys.stderr)
+            sys.exit(1)
+        payload = b"Visiban backup drill attachment (#2626)\n"
+        attachment = apps.get_model("boards", "CardAttachment")(
+            card=card, filename="backup-drill.txt", size=len(payload)
+        )
+        attachment.file.save("backup-drill.txt", ContentFile(payload), save=True)
+        print(f"ATTACHMENT ok {attachment.file.name}")
+    elif mode == "attachments":
+        _django()
+        import hashlib
+
+        from django.apps import apps
+
+        digest = hashlib.sha256()
+        rows = apps.get_model("boards", "CardAttachment").objects.order_by("pk")
+        count = 0
+        for row in rows:
+            with row.file.open("rb") as handle:
+                digest.update(row.file.name.encode() + b"\0" + hashlib.sha256(handle.read()).digest())
+            count += 1
+        print(f"ATTACHMENTS count={count} sha256={digest.hexdigest()}")
     elif mode == "health":
         status, body = _request("GET", "/api/health/readiness/")
         ok = status == 200 and json.loads(body or "{}").get("status") == "ok"

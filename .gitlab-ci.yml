@@ -576,6 +576,9 @@ lint-selftests-alpine:
     - changes:
         - docker-compose*.yml
         - scripts/check-compose-*.sh
+        - scripts/backup.sh
+        - scripts/restore.sh
+        - scripts/tests/backup-restore.test.sh
         - nginx/app.conf.template
         - nginx/app-http.conf.template
         - init-prod.sh
@@ -654,6 +657,10 @@ lint-selftests-alpine:
         bash scripts/check-compose-image-pins.sh
         bash scripts/check-compose-project-names.sh --self-test
         bash scripts/check-compose-project-names.sh
+        # Backup/restore failure handling (#2626): failed, empty, truncated
+        # dumps exit non-zero and keep nothing; retention; restore refusals.
+        apk add --no-cache gzip tar coreutils findutils >/dev/null 2>&1 || true
+        bash scripts/tests/backup-restore.test.sh
         bash scripts/render-nginx-hsts.sh --self-test
         bash scripts/render-nginx-hsts.sh --check nginx/app.conf.template
         # SPA cache policy (#1633): a missing /assets/* must 404, never fall back to index.html.
@@ -2839,6 +2846,9 @@ oidc-smoke:
         - scripts/helm-netpol-drill.sh
         - nginx/app.conf.template
         - nginx/app-http.conf.template
+        # Section 22 (#1464): the chart's backup engine must equal scripts/.
+        - scripts/backup.sh
+        - scripts/restore.sh
         - frontend/nginx.default.conf
         - frontend/Dockerfile
         - frontend/Dockerfile.prod
@@ -2852,6 +2862,9 @@ oidc-smoke:
         - scripts/helm-netpol-drill.sh
         - nginx/app.conf.template
         - nginx/app-http.conf.template
+        # Section 22 (#1464): the chart's backup engine must equal scripts/.
+        - scripts/backup.sh
+        - scripts/restore.sh
         - frontend/nginx.default.conf
         - frontend/Dockerfile
         - frontend/Dockerfile.prod
@@ -3324,6 +3337,10 @@ compose-prod-drill:
         - nginx/**/*
         - scripts/prod-compose-drill.sh
         - scripts/drill-image.sh
+        # Step 9 (#2626): the backup/restore round-trip.
+        - scripts/backup.sh
+        - scripts/restore.sh
+        - scripts/upgrade-drill-probe.py
         - .gitlab-ci.yml
         # What step 8 (#1364) exercises: login/CSRF/origin handling and the WS gate.
         - backend/accounts/**/*
