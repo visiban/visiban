@@ -4189,8 +4189,10 @@ CARD_CHILDREN_ROLLUP_CONTEXT_KEY = "card_children_rollups"
         "the card list and retrieve; absent from write responses, every event payload, "
         "feed row and webhook, and share links. `visible: false` when the caller cannot "
         "open the child board: then only `total` is sent. States partition `total`: "
-        "blocked overrides the column, then done (`is_done` column), to do (first "
-        "column), else doing. Archived children are not counted. Refetch on "
+        "blocked overrides the column, then done (`is_done` column), then planned "
+        "(Needed set and not released; optional `planned`, `planned_due_dates`, "
+        "`needed_not_started`), then to do (first column), else doing. A planned child "
+        "is not to do and its moves do not feed `last_moved_at`. Archived children are not counted. Refetch on "
         "`card.children_changed` or `card.children_bulk_changed` (#2500)."
     ),
     "oneOf": [
@@ -4204,6 +4206,16 @@ CARD_CHILDREN_ROLLUP_CONTEXT_KEY = "card_children_rollups"
                 "todo": {"type": "integer"},
                 "blocked": {"type": "integer"},
                 "last_moved_at": {"type": "string", "format": "date-time", "nullable": True},
+                # Optional: ChildrenViewRowSerializer reuses this schema and its rows do not carry them.
+                "planned": {"type": "integer"},
+                "planned_due_dates": {"type": "array", "items": {"type": "string", "format": "date"}},
+                "needed_not_started": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"column_name": {"type": "string"}, "count": {"type": "integer"}},
+                    },
+                },
             },
             "required": ["visible", "total", "done", "doing", "todo", "blocked", "last_moved_at"],
         },

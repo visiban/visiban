@@ -1449,7 +1449,8 @@ On a board with `cards_can_have_children`, each card carries `children_rollup`
 The states partition `total`: a child that is blocked (a manual block or an
 open `blocks` relation, the same rule as `is_blocked`) counts as `blocked`
 whatever its column; otherwise `done` when its column has `is_done`, `todo`
-when it is in the child board's first column, else `doing`. Archived children
+when it is in the child board's first column, else `doing` (a planned child is
+its own bucket, below). Archived children
 are not counted. `last_moved_at` is the latest movement of any counted child,
 or `null`. A card with no children reads `total: 0`.
 

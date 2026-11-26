@@ -142,7 +142,7 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
         raise NotFound()
     rows = card_links.rollup_link_rows(
         CardParentLink.objects.filter(parent__board_id=board.pk, parent__archived_at__isnull=True),
-        "parent__swimlane_id",
+        "parent__swimlane_id", "needed_at_column_id", "planned_released_at",
     )
     board_of = card_links.first_link_boards(rows)
     child_boards = card_links.rollup_child_boards(set(board_of.values())) if board_of else []
@@ -151,7 +151,7 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
     roles = {} if absent or not child_boards else get_board_roles(user, child_boards)
 
     entries = {}
-    for parent_id, child_board_id, blocked_at, has_blocker, is_done, position, moved, lane in rows:
+    for parent_id, child_board_id, blocked_at, has_blocker, is_done, position, moved, lane, needed_col, released in rows:
         if board_of[parent_id] != child_board_id:
             continue
         e = entries.get(parent_id)
@@ -161,7 +161,11 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
                 "total": 0, "done": 0, "doing": 0, "todo": 0, "blocked": 0, "last_moved_at": None,
             }
         e["total"] += 1
-        e[card_links.rollup_state(blocked_at, has_blocker, is_done, position, first_position.get(child_board_id))] += 1
+        state = card_links.rollup_state(blocked_at, has_blocker, is_done, position, first_position.get(child_board_id))
+        if card_links.is_planned_state(state, needed_col, released):
+            # Same rule as the card's children_rollup: a planned child is neither to do nor a recent move.
+            continue
+        e[state] += 1
         if moved is not None and (e["last_moved_at"] is None or moved > e["last_moved_at"]):
             e["last_moved_at"] = moved
 

@@ -2926,8 +2926,10 @@ The example lists one of row 40's four not-done children, for brevity.
 - **States.** The same partition as a card's
   [`children_rollup`](cards.md#parent-and-children-since-13): blocked (a
   manual block or an open blocking relation, in any column) overrides the
-  column, then done (a done column), to do (the child board's first column),
-  else doing. "In progress" is everything but done. Archived parents and
+  column, then done (a done column), then planned (Needed set and not
+  released), then to do (the child board's first column), else doing. A
+  planned child is counted in `total` but not in `todo`, and its moves do not
+  set `last_moved_at`; the row rollup does not carry the `planned` keys. "In progress" is everything but done. Archived parents and
   children are not counted.
 - **Children you can't open.** A parent whose child board you can't open is a
   locked row: `rollup` is `{"visible": false, "total"}`, `in_progress` and

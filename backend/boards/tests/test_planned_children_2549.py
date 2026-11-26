@@ -116,6 +116,12 @@ class PlannedRollupTests(PlannedFixture):
         r = self.rollup(self.maya)
         self.assertEqual((r["blocked"], r["planned"]), (1, 0))
 
+    def test_a_done_planned_child_counts_as_done_not_planned(self):
+        child = self.planned_child()
+        Card.objects.filter(pk=child.pk).update(column=self.done)
+        r = self.rollup(self.maya)
+        self.assertEqual((r["done"], r["planned"], r["todo"]), (1, 0, 0))
+
     def test_hidden_child_board_gets_the_count_only(self):
         self.planned_child(due=datetime.date(2026, 12, 4))
         outsider = self.member("out", parent=Role.MEMBER)

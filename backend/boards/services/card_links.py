@@ -1839,6 +1839,15 @@ _PLANNED_ROLLUP_EXTRA = (
 )
 
 
+def is_planned_state(state, needed_col, released):
+    """True when a child counts as planned: Needed set, not released, and not blocked or done.
+
+    The ONE rule Children mode and the card's children_rollup share (#2551): blocked and done beat planned,
+    planned beats to do, so a planned child leaves ``todo`` and never feeds ``last_moved_at``.
+    """
+    return needed_col is not None and released is None and state not in ("blocked", "done")
+
+
 def rollup_link_rows(links, *extra):
     """The per-live-link rows every parent-side rollup is computed from (#2210, #2370).
 
@@ -1981,7 +1990,7 @@ def rollups_for_viewer(parent_ids, user):
         r = out[parent_id]
         r["total"] += 1
         state = rollup_state(blocked_at, has_blocker, is_done, position, first_position.get(child_board_id))
-        if needed_col is not None and released is None and state not in ("blocked", "done"):
+        if is_planned_state(state, needed_col, released):
             r["planned"] += 1
             if due is not None:
                 r["planned_due_dates"].append(due)

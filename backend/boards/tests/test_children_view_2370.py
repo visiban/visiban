@@ -119,16 +119,33 @@ class ChildrenViewReadTests(_ViewFixture, TestCase):
             self.assertEqual(lane["hidden"], sum(r["rollup"]["total"] for r in rows if not r["rollup"]["visible"]))
             self.assertEqual(lane["in_progress"], sum(r["in_progress"] for r in rows if r["in_progress"] is not None))
 
+    def _planned_parent(self):
+        """A parent with a planned to-do child (recently moved), a blocked planned child and a done planned child."""
+        later = _make_column(self.pboard, name="Later", order=9)
+        parent = _make_card(self.parent.column, self.lane_p, title="planned parent")
+        plain = _make_card(self.todo.column, self.lane_c, title="planned plain")
+        blocked = _make_card(self.todo.column, self.lane_c, title="planned blocked", blocked_at=timezone.now())
+        done = _make_card(self.col_done, self.lane_c, title="planned done")
+        for kid in (plain, blocked, done):
+            CardParentLink.objects.create(parent=parent, child=kid, created_by=self.owner, needed_at_column=later)
+        _move_ago(plain, self.cboard, plain.column, self.owner, timedelta(hours=1))
+        return parent
+
     def test_row_rollup_equals_the_cards_children_rollup(self):
+        # Includes planned children: Children mode and the card footer must partition them identically
+        # (blocked and done beat planned; planned leaves todo and last_moved_at).
+        planned = self._planned_parent()
         body = self._view(self.viewer)
         full = self._cards(self.viewer)
         for row in body["rows"]:
             self.assertEqual(set(row), ROW_KEYS)
-            # The #2551 planned keys (planned, planned_due_dates, needed_not_started)
-            # are on the card rollup only until Children mode counts planned
-            # children itself (#2370); the #2210 keys must agree.
+            # Row rollups carry the #2210 keys only; the card's #2551 planned keys are additive extras.
             card = {k: v for k, v in full[row["id"]]["children_rollup"].items() if k in row["rollup"]}
             self.assertEqual(row["rollup"], card)
+        row = next(r for r in body["rows"] if r["id"] == planned.pk)["rollup"]
+        self.assertEqual((row["total"], row["todo"], row["blocked"], row["done"]), (3, 0, 1, 1))
+        self.assertIsNone(row["last_moved_at"])
+        self.assertEqual(full[planned.pk]["children_rollup"]["planned"], 1)
 
     def test_rows_order_blocked_first_then_most_recent_move_folded_last(self):
         # Unblocked parents, created oldest-first: A's child moved 1 day ago, B's
