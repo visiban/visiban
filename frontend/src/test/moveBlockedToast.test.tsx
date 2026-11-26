@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { ToastProvider } from '../contexts/ToastContext'
 import userEvent from '@testing-library/user-event'
 import MoveBlockedToast from '../components/Board/MoveBlockedToast'
 import { ADMIN_OVERRIDE, NO_OVERRIDE } from '../utils/forceOverride'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 // The toast renders in the shared region (#2060), so tests mount the provider
@@ -198,6 +199,82 @@ const hardBlockError: MoveBlockedError = {
   current_count: 3,
   wip_limit: 3,
 }
+
+describe('MoveBlockedToast — reason dialog focus (#2631)', () => {
+  it('hands focus to the moved card in the commit that closes the dialog, not a frame later', async () => {
+    const user = userEvent.setup()
+    const onForce = vi.fn().mockResolvedValue({ ok: true })
+    renderToast(
+      <>
+        <button data-card-id="42">Card</button>
+        <MoveBlockedToast error={wipError} eligibility={{ kind: 'assignee' }} cardId={42} onForce={onForce} onDismiss={vi.fn()} />
+      </>
+    )
+    await user.click(toast().getByText(/Move anyway/))
+    await user.type(await screen.findByLabelText('Reason (required)'), 'Ship it')
+    await user.click(screen.getByRole('button', { name: 'Move anyway' }))
+    await waitFor(() => expect(onForce).toHaveBeenCalledWith('Ship it'))
+    expect(screen.getByRole('button', { name: 'Card' })).toHaveFocus()
+  })
+
+  const submitReason = async (user: ReturnType<typeof userEvent.setup>, onForce: ReturnType<typeof vi.fn>) => {
+    await user.click(toast().getByText(/Move anyway/))
+    await user.type(await screen.findByLabelText('Reason (required)'), 'Ship it')
+    await user.click(screen.getByRole('button', { name: 'Move anyway' }))
+    await waitFor(() => expect(onForce).toHaveBeenCalledWith('Ship it'))
+  }
+
+  it('focuses the moved card when it mounts after the dialog closed and the toast is still mounted', async () => {
+    const user = userEvent.setup()
+    const onForce = vi.fn().mockResolvedValue({ ok: true })
+    const { unmount } = renderToast(
+      <MoveBlockedToast error={wipError} eligibility={{ kind: 'assignee' }} cardId={42} onForce={onForce} onDismiss={vi.fn()} />
+    )
+    await submitReason(user, onForce)
+    const card = document.createElement('button')
+    card.setAttribute('data-card-id', '42')
+    card.textContent = 'Late card'
+    // A success dismisses the toast, which drops its link, so focus is lost to body before the card lands.
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await act(async () => { document.body.appendChild(card) })
+    await waitFor(() => expect(card).toHaveFocus())
+    unmount()
+    card.remove()
+  })
+
+  // Models App.tsx: the toast renders only while `moveError` is set, and `runForcedMove` clears the error before it
+  // resolves, so the success that closes the dialog unmounts the toast in the same batch (#2631).
+  function Host({ cardMounts }: { cardMounts: 'already' | 'with-move' }) {
+    const [err, setErr] = useState<MoveBlockedError | null>(wipError)
+    const [moved, setMoved] = useState(false)
+    const onForce = async () => {
+      await Promise.resolve()
+      setMoved(true)
+      setErr(null)
+      return { ok: true }
+    }
+    return (
+      <>
+        {(cardMounts === 'already' || moved) && <button data-card-id="42">Moved card</button>}
+        {err && <MoveBlockedToast error={err} eligibility={{ kind: 'assignee' }} cardId={42} onForce={onForce} onDismiss={vi.fn()} />}
+      </>
+    )
+  }
+
+  for (const cardMounts of ['already', 'with-move'] as const) {
+    it(`focuses the moved card when a success unmounts the toast with the move (card ${cardMounts})`, async () => {
+      const user = userEvent.setup()
+      render(wrap(<Host cardMounts={cardMounts} />))
+      await user.click(toast().getByText(/Move anyway/))
+      await user.type(await screen.findByLabelText('Reason (required)'), 'Ship it')
+      await user.click(screen.getByRole('button', { name: 'Move anyway' }))
+      await waitFor(() => expect(screen.queryByTestId('move-blocked-toast')).toBeNull())
+      expect(screen.queryByLabelText('Reason (required)')).toBeNull()
+      await act(async () => { await Promise.resolve() })
+      expect(screen.getByRole('button', { name: 'Moved card' })).toHaveFocus()
+    })
+  }
+})
 
 describe('MoveBlockedToast — hard-block variant', () => {
   it('renders ⛔ icon (not ⚠) for hard-blocked moves', () => {

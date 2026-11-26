@@ -335,6 +335,31 @@ describe('Add child from the Children tab (#2208, #2209)', () => {
   })
 })
 
+describe('Add child focus after the list fills (#2627)', () => {
+  it('keeps focus on the remounted Add child button when the first child lands', async () => {
+    vi.mocked(getChildBoardOptions).mockResolvedValue({
+      fixed_board: null, default: null, can_set_default: false,
+      boards: [{ id: 7, name: 'Delivery', can_set_default: false }],
+    })
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    const user = userEvent.setup()
+    const empty = { count: 0, visible: true, offset: 0, limit: 50, results: [] }
+    let rerenderTab: (s: ChildrenState) => void = () => {}
+    // The re-read answers after the dialog's own microtask focus, as a network read does.
+    const reload = vi.fn(() => { setTimeout(() => act(() => rerenderTab(state({ data: read(kids), reload }))), 20) })
+    const view = renderTab(state({ data: empty, reload }))
+    rerenderTab = (s) => view.rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="Initech: security review" state={s} onExitToTabs={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Add child' }))
+    await user.click(await screen.findByRole('combobox', { name: /Child board/ }))
+    await user.click(await screen.findByRole('option', { name: 'Delivery' }))
+    await user.type(screen.getByLabelText('Title'), 'Task')
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    await waitFor(() => expect(reload).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByTestId('children-empty')).toBeNull())
+    expect(screen.getByRole('button', { name: 'Add child' })).toHaveFocus()
+  })
+})
+
 describe('Link existing (#2209)', () => {
   const candidate = (over: Partial<ChildCandidate>): ChildCandidate => ({
     id: 20, title: 'Loose task', column_id: 100, column_name: 'To do', swimlane_id: 50, swimlane_name: 'Lane',

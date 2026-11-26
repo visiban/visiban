@@ -665,13 +665,13 @@ test.describe('phone reorder from the card detail panel (#2359)', () => {
     const earlier = reorder.getByRole('button', { name: 'Move earlier' })
     const later = reorder.getByRole('button', { name: 'Move later' })
     // The last card in its cell can only step earlier; both targets are 44px.
-    await expect(later).toBeDisabled()
+    await expect(later).toHaveAttribute('aria-disabled', 'true')
     expect((await earlier.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
     await earlier.tap()
     await expect.poll(() => moved).not.toBeNull()
     expect(moved).toMatchObject({ column_id: CARD.column, swimlane_id: CARD.swimlane, position: CARD.position })
-    await expect(earlier).toBeDisabled()
-    await expect(later).toBeEnabled()
+    await expect(earlier).toHaveAttribute('aria-disabled', 'true')
+    await expect(later).not.toHaveAttribute('aria-disabled')
   })
   test('the detail panel Move button and its popover are 44px (#2359)', async ({ page }) => {
     await routeAuth(page)

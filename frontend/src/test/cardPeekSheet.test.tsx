@@ -557,7 +557,8 @@ describe('CardPeekSheet', () => {
       // Cancel closes only the reason box.
       await userEvent.click(screen.getAllByRole('button', { name: 'Cancel' })[0])
       expect(screen.queryByLabelText('Reason (required)')).not.toBeInTheDocument()
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Move anyway (assignee override)' })).toHaveFocus())
+      // A layout effect, so focus is there as soon as the click resolves (#2631).
+      expect(screen.getByRole('button', { name: 'Move anyway (assignee override)' })).toHaveFocus()
       await userEvent.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
       await userEvent.type(screen.getByLabelText('Reason (required)'), 'Ship it')
       await userEvent.click(screen.getByRole('button', { name: 'Move anyway' }))
