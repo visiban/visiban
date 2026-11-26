@@ -2861,7 +2861,7 @@ cards cannot have children answers `400` with `code: "children_not_enabled"`.
 Not available on [share links](#public-share-endpoint), which carry none of
 this.
 
-`in_progress` (on a row, a lane and `board_total`) is `todo + doing + blocked`: children planned for a later parent column (#2551) are neither to do nor in progress, so a parent with only planned work has `in_progress` `0` and is `folded`. Lane and `board_total` values are the sums of the visible rows. No field is added or removed; only the value changes for a row with planned children.
+`in_progress` (on a row, a lane and `board_total`) is `todo + doing + blocked`: children planned for a later parent column (#2551) are neither to do nor in progress, so a parent with only planned work has `in_progress` `0` and is `folded`. Planned children are counted on their own in `planned` (since 1.3, #2370), and `planned_only` marks the folded parents whose remaining open work is all planned. Lane and `board_total` values are the sums of the visible rows.
 
 **Query parameters** (all optional)
 
@@ -2874,26 +2874,31 @@ this.
 A malformed `lane`, `cursor` or `done` is `400` with `code: "invalid_query_param"`.
 
 ```json
-{"board_total": {"in_progress": 4, "total": 5, "blocked": 2, "hidden": 4},
+{"board_total": {"in_progress": 4, "total": 5, "blocked": 2, "hidden": 4,
+                 "planned": 0},
  "lanes": [{"id": 3, "name": "Acme Corp", "position": 0, "parents": 2,
             "child_boards": 1, "total": 5, "in_progress": 4, "done": 1,
             "doing": 1, "todo": 1, "blocked": 2, "hidden": 4, "folded": 0,
+            "planned": 0, "planned_only": 0,
             "last_moved_at": "2026-11-20T10:00:00Z"}],
  "rows": [{"id": 40, "title": "Analytics module", "swimlane_id": 3,
            "column_id": 9, "column_name": "Proposal", "assignee": null,
            "rollup": {"visible": true, "total": 5, "done": 1, "doing": 1,
                       "todo": 1, "blocked": 2,
                       "last_moved_at": "2026-11-20T10:00:00Z"},
-           "in_progress": 4, "folded": false, "child_board_id": 7,
+           "in_progress": 4, "folded": false, "planned": 0,
+           "planned_only": false, "child_board_id": 7,
            "children": [{"id": 51, "title": "Pen-test scoping call",
                          "column_id": 30, "swimlane_id": 12, "position": 3,
                          "state": "blocked", "assignee": null,
                          "blocked": true,
-                         "blocked_at": "2026-11-14T09:00:00Z"}]},
+                         "blocked_at": "2026-11-14T09:00:00Z",
+                         "planned": false}]},
           {"id": 41, "title": "Data migration", "swimlane_id": 3,
            "column_id": 9, "column_name": "Proposal", "assignee": null,
            "rollup": {"visible": false, "total": 4},
-           "in_progress": null, "folded": false, "child_board_id": null,
+           "in_progress": null, "folded": false, "planned": null,
+           "planned_only": false, "child_board_id": null,
            "children": []}],
  "child_boards": [{"id": 7, "name": "Delivery", "role": "member",
                    "enforce_wip_limits": false, "enforce_wip_hard": false,
@@ -2907,10 +2912,10 @@ The example lists one of row 40's four not-done children, for brevity.
 
 | Field | Meaning |
 |---|---|
-| `board_total` | `in_progress`, `total`, `blocked` and `hidden` summed over every lane. |
-| `lanes[]` | Every lane of the board, in lane order: `id`, `name`, `position`; `parents` (parent rows, locked rows included); `child_boards` (distinct child boards you can open); `total` (live children you can open); `in_progress` (`total` minus `done`); `done`, `doing`, `todo`, `blocked`; `hidden` (live children on boards you can't open); `folded` (parents you can open with nothing in progress); `last_moved_at` (the most recent move of any child you can open under the lane, `null` when none; a hidden child's move never changes it). |
-| `rows[]` | `id`, `title`, `swimlane_id`, `column_id`, `column_name` (the parent's own), `assignee` (or `null`), `rollup` (the card's `children_rollup` shape), `in_progress` (`null` on a locked row), `folded` (always `false` on a locked row), `child_board_id` (`null` on a locked row), `children[]`. |
-| `rows[].children[]` | `id`, `title`, `column_id`, `swimlane_id`, `position`, `state` (`todo`, `doing`, `blocked` or `done`), `assignee` (or `null`), `blocked`, `blocked_at` (the manual block's start, else `null`). Not-done children, plus done ones with `done=true`, ordered by column then position. |
+| `board_total` | `in_progress`, `total`, `blocked`, `hidden` and `planned` summed over every lane. |
+| `lanes[]` | Every lane of the board, in lane order: `id`, `name`, `position`; `parents` (parent rows, locked rows included); `child_boards` (distinct child boards you can open); `total` (live children you can open); `in_progress` (`todo + doing + blocked`); `done`, `doing`, `todo`, `blocked`; `hidden` (live children on boards you can't open); `folded` (parents you can open with nothing in progress); `planned` (children planned for a later parent stage, #2371: a bucket of its own, so `total` is `done + doing + todo + blocked + planned` and `planned` is never in `in_progress`); `planned_only` (of `folded`, parents with nothing in progress and at least one planned child); `last_moved_at` (the most recent move of any child you can open under the lane, `null` when none; a hidden child's move never changes it). |
+| `rows[]` | `id`, `title`, `swimlane_id`, `column_id`, `column_name` (the parent's own), `assignee` (or `null`), `rollup` (the card's `children_rollup` shape), `in_progress` (`null` on a locked row), `folded` (always `false` on a locked row), `planned` (planned children, never in `in_progress`; `null` on a locked row), `planned_only` (nothing in progress and at least one planned child, so also `folded`; always `false` on a locked row), `child_board_id` (`null` on a locked row), `children[]`. |
+| `rows[].children[]` | `id`, `title`, `column_id`, `swimlane_id`, `position`, `state` (`todo`, `doing`, `blocked` or `done`), `assignee` (or `null`), `blocked`, `blocked_at` (the manual block's start, else `null`), `planned` (planned for a later parent stage; never `true` for a done or blocked child, which beat planned; `state` is still the column state, `todo` or `doing`). Not-done children, plus done ones with `done=true`, ordered by column then position. |
 | `child_boards[]` | `id`, `name`, `role` (your role there: `admin`, `member`, `collaborator`, `viewer` or `site_admin`), `enforce_wip_limits`, `enforce_wip_hard`, `columns[]` (`id`, `name`, `color`, `wip_limit` or `null`, `is_done`, `card_count`). |
 | `next_cursor` | Opaque: send it back as `cursor` for the next page; `null` on the last page. Don't parse it; its format may change. |
 
@@ -2925,7 +2930,8 @@ The example lists one of row 40's four not-done children, for brevity.
 
 - **Rows.** One per live parent card with at least one live child, 20 per
   page. Rows with blocked children come first, then the most recent child
-  move; parents with nothing in progress (`folded`) come last in their lane.
+  move; parents with nothing in progress (`folded`, which includes the
+  parents with only planned work, `planned_only`) come last in their lane.
   Without `lane`, rows run lane by lane, in lane order.
 - **States.** The same partition as a card's
   [`children_rollup`](cards.md#parent-and-children-since-13): blocked (a
@@ -2933,7 +2939,8 @@ The example lists one of row 40's four not-done children, for brevity.
   column, then done (a done column), then planned (Needed set and not
   released), then to do (the child board's first column), else doing. A
   planned child is counted in `total` but not in `todo`, and its moves do not
-  set `last_moved_at`; the row rollup does not carry the `planned` keys. "In progress" is everything but done. Archived parents and
+  set `last_moved_at`; the row rollup does not carry the `planned` keys (the
+  row's own `planned` does). "In progress" is to do, doing and blocked. Archived parents and
   children are not counted.
 - **Children you can't open.** A parent whose child board you can't open is a
   locked row: `rollup` is `{"visible": false, "total"}`, `in_progress` and

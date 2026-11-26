@@ -30,10 +30,11 @@ from boards.tests.test_move_schema_contract import _openapi3_nullable_to_jsonsch
 LANE_KEYS = {
     "id", "name", "position", "parents", "child_boards", "total", "in_progress",
     "done", "doing", "todo", "blocked", "hidden", "folded", "last_moved_at",
+    "planned", "planned_only",
 }
 ROW_KEYS = {
     "id", "title", "swimlane_id", "column_id", "column_name", "assignee", "rollup",
-    "in_progress", "folded", "child_board_id", "children",
+    "in_progress", "folded", "planned", "planned_only", "child_board_id", "children",
 }
 STATES = ("done", "doing", "todo", "blocked")
 
@@ -106,7 +107,7 @@ class ChildrenViewReadTests(_ViewFixture, TestCase):
             {"total": 0, "in_progress": 0, "done": 0, "doing": 0, "todo": 0, "blocked": 0,
              "hidden": 2, "parents": 1, "child_boards": 0, "folded": 0},
         )
-        self.assertEqual(body["board_total"], {"in_progress": 4, "total": 6, "blocked": 2, "hidden": 2})
+        self.assertEqual(body["board_total"], {"in_progress": 4, "total": 6, "blocked": 2, "hidden": 2, "planned": 0})
 
     def test_lane_totals_equal_the_sum_of_the_visible_rows(self):
         body = self._view(self.viewer)
@@ -292,7 +293,7 @@ class ChildrenViewReadTests(_ViewFixture, TestCase):
         self._view(self.viewer)
         BoardMembership.objects.filter(board=self.cboard, user=self.viewer).delete()
         body = self._view(self.viewer)
-        self.assertEqual(body["board_total"], {"in_progress": 0, "total": 0, "blocked": 0, "hidden": 8})
+        self.assertEqual(body["board_total"], {"in_progress": 0, "total": 0, "blocked": 0, "hidden": 8, "planned": 0})
         self.assertEqual(body["child_boards"], [])
         self.assertNotIn("SECRET-C", self._get(self.viewer).content.decode())
 
@@ -553,3 +554,77 @@ class ChildrenViewSchemaTests(_ViewFixture, TestCase):
         CardMovement.objects.filter(pk=m.pk).update(moved_at=timezone.now() - timedelta(days=1))
         row = next(r for r in self._view(self.viewer)["rows"] if r["id"] == self.parent.pk)
         self.assertRegex(row["rollup"]["last_moved_at"], r"^\d{4}-\d{2}-\d{2}T")
+
+
+class ChildrenViewPlannedTests(_ViewFixture, TestCase):
+    """Planned sections (#2550): a bucket of their own, never in progress (#2551 owner ruling)."""
+
+    def setUp(self):
+        self._setup_view()
+        self.viewer = self._user("cv_planned", parent_role=Role.VIEWER, child_role=Role.VIEWER)
+        self.later = self.parent.column  # any parent-board column stands in for "Needed at"
+
+    def _plan(self, child):
+        CardParentLink.objects.filter(child=child).update(needed_at_column=self.later)
+
+    def test_planned_is_its_own_bucket_and_flags_the_child(self):
+        before = self._view(self.viewer)
+        acme_before = next(lane for lane in before["lanes"] if lane["id"] == self.lane_p.pk)
+        self._plan(self.todo)
+        self._plan(self.done)  # a done child is never counted planned
+        body = self._view(self.viewer, "?done=true")
+        acme = next(lane for lane in body["lanes"] if lane["id"] == self.lane_p.pk)
+        # The planned child leaves to do and in progress, and stays in total.
+        self.assertEqual(
+            (acme["planned"], acme["planned_only"], acme["in_progress"], acme["todo"], acme["total"]),
+            (1, 0, acme_before["in_progress"] - 1, acme_before["todo"] - 1, acme_before["total"]),
+        )
+        for lane in body["lanes"]:
+            self.assertEqual(lane["total"], sum(lane[k] for k in (*STATES, "planned")))
+            self.assertEqual(lane["in_progress"], lane["todo"] + lane["doing"] + lane["blocked"])
+        row = next(r for r in body["rows"] if r["id"] == self.parent.pk)
+        self.assertEqual((row["planned"], row["planned_only"], row["folded"]), (1, False, False))
+        self.assertEqual(row["in_progress"], row["rollup"]["todo"] + row["rollup"]["doing"] + row["rollup"]["blocked"])
+        flags = {c["id"]: c["planned"] for c in row["children"]}
+        self.assertTrue(flags[self.todo.pk])
+        self.assertFalse(flags[self.done.pk])
+        self.assertFalse(flags[self.doing.pk])
+        self.assertEqual(body["board_total"]["planned"], 1)
+        # The rollup stays the card's children_rollup: planned is not added to it.
+        self.assertNotIn("planned", row["rollup"])
+
+    def test_released_link_is_not_planned(self):
+        CardParentLink.objects.filter(child=self.todo).update(
+            needed_at_column=self.later, planned_released_at=timezone.now(),
+        )
+        body = self._view(self.viewer)
+        row = next(r for r in body["rows"] if r["id"] == self.parent.pk)
+        self.assertEqual(row["planned"], 0)
+        self.assertFalse(next(c for c in row["children"] if c["id"] == self.todo.pk)["planned"])
+
+    def test_row_with_only_planned_work_folds_last_in_its_lane(self):
+        only = _make_card(self.parent.column, self.lane_p, title="only planned")
+        kid = _make_card(self.col_doing, self.lane_c, title="planned kid SECRET-C")
+        CardParentLink.objects.create(parent=only, child=kid, created_by=self.owner, needed_at_column=self.later)
+        body = self._view(self.viewer)
+        acme = next(lane for lane in body["lanes"] if lane["id"] == self.lane_p.pk)
+        # planned_only is the subset of folded rows that hold planned work.
+        self.assertEqual((acme["folded"], acme["planned_only"], acme["planned"]), (2, 1, 1))
+        lane_rows = [r for r in body["rows"] if r["swimlane_id"] == self.lane_p.pk]
+        row = next(r for r in lane_rows if r["id"] == only.pk)
+        self.assertEqual((row["planned_only"], row["folded"], row["in_progress"]), (True, True, 0))
+        # Unfolded rows first, then folded and planned-only together.
+        self.assertEqual(lane_rows[0]["id"], self.parent.pk)
+        self.assertEqual({r["id"] for r in lane_rows[1:]}, {only.pk, self.done_parent.pk})
+
+    def test_planned_children_on_a_hidden_board_never_reach_any_count(self):
+        """Rule 19: a planned count for a parent the viewer can't open must not leak."""
+        before = self._view(self.viewer)
+        for c in self.hidden_children:
+            self._plan(c)
+        after = self._view(self.viewer)
+        self.assertEqual(before["lanes"], after["lanes"])
+        self.assertEqual(before["board_total"], after["board_total"])
+        locked = next(r for r in after["rows"] if r["id"] == self.locked_parent.pk)
+        self.assertEqual((locked["planned"], locked["planned_only"]), (None, False))
+        self.assertEqual(before["rows"], after["rows"])

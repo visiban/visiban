@@ -4265,6 +4265,10 @@ class _ChildrenViewTotalsSerializer(serializers.Serializer):
     total = serializers.IntegerField(help_text="Live children you can open.")
     blocked = serializers.IntegerField(help_text="Of `total`, blocked (the #449 predicate), in any column.")
     hidden = serializers.IntegerField(help_text="Live children on boards you can't open: a count only.")
+    planned = serializers.IntegerField(
+        help_text="Of `total`, children planned for a later parent stage (#2371): a bucket of their own, never in "
+                  "`in_progress`, `todo`, `doing` or `blocked` (#2551). Children you can open only.",
+    )
 
 
 class ChildrenViewLaneSerializer(_ChildrenViewTotalsSerializer):
@@ -4279,6 +4283,9 @@ class ChildrenViewLaneSerializer(_ChildrenViewTotalsSerializer):
     doing = serializers.IntegerField()
     todo = serializers.IntegerField()
     folded = serializers.IntegerField(help_text="Parents you can open with nothing in progress.")
+    planned_only = serializers.IntegerField(
+        help_text="Of `folded`, parents you can open with nothing in progress and at least one planned child (#2550).",
+    )
     last_moved_at = serializers.DateTimeField(
         allow_null=True,
         help_text="Most recent move of any child you can open under this lane; null when none. Never reflects hidden children.",
@@ -4297,6 +4304,9 @@ class ChildrenViewChildSerializer(serializers.Serializer):
     assignee = BoardUserSerializer(allow_null=True)
     blocked = serializers.BooleanField()
     blocked_at = serializers.DateTimeField(allow_null=True)
+    planned = serializers.BooleanField(
+        help_text="Planned for a later parent stage (#2371); never true for a done or blocked child, which beat planned.",
+    )
 
 
 class ChildrenViewRowSerializer(serializers.Serializer):
@@ -4311,6 +4321,12 @@ class ChildrenViewRowSerializer(serializers.Serializer):
     rollup = CardChildrenRollupField()
     in_progress = serializers.IntegerField(allow_null=True, help_text="`todo + doing + blocked`: not done and not planned for a later parent column (#2551). Null when the child board is one you can't open.")
     folded = serializers.BooleanField(help_text="Nothing in progress; always false for a locked row.")
+    planned = serializers.IntegerField(
+        allow_null=True, help_text="Planned children (#2371), never counted in `in_progress`. Null for a locked row.",
+    )
+    planned_only = serializers.BooleanField(
+        help_text="Nothing in progress and at least one planned child; such a row is also `folded`. Always false for a locked row.",
+    )
     child_board_id = serializers.IntegerField(allow_null=True, help_text="Null when the child board is one you can't open.")
     children = ChildrenViewChildSerializer(many=True, help_text="Not-done children, plus done ones with `done=true`; empty for a locked row.")
 
