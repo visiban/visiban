@@ -3148,7 +3148,7 @@ describe('CardDetail', () => {
         await user.keyboard('{Escape}')
         expect(screen.queryByLabelText('Reason (required)')).not.toBeInTheDocument()
         // A layout effect, so focus is there as soon as the click resolves (#2631).
-      expect(screen.getByRole('button', { name: 'Move anyway (assignee override)' })).toHaveFocus()
+        expect(screen.getByRole('button', { name: 'Move anyway (assignee override)' })).toHaveFocus()
         await user.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
         await user.type(screen.getByLabelText('Reason (required)'), ' Customer deadline ')
         await user.click(screen.getByRole('button', { name: 'Move anyway' }))

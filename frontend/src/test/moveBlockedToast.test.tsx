@@ -215,6 +215,48 @@ describe('MoveBlockedToast — reason dialog focus (#2631)', () => {
     await waitFor(() => expect(onForce).toHaveBeenCalledWith('Ship it'))
     expect(screen.getByRole('button', { name: 'Card' })).toHaveFocus()
   })
+
+  const submitReason = async (user: ReturnType<typeof userEvent.setup>, onForce: ReturnType<typeof vi.fn>) => {
+    await user.click(toast().getByText(/Move anyway/))
+    await user.type(await screen.findByLabelText('Reason (required)'), 'Ship it')
+    await user.click(screen.getByRole('button', { name: 'Move anyway' }))
+    await waitFor(() => expect(onForce).toHaveBeenCalledWith('Ship it'))
+  }
+
+  it('focuses the moved card when it mounts after the dialog closed and the toast is still mounted', async () => {
+    const user = userEvent.setup()
+    const onForce = vi.fn().mockResolvedValue({ ok: true })
+    const { unmount } = renderToast(
+      <MoveBlockedToast error={wipError} eligibility={{ kind: 'assignee' }} cardId={42} onForce={onForce} onDismiss={vi.fn()} />
+    )
+    await submitReason(user, onForce)
+    const card = document.createElement('button')
+    card.setAttribute('data-card-id', '42')
+    card.textContent = 'Late card'
+    // A success dismisses the toast, which drops its link, so focus is lost to body before the card lands.
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await act(async () => { document.body.appendChild(card) })
+    await waitFor(() => expect(card).toHaveFocus())
+    unmount()
+    card.remove()
+  })
+
+  it('makes a last attempt to focus the moved card when the toast unmounts first', async () => {
+    const user = userEvent.setup()
+    const onForce = vi.fn().mockResolvedValue({ ok: true })
+    const { unmount } = renderToast(
+      <MoveBlockedToast error={wipError} eligibility={{ kind: 'assignee' }} cardId={42} onForce={onForce} onDismiss={vi.fn()} />
+    )
+    await submitReason(user, onForce)
+    const card = document.createElement('button')
+    card.setAttribute('data-card-id', '42')
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    document.body.appendChild(card)
+    // Unmount in the same tick the card lands, before any observer callback can run.
+    unmount()
+    expect(card).toHaveFocus()
+    card.remove()
+  })
 })
 
 describe('MoveBlockedToast — hard-block variant', () => {

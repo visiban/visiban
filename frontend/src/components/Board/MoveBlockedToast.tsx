@@ -160,8 +160,16 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
 
   useEffect(() => () => dismiss(MOVE_TOAST_KEY), [dismiss]);
 
+  // The moved card can mount after the dialog closes (the board re-renders from the move's response), so when it is
+  // not in the DOM yet, watch for it instead of polling per frame (focus rule 3). Disconnected on cleanup.
   useLayoutEffect(() => {
-    if (restoreFor !== null && focusMovedCard(restoreFor)) setRestoreFor(null);
+    if (restoreFor === null) return;
+    if (focusMovedCard(restoreFor)) { setRestoreFor(null); return; }
+    const observer = new MutationObserver(() => {
+      if (focusMovedCard(restoreFor)) { observer.disconnect(); setRestoreFor(null); }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }, [restoreFor]);
   useLayoutEffect(() => () => {
     if (restoreRef.current !== null) focusMovedCard(restoreRef.current);
