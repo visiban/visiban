@@ -88,6 +88,16 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const neededId = `${uid}-needed`;
   const neededHelpId = `${uid}-needed-help`;
   const neededHintId = `${uid}-needed-hint`;
+  // #2549: optional stored due date; inactive while the child is planned.
+  const [dueDate, setDueDate] = useState("");
+  const dueId = `${uid}-due`;
+  const dueHelpId = `${uid}-due-help`;
+  const neededColumn = needed !== "now" ? laterColumns?.find((c) => String(c.id) === needed) ?? null : null;
+  // The worked example names the chosen column and the later column before it, the canvas's
+  // "Book Proposal workshop" at Qualify / "Proposal workshop" at Proposal. With no later column
+  // before it (the first one is chosen) only the rule shows.
+  const neededIndex = neededColumn && laterColumns ? laterColumns.indexOf(neededColumn) : -1;
+  const earlierColumn = neededIndex > 0 && laterColumns ? laterColumns[neededIndex - 1] : null;
 
   useEffect(() => {
     let live = true;
@@ -147,6 +157,8 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
         ...(!teamAssignee || unassigned ? { apply_default_team: false } : { expected_assignee_id: assigneeId }),
         // #2371: omitted is Needed: Now, exactly as before the field existed.
         ...(needed !== "now" && { needed_at_column: Number(needed) }),
+        // #2549: omitted is no date, as before the field existed.
+        ...(dueDate && { due_date: dueDate }),
       });
     } catch (err) {
       const r = refusal(err);
@@ -278,6 +290,8 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               <label htmlFor={neededId} className="text-sm text-fg-secondary">Needed</label>
               <SelectDropdown
                 id={neededId}
+                // #2552: on a phone the Needed choices open as the bottom sheet (canvas § 9).
+                phoneSheet
                 // The lead-time hint appears with a planned choice; describedby carries it to assistive tech.
                 ariaDescribedBy={needed !== "now" ? `${neededHelpId} ${neededHintId}` : neededHelpId}
                 value={needed}
@@ -290,7 +304,40 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               <p id={neededHelpId} className="text-xs text-fg-muted">Options: Now, then each later column on {boardName}.</p>
               <HelpLink topic="planned-children" variant="text" className="self-start" />
               {needed !== "now" && (
-                <p id={neededHintId} className="text-xs text-fg-muted" data-testid="needed-lead-time-hint">Lead time without dates: split the work.</p>
+                <div id={neededHintId} className="text-xs text-fg-muted" data-testid="needed-lead-time-hint">
+                  <p>Lead time without dates: split the work.</p>
+                  {neededColumn && earlierColumn && (
+                    <>
+                      <p>The workshop needs booking two weeks ahead, so the booking is its own task, needed one column earlier:</p>
+                      <ul className="list-disc pl-4" data-testid="needed-lead-time-examples">
+                        <li>“Book {neededColumn.name} workshop”: needed at {earlierColumn.name}</li>
+                        <li>“{neededColumn.name} workshop”: needed at {neededColumn.name}</li>
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!fixedHidden && !fixedBlocked && !parentArchived && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor={dueId} className="text-sm text-fg-secondary">Due date (optional)</label>
+              <input
+                id={dueId}
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                readOnly={submitting}
+                aria-describedby={neededColumn ? dueHelpId : undefined}
+                className="w-full max-sm:min-h-11 bg-surface border border-line text-fg text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
+              />
+              {neededColumn && (
+                <p id={dueHelpId} className="text-xs text-fg-muted" data-testid="due-inactive-help">
+                  <strong className="font-semibold text-fg-secondary">Inactive while planned.</strong>{" "}
+                  <span className="max-sm:hidden">Saved now; it counts once the work is pulled or the parent reaches {neededColumn.name}, so a fixed date never sits in Due soon for weeks.</span>
+                  <span className="sm:hidden">Counts once needed.</span>
+                </p>
               )}
             </div>
           )}

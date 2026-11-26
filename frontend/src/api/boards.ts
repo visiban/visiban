@@ -122,6 +122,11 @@ export const createBoard = (data: { name: string; description?: string; template
 export const getBoard = (id: number) =>
   client.get<Board>(`/api/v1/boards/${id}/`).then((r) => r.data);
 
+/** A board's columns (#2549: the parent board's Needed options). Accepts a paginated or a bare list. */
+export const getColumns = (boardId: number) =>
+  client.get<Column[] | { results: Column[] }>(`/api/v1/boards/${boardId}/columns/`)
+    .then((r) => (Array.isArray(r.data) ? r.data : r.data.results));
+
 export const getBoardFull = (id: number) =>
   client.get<BoardFull>(`/api/v1/boards/${id}/full/`).then((r) => r.data);
 

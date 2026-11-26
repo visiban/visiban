@@ -278,3 +278,27 @@ describe('CardDetail — manual block (#1149)', () => {
     })
   })
 })
+
+// #2549: a planned child's due date says why it is inactive, and its Needed can be changed. A parent the viewer
+// can't open offers Now only and reads no parent board.
+describe('CardDetail planned child (#2549)', () => {
+  it('shows the inactive-date helper, wired to the date input, and Needed with Now only for a hidden parent', async () => {
+    render(<CardDetail {...props({ card: makeCard({ due_date: '2026-12-04', planned: true, needed_at_column: null, needed_at_column_name: null, parent: { hidden: true } }) })} />)
+    const help = await screen.findByTestId('due-planned-help')
+    expect(help).toHaveTextContent('Inactive while planned. It counts once the work is pulled or needed.')
+    expect(help).toHaveTextContent('Counts once needed.')
+    expect(screen.getByLabelText('Due date')).toHaveAttribute('aria-describedby', help.id)
+    const field = screen.getByTestId('card-needed-field')
+    expect(field).toHaveTextContent("The parent is on a board you can't open, so Needed can only be set to Now.")
+    expect(screen.getByLabelText('Needed')).toHaveTextContent('Planned for a later stage')
+  })
+
+  it('names the Needed column when the parent is visible, and shows nothing for a card with no parent', () => {
+    const { unmount } = render(<CardDetail {...props({ card: makeCard({ due_date: '2026-12-04', planned: true, needed_at_column: 33, needed_at_column_name: 'Proposal' }) })} />)
+    expect(screen.getByTestId('due-planned-help')).toHaveTextContent('It counts once the work is pulled or the parent reaches Proposal.')
+    expect(screen.queryByTestId('card-needed-field')).toBeNull()
+    unmount()
+    render(<CardDetail {...props()} />)
+    expect(screen.queryByTestId('due-planned-help')).toBeNull()
+  })
+})

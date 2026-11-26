@@ -1218,7 +1218,7 @@ column is not sent here. Like the other row fields, it is not sent when
 
 **Add child** (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:
-`{"board_id": <int>, "title": "<text>", "apply_default_team": <bool, optional>, "expected_assignee_id": <int or null, optional>, "needed_at_column": <int or null, optional>}`. The card goes in that board's first
+`{"board_id": <int>, "title": "<text>", "apply_default_team": <bool, optional>, "expected_assignee_id": <int or null, optional>, "needed_at_column": <int or null, optional>, "due_date": "<YYYY-MM-DD> or null, optional"}`. The card goes in that board's first
 column (which must allow card creation) and first lane, and that cell's WIP
 and weight limits apply as for any create. `201` returns the new card, as
 `POST .../cards/` does.
@@ -1346,6 +1346,10 @@ Empty lists and `null`s when this card's board cannot have children.
   reaches that column: it must be a column on this card's board after the
   one this card is in, else `400` keyed `needed_at_column` (also for a
   non-integer). See [Planned children](#planned-children-since-13).
+- **Due date** (#2549, since 1.3): `due_date` omitted or `null` stores no
+  date, as before. Otherwise a `YYYY-MM-DD` date (the same rule as a card
+  edit's `due_date`), else `400` keyed `due_date` and nothing is created. On a
+  planned child the date is stored but inactive until the child is released.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/needed/`
 
@@ -1438,7 +1442,8 @@ On a board with `cards_can_have_children`, each card carries `children_rollup`
 
 ```json
 {"visible": true, "total": 5, "done": 2, "doing": 1, "todo": 1, "blocked": 1,
- "last_moved_at": "2026-11-19T14:02:00Z"}
+ "last_moved_at": "2026-11-19T14:02:00Z",
+ "planned": 0, "planned_due_dates": [], "needed_not_started": []}
 ```
 
 The states partition `total`: a child that is blocked (a manual block or an
@@ -1448,8 +1453,19 @@ when it is in the child board's first column, else `doing`. Archived children
 are not counted. `last_moved_at` is the latest movement of any counted child,
 or `null`. A card with no children reads `total: 0`.
 
+*Since 1.3 (#2551).* A [planned child](#planned-children-since-13) that is not
+blocked or done counts in `planned`, not `todo`, and its moves never feed
+`last_moved_at`, so a parent whose remaining work is all planned does not read
+as "not started" or idle. `planned_due_dates` lists the planned children's
+stored dates (`YYYY-MM-DD`, sorted; compare with today yourself, as the board
+does for "1 planned date has passed"). `needed_not_started` is
+`[{"column_name", "count"}]`, in column order: children the parent released by
+reaching their Needed column that have not moved since. The column is on the
+parent's own board. Older clients that ignore the three keys read `todo` without
+planned children.
+
 When the caller cannot open the child board, the rollup is
-`{"visible": false, "total": N}` and nothing else: no state, time, title,
+`{"visible": false, "total": N}` and nothing else (none of the planned keys): no state, time, title,
 board or id (an accepted count-only disclosure, #1104).
 
 `children_rollup` is **present** on `GET .../full/`, the per-board card list and

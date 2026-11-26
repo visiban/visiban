@@ -40,6 +40,7 @@ import { dropUnknownLabels } from "../../utils/cardLabels";
 import { isStaleCard } from "../../utils/cardVersion";
 import { formatDateStr, formatDateTimeUser, formatRelativeTime, todayInTimezone } from "../../utils/date";
 import PlannedMoveWarning, { firstColumnId, plannedMoveWarningText } from "./PlannedMoveWarning";
+import CardNeededField from "./CardNeededField";
 import type { UserDatePrefs } from "../../utils/date";
 import { isOverdue } from "../../utils/cardUrgency";
 import MentionTextarea from "./MentionTextarea";
@@ -222,6 +223,7 @@ function laterParentColumns(columns: { id: number; name: string; position: numbe
 
 export default function CardDetail({ onOpenBoardSettings, card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, childrenRefreshSignal = 0, blockFormRequest = null, tabRequest, backToParentId = null, focusChildId = null }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
+  const duePlannedHelpId = `${useId()}-due-planned-help`;
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
   const deleteCommentTriggerRef = useConfirmFocusReturn(confirmDeleteCommentId);
@@ -2072,6 +2074,7 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                             ref={dueDateRef}
                             type="date"
                             aria-label="Due date"
+                            aria-describedby={localCard.planned ? duePlannedHelpId : undefined}
                             value={localCard.due_date}
                             onChange={(e) => {
                               const v = e.target.value || null;
@@ -2102,6 +2105,7 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                         ref={dueDateEmptyRef}
                         type="date"
                         aria-label="Due date"
+                        aria-describedby={localCard.planned ? duePlannedHelpId : undefined}
                         value=""
                         min={new Date().toISOString().slice(0, 10)}
                         onChange={(e) => {
@@ -2114,7 +2118,26 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                       />
                     </div>
                   )}
+                  {localCard.planned && (
+                    // #2549: a planned child's date is stored but inactive; say why it is not in Due soon.
+                    <p id={duePlannedHelpId} data-testid="due-planned-help" className="mt-1 text-xs text-fg-tertiary">
+                      <strong className="font-semibold text-fg-secondary">Inactive while planned.</strong>{" "}
+                      <span className="max-sm:hidden">
+                        {localCard.needed_at_column_name
+                          ? `It counts once the work is pulled or the parent reaches ${localCard.needed_at_column_name}.`
+                          : "It counts once the work is pulled or needed."}
+                      </span>
+                      <span className="sm:hidden">Counts once needed.</span>
+                    </p>
+                  )}
                 </div>
+                <CardNeededField
+                  card={localCard}
+                  boardId={board.id}
+                  firstColumnId={firstColumnId(board.columns)}
+                  canEdit={canEdit}
+                  onChanged={(fields) => setLocalCard((c) => ({ ...c, ...fields }))}
+                />
               </div>
 
               {/* Priority */}

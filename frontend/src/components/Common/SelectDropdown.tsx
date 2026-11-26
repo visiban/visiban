@@ -4,6 +4,7 @@ import { POPOVER_VIEWPORT_MARGIN, useAnchoredPlacement, visibleMaxHeight, clampL
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import SelectedCheck from "./SelectedCheck";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 
 export interface SelectDropdownOption<T extends string> {
   value: T;
@@ -40,6 +41,11 @@ interface Props<T extends string> {
   ariaLabel?: string;
   /** id of helper text describing the trigger (applied as `aria-describedby`). */
   ariaDescribedBy?: string;
+  /**
+   * Below 640px, open the options as a bottom sheet (full width, pinned to the bottom, 44px rows, a scrim)
+   * instead of an anchored menu (#2552, the planned-children Needed field). Same listbox, keys and focus.
+   */
+  phoneSheet?: boolean;
 }
 
 const MIN_MENU_WIDTH = 96;
@@ -59,7 +65,9 @@ export default function SelectDropdown<T extends string>({
   escapePriority = 50,
   ariaLabel,
   ariaDescribedBy,
+  phoneSheet = false,
 }: Props<T>) {
+  const sheet = useIsPhoneViewport() && phoneSheet;
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -259,10 +267,19 @@ export default function SelectDropdown<T extends string>({
         </svg>
       </button>
 
+      {open && anchor && sheet && createPortal(
+        // The scrim is outside the panel, so a tap on it is the outside mousedown that closes the menu.
+        <div aria-hidden="true" data-testid="select-sheet-scrim" className="fixed inset-0 z-50 bg-black/40" />,
+        document.body,
+      )}
       {open && anchor && createPortal(
         <div
           ref={panelRef}
-          style={{
+          data-sheet={sheet ? "true" : undefined}
+          style={sheet ? {
+            position: "fixed", left: 0, right: 0, bottom: 0,
+            maxHeight: "70dvh", display: "flex", flexDirection: "column",
+          } : {
             position: "fixed",
             top: top ?? 0,
             left: anchor.left,
@@ -274,7 +291,9 @@ export default function SelectDropdown<T extends string>({
             display: "flex",
             flexDirection: "column",
           }}
-          className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1"
+          className={sheet
+            ? "z-50 bg-surface border-t border-line-strong rounded-t-xl shadow-lg py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+            : "z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1"}
         >
           <div
             id={listboxId}
