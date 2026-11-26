@@ -291,11 +291,11 @@ export default function SavedFiltersDropdown({
                   </div>
                 </div>
               ))}
-              <div className="px-3 py-1.5 border-t border-line text-xs">
-                <HelpLink topic="saved-filters" variant="text" />
-              </div>
             </>
           )}
+          <div className="px-3 py-1.5 border-t border-line text-xs">
+            <HelpLink topic="saved-filters" variant="text" />
+          </div>
         </AnchoredMenuPanel>
       )}
     </div>

@@ -40,6 +40,7 @@ describe('helpTopicForPath (#2593)', () => {
   it.each([
     ['/boards/4', 'board.overview'],
     ['/groups/2', 'groups'],
+    ['/groups', 'groups'],
     ['/admin', 'admin.panel'],
     ['/', 'home'],
     ['/settings', 'home'],

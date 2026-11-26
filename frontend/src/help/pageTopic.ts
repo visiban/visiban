@@ -6,7 +6,7 @@ import type { HelpTopicKey } from "./topics";
  */
 export function helpTopicForPath(pathname: string): HelpTopicKey {
   if (pathname.startsWith("/boards/")) return "board.overview";
-  if (pathname.startsWith("/groups/")) return "groups";
+  if (pathname === "/groups" || pathname.startsWith("/groups/")) return "groups";
   if (pathname.startsWith("/admin")) return "admin.panel";
   return "home";
 }

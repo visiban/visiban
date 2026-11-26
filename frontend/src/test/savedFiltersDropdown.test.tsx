@@ -236,3 +236,12 @@ describe('SavedFiltersDropdown docs link (#2593)', () => {
     expect(await screen.findByRole('link', { name: /Learn more about saved filters, opens docs/ })).toHaveAttribute('href', docsUrl('saved-filters'))
   })
 })
+
+describe('SavedFiltersDropdown docs link in the empty state (#2593)', () => {
+  it('shows the link with no saved filters', async () => {
+    render(<SavedFiltersDropdown {...defaultProps} savedFilters={[]} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: /saved filters/i }))
+    expect(await screen.findByText('No saved filters yet.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /saved filters, opens docs/ })).toBeInTheDocument()
+  })
+})

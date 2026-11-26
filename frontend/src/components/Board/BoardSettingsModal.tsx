@@ -1384,7 +1384,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 <div className="flex items-center gap-1.5">
                   <span>Role</span>
                   <RoleTooltip />
-                  <HelpLink topic="permissions" />
                 </div>
               </div>
 
@@ -1605,6 +1604,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
               <p role="status" aria-live="polite" aria-atomic="true" className="text-xs h-4 mt-1">
                 {memberActionError && <span className="text-danger">{memberActionError}</span>}
+              </p>
+
+              <p className="text-xs mt-2">
+                <HelpLink topic="permissions" variant="text" />
               </p>
 
               {isAdmin && (
