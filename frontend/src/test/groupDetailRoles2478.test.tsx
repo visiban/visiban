@@ -498,10 +498,17 @@ describe('GroupDetail roles and Group settings (#2478)', () => {
 })
 
 describe('GroupDetail Group settings docs links (#2593)', () => {
-  it('Members links the group member docs; the overview, still being redesigned, has none', async () => {
+  it('Members links the group member docs from settings and from the overview Members card', async () => {
     renderPage(setup({}, admin), '/groups/1?tab=settings')
     await h2('Group settings')
     expect(screen.getByRole('link', { name: 'Learn more about group members and roles, opens docs' })).toHaveAttribute('href', docsUrl('groups.members'))
+  })
+
+  it('the overview Members card heading carries the group members link', async () => {
+    renderPage(setup({}, admin))
+    await h2('Engineering')
+    const card = await screen.findByTestId('group-members-card')
+    expect(within(card).getByRole('link', { name: 'Learn more about group members and roles, opens docs' })).toHaveAttribute('href', docsUrl('groups.members'))
   })
 
   it('each settings section links its own docs section', async () => {

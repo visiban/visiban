@@ -317,6 +317,7 @@ function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => v
     <PageHeading
       level="h3"
       title="Invite links"
+      help="admin.invites"
       headingRef={headingRef}
       description="Shareable links that let people join this site."
       actions={<Button variant="primary" onClick={() => setShowForm((v) => !v)} aria-expanded={showForm}>New link</Button>}
@@ -821,7 +822,7 @@ function GeneralSection() {
         ? "text-warning-on-tint"
         : "text-fg-secondary";
 
-  const heading = <PageHeading level="h3" title="General" description="Switches save as soon as you change them." headingRef={headingRef} />;
+  const heading = <PageHeading level="h3" title="General" help="admin.general" description="Switches save as soon as you change them." headingRef={headingRef} />;
 
   if (loading) return <>{heading}<div className="text-fg-tertiary text-sm">Loading…</div></>;
   if (loadError) return <>{heading}<LoadError message="Failed to load settings." onRetry={load} headingRef={headingRef} /></>;
@@ -1669,6 +1670,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
       <PageHeading
         level="h3"
         title="Users"
+        help="admin.users"
         headingRef={headingRef}
         description="Add people, change roles, and deactivate accounts."
         actions={

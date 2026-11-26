@@ -47,11 +47,10 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
     closedNote = `Showing up to ${closedLimit} most recently updated closed issues`;
 
   return (
-    <div
-      role="status"
-      aria-atomic="true"
-      className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info shrink-0"
-    >
+    <div className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info shrink-0">
+      {/* The live region wraps only the changing text; the help link sits outside it so a
+          refetch never re-announces it (frontend/CLAUDE.md). */}
+      <div role="status" aria-atomic="true" className="flex-1 flex items-center gap-3 min-w-0">
       {/* No brand logos for external providers (frontend/CLAUDE.md) — one generic
           glyph for every provider, same as the card-face PR/MR badge. The provider
           is named in text via the link's title below. */}
@@ -72,7 +71,6 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
           <span className="font-medium">{repo}</span>
         )}
       </span>
-      <HelpLink topic="lens" />
       {truncated && (
         <span className="text-warning flex items-center gap-1 ml-2 min-w-0">
           <span aria-hidden="true">⚠</span>
@@ -91,6 +89,8 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
       )}
       <div className="flex-1" />
       <LensFreshness fetchedAt={fetchedAt} refetching={refetching} onRefresh={onRefresh} />
+      </div>
+      <HelpLink topic="lens" />
     </div>
   );
 }

@@ -1787,7 +1787,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const membersAside = group.navigation_only ? undefined : (
     <section aria-labelledby="group-members-heading" className="bg-surface border border-line rounded-[10px] p-[18px]" data-testid="group-members-card">
       <div className="flex items-center justify-between gap-2">
-        <CardHeading as="h3" id="group-members-heading">Members · {members.length}</CardHeading>
+        <CardHeading as="h3" id="group-members-heading" help="groups.members">Members · {members.length}</CardHeading>
         <div className="flex items-center gap-1">
           {isAdmin && <Button variant="quiet" onClick={() => openSettings("members")}>Manage</Button>}
           <button

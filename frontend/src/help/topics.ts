@@ -15,7 +15,7 @@
  *
  *   Analytics        analytics.definitions    features/analytics#flow-metric-definitions  (page title)
  *                    analytics.bottleneck     features/analytics#bottleneck               (Bottleneck panel)
- *                    analytics.flow-metrics   features/analytics#flow-metrics             (cycle time, throughput, cumulative flow, WIP age)
+ *                    analytics.cycle-time/.throughput/.cumulative-flow/.wip-age  features/analytics#flow-metrics (one per chart; analytics.flow-metrics kept)
  *                    analytics.how-work-flows features/analytics#how-work-flows           (Where the time goes)
  *                    analytics.blocked        features/analytics#why-cards-get-blocked   (Why cards get blocked)
  *                    analytics.attention      features/analytics#needs-attention          (Needs attention)
@@ -31,8 +31,10 @@
  *   Saved filters    saved-filters            features/saved-filters#saving-a-filter     (saved filters panel)
  *   Shortcuts        shortcuts                features/keyboard-shortcuts#keyboard-shortcuts (overlay)
  *   User menu        help/pageTopic.ts: board.overview, groups, admin.panel, else home
- *   Not linked yet   Site admin Instance and People (#2476), SSO and invites on /admin, the group overview
- *                    page (#2478), the home page (#2474), the app shell (#2473).
+ *   Site admin       admin.general, admin.users, admin.invites  administration/admin-panel#...  (General, Users, Invite links headings)
+ *   Group overview   groups.members                              (Members card heading)
+ *   Not linked yet   the home page (#2474) and the app shell (#2473). SSO/OIDC has no UI surface in the
+ *                    app (configured by env vars), so it has no link.
  */
 export interface HelpTopic {
   /** Docs path relative to the docs root, ending in "/". Empty = docs home. */
@@ -64,6 +66,30 @@ export const HELP_TOPICS = {
     anchor: "flow-metric-definitions",
     subject: "flow metric definitions",
     summary: "What lead time, cycle time, dwell, age and throughput mean.",
+  },
+  "analytics.cycle-time": {
+    path: "features/analytics/",
+    anchor: "flow-metrics",
+    subject: "the cycle time chart",
+    summary: "How to read the cycle time scatter.",
+  },
+  "analytics.throughput": {
+    path: "features/analytics/",
+    anchor: "flow-metrics",
+    subject: "the throughput chart",
+    summary: "How to read the throughput chart.",
+  },
+  "analytics.cumulative-flow": {
+    path: "features/analytics/",
+    anchor: "flow-metrics",
+    subject: "the cumulative flow chart",
+    summary: "How to read the cumulative flow chart.",
+  },
+  "analytics.wip-age": {
+    path: "features/analytics/",
+    anchor: "flow-metrics",
+    subject: "the WIP age chart",
+    summary: "How to read the WIP age chart.",
   },
   "analytics.flow-metrics": {
     path: "features/analytics/",
@@ -184,6 +210,24 @@ export const HELP_TOPICS = {
     anchor: "board-cards",
     subject: "working the board",
     summary: "The grid, cards and settings of a board.",
+  },
+  "admin.general": {
+    path: "administration/admin-panel/",
+    anchor: "general-and-email-sections",
+    subject: "the General and Email settings",
+    summary: "What the General and Email switches control.",
+  },
+  "admin.users": {
+    path: "administration/admin-panel/",
+    anchor: "users-section",
+    subject: "managing users",
+    summary: "What each user action in Site admin does.",
+  },
+  "admin.invites": {
+    path: "administration/admin-panel/",
+    anchor: "invite-links-section",
+    subject: "invite links",
+    summary: "How to create, send and revoke invite links.",
   },
   "admin.panel": {
     path: "administration/admin-panel/",

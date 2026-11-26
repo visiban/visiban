@@ -1538,11 +1538,21 @@ describe('rounding and wording edge cases (#2297)', () => {
 describe('FlowMetricsDashboard docs links (#2593)', () => {
   it('links a registry topic beside each chart, the bottleneck, blocked and attention headings', async () => {
     await renderLoaded()
-    const charts = screen.getAllByRole('link', { name: 'Learn more about the flow metric charts, opens docs' })
-    expect(charts).toHaveLength(4)
-    for (const link of charts) expect(link).toHaveAttribute('href', docsUrl('analytics.flow-metrics'))
+    const names = ['the cycle time chart', 'the throughput chart', 'the cumulative flow chart', 'the WIP age chart']
+    for (const n of names) {
+      expect(screen.getByRole('link', { name: `Learn more about ${n}, opens docs` })).toHaveAttribute('href', docsUrl('analytics.flow-metrics'))
+    }
+    expect(screen.queryByRole('link', { name: 'Learn more about the flow metric charts, opens docs' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Learn more about bottleneck detection, opens docs' })).toHaveAttribute('href', docsUrl('analytics.bottleneck'))
     expect(screen.getByRole('link', { name: 'Learn more about block reasons, opens docs' })).toHaveAttribute('href', docsUrl('analytics.blocked'))
     expect(screen.getByRole('link', { name: 'Learn more about needs attention, opens docs' })).toHaveAttribute('href', docsUrl('analytics.attention'))
+  })
+
+  it('keeps the help link on the empty Why cards get blocked panel', async () => {
+    blockedMock.mockResolvedValue({ ...blocked, total: { days: 0, blocks: 0 }, blocked_now: 0, columns: [], reasons: [], reason_count: 0 })
+    await renderLoaded()
+    const panel = await screen.findByTestId('analytics-blocked')
+    expect(within(panel).getByTestId('analytics-blocked-empty')).toBeInTheDocument()
+    expect(within(panel).getByRole('link', { name: 'Learn more about block reasons, opens docs' })).toHaveAttribute('href', docsUrl('analytics.blocked'))
   })
 })

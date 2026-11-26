@@ -43,6 +43,8 @@ describe('LensProvenanceBanner', () => {
   it('links the lens docs section from the banner (#2593)', () => {
     render(<LensProvenanceBanner {...base} />)
     expect(screen.getByRole('link', { name: 'Learn more about the Issue Board Lens, opens docs' })).toHaveAttribute('href', docsUrl('lens'))
+    // Never inside the live region: a refetch must not re-announce it (frontend/CLAUDE.md).
+    expect(screen.getByRole('link', { name: 'Learn more about the Issue Board Lens, opens docs' }).closest('[role="status"]')).toBeNull()
   })
 
   it('carries the freshness control, not the Row-2 toolbar', () => {

@@ -1,3 +1,4 @@
+import { docsUrl } from '../help/docsUrl'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OVERVIEW_LIST_LIMIT } from '../api/analyticsLimits'
 import { useEffect } from 'react'
@@ -95,6 +96,11 @@ describe('AnalyticsView title row (#2012, #2261)', () => {
     expect(screen.getByText(/Platform roadmap/)).toBeInTheDocument()
     expect(screen.getByText('·')).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getByText(/results are best used as directional guidance/)).toBeInTheDocument()
+  })
+
+  it('links the flow metric definitions beside the title (#2593)', () => {
+    render(<AnalyticsView {...props} />)
+    expect(screen.getByRole('link', { name: 'Learn more about flow metric definitions, opens docs' })).toHaveAttribute('href', docsUrl('analytics.definitions'))
   })
 
   it('sits on the page ground, never the sunken one (#2311)', () => {

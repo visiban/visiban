@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
+import { docsUrl } from '../help/docsUrl'
 import type { User } from '../types'
 
 // The real Navbar renders here (adminPage.test.tsx mocks it), so this sees the shell's
@@ -40,5 +41,22 @@ describe('Site admin heading structure (#2476)', () => {
     const h1s = screen.getAllByRole('heading', { level: 1 })
     expect(h1s).toHaveLength(1)
     expect(h1s[0]).toHaveTextContent('Site admin')
+  })
+})
+
+describe('Site admin heading help links (#2593)', () => {
+  it.each([
+    ['general', 'General', 'the General and Email settings', 'admin.general'],
+    ['users', 'Users', 'managing users', 'admin.users'],
+    ['invite_links', 'Invite links', 'invite links', 'admin.invites'],
+  ] as const)('the %s heading links its admin-panel docs section', async (tab, title, subject, topic) => {
+    render(
+      <MemoryRouter initialEntries={[`/admin?tab=${tab}`]}>
+        <AdminPage user={user} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+    )
+    const heading = await screen.findByRole('heading', { level: 3, name: title })
+    const link = within(heading.parentElement!.parentElement!).getByRole('link', { name: `Learn more about ${subject}, opens docs` })
+    expect(link).toHaveAttribute('href', docsUrl(topic))
   })
 })

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ChartPanel } from '../components/Common/Chart'
 import { CardHeading, PageHeading, SettingsCard } from '../components/Page'
@@ -51,10 +51,17 @@ describe('helpTopicForPath (#2593)', () => {
 
 describe('no hardcoded docs host outside the registry default (#2593)', () => {
   it('only help/docsUrl.ts names docs.visiban.com in app source', () => {
-    const src = (f: string) => readFileSync(resolve(__dirname, '..', f), 'utf-8')
-    for (const f of ['pages/AdminPage.tsx', 'components/Layout/UserMenu.tsx', 'components/Board/webhooks/WebhookServiceNotice.tsx']) {
-      expect(src(f)).not.toContain('docs.visiban.com')
-    }
-    expect(src('help/docsUrl.ts')).toContain('https://docs.visiban.com')
+    const root = resolve(__dirname, '..')
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const full = join(dir, e.name)
+        if (e.isDirectory()) return e.name === 'test' ? [] : walk(full)
+        return /\.(ts|tsx)$/.test(e.name) ? [full] : []
+      })
+    const files = walk(root).filter((f) => relative(root, f) !== join('help', 'docsUrl.ts'))
+    expect(files.length).toBeGreaterThan(50)
+    const offenders = files.filter((f) => readFileSync(f, 'utf-8').includes('docs.visiban.com')).map((f) => relative(root, f))
+    expect(offenders).toEqual([])
+    expect(readFileSync(join(root, 'help/docsUrl.ts'), 'utf-8')).toContain('https://docs.visiban.com')
   })
 })
