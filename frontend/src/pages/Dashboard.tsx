@@ -26,6 +26,7 @@ import { useShellNavData } from "../contexts/ShellNavContext";
 import { healthReviewCue } from "../utils/healthStatus";
 import { formatRelativeTime } from "../utils/date";
 import { isImeComposing } from "../utils/imeComposition";
+import StageBar from "../components/Dashboard/StageBar";
 import {
   EMPTY_COPY, NO_DATA_TITLE, boardSignals, filterBoards, filterCounts, firstName, greeting, needsAttention, openedAgo,
   phoneSummary, recentTiles, sortBoards, summarize, summaryClauses, type BoardFilter,
@@ -327,6 +328,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
             {cue && <span className="block text-xs text-warning-on-tint">{cue.text}</span>}
           </button>
           <SignalsText board={b} className="max-sm:hidden shrink-0 text-xs" />
+          {/* Desktop only: phone rows show name, status and updated time (#2474 phone spec). */}
+          <StageBar board={b} className="max-sm:hidden shrink-0 w-32" />
           <div className="flex flex-col items-end gap-1 shrink-0">
             <BoardStatusPill board={b} />
             <span className="text-xs text-fg-tertiary">Updated {formatRelativeTime(b.updated_at)}</span>
@@ -526,6 +529,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
                         </span>
                         <BoardStatusPill board={b} />
                       </span>
+                      <StageBar board={b} className="mt-2" inButton />
                       <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-secondary">
                         <span className="tabular-nums">Cards {b.card_count}</span>
                         <SignalsText board={b} />

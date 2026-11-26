@@ -563,6 +563,20 @@ Read the notes for every version between your current release and the target bef
 !!! note "A Django admin card edit now increments the card's version"
     Saving a card in the Django admin (`/admin/boards/card/`) now increments its `version` by one, as an edit or move through the API does, including a save that only archives or restores the card; adding a card there still starts it at `1` (#2040). Before 1.3 an admin save left `version` unchanged, so clients could not tell an admin edit from a concurrent API save of the same card. For an integration written against 1.2, the only request that can newly fail is a [move](../api/cards.md#move) that sends `version`: it now gets `409 version_conflict` with the new `current_version` when an admin saved the card in between. (The MCP `move_card` and `update_card` tools take `version` only since 1.3, #1974, and count admin saves from the start.) Handle it as any other conflict: re-read the card and retry. Requests that send no `version` are unaffected.
 
+!!! note "Optional, once: repair cards that share a position (`repair_card_positions`)"
+    Before 1.3, creating a card after a reorder in the same cell, or restoring an archived card, could put it on the same position as another card in that column and swimlane (#2562, #2563). 1.3 stops new collisions but does not change existing ones, and the upgrade migrations do not rewrite card rows. A board that hit the defect keeps two cards on one position until a later move separates them. Their order on the board is then undefined between the two.
+
+    **You do not have to run anything for the upgrade to work.** To repair existing collisions, run this once after every instance runs 1.3, wherever you run `manage.py`:
+
+    ```bash
+    python manage.py repair_card_positions --dry-run   # lists the cells it would repair, writes nothing
+    python manage.py repair_card_positions             # repairs them; --board <id> limits it to one board
+    ```
+
+    - **What changes.** Only cells (a column and swimlane pair) where two live cards share a position. In those, cards keep their order (by position, then by creation order for the cards that shared one), and each card moves only as far as it must: `0, 1, 1, 2, 5` becomes `0, 1, 2, 3, 5`. Archived cards and every other cell are untouched. The output ends with the number of cells repaired and cards renumbered.
+    - **Safe on a live instance.** Each cell is repaired in its own short transaction under the same locks a card move takes, so it waits for, and is never overwritten by, a concurrent move. A cell that stays busy is reported as skipped; run the command again to retry it. Running it again after a clean run repairs nothing.
+    - **No live update.** It sends no board events, because what users see does not change. An open board picks up the new positions on its next load.
+
 ### Upgrading to 1.2.x
 
 **The big picture:** most 1.2 changes are additive and need no action. These need a decision or a command, so read their callouts first:

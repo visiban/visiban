@@ -3,7 +3,7 @@ import type { Board, Group } from '../types'
 import {
   boardSignals, filterBoards, filterCounts, greeting, isAtRisk, needsAttention, openedAgo, phoneSummary,
   recentTiles, sortBoards, summarize, summaryClauses,
-  SIDE_LIST_CAP, GROUP_AVATAR_LIMIT, capSideList, groupAvatarStack, sideListToggleLabel,
+  SIDE_LIST_CAP, GROUP_AVATAR_LIMIT, capSideList, groupAvatarStack, sideListToggleLabel, stageBar,
 } from '../components/Dashboard/homeModel'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -165,5 +165,36 @@ describe('side list caps and the group avatar stack (#2487)', () => {
     // A navigation-only or stale count below the preview length is clamped at 0.
     expect(groupAvatarStack({ owner, member_count: 0, member_preview: [m(1), m(2)] }).more).toBe(0)
     expect(GROUP_AVATAR_LIMIT).toBe(3)
+  })
+})
+
+describe('stage bar (#2483)', () => {
+  const st = (name: string, card_count: number) => ({ uid: name, name, color: '#112233', card_count })
+
+  it('is null when the server sends no stage_counts (older server) or the board has no columns', () => {
+    expect(stageBar({})).toBeNull()
+    expect(stageBar({ stage_counts: [] })).toBeNull()
+  })
+
+  it('draws only stages with cards, names the first and last stage, and labels every stage', () => {
+    const m = stageBar({ stage_counts: [st('Backlog', 0), st('Doing', 3), st('Review', 0), st('Done', 1)] })!
+    expect(m.segments.map((s) => s.name)).toEqual(['Doing', 'Done'])
+    expect(m.total).toBe(4)
+    expect(m.first).toBe('Backlog')
+    expect(m.last).toBe('Done')
+    expect(m.label).toBe('Cards by stage: Backlog 0, Doing 3, Review 0, Done 1')
+  })
+
+  it('names a single stage once', () => {
+    const m = stageBar({ stage_counts: [st('Todo', 2)] })!
+    expect(m.first).toBe('Todo')
+    expect(m.last).toBeNull()
+  })
+
+  it('keeps the ends on a board with no cards yet', () => {
+    const m = stageBar({ stage_counts: [st('Todo', 0), st('Done', 0)] })!
+    expect(m.segments).toEqual([])
+    expect(m.total).toBe(0)
+    expect([m.first, m.last]).toEqual(['Todo', 'Done'])
   })
 })
