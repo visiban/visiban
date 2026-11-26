@@ -295,6 +295,10 @@ NOT_A_GATE_NAMES = frozenset({
     # about who is asking.
     "column_rollup_state",
     "announce_column_rollup_changed",
+    # Release of planned children after a column reorder (#2553): runs after the
+    # handler's own admin gate, takes the actor only to stamp the broadcast, and
+    # decides nothing about who may reorder.
+    "release_on_reorder",
 })
 
 # Names an argument must mention for its call to be a possible authorization
