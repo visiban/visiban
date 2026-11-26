@@ -1619,6 +1619,11 @@ export interface Board {
    */
   commitment_column_uid: string | null;
   /**
+   * #2051 — IANA time zone the board's flow metrics date their days and ISO
+   * weeks in, or null for UTC (the flow-metric ADR's default). Admin-only write.
+   */
+  time_zone: string | null;
+  /**
    * #2208 — true when cards on this board can have child cards on another
    * board (a parent-tier board); false (the default) means a child-tier board.
    * Readable by every member; only a board admin can change it.
@@ -1834,6 +1839,11 @@ export interface BoardFull {
    * column of the board reads as unset.
    */
   commitment_column_uid: string | null;
+  /**
+   * #2051 — IANA time zone the board's flow metrics date their days and ISO
+   * weeks in, or null for UTC (the flow-metric ADR's default). Admin-only write.
+   */
+  time_zone: string | null;
   /**
    * #2208 — true when cards on this board can have child cards on another
    * board (a parent-tier board); false (the default) means a child-tier board.
@@ -2788,7 +2798,7 @@ export interface FlowCycleTime {
 }
 
 export interface FlowThroughputSample {
-  /** First UTC day of the period (`YYYY-MM-DD`). */
+  /** First day of the period (`YYYY-MM-DD`), dated in the board's `time_zone` (UTC when unset, #2051). */
   start: string;
   count: number;
   card_uids: string[];

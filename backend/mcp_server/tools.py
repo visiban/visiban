@@ -1462,7 +1462,7 @@ def board_flow_metrics(*, board_id, window_days=90, swimlane_id=None):
         with analytics_slot(user, board_id=board.pk, endpoint="mcp_board_flow_metrics", wait=False):
             # One ``now`` so the range and the flow agree, as in the REST views.
             now = timezone.now()
-            flow_range = flow_metrics.rolling_range(window_days, now=now)
+            flow_range = flow_metrics.rolling_range(window_days, now=now, zone=flow_metrics.zone_of(board))
             # Range-bounded like REST's metrics/* endpoints (#2445): every number here
             # (cycle time, throughput, WIP, both blocked shapes) is the same as on a
             # whole-history load (RangeNarrowingServiceTests, BoardFlowMetricsAgedTests).
@@ -1532,7 +1532,7 @@ def aging_cards(*, board_id, percentile=85):
     try:
         with analytics_slot(user, board_id=board.pk, endpoint="mcp_aging_cards", wait=False):
             now = timezone.now()
-            history_range = flow_metrics.rolling_range(_AGING_HISTORY_DAYS, now=now)
+            history_range = flow_metrics.rolling_range(_AGING_HISTORY_DAYS, now=now, zone=flow_metrics.zone_of(board))
             # The REST heatmap's loader (analytics.py): only the cards that have an open
             # visit or a visit closing in the history range, not the whole board's past.
             flow = flow_metrics.load_recent_dwell(

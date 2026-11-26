@@ -155,6 +155,28 @@ class BoardFlowMetricsTests(McpFlowFixture):
                     {c["column_uid"] for c in rest_wip["columns"]},
                 )
 
+    def test_a_board_time_zone_dates_the_tool_like_the_rest_endpoint(self):
+        """#2051: one board, one set of days, for an agent and a person alike."""
+        import zoneinfo
+
+        self.seed_completed()
+        Board.objects.filter(pk=self.board.pk).update(time_zone="Pacific/Kiritimati")
+        client = APIClient()
+        client.force_authenticate(self.user)
+        rest = client.get(
+            f"/api/v1/boards/{self.board.pk}/metrics/throughput/", {"days": 30, "period": "week"},
+        ).json()
+        with mock.patch.object(flow_metrics, "rolling_range", wraps=flow_metrics.rolling_range) as spy:
+            result = self.call("board_flow_metrics", board_id=self.board.id, window_days=30)
+        self.assertEqual(spy.call_args.kwargs["zone"], zoneinfo.ZoneInfo("Pacific/Kiritimati"))
+        self.assertEqual(
+            [(w["start"], w["count"]) for w in result["throughput"]["weeks"]],
+            [(s["start"], s["count"]) for s in rest["samples"]],
+        )
+        with mock.patch.object(flow_metrics, "rolling_range", wraps=flow_metrics.rolling_range) as spy:
+            self.call("aging_cards", board_id=self.board.id)
+        self.assertEqual(spy.call_args.kwargs["zone"], zoneinfo.ZoneInfo("Pacific/Kiritimati"))
+
     def test_payload_keys_are_a_subset_of_rest_and_carry_no_per_card_lists(self):
         self.seed_completed()
         result = self.call("board_flow_metrics", board_id=self.board.id)

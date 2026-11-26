@@ -17,6 +17,7 @@ import {
 import { NoHistoryState, NoMatchState, isNarrowed } from "./FlowEmptyStates";
 import FlowDrillDrawer from "./FlowDrillDrawer";
 import FlowSection from "./FlowSection";
+import { resolveZone } from "./flowFormat";
 import { exportCsv, loadViewMode, saveViewMode } from "./heatmap";
 import type { ViewMode } from "./heatmap";
 import HeadlineTiles from "./HeadlineTiles";
@@ -50,6 +51,8 @@ interface Props {
   onBreakdownChange?: (breakdown: Breakdown) => void;
   /** Reports the filters the numbers on screen were fetched for, so the page's title row names that period. */
   onFetchedFilters?: (filters: FlowFilters | null) => void;
+  /** #2051 — the board's zone; a change refetches because every bucket moves. */
+  timeZone?: string | null;
 }
 
 function isEmpty(cycle: FlowCycleTime, throughput: FlowThroughput, cumulative: FlowCumulativeFlow, age: FlowWipAge) {
@@ -94,7 +97,7 @@ function AnalyticsQuestion({ id, title, hint, children }: { id: string; title: s
  */
 export default function AnalyticsOverview({
   boardId, filters, onFiltersChange, swimlanes, labels, columns = [], currentUserRole = null,
-  onOpenCard, onGoToBoard, headingRef, onFetchedFilters, customFields = [], breakdown: breakdownProp, onBreakdownChange,
+  onOpenCard, onGoToBoard, headingRef, onFetchedFilters, customFields = [], breakdown: breakdownProp, onBreakdownChange, timeZone,
 }: Props) {
   const [ownBreakdown, setOwnBreakdown] = useState<Breakdown>(NO_BREAKDOWN);
   const breakdown = breakdownProp ?? ownBreakdown;
@@ -112,7 +115,7 @@ export default function AnalyticsOverview({
   // Here, not in the panels, so a panel's Chart | Table choice outlives a refetch.
   const [views, setViews] = useState<Record<string, ChartPanelView>>({});
   const [mode, setModeState] = useState<ViewMode>(() => loadViewMode(boardId));
-  const { results, fetchedFilters, loading, failed, failedKind } = useAnalyticsOverviewData(boardId, filters, attempt, grouping);
+  const { results, fetchedFilters, loading, failed, failedKind } = useAnalyticsOverviewData(boardId, filters, attempt, grouping, timeZone);
 
   useEffect(() => { onFetchedFilters?.(fetchedFilters); }, [fetchedFilters, onFetchedFilters]);
 
@@ -126,7 +129,9 @@ export default function AnalyticsOverview({
 
   const {
     drill, setDrill, cards, closeDrill, selectCycleSample, selectThroughputSample, selectAgeSample, selectDay,
-  } = useFlowDrill(boardId, filters, { cycle, throughput, cumulative, wipAge, attention });
+  } = useFlowDrill(boardId, filters, { cycle, throughput, cumulative, wipAge, attention }, timeZone);
+  // Instants (a completion, a transition, an axis tick) read in the board zone; bucket days stay UTC labels (#2051).
+  const zone = resolveZone(timeZone ?? "UTC");
 
   const setMode = (next: ViewMode) => {
     saveViewMode(boardId, next);
@@ -265,7 +270,7 @@ export default function AnalyticsOverview({
               </RegionSlot>
               <RegionSlot busy={busy}>
                 {cycle
-                  ? <CycleTimePanel {...panelView("cycle")} data={cycle} cards={cards} days={shownDays} onSelect={selectCycleSample} noun={noun} isolated={isolated} />
+                  ? <CycleTimePanel {...panelView("cycle")} data={cycle} cards={cards} days={shownDays} onSelect={selectCycleSample} noun={noun} isolated={isolated} timeZone={zone} />
                   : <PanelPlaceholder title="Cycle time" failed={settled} />}
               </RegionSlot>
             </ChartRow>
@@ -323,6 +328,7 @@ export default function AnalyticsOverview({
           onChange={setDrill}
           onClose={closeDrill}
           onOpenCard={onOpenCard}
+          timeZone={zone}
         />
       )}
     </div>

@@ -34,6 +34,8 @@ These are the definitions every flow metric follows. They are quoted verbatim fr
 
 Changing the commitment point re-measures the board's past, the same way marking a column done does.
 
+**Board time zone** *(new in 1.3, #2051)*: by default every day and ISO week on the Analytics tab is a UTC date, so for a team far from UTC a card finished late in the afternoon can land on the next day. A board admin can set the board's time zone in **Board Settings** → **Rules & limits** → **Flow metrics** (or search **Find a setting** for "time zone"). Throughput days and weeks, cumulative-flow days, the date range, a day's drill-down and "today" then follow that zone, for everyone who opens the board and for the MCP flow tools; the footnote under the charts names it. Durations (cycle time, age, dwell) are elapsed time and do not change, and neither does the rolling window a "Last N days" range samples. Changing the zone re-buckets the board's past; no card data changes. It is separate from the instance time zone, which decides when a card is overdue.
+
 "Created" in lead time means the card's creation movement, the first history row that places it in a column. A card with no creation movement, for example one imported without its history, starts at its `created_at` instead. The two can differ for an imported card.
 
 ## Summary view
@@ -195,7 +197,7 @@ A tile shows only what the server returns. Without a median it shows a dash and 
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Four charts built from the movement log, so you can see how long work takes and where it piles up. Each chart has a one-sentence finding, its definition, and a **Chart | Table** toggle. They follow the page's [filters](#filters). All dates are UTC, and weekends count.
+Four charts built from the movement log, so you can see how long work takes and where it piles up. Each chart has a one-sentence finding, its definition, and a **Chart | Table** toggle. They follow the page's [filters](#filters). All dates are in the board's time zone (UTC unless a board admin sets one, see below), and weekends count.
 
 | Chart | Read it as | Marks |
 |---|---|---|

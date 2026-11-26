@@ -104,6 +104,7 @@ const fakeBoard: BoardFull = {
   health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
   swimlane_rollup_field: null,
   commitment_column_uid: null,
+  time_zone: null,
   cards_can_have_children: false,
   default_child_board: null,
   parent_name_singular: "",
@@ -1951,6 +1952,48 @@ describe('BoardSettingsModal — Commitment point (#2050)', () => {
     await openRules({ ...withColumns, commitment_column_uid: 'col3' }, vi.fn(), false)
     expect(screen.queryByRole('combobox', { name: 'Cycle time starts at' })).toBeNull()
     expect(screen.getByRole('region', { name: 'Flow metrics' })).toHaveTextContent('Cycle time starts at: Review')
+  })
+
+  // #2051 — the flow-metric time zone
+  const TZ = 'Time zone for days and weeks'
+
+  it('defaults to UTC and sends an IANA name, or null for the default', async () => {
+    const { user, onUpdate } = await openRules(withColumns)
+    const select = screen.getByRole('combobox', { name: TZ })
+    expect(select).toHaveTextContent('UTC (default)')
+    await user.click(select)
+    const names = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(names[0]).toBe('UTC (default)')
+    expect(names).toContain('America/Los Angeles')
+    expect(names.filter((n) => n === 'UTC')).toEqual([])
+    await user.click(screen.getByRole('option', { name: 'America/Los Angeles' }))
+    expect(onUpdate).toHaveBeenCalledWith({ time_zone: 'America/Los_Angeles' })
+  })
+
+  it('shows a stored zone, and clearing it sends null', async () => {
+    const { user, onUpdate } = await openRules({ ...withColumns, time_zone: 'Europe/Berlin' })
+    expect(screen.getByRole('combobox', { name: TZ })).toHaveTextContent('Europe/Berlin')
+    await user.click(screen.getByRole('combobox', { name: TZ }))
+    await user.click(screen.getByRole('option', { name: 'UTC (default)' }))
+    expect(onUpdate).toHaveBeenCalledWith({ time_zone: null })
+  })
+
+  it('still offers a stored zone the browser does not list, and reads UTC as the default', async () => {
+    const { user } = await openRules({ ...withColumns, time_zone: 'Mars/Olympus_Mons' })
+    expect(screen.getByRole('combobox', { name: TZ })).toHaveTextContent('Mars/Olympus Mons')
+    await user.click(screen.getByRole('combobox', { name: TZ }))
+    expect(screen.getAllByRole('option')[1]).toHaveTextContent('Mars/Olympus Mons')
+  })
+
+  it('reads an explicit UTC as the default', async () => {
+    await openRules({ ...withColumns, time_zone: 'UTC' })
+    expect(screen.getByRole('combobox', { name: TZ })).toHaveTextContent('UTC (default)')
+  })
+
+  it('shows the time zone read-only to a non-admin', async () => {
+    await openRules({ ...withColumns, time_zone: 'America/New_York' }, vi.fn(), false)
+    expect(screen.queryByRole('combobox', { name: TZ })).toBeNull()
+    expect(screen.getByRole('region', { name: 'Flow metrics' })).toHaveTextContent(`${TZ}: America/New York`)
   })
 })
 
