@@ -4,6 +4,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.http import Http404, HttpResponseRedirect
 
 from rest_framework.exceptions import NotFound
@@ -663,7 +664,35 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
         # re-pointed at it by an edit of its ``board`` — after the delete has
         # snapshotted the columns a card could enter through.
         # changeform_view's transaction holds the lock until the save commits.
-        _lock_board_for_admin_save(obj.board_id, Column, obj.pk if change else None)
+        _lock_board_for_admin_save(obj.board_id)
+        # Planned children (#2637): a ``position`` or ``board`` change is a
+        # reorder of the target board, and the REST reorder's release
+        # (release_on_reorder) is correct only because it holds every column
+        # of the board ``FOR UPDATE``: a parent move holds its source and
+        # target columns, so it either commits before the new order is
+        # written (and the reorder's scan sees the parent's new column) or
+        # waits for it (and release_on_move reads the new order, #2635).
+        # Holding this one column would not order it against a move between
+        # two other columns, and each side could miss the other's write. So
+        # the same locks, in the same order: board row, then the columns in
+        # pk order in one statement (this column too: on a re-point it is
+        # not yet one of the board's). Decided from a read under the board
+        # lock, which a second admin save or REST reorder of this board also
+        # takes. Any other edit keeps the single-column lock.
+        stored = (
+            Column.objects.filter(pk=obj.pk).values_list("board_id", "position").first()
+            if change else None
+        )
+        reorders = stored is not None and stored != (obj.board_id, obj.position)
+        if reorders:
+            locked = set(
+                Column.objects.filter(Q(board_id=obj.board_id) | Q(pk=obj.pk))
+                .order_by("pk").select_for_update().values_list("pk", flat=True)
+            )
+            if obj.pk not in locked:
+                raise Http404("This object was deleted.")
+        elif change and Column.objects.select_for_update(no_key=True).filter(pk=obj.pk).first() is None:
+            raise Http404("This object was deleted.")
         # The name before this write, read under the column lock (as
         # ColumnViewSet.perform_update reads it), not from ``obj``.
         old_name, old_board_id = (
@@ -685,7 +714,25 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
             if old_board_id not in (None, obj.board_id) else None
         )
         old_board_before = column_rollup_state(old_board) if old_board is not None else None
+        from .services import planned_children
+
+        if old_board is not None:
+            # Re-pointed at another board (#2637): its planned children's
+            # parents are on the old board and can never reach it, since
+            # release_on_move only reaches a Needed column on the parent's
+            # board. Called off as a delete calls them off (released, so
+            # the Stale clock restarts, with an actorless "Needed: Now"
+            # row), under this column's lock and before the write, like the
+            # REST delete. Routed through the helper rather than making
+            # ``board`` read-only because the re-point is an existing admin
+            # path (#2500 diffs both boards' rollups for it).
+            planned_children.clear_for_deleted_column(obj, actor=request.user, detach=True)
         super().save_model(request, obj, form, change)
+        if reorders:
+            # A child whose Needed column now sits at or before its parent's
+            # is released, as by the REST reorder (#2637); after the write,
+            # under the column locks taken above.
+            planned_children.release_on_reorder(obj.board, actor=request.user)
         announce_column_rollup_changed(obj.board, rollup_before, actor_id=request.user.pk)
         if old_board is not None:
             announce_column_rollup_changed(old_board, old_board_before, actor_id=request.user.pk)
@@ -728,6 +775,13 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
             from .services.card_links import announce_column_rollup_changed, column_rollup_state
 
             rollup_before = column_rollup_state(obj.board)
+            # Planned children needed at this column become "Needed: Now"
+            # (#2637), as on the REST delete (#2371): released and recorded
+            # before the FK's SET_NULL clears the field, which on its own
+            # would restart nothing and write no history.
+            from .services.planned_children import clear_for_deleted_column
+
+            clear_for_deleted_column(obj, actor=request.user)
             super().delete_model(request, obj)
             announce_column_rollup_changed(obj.board, rollup_before, actor_id=request.user.pk)
             _broadcast.record_board_event(
@@ -756,6 +810,12 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
 
             rollup_boards = list(Board.objects.filter(pk__in={b for b, _uid in deleted}).order_by("pk"))
             rollup_before = {b.pk: column_rollup_state(b) for b in rollup_boards}
+            # Planned children needed at any selected column (#2637), as on
+            # the single delete; one call, so the link rows lock in one
+            # pk-ordered statement (see clear_for_deleted_columns).
+            from .services.planned_children import clear_for_deleted_columns
+
+            clear_for_deleted_columns(list(queryset.values_list("pk", flat=True)), actor=request.user)
             super().delete_queryset(request, queryset)
             for b in rollup_boards:
                 announce_column_rollup_changed(b, rollup_before[b.pk], actor_id=request.user.pk)

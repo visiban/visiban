@@ -154,15 +154,28 @@ def release_on_move(card, *, to_column, actor, may_be_parent=True, may_be_child=
     Clients refresh the children through the ``card.parent_changed`` frame the
     parent move already sends (``announce_parent_changed``); the pulled child's
     own ``card.moved`` frame carries its new column.
+
+    The target column's position and board are read in this statement, from
+    the column row, never from ``to_column`` (#2635). The caller loaded that
+    object before it took the column lock (``move_card`` reads it, then waits
+    in ``_lock_move_columns``), and a column reorder holds every column of the
+    board ``FOR UPDATE`` until it commits. A move that queued behind one would
+    judge "reached or skipped past" against the order the reorder replaced,
+    wrongly releasing a child or missing one, and the reorder's own
+    ``release_on_reorder`` cannot catch the miss: it ran while the parent was
+    still in its old column. The caller holds the target column's lock, so the
+    order read here is final until the move commits. Same live comparison as
+    ``release_on_reorder``'s ``F("parent__column__position")``.
     """
     sides = Q()
     if may_be_child:
         sides |= Q(child_id=card.pk)
     if may_be_parent:
+        live_target = Column.objects.filter(pk=to_column.pk)
         sides |= Q(
             parent_id=card.pk,
-            needed_at_column__board_id=to_column.board_id,
-            needed_at_column__position__lte=to_column.position,
+            needed_at_column__board_id=Subquery(live_target.values("board_id")[:1]),
+            needed_at_column__position__lte=Subquery(live_target.values("position")[:1]),
         )
     if not sides:
         return
@@ -186,11 +199,30 @@ def release_on_move(card, *, to_column, actor, may_be_parent=True, may_be_child=
             _record(child_id, CardActivity.EventType.PLANNED_RELEASED, None, "parent_reached", _due_iso(due_date))
 
 
-def clear_for_deleted_column(column, *, actor):
+def clear_for_deleted_column(column, *, actor, detach=False):
+    """:func:`clear_for_deleted_columns` for one column (the REST and admin single delete)."""
+    clear_for_deleted_columns([column.pk], actor=actor, detach=detach)
+
+
+def clear_for_deleted_columns(column_ids, *, actor, detach=False):
     """Record "Needed: Now" on each planned child whose column is being deleted.
 
     Called by the column delete under its cascade locks, before the delete;
-    the FK's ``SET_NULL`` then clears the field. A released child is already
+    the FK's ``SET_NULL`` then clears the field. ``detach=True`` clears the
+    field here instead, for a column that is not deleted but leaves the
+    parent's board (a Django admin ``board`` edit, #2637): to the parent it
+    is gone the same way (``release_on_move`` only reaches a Needed column on
+    the parent's board), so the plan is called off the same way, with the same
+    ``column_deleted`` cause. A distinct cause would tell the child board's
+    readers that the parent's column went to another board (Rule 19).
+
+    Several columns (the admin bulk delete, #2637) are one call, not one per
+    column: their link rows are then locked in one pk-ordered statement, the
+    order ``release_on_move``'s per-row claims take them in, where a lock per
+    column could hold a higher pk of one column while a parent move holds a
+    lower pk of another, and each wait on the other. No ids, no query.
+
+    A released child is already
     an ordinary card and gets no row and keeps its release time. Pings each
     child board so open clients re-read the children (ids only).
 
@@ -203,14 +235,20 @@ def clear_for_deleted_column(column, *, actor):
     move releasing the same link either commits first and the row is skipped
     here, or waits and then finds it released: one history row either way.
     """
+    column_ids = sorted({pk for pk in column_ids if pk is not None})
+    if not column_ids:
+        return
     rows = list(
         CardParentLink.objects.select_for_update(of=("self",))
-        .filter(needed_at_column=column, planned_released_at__isnull=True)
+        .filter(needed_at_column__in=column_ids, planned_released_at__isnull=True)
         .values_list("pk", "child_id", "child__board_id")
         .order_by("pk")
     )
     if rows:
-        CardParentLink.objects.filter(pk__in=[r[0] for r in rows]).update(planned_released_at=timezone.now())
+        cleared = {"needed_at_column": None} if detach else {}
+        CardParentLink.objects.filter(pk__in=[r[0] for r in rows]).update(
+            planned_released_at=timezone.now(), **cleared,
+        )
     by_board = {}
     for _link_pk, child_id, child_board_id in rows:
         # No actor (Rule 19): the column's deleter is a PARENT-board admin who
