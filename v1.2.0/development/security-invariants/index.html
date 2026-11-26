@@ -4910,7 +4910,7 @@ re-checks.</p>
 <tr>
 <td>WebSocket (board)</td>
 <td><code>boards/consumers.py</code> <code>BoardConsumer</code></td>
-<td>Periodic and per-frame re-check: <code>_refresh_role</code> calls <code>load_live_ws_user</code> (<code>authorize_account</code> on a fresh row, live credential) and <code>_lookup_role</code> resolves the current role with <code>get_board_role</code>; a denial closes with 4003, a check that raises drops the frame and closes with 4503 (reconnectable; #2142)</td>
+<td>Periodic and per-frame re-check: <code>_refresh_role</code> calls <code>load_live_ws_user</code> (<code>authorize_account</code> on a fresh row, live credential) and <code>_lookup_role</code> resolves the current role with <code>get_board_role</code>; a denial closes with 4003, a check that raises drops the frame and closes with 4503 (reconnectable; #2142). A group removal also closes the removed user's board sockets at once: <code>groups/views.py</code> <code>_evict_lost_board_access</code> sends <code>member.removed</code>, from a <code>robust</code> post-commit callback, to each board in the group's subtree (read before the transaction and again after commit) where the re-resolved role is now none, at most <code>BOARD_EVICTION_FANOUT_MAX</code> (500) boards; a board past the cap, or a failure in that callback, falls back to this re-check (#2624, <code>groups/tests/test_member_removed_eviction_2624.py</code>)</td>
 </tr>
 <tr>
 <td>WebSocket (group)</td>

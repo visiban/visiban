@@ -5919,6 +5919,46 @@ check (#1298) is not a latency scenario and has no budget.</p>
 </tbody>
 </table>
 <p>On the load-test board the subquery now drives from the board's 479 narrowed cards with index-only probes of <code>movement_card_moved_idx</code> (2,883 buffers) instead of reading 29,428 rows over 2 loops from <code>card_movements_moved_at</code> (28,534 buffers); the cards load goes 28,984 -&gt; 3,545 buffers. On the aged board the plans do not change (the 4-buffer difference at 90 days is the narrowed predicate's extra filter on the same plan): 10,150 of its cards are narrowed-in (9,640 archived, 510 live done), and at 30 days the planner still prefers the instance-wide <code>moved_at</code> range scan to that many probes. That residual is the planner's choice of driver, not a wider bound. One variant was measured and rejected: reading <code>is_done</code> through a join to <code>columns</code> inside the subquery flipped the aged board's 90-day plan to one probe per narrowed card, 17,542 -&gt; 131,712 buffers. Execution times were too noisy at this size (median of 3, 2-40 ms per statement) to quote as a gain.</p>
+<h3 id="the-board-scoped-movement-read-2579">The board-scoped movement read — #2579<a class="headerlink" href="#the-board-scoped-movement-read-2579" title="Permanent link">&para;</a></h3>
+<p>The aged board's residual was not the predicate but the driver. Bounded only by <code>card__board</code>, the subquery's one board-scoped path was a probe of <code>movement_card_moved_idx</code> per candidate card (about 10,150 on the aged board), so the planner read every board's movements in the range from <code>card_movements_moved_at</code>, a heap fetch per row. #2579 adds <code>movement_board_moved_card_idx</code> on <code>(board, moved_at, card)</code> (migration 145, built concurrently; <code>card</code> is a key column rather than <code>INCLUDE</code> so the index is covering on SQLite too) and has the subquery name the movement's own <code>board</code> column too (<code>flow_metrics.movements_on_board</code>), so the read is an index-only range scan of this board's rows. The term is redundant with <code>card__board</code>, so the kept set is unchanged: every writer fills <code>board</code> from the card and the admin's card move rewrites it, and the rows a pre-0080 release wrote during a rolling upgrade (board NULL) are kept by a second <code>UNION</code> arm. An <code>OR board IS NULL</code> form was measured and rejected: it can only be served by a bitmap heap scan, kept the <code>moved_at</code> scan on the aged board, and made the load-test board's 30-day read 3,545 -&gt; 28,954 buffers. The heatmap's <code>also_matching</code> term reads movements the same way and is narrowed to live cards in a done column, the only ones the dwell load's first term does not already keep (#2579 comment); with no done column it compiles away.</p>
+<p><code>EXPLAIN (ANALYZE, BUFFERS)</code>, local PostgreSQL 17.11, the same fixture (151,674 movements, <code>VACUUM ANALYZE</code>), the cards-load statement with the heatmap's <code>also_matching</code> term, as <code>analytics/</code> sends it. These are that one statement's buffers, so they are lower than the table above, which summed every statement that reads <code>card_movements</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Board, range</th>
+<th>Kept cards</th>
+<th>Before (#2567)</th>
+<th>After (#2579)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Load-test, 30 days</td>
+<td>2,395 / 2,395</td>
+<td>3,545</td>
+<td>493</td>
+</tr>
+<tr>
+<td>Load-test, 90 days</td>
+<td>2,395 / 2,395</td>
+<td>1,883</td>
+<td>579</td>
+</tr>
+<tr>
+<td>Aged, 30 days</td>
+<td>2,410 / 2,410</td>
+<td>30,706</td>
+<td>2,246</td>
+</tr>
+<tr>
+<td>Aged, 90 days</td>
+<td>2,410 / 2,410</td>
+<td>7,047</td>
+<td>2,334</td>
+</tr>
+</tbody>
+</table>
+<p>On the aged board at 30 days the movement read goes from 14,714 rows over 2 loops of <code>card_movements_moved_at</code> (28,504 buffers) to 7,449 rows of this board from <code>movement_board_moved_card_idx</code> (41 buffers), plus 3 buffers for the empty NULL arm. Without the heatmap term the aged 30-day figures are the same (30,706 -&gt; 2,246): the narrowed term is never reached on this fixture. These are best-case figures: they were taken right after <code>VACUUM ANALYZE</code>, and an index-only scan still visits the heap for rows on pages not yet marked all-visible, which recent movements are the likeliest to be. Production should see some heap fetches, at most about one per matched row, still well under the scan it replaces; the nightly p95 is the closing check. <code>can_affect_range</code> (the range loader) keeps its <code>card__board</code>-only movement term: #2502 tuned that plan, and converting it needs its own measurement. <code>RecentDwellBoardScopedMovementTests</code> in <code>test_flow_range_plan_2502.py</code> pins the answers on a board with archived history and a NULL-board row against the whole-board load.</p>
 <h2 id="cumulative-flows-whole-history-read-2444">Cumulative flow's whole-history read — #2444<a class="headerlink" href="#cumulative-flows-whole-history-read-2444" title="Permanent link">&para;</a></h2>
 <p>After <a href="https://gitlab.com/visiban/visiban/-/issues/2425">#2425</a>, <code>metrics/cumulative-flow</code> still streamed every skipped card's whole movement history to find the band it rests in. The <code>?date=</code> drill-down still loaded the board's whole history through <code>load_board_flow</code>.</p>
 <p>Both now go through <code>flow_metrics._deciding_rows</code>, which reads per card only the rows <code>_replay_placements</code> can depend on:</p>
