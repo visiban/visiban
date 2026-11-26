@@ -98,6 +98,11 @@ RETIRED_BOARD_NAMES = ("Marketing Campaigns", "Hiring Pipeline")
 #: The dead-simple first-run board (#2600); defined last in BOARDS.
 SIMPLE_BOARD_NAME = "Simple Kanban"
 
+#: The connected boards (#2598): a delivery board under the overlay board, and a
+#: program board above Software Team.
+IMPLEMENTATION_BOARD_NAME = "Customer Implementation"
+PROGRAM_BOARD_NAME = "Platform Program"
+
 BOARDS = [
     {
         "name": "Software Team",
@@ -903,12 +908,13 @@ BOARDS = [
         "trello": "trello_export.json",
     },
     # The dead-simple first-run board (#2600): one swimlane, the Simple Kanban
-    # template's columns minus Review, ten cards, nothing else. Appended LAST on
-    # purpose, for two reasons that look like they conflict and do not: the
-    # reset restarts the id sequences, so the order here is each board's URL and
-    # appending keeps Sales Territory (Overlay) at /boards/6; and the board list
-    # is ordered by -updated_at, so the board created last is listed first, which
-    # is where a new visitor should land. Empty extras on purpose: no custom
+    # template's columns minus Review, ten cards, nothing else. The connected
+    # boards (#2598) are appended after it. The reset restarts the id sequences,
+    # so the order here is each board's URL and appending keeps Sales Territory
+    # (Overlay) at /boards/6. The board list is ordered by -updated_at, and this
+    # overlay is listed first, ahead of this board, because keep_overlay_board_first
+    # touches it last (#2456: the account -> opportunity -> execution story leads;
+    # this reverses #2600, which listed this board first). Empty extras on purpose: no custom
     # fields, checklists, relations or links, because simple is the feature.
     {
         "name": SIMPLE_BOARD_NAME,
@@ -935,6 +941,100 @@ BOARDS = [
             ("Book the team lunch", "Table for eight on Friday.", 3, 0, "low", "maya", ("Task",),
              [("jordan", "Booked for noon.")], 2, None),
             ("Choose a project name", "Shortlist agreed, final pick made.", 3, 0, "medium", "admin", ("Idea",), [], 0, None),
+        ],
+        "card_fields": [],
+        "card_field_values": {},
+        "swimlane_fields": [],
+        "swimlane_field_values": {},
+        "checklists": {},
+        "relations": [],
+        "external_refs": {},
+    },
+
+    # Connected boards (#2598, #2599): appended after Simple Kanban so every
+    # board above keeps its id (the overlay stays /boards/6, Simple Kanban
+    # /boards/10). Seeded after the overlay board, which they hang off; the
+    # parent/child links between them are written by _demo_site_connected.
+    # The delivery board that sits below the Sales Territory (Overlay) board:
+    # each customer's implementation work, the downstream half of the story.
+    {
+        "name": IMPLEMENTATION_BOARD_NAME,
+        "description": "Delivery work for the deals the sales overlay board has won. Which implementations are waiting on the customer?",
+        "columns": [
+            ("Backlog", "#6B7280", False),
+            ("Kickoff", "#3B82F6", False),
+            ("Build", "#F59E0B", False),
+            ("UAT", "#8B5CF6", False),
+            ("Live", "#10B981", True),
+        ],
+        "swimlanes": [
+            ("Harborview Bank", "#3B82F6"), ("Copperline Telecom", "#8B5CF6"),
+            ("Orion State Transit Authority", "#22C55E"), ("Evergreen Health System", "#F97316"),
+            ("Halcyon Pharma", "#EC4899"), ("Bluefin Insurance", "#14B8A6"),
+        ],
+        "labels": [("Integration", "#3B82F6"), ("Training", "#8B5CF6"), ("Data migration", "#F59E0B"), ("Go-live", "#10B981")],
+        "cards": [
+            ("Migrate branch reporting data", "Move the branch reports onto the new analytics workspace.", 2, 0, "high", "maya", ("Data migration",),
+             [("jordan", "Two of the five source systems are loaded.")], 2, 6),
+            ("Train branch analysts", "Two live sessions and a recorded walkthrough.", 1, 0, "medium", "jordan", ("Training",), [], 4, 12),
+            ("Connect network telemetry feeds", "Wire the three telemetry sources into the platform.", 3, 1, "high", "jordan", ("Integration",),
+             [("maya", "Acceptance testing starts Monday.")], 1, 3),
+            ("Cutover plan and rollback", "Agree the cutover window and the rollback steps.", 2, 1, "urgent", "admin", ("Go-live",), [], 5, -2),
+            ("Integrate screen reader audit tool", "Hook the audit tool into the release checklist.", 4, 2, "medium", "maya", ("Integration",), [], 1, None),
+            ("Accessibility acceptance testing", "Customer walks the key flows with their own reviewers.", 3, 2, "medium", "jordan", ("Go-live",), [], 5, 4),
+            ("Build cohort dashboards", "Five dashboards agreed in the workshop.", 2, 3, "high", "maya", ("Integration",),
+             [("admin", "Waiting on one data definition from the customer.")], 6, 5),
+            ("Load historical encounter data", "Three years of history, loaded and reconciled.", 4, 3, "medium", "jordan", ("Data migration",), [], 0, None),
+            ("Clinician training sessions", "Role-based sessions for the care teams.", 1, 3, "medium", "maya", ("Training",), [], 5, 14),
+            ("Provision research workspaces", "One workspace per research group.", 4, 4, "low", "admin", ("Go-live",), [], 2, None),
+            ("Migrate legacy notebooks", "Convert the old notebooks to the shared format.", 2, 4, "high", "jordan", ("Data migration",),
+             [("maya", "Blocked until the customer confirms the data-sharing terms.")], 9, 2),
+            ("Plan the security analytics rollout", "Sequence the add-on once the order is signed.", 0, 0, "medium", "maya", ("Integration",), [], 1, 28),
+            ("Billing interface design review", "Review the interface design with the finance team.", 0, 1, "medium", "jordan", ("Integration",), [], 2, 24),
+            ("Security control mapping workshop", "Map the customer's controls to the review checklist.", 0, 3, "medium", None, ("Integration",), [], 4, 21),
+            ("Claims data validation", "Validate a sample extract before the renewal term begins.", 0, 5, "low", "maya", ("Data migration",), [], 5, 35),
+            ("Reporting template build", "Build the compliance report templates agreed in the order.", 1, 4, "medium", "jordan", ("Integration",), [], 1, 9),
+            ("Standard onboarding checklist", "The checklist every implementation starts from.", 0, 0, "low", "admin", ("Training",), [], 6, None),
+            ("Quarterly health check", "A standing review of usage and open requests.", 4, 0, "low", "maya", ("Go-live",), [], 1, None),
+            ("Sandbox environment request", "A customer asked for a second sandbox.", 0, 1, "medium", None, ("Integration",), [], 4, 8),
+            ("Success plan for new owners", "Hand over to the customer's new platform owners.", 1, 5, "medium", "jordan", ("Training",), [], 5, 15),
+        ],
+        "card_fields": [],
+        "card_field_values": {},
+        "swimlane_fields": [],
+        "swimlane_field_values": {},
+        "checklists": {
+            "Cutover plan and rollback": [("Agree the cutover window", True), ("Write the rollback steps", False), ("Dry run in staging", False)],
+            "Build cohort dashboards": [("Confirm the data definitions", False), ("Build the first three dashboards", True)],
+        },
+        "relations": [],
+        "external_refs": {},
+    },
+    # A program board above the Software Team board: initiatives here, the
+    # team's cards as their children. cards_can_have_children makes it the
+    # parent tier (Children mode); Software Team stays the child tier.
+    {
+        "name": PROGRAM_BOARD_NAME,
+        "description": "Platform initiatives and the team work behind them. Which initiatives are waiting on work that has not started?",
+        "cards_can_have_children": True,
+        "columns": [
+            ("Proposed", "#6B7280", False),
+            ("Planned", "#3B82F6", False),
+            ("In Delivery", "#F59E0B", False),
+            ("Shipped", "#10B981", True),
+        ],
+        "swimlanes": [("Reliability", "#3B82F6"), ("Performance", "#22C55E"), ("Security", "#F97316"), ("Developer experience", "#8B5CF6")],
+        "labels": [("Q4", "#3B82F6"), ("Q1", "#8B5CF6"), ("Committed", "#10B981")],
+        "cards": [
+            ("Zero-downtime upgrades", "Upgrade the database and the platform without a maintenance window.", 2, 0, "high", "admin", ("Q4", "Committed"),
+             [("maya", "The database upgrade is the long pole.")], 2, 20),
+            ("Faster board loads", "Cut the time to a usable board for the largest boards.", 2, 1, "high", "maya", ("Q4",), [], 1, 25),
+            ("Operational readiness", "Runbooks, logs and preview environments before the next release.", 1, 0, "medium", "jordan", ("Q1",), [], 4, 40),
+            ("Secure by default", "Close the open security findings from the last review.", 3, 2, "medium", "admin", ("Q4", "Committed"), [], 1, None),
+            ("Keyboard-first navigation", "Every board action reachable without the mouse.", 0, 3, "low", None, ("Q1",), [], 1, None),
+            ("Accessible by default", "Meet the accessibility baseline on every screen.", 0, 3, "medium", "maya", ("Q1",), [], 9, None),
+            ("Audit log retention", "Keep the audit trail as long as the contract says.", 1, 2, "medium", "admin", ("Q1",), [], 1, 45),
+            ("Search that scales", "Search stays fast on the largest boards.", 2, 1, "medium", "jordan", ("Q4",), [], 6, 30),
         ],
         "card_fields": [],
         "card_field_values": {},
