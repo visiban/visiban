@@ -47,6 +47,14 @@ function LaneBar({ lane }: { lane: Pick<ChildrenViewLane, "done" | "doing" | "bl
 
 interface Stop { r: number; c: number; i: number; key: string }
 
+// Inline SVG on currentColor, never an emoji: it tracks the theme (frontend/CLAUDE.md § Swimlane bands).
+const LockIcon = () => (
+  <svg aria-hidden="true" viewBox="0 0 16 16" className="inline-block w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <rect x="3" y="7" width="10" height="7" rx="1" />
+    <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+  </svg>
+);
+
 export default function ChildrenModeView({ boardId, laneId, options, onOptionsChange, onOpenParent, refreshKey = 0, phone = false }: Props) {
   const [data, setData] = useState<ChildrenView | null>(null);
   const [error, setError] = useState(false);
@@ -57,16 +65,28 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
   const [rowOpen, setRowOpen] = useState<Map<number, boolean>>(new Map());
   const [active, setActive] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState<string>("");
+  const [copiedLane, setCopiedLane] = useState<number | null>(null);
+  const [moreError, setMoreError] = useState(false);
+  const [retry, setRetry] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const laneParamRef = useRef(laneId);
+  // The user's own collapse choices survive a re-read; a new ?lane= resets them.
+  const collapseTouched = useRef(false);
+  // A read generation: a "load more" page from an older read (lane or Show done changed) is dropped.
+  const generation = useRef(0);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
 
   useEffect(() => {
     const ctrl = new AbortController();
+    generation.current += 1;
     setError(false);
+    setMoreError(false);
     getChildrenView(boardId, { lane: laneId, done: options.showDone }, ctrl.signal)
       .then((d) => {
         setData(d);
-        if (laneParamRef.current !== laneId || collapsed.size === 0) {
+        if (laneParamRef.current !== laneId) collapseTouched.current = false;
+        if (!collapseTouched.current) {
           laneParamRef.current = laneId;
           // A linked lane opens expanded with the others collapsed.
           setCollapsed(new Set(laneId == null ? [] : d.lanes.filter((l) => l.id !== laneId).map((l) => l.id)));
@@ -74,21 +94,23 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
       })
       .catch((e: unknown) => { if (!ctrl.signal.aborted && (e as { name?: string })?.name !== "CanceledError") setError(true); });
     return () => ctrl.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- collapsed is read once per fetch, not a trigger
-  }, [boardId, laneId, options.showDone, refreshKey]);
+  }, [boardId, laneId, options.showDone, refreshKey, retry]);
 
   const loadMore = useCallback(async () => {
     if (!data?.next_cursor) return;
     setLoadingMore(true);
+    setMoreError(false);
+    const gen = generation.current;
     try {
       const next = await getChildrenView(boardId, { lane: laneId, cursor: data.next_cursor, done: options.showDone });
+      if (gen !== generation.current) return;
       setData((d) => d && {
         ...next,
         rows: [...d.rows, ...next.rows],
         child_boards: [...d.child_boards, ...next.child_boards.filter((b) => !d.child_boards.some((x) => x.id === b.id))],
       });
     } catch {
-      setError(true);
+      if (gen === generation.current) setMoreError(true);
     } finally {
       setLoadingMore(false);
     }
@@ -106,7 +128,12 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
   const boards = useMemo(() => new Map((data?.child_boards ?? []).map((b) => [b.id, b])), [data]);
 
   if (error && !data) {
-    return <div role="alert" className="p-4 text-sm text-danger">Children didn&apos;t load. Reload the page to try again.</div>;
+    return (
+      <div role="alert" className="p-4 text-sm text-danger flex items-center gap-3">
+        Children didn&apos;t load.
+        <button type="button" onClick={() => setRetry((n) => n + 1)} className={`${FOCUS} ${tgt} px-3 rounded border border-line-strong text-fg hover:bg-surface-hover`}>Try again</button>
+      </div>
+    );
   }
   if (!data) {
     return <div role="status" aria-label="Loading children" className="p-4 text-sm text-fg-secondary">Loading children…</div>;
@@ -116,6 +143,9 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
     try {
       await navigator.clipboard.writeText(laneLink(window.location.origin, boardId, lane.id));
       setCopied(`Link to ${lane.name} copied`);
+      setCopiedLane(lane.id);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopiedLane(null), 2000);
     } catch {
       setCopied("Couldn't copy the link");
     }
@@ -136,13 +166,13 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
         aria-label={childCardName(child, colName)}
         {...focusProps(stop)}
         data-grid={gridKey}
-        className={`${FOCUS} block rounded border bg-surface px-2 py-1 text-xs text-fg hover:bg-surface-hover ${child.planned ? "border-dashed border-line-strong" : "border-line"}`}
+        className={`${FOCUS} block max-sm:min-h-11 rounded border bg-surface px-2 py-1 text-xs text-fg hover:bg-surface-hover ${child.planned ? "border-dashed border-line-strong" : "border-line"}`}
       >
         <span className="block font-medium leading-snug">{child.title}</span>
         <span className="mt-0.5 flex items-center gap-1 text-fg-secondary">
           {child.assignee && <Avatar user={child.assignee} size="sm" />}
           {child.planned && <span>Planned</span>}
-          {child.blocked && <span className="text-danger font-medium">⊘{days != null ? ` ${days}d` : " Blocked"}</span>}
+          {child.blocked && <span className="text-danger font-medium"><span aria-hidden="true">⊘</span>{days != null ? ` ${days}d` : " Blocked"}</span>}
         </span>
       </a>
     );
@@ -190,7 +220,7 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
       setActive((a) => ({ ...a, [gridKey]: next!.key }));
       e.currentTarget.querySelector<HTMLElement>(`[data-stop="${next.key}"]`)?.focus();
     };
-    const template = `minmax(14rem, 18rem) repeat(${maxCols}, minmax(9rem, 1fr))`;
+    const template = `minmax(14rem, 18rem) repeat(${maxCols}, 12rem)`; // fixed tracks: the header and body grids stay aligned
     return (
       <div key={board.id} className="overflow-x-auto">
         <div className="min-w-max" style={{ display: "grid", gridTemplateColumns: template }}>
@@ -238,10 +268,18 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
                   >
                     {row.title}
                   </button>
+                  {large && (
+                    // A one-line row's title expands it; opening the parent is its own visible control.
+                    <button type="button" tabIndex={-1} aria-label={`Open ${row.title}`} onClick={() => onOpenParent(row.id)} className={`${FOCUS} ${tgt} self-start px-2 text-xs text-link rounded hover:bg-surface-hover`}>
+                      Open
+                    </button>
+                  )}
                   <span className="flex items-center gap-1.5 text-xs text-fg-secondary">
                     <span className="rounded border border-line px-1">{row.column_name}</span>
                     {row.assignee && <Avatar user={row.assignee} size="sm" />}
                     <span className={blocked && large ? "text-danger font-medium" : ""}>{large ? compactRowLabel(row) : rowDoneLabel(row)}</span>
+                    {/* Blocked is text too, never the left accent alone. */}
+                    {!large && row.rollup.visible && row.rollup.blocked > 0 && <span className="text-danger font-medium">{row.rollup.blocked} blocked</span>}
                   </span>
                 </div>
                 {open && cells.map(({ col, kids, planned }, ci) => {
@@ -324,7 +362,7 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
                   aria-label={phone
                     ? `${isCollapsed ? "Expand" : "Collapse"} lane ${lane.name}, ${shownInProgress(lane)} in progress of ${lane.total}`
                     : `${isCollapsed ? "Expand" : "Collapse"} ${lane.name}`}
-                  onClick={() => setCollapsed((s) => toggle(s, lane.id))}
+                  onClick={() => { collapseTouched.current = true; setCollapsed((s) => toggle(s, lane.id)); }}
                   className={`${FOCUS} ${tgt} flex items-center gap-2 rounded text-[17px] font-semibold text-fg`}
                 >
                   <span aria-hidden="true">{isCollapsed ? "▸" : "▾"}</span>
@@ -335,10 +373,10 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
               <span className="text-sm text-fg">{laneTotalLabel(lane)}</span>
               <LaneBar lane={lane} />
               <span className={`text-sm ${lane.blocked > 0 ? "text-danger font-medium" : "text-fg-secondary"}`}>{laneBlockedLabel(lane)}</span>
-              {lane.hidden > 0 && <span className="text-sm text-fg-secondary"><span aria-hidden="true">🔒 </span>+{lane.hidden} on a board you can&apos;t open</span>}
+              {lane.hidden > 0 && <span className="inline-flex items-center gap-1 text-sm text-fg-secondary"><LockIcon />+{lane.hidden} on a board you can&apos;t open</span>}
               <span className="flex-1" />
               <button type="button" onClick={() => void copyLink(lane)} className={`${FOCUS} ${tgt} px-2 text-xs text-fg-secondary rounded hover:bg-surface-hover hover:text-fg`}>
-                Copy link
+                {copiedLane === lane.id ? "Link copied" : "Copy link"}
               </button>
             </div>
             {!isCollapsed && (
@@ -349,7 +387,7 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
                 })}
                 {locked.map((row) => (
                   <div key={row.id} className="mx-2 mt-2 flex items-center gap-2 rounded border border-dashed border-line-strong px-3 py-2 text-sm text-fg-secondary">
-                    <span aria-hidden="true">🔒</span>
+                    <LockIcon />
                     <span className="font-medium text-fg">{row.title}</span>
                     <span>{lockedRowText(row.rollup.total)}</span>
                   </div>
@@ -373,6 +411,10 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
                   >
                     {moreParentsLabel(remaining, phone)}
                   </button>
+                )}
+                {moreError && lastLaneWithRows === lane.id && <p role="alert" className="mx-2 mt-1 text-sm text-danger">Couldn&apos;t load more parents. Try again.</p>}
+                {drawn.length === 0 && laneRows.some((r) => r.rollup.visible) && (options.blockedOnly || options.planned === "only") && !foldShown && (
+                  <p className="px-3 py-2 text-sm text-fg-secondary">{options.blockedOnly ? "No blocked children in this lane." : "No planned children in this lane."} Change it in View.</p>
                 )}
                 {laneRows.length === 0 && lane.parents === 0 && <p className="px-3 py-2 text-sm text-fg-secondary">No parents in this lane.</p>}
               </div>
