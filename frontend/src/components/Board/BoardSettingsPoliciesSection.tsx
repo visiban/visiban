@@ -1,5 +1,5 @@
 import HelpLink from "../Common/HelpLink";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { Column, ColumnPolicy } from "../../types";
 import { columnPolicy, policyCountSummary, POLICY_MODE_LABEL } from "../../utils/columnPolicy";
 import { useColumnPolicyDraft } from "../../hooks/useColumnPolicyDraft";
@@ -181,7 +181,13 @@ export default function BoardSettingsPoliciesSection({ columns, isAdmin, hiddenC
       : `Discard changes to “${switchName(openColumnId)}” and open “${switchName(pendingSwitchId)}”?`,
   );
 
-  const focusRow = (id: number) => requestAnimationFrame(() => buttonRefs.current.get(id)?.focus());
+  // The row button that gets focus when its editor closes. The editor unmounts in the same commit, so a layout
+  // effect (focus rule 3, #2608, #2632) moves focus before paint; a frame callback left it on <body>.
+  const [focusRowId, setFocusRowId] = useState<{ id: number } | null>(null);
+  useLayoutEffect(() => {
+    if (focusRowId) buttonRefs.current.get(focusRowId.id)?.focus();
+  }, [focusRowId]);
+  const focusRow = (id: number) => setFocusRowId({ id });
   const onDirtyChange = useCallback((d: boolean) => { dirtyRef.current = d; }, []);
 
   // The open column was deleted (by anyone): drop the draft silently.

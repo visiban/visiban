@@ -583,4 +583,16 @@ describe('MentionTextarea keyboard insertion (#1759)', () => {
     expect(ta).toHaveFocus()
     expect(onSubmit).not.toHaveBeenCalled()
   })
+
+  it('puts the cursor after the inserted mention in the commit that shows it (#2632)', async () => {
+    const user = userEvent.setup()
+    render(<Controlled onSubmit={vi.fn()} />)
+    const ta = screen.getByRole('combobox') as HTMLTextAreaElement
+    await user.type(ta, 'hey @')
+    await user.click(await screen.findByText('Alice Smith'))
+    expect(ta).toHaveValue('hey @alice ')
+    expect(ta).toHaveFocus()
+    expect(ta.selectionStart).toBe('hey @alice '.length)
+    expect(ta.selectionEnd).toBe('hey @alice '.length)
+  })
 })

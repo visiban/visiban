@@ -209,6 +209,13 @@ export default function FieldSetBlocks(props: Props) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [sets, setSets] = useState(props.sets);
   const [announcement, setAnnouncement] = useState("");
+  const [focusCheck, setFocusCheck] = useState(0);
+  useLayoutEffect(() => {
+    if (focusCheck === 0) return;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    const other = rootRef.current?.querySelector<HTMLElement>(`[data-testid="field-set-${otherKeyRef.current}"] button[aria-expanded]`);
+    (other ?? headingRef.current)?.focus();
+  }, [focusCheck]);
   useEffect(() => {
     const active = document.activeElement;
     // The Maximize layer is portaled into the sheet, outside rootRef.
@@ -229,12 +236,9 @@ export default function FieldSetBlocks(props: Props) {
         return props.sets;
       });
       if (!container) return;
-      // The focused control may have gone with its block: never leave focus on body.
-      requestAnimationFrame(() => {
-        if (document.activeElement && document.activeElement !== document.body) return;
-        const other = rootRef.current?.querySelector<HTMLElement>(`[data-testid="field-set-${otherKeyRef.current}"] button[aria-expanded]`);
-        (other ?? headingRef.current)?.focus();
-      });
+      // The focused control may have gone with its block: a layout effect checks once the regrouped
+      // blocks are in the DOM, so focus never rests on body (focus rule 3, #2608, #2632).
+      setFocusCheck((n) => n + 1);
     };
     if (container && row) {
       const onOut = (event: Event) => {
@@ -265,17 +269,20 @@ export default function FieldSetBlocks(props: Props) {
 
   const maximizeButtons = useRef(new Map<string, HTMLButtonElement | null>());
   const [maximized, setMaximized] = useState<string | null>(null);
+  const [restoreMaxFor, setRestoreMaxFor] = useState<{ key: string | null } | null>(null);
   const maxIndex = blocks.findIndex((b) => b.key === maximized);
   const closeMaximize = useCallback(() => {
-    const key = maximized;
+    setRestoreMaxFor({ key: maximized });
     setMaximized(null);
-    // Restore focus to that set's Maximize button, or the section heading if it is gone.
-    requestAnimationFrame(() => {
-      const btn = key ? maximizeButtons.current.get(key) : null;
-      if (btn && btn.isConnected) btn.focus();
-      else headingRef.current?.focus();
-    });
   }, [maximized]);
+  // Restore focus to that set's Maximize button, or the section heading if it is gone. A layout effect runs
+  // in the commit that unmounts the layer (focus rule 3, #2608, #2632).
+  useLayoutEffect(() => {
+    if (!restoreMaxFor) return;
+    const btn = restoreMaxFor.key ? maximizeButtons.current.get(restoreMaxFor.key) : null;
+    if (btn && btn.isConnected) btn.focus();
+    else headingRef.current?.focus();
+  }, [restoreMaxFor]);
   useEffect(() => {
     if (maximized !== null && maxIndex === -1) {
       setMaximized(null);

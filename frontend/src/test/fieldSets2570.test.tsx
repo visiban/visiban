@@ -153,7 +153,8 @@ describe("FieldSetBlocks", () => {
     expect(screen.getByText("Showing Money, 2 of 3.")).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByTestId("field-set-maximized")).toBeNull());
-    await waitFor(() => expect(screen.getByRole("button", { name: "Maximize Money" })).toHaveFocus());
+    // In the commit that unmounts the layer (a layout effect, #2632), so no waiting.
+    expect(screen.getByRole("button", { name: "Maximize Money" })).toHaveFocus();
   });
 
   it("shows an out-of-lane set with a value collapsed with 'Not used in'", () => {
@@ -351,6 +352,17 @@ describe("FieldSetBlocks focus, empty states and live updates (#2570)", () => {
     expect(screen.queryByText(/MEDDIC was removed/)).toBeNull();
     act(() => { input.blur(); });
     expect(screen.getByText(/MEDDIC was removed/)).toBeInTheDocument();
+  });
+
+  it("never leaves focus on body when the focused field's block is removed (#2632)", () => {
+    const { props, rerender } = renderBlocks({ values: [], sets: [fset(1, "MEDDIC", [1, 2, 3])] });
+    fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+    const input = screen.getByLabelText("Metrics");
+    expect(input).toHaveFocus();
+    rerender(<div role="dialog"><FieldSetBlocks {...props} sets={[]} /></div>);
+    act(() => { input.blur(); });
+    expect(document.activeElement).not.toBe(document.body);
+    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
   });
 
   it("keeps focus on the Maximize layer after Escape reverts a text field", () => {

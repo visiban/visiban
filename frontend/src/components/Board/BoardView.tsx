@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useFocusWhenPresent } from "../../hooks/useFocusWhenPresent";
 import { shareLinkIssuedAtFromEvent, shareLinkPatchFromEvent, stripPerUserBoardFields } from "../../utils/boardEventPayload";
 import { boardColorsInUse } from "../../utils/boardColors";
 import { getCardChildrenRollup, getCardParentState, getCardStatus } from "../../api/cards";
@@ -2917,13 +2918,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // (#1101). After the modal's own focus restore, which only acts when focus
   // would otherwise be lost.
   // A confirmed move re-renders the card in its new cell, so the element may
-  // not exist on the first frame: retry for a few frames before giving up.
-  const focusCardSoon = (cardId: number, framesLeft = 10) => {
-    requestAnimationFrame(() => {
-      const el = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
-      if (el) el.focus();
-      else if (framesLeft > 0) focusCardSoon(cardId, framesLeft - 1);
-    });
+  // not exist yet: useFocusWhenPresent focuses it in a layout effect and watches
+  // for a late mount instead of polling per frame (focus rule 3, #2632).
+  const requestFocus = useFocusWhenPresent();
+  const focusCardSoon = (cardId: number) => {
+    requestFocus(() => document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`));
   };
 
   const handleDragStart = (e: DragStartEvent) => {

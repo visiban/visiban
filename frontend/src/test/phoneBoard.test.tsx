@@ -152,7 +152,10 @@ describe('PhoneBoard (#2277)', () => {
     first.focus()
     await user.keyboard('{ArrowRight}')
     expect(screen.getByRole('tab', { name: /Qualified/ })).toHaveAttribute('aria-selected', 'true')
+    // Focus follows the selection in the same commit (a layout effect, #2632), not a frame later.
+    expect(screen.getByRole('tab', { name: /Qualified/ })).toHaveFocus()
     await user.keyboard('{Home}')
+    expect(screen.getByRole('tab', { name: /Prospect/ })).toHaveFocus()
     expect(screen.getByRole('tab', { name: /Prospect/ })).toHaveAttribute('aria-selected', 'true')
     await user.keyboard('{End}')
     expect(screen.getByRole('tab', { name: /Qualified/ })).toHaveAttribute('aria-selected', 'true')
