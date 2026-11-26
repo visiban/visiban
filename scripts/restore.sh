@@ -15,7 +15,15 @@
 #   scripts/restore.sh [--yes] [--skip-media] [--compose-file FILE] <backup-set-dir>
 #
 # The backup set is verified before anything is touched: SHA256SUMS must
-# match, and the SQL dump must end with pg_dump's completion trailer.
+# list and match every archive being restored, the SQL dump must end with
+# pg_dump's completion trailer, and the media archive must be readable and
+# hold no absolute path, `..` component or link.
+#
+# TRUST: restore only sets you made. The checksums live beside the archives,
+# so they prove integrity, not origin, and a dump is SQL fed to psql as a
+# database owner (superuser on the bundled PostgreSQL): a hostile one can run
+# commands. Keep a copy of each set's SHA256SUMS apart from the set if you
+# need to prove a set was not swapped.
 #
 # The database is restored with `psql` (the dump is plain SQL, not a
 # pg_restore archive) in ONE transaction that first drops and re-creates the
@@ -103,6 +111,22 @@ else
 fi
 gzip -dc "$DUMP" | tail -n 5 | grep -q '^-- PostgreSQL database dump complete' \
   || die "the database dump is truncated (no completion trailer)"
+# sha256sum -c checks only the files SHA256SUMS lists: an archive missing from
+# it would go unverified, so require its line (#1075: absent input denies).
+grep -q '  database.sql.gz$' "$SET_DIR/SHA256SUMS" || die "SHA256SUMS does not list database.sql.gz — cannot verify the dump"
+if [ "$SKIP_MEDIA" = 0 ]; then
+  grep -q '  media.tar.gz$' "$SET_DIR/SHA256SUMS" || die "SHA256SUMS does not list media.tar.gz — cannot verify the media archive"
+  gzip -t "$MEDIA" || die "the media archive fails its gzip integrity test"
+  members="$(tar -tzf "$MEDIA")" || die "the media archive cannot be listed"
+  if printf '%s\n' "$members" | grep -Eq '^/|(^|/)\.\.(/|$)'; then
+    die "the media archive holds an absolute path or a '..' component — refusing to extract it"
+  fi
+  # Uploads are plain files and directories; a link member could point an
+  # extraction outside the media directory.
+  if tar -tvzf "$MEDIA" | grep -Eq '^[lh]| link to '; then
+    die "the media archive holds a symlink or hard link — refusing to extract it"
+  fi
+fi
 
 # ---- mode-specific consumers: each reads ONE stream on stdin ---------------
 if [ "$MODE" = host ]; then
@@ -128,6 +152,11 @@ if [ "$MODE" = host ]; then
 else
   [ "$ASSUME_YES" = 1 ] || die "container mode is non-interactive: pass --yes"
   MEDIA_DIR="${MEDIA_DIR:-/app/media}"
+  # Checked before the database is replaced, so a missing or wrongly mounted
+  # media directory fails the restore while nothing has changed yet.
+  if [ "$SKIP_MEDIA" = 0 ] && [ ! -d "$MEDIA_DIR" ]; then
+    die "media directory $MEDIA_DIR does not exist — mount the media volume there, or pass --skip-media"
+  fi
   if [ -n "${DATABASE_URL_PASSWORD:-}" ] && [ -z "${PGPASSWORD:-}" ]; then
     PGPASSWORD="$DATABASE_URL_PASSWORD"
     export PGPASSWORD

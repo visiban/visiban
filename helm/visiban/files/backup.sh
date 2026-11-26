@@ -42,7 +42,9 @@
 # prunes the last good sets.
 #
 # Backups hold every board, card and attachment: files are created 0600 and
-# directories 0700 (umask 077). No password is ever printed or put on argv.
+# directories 0700 (umask 077). No password is printed or logged. In container
+# mode DATABASE_URL reaches pg_dump as --dbname, so it is visible in the
+# process list inside that container only; host mode passes no password.
 #
 # Usage:
 #   scripts/backup.sh [--output-dir DIR] [--retention-days N]

@@ -159,6 +159,38 @@ sh "$RESTORE" --yes "$DAMAGED" 2>/dev/null && bad "a damaged set was restored" |
 [ ! -e "$STUB_PSQL_LOG" ] && ok "psql never ran for a refused set" || bad "psql ran before verification finished"
 if STUB_PSQL=fail sh "$RESTORE" --yes "$SET" 2>/dev/null; then bad "a failing psql exited 0"; else ok "a failing psql exits non-zero"; fi
 
+echo "restore: refusals that must happen before anything is touched"
+expect_refused() { # expect_refused <label> <set-dir> [env assignments...]
+  local label="$1" dir="$2"; shift 2
+  rm -f "$STUB_PSQL_LOG"
+  if env "$@" sh "$RESTORE" --yes "$dir" 2>/dev/null; then bad "$label: restore ran"; else ok "$label: refused"; fi
+  [ ! -e "$STUB_PSQL_LOG" ] && ok "$label: psql never ran" || bad "$label: psql ran before the refusal"
+}
+UNLISTED="$WORK/unlisted"; cp -R "$SET" "$UNLISTED"
+grep -v 'media.tar.gz' "$UNLISTED/SHA256SUMS" > "$UNLISTED/S.tmp"; mv "$UNLISTED/S.tmp" "$UNLISTED/SHA256SUMS"
+printf 'x' >> "$UNLISTED/media.tar.gz"
+expect_refused "media.tar.gz missing from SHA256SUMS" "$UNLISTED"
+build_set_with_media() { # build_set_with_media <dir> <tar args...>; media.tar.gz from the given tree
+  local dir="$1"; shift
+  cp -R "$SET" "$dir"
+  tar "$@" | gzip -c > "$dir/media.tar.gz"
+  (cd "$dir" && { sha256sum database.sql.gz media.tar.gz 2>/dev/null || shasum -a 256 database.sql.gz media.tar.gz; } > SHA256SUMS)
+}
+mkdir -p "$WORK/evil/sub"; ln -s /etc "$WORK/evil/link"
+build_set_with_media "$WORK/set-symlink" -cf - -C "$WORK/evil" .
+expect_refused "a symlink in the media archive" "$WORK/set-symlink"
+mkdir -p "$WORK/dotdot/a"; printf 'x\n' > "$WORK/dotdot/top.txt"
+# -P keeps the leading ../ that GNU tar and bsdtar otherwise strip on create.
+build_set_with_media "$WORK/set-dotdot" -P -cf - -C "$WORK/dotdot/a" ../top.txt 2>/dev/null \
+  || build_set_with_media "$WORK/set-dotdot2" -cf - -C "$WORK/dotdot/a" ../top.txt
+DOTDOT_SET="$WORK/set-dotdot"; [ -f "$DOTDOT_SET/media.tar.gz" ] || DOTDOT_SET="$WORK/set-dotdot2"
+if gzip -dc "$DOTDOT_SET/media.tar.gz" | tar -tf - | grep -c '\.\./' > /dev/null; then
+  expect_refused "a '..' member in the media archive" "$DOTDOT_SET"
+else
+  echo "  skip: this tar cannot write a '..' member, so the '..' refusal is not exercised here"
+fi
+expect_refused "a missing media directory (container mode)" "$SET" MEDIA_DIR="$WORK/absent-media"
+
 echo
 echo "backup-restore.test.sh: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

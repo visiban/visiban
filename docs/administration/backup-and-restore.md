@@ -36,7 +36,9 @@ The dump is **plain SQL**, so it restores with `psql`, not `pg_restore`. Compose
 
 **Retention:** after each **successful** run, sets older than `--retention-days` (default 14) are deleted. A failing schedule never prunes the last good sets.
 
-**Permissions:** sets are created `0700` and their files `0600`. They hold every board, card and attachment. No password is printed or passed on a command line.
+**Permissions:** sets are created `0700` and their files `0600`. They hold every board, card and attachment. No password is printed or logged.
+
+**Watch out: restore only sets you made.** A dump is SQL run as the database owner, so a set from an unknown source can run commands on the database server. The checksums prove a set is intact, not where it came from. If you need that proof, keep each set's `SHA256SUMS` somewhere the backups are not.
 
 ## Cadence and off-host copies
 
@@ -74,6 +76,8 @@ Set these in `.env` if the defaults don't suit:
 | `BACKUP_TIME` | `02:17` | Daily run time, `HH:MM` in UTC |
 | `BACKUP_DIR` | `./backups` | Host directory the sets are written to |
 | `BACKUP_RETENTION_DAYS` | `14` | Delete sets older than this after a successful run; `0` keeps all |
+
+The `backup` container runs as root, so the sets it writes to `BACKUP_DIR` are owned by root with mode `0600`: copy them off the host as root (or with `sudo`).
 
 **Watch out:** a failed scheduled run is logged and marks the container **unhealthy** until a later run succeeds. Check it with `docker compose -f docker-compose.prod.yml --profile backup ps backup` and `logs backup`, or alert on the container's health. Then copy `BACKUP_DIR` off the host with your own job.
 
@@ -145,12 +149,22 @@ metadata:
   namespace: visiban
 spec:
   restartPolicy: Never
-  securityContext: { runAsUser: 1001, runAsGroup: 1001, fsGroup: 1001 }
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    seccompProfile: { type: RuntimeDefault }
   containers:
     - name: restore
-      image: postgres:17
+      image: postgres:17   # the same image as backup.image
       command: ["/bin/sh", "/opt/visiban/restore.sh", "--yes"]
       args: ["/backups/visiban-20261126T021700Z"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: { drop: ["ALL"] }
       env:
         - { name: VISIBAN_BACKUP_MODE, value: container }
         - { name: MEDIA_DIR, value: /app/media }
@@ -164,7 +178,10 @@ spec:
         - { name: scripts, mountPath: /opt/visiban, readOnly: true }
         - { name: backups, mountPath: /backups, readOnly: true }
         - { name: media, mountPath: /app/media }
+        - { name: tmp, mountPath: /tmp }
   volumes:
+    - name: tmp
+      emptyDir: {}
     - name: scripts
       configMap: { name: visiban-backup-scripts }
     - name: backups
