@@ -5,7 +5,8 @@
 the same shape: SQLite has no row locks, so the ``select_for_update()`` calls are
 unobservable there and removing one passes the whole SQLite suite.
 
-Technique (same as ``ConcurrentMoveLockTests``): the first request is paused
+Technique (same as ``ConcurrentMoveLockTests``; every class here except
+``CardRelationLockOrderTests``, which describes its own): the first request is paused
 inside its transaction, after it took its lock and wrote, before it commits. The
 second request starts only once the first is paused. With the lock the second
 queues behind the first, so it cannot finish before the pause ends and it sees
@@ -40,10 +41,11 @@ checklist-item and attachment POSTs and checklist-item PATCH/DELETE — plus
 ``lock_card_row`` in ``delete_card`` and the URL-card check on the
 ``relations`` card-row lock, by ``test_card_write_vs_delete_lock.py``.
 
-Timing margin: the pause is ``HOLD_SECONDS``. A very slow runner could in theory
-let an unlocked second request finish inside the pause and pass the ordering
-assertion, which is why every test also asserts the final state (positions,
-caps, relation count) as a backstop.
+Timing margin (not ``CardRelationLockOrderTests``, which has no pause): the pause
+is ``HOLD_SECONDS``. A very slow runner could in theory let an unlocked second
+request finish inside the pause and pass the ordering assertion, which is why
+each paused test also asserts the final state (positions, caps, relation count)
+as a backstop.
 """
 
 import threading
@@ -299,7 +301,12 @@ class CardRelationLockOrderTests(_LockRaceBase):
                 connections.close_all()  # release this thread's PostgreSQL connection
 
         def lock(card):
-            Card.objects.select_for_update().get(pk=card.pk)
+            # NO KEY UPDATE, not FOR UPDATE: the relation insert's FK check takes
+            # FOR KEY SHARE on both cards, which FOR UPDATE blocks. The request
+            # would then wait here even with no lock of its own, and the test
+            # would pass with the relation lock removed. NO KEY UPDATE lets the
+            # FK check through and still conflicts with the view's FOR UPDATE.
+            Card.objects.select_for_update(no_key=True).get(pk=card.pk)
 
         thread = threading.Thread(target=worker, name="link")
         with patch(PATCH_BROADCAST):

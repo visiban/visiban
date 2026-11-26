@@ -2842,12 +2842,14 @@ class CardViewSet(viewsets.ModelViewSet):
         # `unique_together` does not backstop that: (A, B, blocks) and
         # (B, A, blocks) are two different tuples.
         #
-        # Locking is ordered by pk so two requests naming the same pair in
-        # opposite directions queue instead of deadlocking, and it is
-        # board-scoped so it can only ever lock rows the caller already has
-        # access to. On a backend without SELECT FOR UPDATE (SQLite, used by
-        # the test harness) it is skipped — SQLite serializes writers at the
-        # database level, so the race it guards against cannot occur there.
+        # Locking is ordered by pk to match the other pk-ordered card lockers
+        # (e.g. `move_card`): taking the pair in another order can deadlock
+        # against them. (Two link requests run the same lock statement, so they
+        # cannot deadlock each other either way.) The lock is board-scoped, so
+        # it can only ever lock rows the caller already has access to. On a
+        # backend without SELECT FOR UPDATE (SQLite, used by the test harness)
+        # it is skipped — SQLite serializes writers at the database level, so
+        # the race it guards against cannot occur there.
         # A ValidationError raised in here rolls back an empty transaction and
         # still reaches DRF as a 400.
         with transaction.atomic():

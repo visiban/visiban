@@ -388,7 +388,7 @@ Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` an
 
 **Lock order** needs a different harness: the pattern above pauses after every lock is held, so it can't see the order they were taken in. Two requests that run the same lock statement can't show it either, since they lock in the same order whatever it is. Instead, force the opposite order from the test (#1556):
 
-1. In the main thread, inside `transaction.atomic()`, lock the lower-pk row.
+1. In the main thread, inside `transaction.atomic()`, lock the lower-pk row with `select_for_update(no_key=True)`, and use the same mode in step 3. A plain `FOR UPDATE` also blocks the `FOR KEY SHARE` that a foreign-key check takes, so a request that inserts a row referencing the locked one would wait even with its own lock removed, and the test would still pass.
 2. Start the request in a thread and call `assert_blocked_on_lock` from `boards.tests.lock_wait`.
 3. Lock the higher-pk row. A pk-ordered request holds neither row, so this succeeds; one that took the higher row first deadlocks.
 
