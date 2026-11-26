@@ -255,7 +255,7 @@ is the contract; this is what the description carries.
 - **Check the draft** before `glab mr create`: `python3 scripts/cost_ledger_lines.py --file
   <body.md>` exits 1 on a malformed, doubled or contradictory cost line (it never requires one).
   The body file must be under the checkout, the temp dir or the git dir.
-- **The comment posts automatically.** A PostToolUse hook (`.claude/hooks/post-mr-cost.sh`) posts it after `glab mr create` unless `scripts/cost-ledger enabled` is not 0, the description carries `cost-ledger: off`, or a cost comment already exists, so do not post a second one by hand or write the window marker. Details: `docs/development/cost-ledger.md#auto-post`.
+- **The comment posts automatically.** A PostToolUse hook (`.claude/hooks/post-mr-cost.sh`) posts it after `glab mr create` unless `scripts/cost-ledger enabled` is not 0, the description carries `cost-ledger: off`, or a cost comment already exists, so do not post a second one by hand or write the window marker. Run `git push` and `glab mr create` as **separate** Bash calls and never pipe `glab mr create` through `tail`; if the create was backgrounded, the hook prints a `--retry` command to run once it finishes. Details: `docs/development/cost-ledger.md#auto-post`.
 - The human-readable cost table is an MR comment, `## Cost of this MR (#<N>)`, that
   `scripts/post-mr-cost.py` posts (through `scripts/cost-table.py`): the `PostToolUse` hook for
   record 1 when the MR opens, `--round` for later records. The description carries no `## Cost`

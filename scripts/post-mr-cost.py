@@ -73,7 +73,8 @@ Any failure is fail-soft: the hook exits 0 and prints the command to re-run,
 can never block an MR. The hook posts only for the repo it runs in: the project in the printed MR URL
 must equal this repo's `origin` project (the hook's cwd is the session's directory, which can be a
 different repo from the one the MR was opened on), and every API call names its project explicitly. Opt out for yourself with `scripts/cost-ledger off --local`;
-see docs/development/cost-ledger.md.
+see docs/development/cost-ledger.md. A `glab mr create` moved to the background before it printed the
+MR URL posts nothing (no hook fires when it finishes) and prints the `--retry` command instead (#2638).
 
 Usage: reads the hook JSON on stdin.            python3 scripts/post-mr-cost.py --self-test
        python3 scripts/post-mr-cost.py --round --mr <iid> [--session <sid>] [--agent <id> ...]
@@ -108,6 +109,8 @@ MR_CREATE_RE = re.compile(r"(?:^|[\s;&|(])glab\s+mr\s+create(?:\s|$)")
 MR_URL_RE = re.compile(r"/-/merge_requests/(\d{1,9})(?![\d])")
 # `https://<host>/<namespace/project>/-/merge_requests/<n>`: the project is everything between the host and `/-/`.
 MR_PROJECT_RE = re.compile(r"https?://[^/\s\"']+/([0-9A-Za-z_.-]+(?:/[0-9A-Za-z_.-]+)+)/-/merge_requests/(\d{1,9})(?![\d])")
+# The sentences of a Bash call that returned before its command finished (a fallback: see backgrounded_call).
+BACKGROUNDED_RE = re.compile(r"moved to the background|running in background")
 SESSION_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z_-]{0,127}\Z")
 TS_RE = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ\Z")
 TS_FMT = "%Y-%m-%dT%H:%M:%SZ"
@@ -192,6 +195,20 @@ def mr_iid(command, response):
     if not MR_CREATE_RE.search(command or ""):
         return None
     return mr_ref(response)[1]
+
+
+def backgrounded_call(tool_input, response):
+    """Whether the Bash call returned before its command finished. The hook's `tool_response` is
+    normally a dict that says so only by a non-empty `backgroundTaskId` (the sentence the model reads
+    is not in it); `run_in_background` and the sentence itself are fallbacks."""
+    if isinstance(response, dict):
+        task = response.get("backgroundTaskId")
+        if isinstance(task, str) and task:
+            return True
+    if tool_input.get("run_in_background") is True:
+        return True
+    text = response if isinstance(response, str) else json.dumps(response or "")
+    return BACKGROUNDED_RE.search(text) is not None
 
 
 def run(cmd, cwd, env=None, timeout=300):
@@ -1446,15 +1463,27 @@ def process(payload, opts=None, runner=run, project=None):
     if payload.get("tool_name") not in (None, "Bash"):
         return quiet("not a Bash call")
     ti = payload.get("tool_input") or {}
-    iid = mr_iid(ti.get("command", ""), payload.get("tool_response"))
+    response = payload.get("tool_response")
+    iid = mr_iid(ti.get("command", ""), response)
+    backgrounded = False
     if iid is None:
-        return quiet("glab mr create ran but no MR URL was printed" if MR_CREATE_RE.search(ti.get("command", "") or "") else "not an MR create")
+        if not MR_CREATE_RE.search(ti.get("command", "") or ""):
+            return quiet("not an MR create")
+        backgrounded = backgrounded_call(ti, response)
+        if not backgrounded:
+            return quiet("glab mr create ran but no MR URL was printed")  # a failed create posts nothing
     cwd = payload.get("cwd") or os.getcwd()
     sid = payload.get("session_id") or ""
-    manual = retry_hint(iid, sid)
     rc, _, _ = runner([sys.executable, os.path.join(HERE, "cost-ledger"), "enabled"], cwd)
     if rc != 0:
         return quiet("cost-ledger off or unreadable (enabled exit %d)" % rc)  # the opt-out
+    if backgrounded:
+        # No hook fires when the background task finishes, so say so now. No polling or API lookup, and
+        # the session state is neither read nor advanced: --retry does all of that later.
+        OUTCOME["why"] = "backgrounded before the MR URL"
+        return ("Record 1 (## Cost of this MR) was not posted: glab mr create was moved to the background before it "
+                "printed the MR URL. When that background task finishes, " + retry_hint(None, sid))
+    manual = retry_hint(iid, sid)
     if project is None:
         url_project, here = mr_project(payload.get("tool_response")), repo_project(runner, cwd)
         if here is None or url_project != here:
@@ -3038,6 +3067,48 @@ def _self_test():
     for rc, label in ((1, "off"), (2, "unreadable")):
         calls.clear()
         check("ledger %s -> silent no-op" % label, process(payload, runner=runner_for(rc)) is None and len(calls) == 1)
+    # A create that went to the background before printing its URL (#2638).
+    timed_out = ("Command did not complete within its 120s timeout and was moved to the background (ID: b1). "
+                 "Output is being written to: /tmp/b1.output. You will be notified when it completes.")
+    unfinished = {"stdout": "", "stderr": "", "interrupted": False}
+    # The primary timeout case is the real dict a hook receives (!2120): no sentence anywhere in it.
+    moved = dict(unfinished, isImage=False, noOutputExpected=False, backgroundTaskId="bd79heav1",
+                 timedOutAfterMs=120000, backgroundCwdHint="Session cwd remains /x.")
+    check("an empty or non-string backgroundTaskId is not a backgrounded call",
+          not any(backgrounded_call({}, dict(unfinished, backgroundTaskId=v)) for v in ("", None, 1, True)))
+    shapes = (("timed-out dict", {}, moved),
+              ("timeout text", {}, timed_out),
+              ("run_in_background text", {"run_in_background": True}, "Command running in background with ID: b1."),
+              ("run_in_background input alone", {"run_in_background": True}, unfinished))
+    sentinel = os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "mr-cost-state", "abc-123.json")
+    os.makedirs(os.path.dirname(sentinel), exist_ok=True)
+    with open(sentinel, "w", encoding="utf-8") as f:
+        f.write("not json: reading this would be refused, writing it would change it")
+    with open(sentinel, "rb") as f:
+        before = f.read()
+    for label, extra, response in shapes:
+        bg = dict(payload, tool_input=dict({"command": "glab mr create --yes"}, **extra), tool_response=response)
+        calls.clear()
+        msg = process(bg, runner=runner_for(0)) or ""
+        check("backgrounded (%s) -> the retry hint with the session and a literal <iid>" % label,
+              "Record 1 (## Cost of this MR) was not posted" in msg and "--retry --mr <iid> --session abc-123" in msg
+              and OUTCOME["why"] == "backgrounded before the MR URL", repr(msg))
+        check("backgrounded (%s) -> only the setting is read: nothing posted" % label,
+              len(calls) == 1 and calls[0][-1:] == ["enabled"], repr(calls))
+        calls.clear()
+        check("backgrounded (%s), ledger off -> quiet" % label,
+              process(bg, runner=runner_for(1)) is None and len(calls) == 1 and "off or unreadable" in OUTCOME["why"])
+    with open(sentinel, "rb") as f:
+        check("backgrounded: the session state is left untouched", f.read() == before)
+    os.remove(sentinel)
+    calls.clear()
+    check("a create that failed with no URL (not backgrounded) stays quiet",
+          process(dict(payload, tool_response={"stdout": "", "stderr": "boom"}), runner=runner_for(0)) is None
+          and not calls and OUTCOME["why"] == "glab mr create ran but no MR URL was printed")
+    calls.clear()
+    check("a backgrounded command that is not an MR create stays quiet",
+          process(dict(payload, tool_input={"command": "pytest", "run_in_background": True}, tool_response=timed_out),
+                  runner=runner_for(0)) is None and not calls)
     calls.clear()
     check("non-MR command never touches anything",
           process(dict(payload, tool_input={"command": "ls"}), runner=runner_for(0)) is None and not calls)
