@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { ToastProvider } from '../contexts/ToastContext'
 import userEvent from '@testing-library/user-event'
 import MoveBlockedToast from '../components/Board/MoveBlockedToast'
@@ -198,6 +198,24 @@ const hardBlockError: MoveBlockedError = {
   current_count: 3,
   wip_limit: 3,
 }
+
+describe('MoveBlockedToast — reason dialog focus (#2631)', () => {
+  it('hands focus to the moved card in the commit that closes the dialog, not a frame later', async () => {
+    const user = userEvent.setup()
+    const onForce = vi.fn().mockResolvedValue({ ok: true })
+    renderToast(
+      <>
+        <button data-card-id="42">Card</button>
+        <MoveBlockedToast error={wipError} eligibility={{ kind: 'assignee' }} cardId={42} onForce={onForce} onDismiss={vi.fn()} />
+      </>
+    )
+    await user.click(toast().getByText(/Move anyway/))
+    await user.type(await screen.findByLabelText('Reason (required)'), 'Ship it')
+    await user.click(screen.getByRole('button', { name: 'Move anyway' }))
+    await waitFor(() => expect(onForce).toHaveBeenCalledWith('Ship it'))
+    expect(screen.getByRole('button', { name: 'Card' })).toHaveFocus()
+  })
+})
 
 describe('MoveBlockedToast — hard-block variant', () => {
   it('renders ⛔ icon (not ⚠) for hard-blocked moves', () => {

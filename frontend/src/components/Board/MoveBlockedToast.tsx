@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MoveBlockedError } from "../../hooks/useBoard";
 import { useToast } from "../../contexts/useToast";
 import type { ToastInput } from "../../utils/toastQueue";
@@ -94,14 +94,12 @@ function reportedByMovePopover(): boolean {
 
 const notMoved = (err: unknown) => `Card could not be moved: ${failureReason(err)}.`;
 
-/** The moved card re-renders in its new cell, so retry for a few frames. Only
- *  takes focus that would otherwise be lost to `body`. */
-function focusCardSoon(cardId: number, framesLeft = 10) {
-  requestAnimationFrame(() => {
-    const el = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
-    if (el && document.activeElement === document.body) el.focus();
-    else if (!el && framesLeft > 0) focusCardSoon(cardId, framesLeft - 1);
-  });
+/** Takes focus for the moved card only if it would otherwise be lost to `body`. True once the card is in the DOM. */
+function focusMovedCard(cardId: number): boolean {
+  const el = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
+  if (!el) return false;
+  if (document.activeElement === document.body || !document.activeElement) el.focus();
+  return true;
 }
 
 /**
@@ -119,6 +117,12 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
   // The refusal the reason dialog was opened for, so a newer refusal closes it.
   const [reasonFor, setReasonFor] = useState<MoveBlockedError | null>(null);
   const [busy, setBusy] = useState(false);
+  // The card a forced move with a reason just moved. Focus goes back to it in a layout effect (focus rule 3,
+  // #2608), in the commit that closes the dialog; a success usually clears the error and unmounts this
+  // component too, so the unmount cleanup makes the last attempt.
+  const [restoreFor, setRestoreFor] = useState<number | null>(null);
+  const restoreRef = useRef<number | null>(null);
+  restoreRef.current = restoreFor;
   const [failure, setFailure] = useState("");
   const openReason = (e: MoveBlockedError) => { setFailure(""); setReasonFor(e); };
   const closeReason = () => { setFailure(""); setReasonFor(null); };
@@ -134,7 +138,7 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
         return;
       }
       setReasonFor(null);
-      if (movedId != null) focusCardSoon(movedId);
+      if (movedId != null) setRestoreFor(movedId);
     } catch (err) {
       setFailure(notMoved(err));
     } finally {
@@ -155,6 +159,13 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
   }, [error, kind, assigneeName, notify]);
 
   useEffect(() => () => dismiss(MOVE_TOAST_KEY), [dismiss]);
+
+  useLayoutEffect(() => {
+    if (restoreFor !== null && focusMovedCard(restoreFor)) setRestoreFor(null);
+  });
+  useLayoutEffect(() => () => {
+    if (restoreRef.current !== null) focusMovedCard(restoreRef.current);
+  }, []);
 
   const column = "column_name" in error ? error.column_name : null;
   return (

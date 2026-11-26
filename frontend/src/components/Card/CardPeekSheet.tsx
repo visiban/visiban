@@ -305,6 +305,14 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   // The assignee override's inline reason box.
   const [reasonOpen, setReasonOpen] = useState(false);
   const overrideLinkRef = useRef<HTMLButtonElement>(null);
+  // Cancel or Escape on the reason form: the override link is not in the DOM until that commit, so focus moves
+  // in a layout effect (focus rule 3), never a frame later.
+  const refocusOverride = useRef(false);
+  useLayoutEffect(() => {
+    if (reasonOpen || !refocusOverride.current) return;
+    refocusOverride.current = false;
+    overrideLinkRef.current?.focus();
+  }, [reasonOpen]);
   const refusalId = useId();
   // Counts closes of the Move form (a move, a same-place no-op, Cancel, Escape). A layout effect, so the commit
   // that closes the form (and drops its focused control) also focuses the remounted Move button (#2608, #2611).
@@ -717,8 +725,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
                 escapePriority={36.5}
                 onSubmit={(reason) => void forceMove(reason)}
                 onCancel={() => {
+                  refocusOverride.current = true;
                   setReasonOpen(false);
-                  requestAnimationFrame(() => overrideLinkRef.current?.focus());
                 }}
               />
             )}

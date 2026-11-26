@@ -2222,8 +2222,11 @@ describe('CardDetail', () => {
 
       it('disables a step with no visible neighbor, and shows nothing without cellOrder or for a single card', () => {
         renderWith({ cellOrder: { index: 0, count: 2, earlier: null, later: 2 } })
-        expect(screen.getByRole('button', { name: 'Move earlier' })).toBeDisabled()
-        expect(screen.getByRole('button', { name: 'Move later' })).toBeEnabled()
+        // aria-disabled, never `disabled`: a pressed step that reaches the end of the cell keeps focus (#2631).
+        const earlier = screen.getByRole('button', { name: 'Move earlier' })
+        expect(earlier).toHaveAttribute('aria-disabled', 'true')
+        expect(earlier).not.toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Move later' })).not.toHaveAttribute('aria-disabled')
       })
 
       it('is absent without cellOrder', () => {
@@ -3144,7 +3147,8 @@ describe('CardDetail', () => {
         // Escape closes only the reason box and returns to the link.
         await user.keyboard('{Escape}')
         expect(screen.queryByLabelText('Reason (required)')).not.toBeInTheDocument()
-        await waitFor(() => expect(screen.getByRole('button', { name: 'Move anyway (assignee override)' })).toHaveFocus())
+        // A layout effect, so focus is there as soon as the click resolves (#2631).
+      expect(screen.getByRole('button', { name: 'Move anyway (assignee override)' })).toHaveFocus()
         await user.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
         await user.type(screen.getByLabelText('Reason (required)'), ' Customer deadline ')
         await user.click(screen.getByRole('button', { name: 'Move anyway' }))
