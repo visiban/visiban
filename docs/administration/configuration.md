@@ -669,8 +669,10 @@ Changes take effect on the next email sent — there is no restart and no cache 
 
 !!! warning "The test button connects to whatever host you enter"
     **Send test email** opens an outbound SMTP connection from the Visiban backend to
-    the host and port in the form, including internal addresses the backend can reach
-    but you cannot. It is a site-admin-only capability with real network reach, so grant
+    the host and port in the form, including private network addresses the backend can
+    reach but you cannot. Loopback, link-local and cloud-metadata addresses are refused
+    unless `SMTP_ALLOW_PRIVATE_HOSTS` is set (see below). It is a site-admin-only
+    capability with real network reach, so grant
     `is_site_admin` accordingly. The action is limited to 5 attempts per hour per admin,
     always delivers to the requesting admin's own address, and every server change is
     recorded in the [admin action log](../api/admin.md#action-log).

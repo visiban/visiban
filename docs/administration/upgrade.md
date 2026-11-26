@@ -391,6 +391,13 @@ Read the notes for every version between your current release and the target bef
     - **Keep the old limit.** Set `backend.resources.limits.memory: 512Mi` in your values file. Installs that set `backend.resources.limits.memory` are not affected. An install that sets only part of `backend.resources` (for example only `requests`) still gets `1Gi` for any memory limit it leaves out.
     - **Sizing.** See [Backend memory and CPU sizing](configuration.md#backend-memory-and-cpu-sizing).
 
+!!! note "A mail host stored in the admin UI on the local machine is now refused"
+    Since 1.3 a mail host entered in the admin UI that is, or resolves to, a loopback, link-local or cloud-metadata address is refused when it is saved and again when mail is sent (#1878). A host stored by an earlier release is checked at send time, so mail from it stops until you act.
+
+    - **Relay on the same machine.** Set `SMTP_ALLOW_PRIVATE_HOSTS=true` (Helm: `backend.settings.smtpAllowPrivateHosts: true`).
+    - **Alternative.** Set the host through environment configuration (`EMAIL_HOST` and the related variables), which is never checked.
+    - Private LAN ranges stay allowed. See [`SMTP_ALLOW_PRIVATE_HOSTS`](configuration.md).
+
 !!! note "The board CSV export is now streamed: check a custom reverse proxy"
     Since 1.3 the board CSV export is sent a chunk of cards at a time (#2585). The file is unchanged, and the JSON export is not streamed.
 

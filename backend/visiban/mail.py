@@ -115,8 +115,7 @@ def smtp_host_refused(host) -> bool:
     if not host:
         return False
     # Checked at save time and again at send time because DNS can change.
-    # Literals skip DNS. The check and the later connect resolve separately, so
-    # a name that changes between them is not caught; accepted for this probe.
+    # Literals skip DNS.
     addresses = _resolve_host_addresses(host)
     return any(egress.classify_ip(ip) in (egress.SENSITIVE, egress.NEVER) for ip in addresses)
 

@@ -126,6 +126,10 @@
               "description": "WEBHOOK_ALLOWED_PRIVATE_TARGETS (#863). Comma-separated exact hostnames, private IPs or private CIDRs webhooks may target. Empty (default) means public destinations only.",
               "type": "string"
             },
+            "smtpAllowPrivateHosts": {
+              "description": "SMTP_ALLOW_PRIVATE_HOSTS (#1878). true lets a mail host entered in the admin UI be on the local machine (loopback or link-local). Default false.",
+              "type": "boolean"
+            },
             "webhookHostMaxPerMinute": {
               "description": "WEBHOOK_HOST_MAX_PER_MINUTE (#2055). Webhook deliveries per minute to one destination host, shared by every board on the instance. 0 turns the limit off. Default 120.",
               "type": "integer",

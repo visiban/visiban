@@ -275,6 +275,10 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: WEBHOOK_ALLOWED_PRIVATE_TARGETS
   value: {{ $ctx.Values.backend.settings.webhookAllowedPrivateTargets | quote }}
 {{- end }}
+{{- if $ctx.Values.backend.settings.smtpAllowPrivateHosts }}
+- name: SMTP_ALLOW_PRIVATE_HOSTS
+  value: "true"
+{{- end }}
 {{- /*
   Per-destination-host webhook limits (#2055). Rendered whenever set, 0
   included (0 turns a limit off); a key missing under --reuse-values renders

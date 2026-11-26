@@ -112,6 +112,9 @@ backend:
     # IPs or private CIDRs that webhooks may target (in-cluster n8n, a LAN
     # host). Empty = public destinations only. With --set, escape commas (a\,b).
     webhookAllowedPrivateTargets: ""
+    # SMTP_ALLOW_PRIVATE_HOSTS (#1878): true lets a mail host entered in the
+    # admin UI sit on the local machine (loopback or link-local). Default false.
+    smtpAllowPrivateHosts: false
     # WEBHOOK_HOST_MAX_PER_MINUTE / WEBHOOK_HOST_MAX_CONCURRENCY (#2055):
     # deliveries per minute and in flight at once to one destination host. The
     # budget is per host and shared by every board on the instance, so raise it
