@@ -22,7 +22,7 @@ interface DrillData {
  * is open, and the card directory every response contributes to. A filter
  * change closes the drawer, because what it lists no longer matches the page.
  */
-export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillData) {
+export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillData, timeZone?: string | null) {
   const [drill, setDrill] = useState<DrillSelection | null>(null);
   const [dayCards, setDayCards] = useState<FlowCard[]>([]);
   // A filter changed while the day's list was loading: drop that late answer.
@@ -56,7 +56,8 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
     setDrill(null);
   }, [cancelDrillRetry]);
 
-  useEffect(() => { closeDrill(); }, [filters, closeDrill]);
+  // A zone change re-buckets days, so an open drill would show the old zone's cards (#2051).
+  useEffect(() => { closeDrill(); }, [filters, timeZone, closeDrill]);
   useEffect(() => cancelDrillRetry, [cancelDrillRetry]);
 
   const selectCycleSample = (sample: FlowCycleTimeSample) =>

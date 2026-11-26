@@ -155,6 +155,7 @@ export default function AnalyticsView({
             swimlaneFields={swimlaneFields}
             onOpenSwimlane={openSwimlane}
             onFetchedFilters={setFetchedFilters}
+            timeZone={timeZone}
           />
         ) : (
         <AnalyticsOverview
@@ -172,6 +173,7 @@ export default function AnalyticsView({
           onGoToBoard={onGoToBoard}
           headingRef={headingRef}
           onFetchedFilters={setFetchedFilters}
+          timeZone={timeZone}
         />
         )}
         <p className="text-xs text-fg-tertiary">
