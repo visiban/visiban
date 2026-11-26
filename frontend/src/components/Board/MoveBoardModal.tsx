@@ -3,7 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import axios from "axios";
 import { listGroups } from "../../api/groups";
 import { moveBoardToGroup } from "../../api/boards";
-import { buildGroupTree } from "../Group/GroupTree";
+import { buildGroupTree } from "../../utils/groupTree";
 import type { Board, Group } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectedCheck from "../Common/SelectedCheck";
