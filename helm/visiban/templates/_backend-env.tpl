@@ -153,7 +153,7 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: ANALYTICS_MAX_MOVEMENTS
   value: {{ (hasKey $ctx.Values.backend.settings "analyticsMaxMovements" | ternary $ctx.Values.backend.settings.analyticsMaxMovements 150000) | int64 | quote }}
 - name: ANALYTICS_MAX_SECONDS
-  value: {{ (hasKey $ctx.Values.backend.settings "analyticsMaxSeconds" | ternary $ctx.Values.backend.settings.analyticsMaxSeconds 60) | int64 | quote }}
+  value: {{ (hasKey $ctx.Values.backend.settings "analyticsMaxSeconds" | ternary $ctx.Values.backend.settings.analyticsMaxSeconds 45) | int64 | quote }}
 {{- with $ctx.Values.backend.settings.attachmentUploadRate }}
 - name: ATTACHMENT_THROTTLE_UPLOAD_RATE
   value: {{ . | quote }}

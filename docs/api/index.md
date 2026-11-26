@@ -288,7 +288,7 @@ inside the range are counted first, and when they alone are over the limit the
 request is refused before its history is read.
 
 When an admitted request runs longer than the server allows (`ANALYTICS_MAX_SECONDS`,
-60 seconds by default, counted from when it got its slot):
+45 seconds by default, counted from when it got its slot):
 
 ```json
 { "code": "analytics_timeout", "detail": "This analysis took longer than this server allows for one request. Try a shorter range, or ask your administrator to raise the server's analytics time limit." }

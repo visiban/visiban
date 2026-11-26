@@ -70,7 +70,11 @@ class DeadlineTests(SimpleTestCase):
         _idle(self)
 
     def test_default_and_setting(self):
-        self.assertEqual(DEFAULT_ANALYTICS_MAX_SECONDS, 60)
+        self.assertEqual(DEFAULT_ANALYTICS_MAX_SECONDS, 45)
+        # The slot wait plus the bound stays under the Helm chart's frontend
+        # nginx, which sets no /api/ read timeout (nginx's 60 s default), so a
+        # slow request is answered analytics_timeout and not a proxy 504.
+        self.assertLess(admission.REST_WAIT_SECONDS + DEFAULT_ANALYTICS_MAX_SECONDS, 60)
         with override_settings(ANALYTICS_MAX_SECONDS=7):
             self.assertEqual(admission.time_budget(), 7)
 
@@ -87,6 +91,38 @@ class DeadlineTests(SimpleTestCase):
         # The freed slot admits the next request at ANALYTICS_MAX_CONCURRENT=1.
         with analytics_slot(_user(2), board_id=1, endpoint="test", wait=False):
             self.assertEqual(admission.occupancy()[0], 1)
+
+    def test_a_restore_that_raises_still_frees_the_slot(self):
+        # restore() can raise something other than a psycopg error (closing
+        # the connection goes through Django's error wrapping): the slot must
+        # still be given back, and the error must reach the caller.
+        with mock.patch.object(admission._DeadlineWrapper, "restore", side_effect=RuntimeError("restore")):
+            with self.assertLogs("boards.services.analytics_admission", logging.INFO) as logs:
+                with self.assertRaisesMessage(RuntimeError, "restore"):
+                    with analytics_slot(_user(1), board_id=1, endpoint="test"):
+                        pass
+        _idle(self)
+        self.assertIsNone(admission.active_ticket())
+        self.assertIn("outcome=ok", logs.output[-1])
+        with analytics_slot(_user(2), board_id=1, endpoint="test", wait=False):
+            self.assertEqual(admission.occupancy()[0], 1)
+
+    def test_a_restore_that_raises_after_a_refusal_keeps_the_refusal_chained(self):
+        with mock.patch.object(admission._DeadlineWrapper, "restore", side_effect=RuntimeError("restore")):
+            with self.assertRaises(RuntimeError) as caught:
+                with analytics_slot(_user(1), board_id=1, endpoint="test"):
+                    raise AnalyticsTimedOut()
+        self.assertIsInstance(caught.exception.__context__, AnalyticsTimedOut)
+        _idle(self)
+        self.assertIsNone(admission.active_ticket())
+
+    def test_a_failure_building_the_ticket_frees_the_slot(self):
+        with mock.patch.object(admission, "movement_budget", side_effect=RuntimeError("budget")):
+            with self.assertRaisesMessage(RuntimeError, "budget"):
+                with analytics_slot(_user(1), board_id=1, endpoint="test"):
+                    self.fail("admitted without a ticket")
+        _idle(self)
+        self.assertIsNone(admission.active_ticket())
 
     def test_rows_before_the_deadline_pass(self):
         with analytics_slot(_user(1), board_id=1, endpoint="test") as ticket:

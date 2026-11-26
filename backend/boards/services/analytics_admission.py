@@ -430,17 +430,24 @@ def analytics_slot(user, *, board_id, endpoint, wait=False):
     """
     key = _user_key(user)
     started = time.monotonic()
+    previous = active_ticket()
     if not _admit(key, wait):
         _log(key, board_id, endpoint, 0, 0, started, "busy")
         raise AnalyticsBusy()
-    ticket = Ticket(movement_budget(), _deadline())
-    previous = active_ticket()
-    _local.ticket = ticket
-    wrapper = _DeadlineWrapper(ticket)
+    ticket = None
+    wrapper = None
     outcome = "error"
-    # Every way out (an answer, a refusal, the deadline, any other error)
-    # passes the ``finally``, so the slot is always given back.
+    # From the moment the slot is taken, every way out (an answer, a refusal,
+    # the deadline, any other error, including one raised while the ticket is
+    # built or the session setting is put back) passes the ``finally`` and
+    # reaches ``_release``: a slot kept past its request stays taken until the
+    # process restarts. So nothing that can raise runs between ``_admit`` and
+    # the ``try``, and ``restore`` runs in a ``try`` of its own whose
+    # ``finally`` gives the slot back; its error still propagates.
     try:
+        ticket = Ticket(movement_budget(), _deadline())
+        _local.ticket = ticket
+        wrapper = _DeadlineWrapper(ticket)
         with connection.execute_wrapper(wrapper):
             try:
                 yield ticket
@@ -456,10 +463,18 @@ def analytics_slot(user, *, board_id, endpoint, wait=False):
         outcome = "timeout"
         raise
     finally:
-        wrapper.restore()
-        _local.ticket = previous
-        _release(key)
-        _log(key, board_id, endpoint, ticket.movements, ticket.streamed, started, outcome)
+        try:
+            if wrapper is not None:
+                wrapper.restore()
+        finally:
+            _local.ticket = previous
+            _release(key)
+            _log(
+                key, board_id, endpoint,
+                ticket.movements if ticket is not None else 0,
+                ticket.streamed if ticket is not None else 0,
+                started, outcome,
+            )
 
 
 def occupancy():
