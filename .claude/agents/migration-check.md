@@ -40,6 +40,7 @@ Flag each of the following as 🔴 **Blocking** (must be addressed before merge)
   - a concurrent operation in a migration that forgot `atomic = False` — `NotSupportedError` at `migrate` time
   - `AddField` of a `ForeignKey` without `db_index=False`, or of a `OneToOneField`, on an existing table — the index is built inline (#1798)
   - `AlterField` that changes `null` on a `ForeignKey` / `OneToOneField` — Django drops, re-adds and re-validates the constraint; see `boards/0079_cardmovement_card_nullable` (#1798)
+  - `AddField` of a constrained `ForeignKey` / `OneToOneField` with a `default=` (other than `None`) or `db_default=` on an existing table — every row holds the value, so PostgreSQL validates the constraint with a full scan under `ACCESS EXCLUSIVE`; add the column nullable with no default (PostgreSQL then skips the validation), or `db_constraint=False` + backfill + `NOT VALID` then `VALIDATE` (#2620)
   
   The fix is `visiban.db_operations` (`AddIndexConcurrently`, or `AddConstraintNotValid` + `ValidateConstraint` for a check constraint) with `atomic = False` on the `Migration` class; a unique constraint needs `SeparateDatabaseAndState` plus a vendor-guarded `CREATE UNIQUE INDEX CONCURRENTLY`, because `NOT VALID` is not accepted for uniqueness. The escape hatch is an inline `# concurrency-exempt: <reason>` comment with a real reason. Verify with `cd backend && python manage.py check_migration_concurrency`, and see `docs/development/database-migrations.md`.
 

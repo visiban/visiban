@@ -27,8 +27,8 @@ are already used in this repo's history, by migrations that never mention
 5. Raw ``CREATE INDEX`` SQL inside ``RunSQL`` / ``RunPython``
    (``0030_card_trigram_search_indexes``).
 
-Two foreign-key shapes do the same damage without naming an index anywhere
-(#1798):
+Foreign-key operations do the same damage without naming an index anywhere
+(#1798, #2620):
 
 6. ``AddField`` of a ``ForeignKey`` that leaves ``db_index`` at its default, or of
    any ``OneToOneField`` (its unique index cannot be turned off), on an existing

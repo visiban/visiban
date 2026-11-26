@@ -275,9 +275,11 @@ TypeError: AddConstraintNotValid.constraint must be a check constraint.
 ```
 
 `check_migration_concurrency` flags the index a foreign key builds and an `AlterField` that
-creates or re-creates its constraint (see [Foreign keys](#foreign-keys)), but not the
-validation of a constraint that comes with a new column, so which recipe applies is a judgment call the check can't make for you. It comes
-down to whether the column being constrained already holds data.
+creates or re-creates its constraint (see [Foreign keys](#foreign-keys)). For a new column it
+flags the constraint's validation only when the column is added with a default (#2620). When a
+new column is backfilled before it is constrained, which recipe applies is a judgment call the
+check can't make for you. It comes down to whether the column being constrained already holds
+data.
 
 ### A new, nullable column on an existing table
 
