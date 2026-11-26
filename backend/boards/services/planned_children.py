@@ -224,6 +224,49 @@ def clear_for_deleted_column(column, *, actor):
         )
 
 
+def release_on_reorder(board, *, actor):
+    """Release planned children whose Needed column now sits at or before the parent's (#2553).
+
+    Called by the column reorder under its column locks, after the new
+    positions are written, so the comparison sees the final order. Release
+    otherwise happens only when the parent moves (``release_on_move``); a
+    reorder that puts a child's Needed column at or before the parent's current
+    column would leave it planned until the parent next moved. Same release as
+    a parent reaching the column: a system write caused by the link (Rule 19),
+    no actor in the child's history, the Stale clock restarting at the release,
+    and the child boards pinged with ids only (like ``clear_for_deleted_column``).
+
+    The Needed column is always on the parent's board (``resolve_needed_column``),
+    so the scan is the links whose Needed column is on ``board``. The rows are
+    locked in pk order and claimed by a conditional update, so a parent move
+    releasing the same link writes one history row, not two. With no ``board``
+    there is nothing to scope the scan to, so nothing is released.
+    """
+    if board is None:
+        return
+    rows = list(
+        CardParentLink.objects.select_for_update(of=("self",))
+        .filter(LINK_PLANNED_Q, needed_at_column__board_id=board.pk)
+        .filter(needed_at_column__position__lte=F("parent__column__position"))
+        .values_list("pk", "child_id", "child__board_id", "child__due_date")
+        .order_by("pk")
+    )
+    now = timezone.now()
+    by_board = {}
+    for link_pk, child_id, child_board_id, due_date in rows:
+        if not CardParentLink.objects.filter(pk=link_pk).filter(LINK_PLANNED_Q).update(planned_released_at=now):
+            continue
+        # No actor: the reorderer is a PARENT-board admin who may hold no role
+        # on the child board (Rule 19).
+        _record(child_id, CardActivity.EventType.PLANNED_RELEASED, None, "parent_reached", _due_iso(due_date))
+        by_board.setdefault(child_board_id, []).append(child_id)
+    for child_board_id in sorted(by_board):
+        _broadcast.record_board_event(
+            child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
+            {"card_ids": sorted(by_board[child_board_id])}, actor_id=getattr(actor, "id", None),
+        )
+
+
 #: Roles that may change a child's Needed (the link write roles, #1104).
 def _write_roles():
     from .card_links import LINK_WRITE_ROLES

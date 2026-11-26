@@ -2950,6 +2950,8 @@ Returns a read-only board payload identified by its UUID share token. No authent
 
 **Caching** *(1.3+, #1965)*: the response body is cached for up to 15 seconds (`SHARE_BOARD_CACHE_TTL_SECONDS`; `0` disables it), so a write that does not broadcast a board event, and time-based fields such as `is_stale`, can lag by up to that window. Revocation, rotation, expiry and enabler deactivation are checked on every request, before the cache, and are never delayed. Suited to read-heavy boards that are shared widely.
 
+**Planned children** *(1.3+, #2553)*: a [planned child](../features/board.md#planned-child) is returned with `due_date: null`, so a client cannot show it as overdue; the date comes back once the child is released. No planned field is added to the payload, and every other card keeps its date.
+
 **Errors:**
 - `404 Not Found` if the token is invalid, has been revoked, or does not exist. *(1.2+, #1865)* Also when the admin who enabled the link is no longer active or no longer an admin of the board; the link is cleared on that read and does not come back if the account regains admin. This is checked before the expiry, so such a link answers `404` even after its expiry has passed. *(1.2+, #1939)* Also when the link has no recorded enabler (enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier)), with the same response; the link is cleared on that read.
 - `410 Gone` if the token's TTL has elapsed (an admin set an expiry at enable time and it has passed). The token is *not* auto-rotated: an admin must disable and re-enable sharing for a fresh link. Body: `{"detail": "This share link has expired."}`. Added in 1.1 (#804).

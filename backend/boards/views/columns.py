@@ -437,4 +437,8 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 actor_id=request.user.id,
             )
             announce_column_rollup_changed(board, rollup_before, actor_id=request.user.id)
+            # Planned children whose Needed column is now at or before the
+            # parent's (#2553): released like a parent move would.
+            from ..services.planned_children import release_on_reorder
+            release_on_reorder(board, actor=request.user)
         return Response(cols_data)

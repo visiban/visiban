@@ -3413,6 +3413,19 @@ def _annotate_planned_clock(qs):
     return qs.annotate(_planned_active=planned_link_exists(), _planned_released_at=planned_released_at())
 
 
+def _is_planned(obj):
+    """True when ``obj`` is a planned child (#2553): the annotation, else its link row.
+
+    Fails closed on a missing annotation by reading the link (one query), so a
+    hand-built queryset still hides the date rather than leaking it.
+    """
+    if hasattr(obj, "_planned_active"):
+        return bool(obj._planned_active)
+    return CardParentLink.objects.filter(
+        child_id=obj.pk, needed_at_column__isnull=False, planned_released_at__isnull=True,
+    ).exists()
+
+
 def _planned_stale_exempt(obj, cutoff):
     """True when the planned rule keeps ``obj`` from being stale at ``cutoff`` (#2371).
 
@@ -6972,6 +6985,22 @@ class PublicCardSerializer(serializers.ModelSerializer):
         # that build a public card queryset by hand).  obj.board is available
         # via select_related("board") in the public get_cards() prefetch.
         return _row_is_stale(obj)
+
+    def to_representation(self, instance):
+        """Hide a planned child's due date (#2553, Rule 19).
+
+        The share link carries none of the planned fields, and the board face
+        derives Overdue from ``due_date`` on the client, so a planned child with
+        a past date would look overdue though the server treats it as inactive.
+        Nulling the date (already nullable) keeps the five fields off the wire
+        and the client from deriving Overdue; a non-planned card is unchanged.
+        Reads the ``_planned_active`` annotation (``get_cards``); a card that
+        did not come through it reads its link row, never skipping the rule.
+        """
+        data = super().to_representation(instance)
+        if _is_planned(instance):
+            data["due_date"] = None
+        return data
 
 
 class PublicBoardSerializer(serializers.ModelSerializer):
