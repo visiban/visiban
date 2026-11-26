@@ -238,24 +238,24 @@ An ordinary write uses one or two entries. The largest case in the product is de
 
 The Helm defaults fit a small team, not a large board with long history. Opening Analytics on a big board can push the backend past the default memory limit and get the pod OOM-killed, which drops every WebSocket.
 
-**Why it matters:** The chart sets `backend.resources` to `requests: 100m / 256Mi` and `limits: 500m / 512Mi`. One Analytics overview on a 12k-card board peaked at 551 MB of process memory, and on a 2.4k-card board with three years of history it peaked at 1.1 GB. Idle, the backend uses about 115 MB.
+**Why it matters:** The chart sets `backend.resources` to `requests: 100m / 256Mi` and `limits: 500m / 1Gi`. Before 1.3 the memory limit was `512Mi`. One Analytics overview on a 12k-card board peaked at 551 MB of process memory, and on a 2.4k-card board with three years of history it peaked at 1.1 GB. Idle, the backend uses about 115 MB.
 
-**The headline:** A 512 MB backend limit is too small for a board with about three years of history and 12k active cards. On such a board, one cumulative-flow day drill-down (`?date=`) peaked at 678-720 MB of process memory. Until that is fixed ([#2559](https://gitlab.com/visiban/visiban/-/issues/2559)), give the backend more than 512 MB; the tiers below suggest `2Gi` for a board of that size and age.
+**The headline:** A 512 MB backend limit is too small for a board with about three years of history and 12k active cards. On such a board, one cumulative-flow day drill-down (`?date=`) peaked at 678-720 MB of process memory. That is why the chart's default `limits.memory` is now `1Gi`. The drill-down peak is accepted for 1.3 and tracked in [#2559](https://gitlab.com/visiban/visiban/-/issues/2559).
 
 **Measured since:** The 1.3 beta-exit stress run ([#2588](https://gitlab.com/visiban/visiban/-/issues/2588), [#2595](https://gitlab.com/visiban/visiban/-/issues/2595)) measured the current code (results reported 2026-11-25):
 
 - **Fixture:** `seed_demo_data --scale 100 --aged-generations 12`, which gave 11,990 active and 143,880 archived cards (12 generations, about 3 years).
-- **Setup:** a CI runner, `daphne`, `DEBUG=False`, `ANALYTICS_MAX_CONCURRENT=1`, two runs.
+- **Setup:** the NUC runner, `daphne`, `DEBUG=False`, `ANALYTICS_MAX_CONCURRENT=1`, three runs.
 
 | Request | Result |
 |---|---|
-| `metrics/cumulative-flow/?date=` drill-down | Peak process memory 720 MB (first run) and 678 MB (second run: 10 requests, about 5.1-5.8 s each, 218,843 streamed rows) |
+| `metrics/cumulative-flow/?date=` drill-down | Peak process memory 720 MB (first run), 678 MB (second run: 10 requests, about 5.1-5.8 s each, 218,843 streamed rows) and 676 MB (third run) |
 | `metrics/cumulative-flow/` (no `date`) | Refused with `422 analytics_too_large`: 150,001 held movements, over `ANALYTICS_MAX_MOVEMENTS=150000` |
 | `metrics/overview/?days=90` | Refused with `422`, same count |
-| `analytics/?days=365` | No response within 30 s (first run) or 90 s (second run), and no completion logged within about 6.5 minutes |
+| Concurrent Analytics opens | Peak process memory 572 MB (third run) |
 
 - **Latencies are indicative:** the second run shared a busy runner. Its memory figures are not much affected by that load.
-- **Not yet measured:** the concurrency figures (memory and responsiveness while several overviews are opened at once) are still pending a third run.
+- **Known limits on a board that old:** see [Known limits on old boards](../features/analytics.md#known-limits-on-old-boards).
 
 **By the numbers:** The figures below were measured on 2026-11-20, before #2426 and #2427 shipped. They are per Analytics overview open as it was then (`analytics/?days=90`, `analytics/?days=365`, the `metrics/*` endpoints and `summary`). The overview now sends two requests, `metrics/overview/?days=90` and `analytics/?days=90`, so treat them as upper-bound, pre-fix figures:
 
@@ -267,13 +267,13 @@ The Helm defaults fit a small team, not a large board with long history. Opening
 | 12k active, 80 days of history | 12,058 / 124,374 | `analytics/?days=365`: 2.26 s, 144 MB | 7.4 s |
 | 12k active, plus 1 year archived | 60,262 / 621,534 | `analytics/?days=365`: 9.58 s, 691 MB | 22.9 s |
 
-Process memory is higher than the Python allocation in the table (about 115 MB idle, plus the request, plus memory the process keeps). Use these as a starting point for `backend.resources.limits.memory`, and raise it if the pod restarts with `OOMKilled`. The tiers are interpolated from the peaks above, not measured per tier. Process memory for 12k cards with a year of history was never measured:
+The 3-year, 12k-card board is now measured (the table above). The 2026-11-20 rows are pre-fix. Process memory is higher than the Python allocation in the table (about 115 MB idle, plus the request, plus memory the process keeps). Use these as a starting point for `backend.resources.limits.memory`, and raise it if the pod restarts with `OOMKilled`. Apart from the 3-year, 12k-card board (peak 720 MB, which fits `1Gi`), the tiers are interpolated from the 2026-11-20 peaks, not measured per tier. Process memory for 12k cards with a year of history was never measured:
 
 | Largest board | Suggested `limits.memory` | Suggested `requests.memory` |
 |---|---|---|
-| Up to about 2.4k active cards and under a year of history | `512Mi` (the default) | `256Mi` (the default) |
-| Up to about 12k active cards with under a year of history, or about 2.4k active with 1 to 2 years of history | `1Gi` | `512Mi` |
-| Large boards: 12k or more active cards with a year or more of history, or 2 or more years of history | `2Gi` (the highest process peak measured was 1,956 MB, so this tier leaves only about 190 MB over that burst peak) | `1Gi` |
+| Up to about 2.4k active cards and under a year of history | `512Mi` (the pre-1.3 default; `1Gi` also works) | `256Mi` (the default) |
+| Up to about 12k active cards with under a year of history, or about 2.4k active with 1 to 2 years of history, or about 12k active with 3 years of history at `ANALYTICS_MAX_CONCURRENT=1` | `1Gi` (the default) | `512Mi` |
+| Larger than the rows above, or `ANALYTICS_MAX_MOVEMENTS` raised or `ANALYTICS_MAX_CONCURRENT` above 1 | `2Gi` (the highest process peak measured was 1,956 MB, so this tier leaves only about 190 MB over that burst peak) | `1Gi` |
 
 ```yaml
 backend:
@@ -292,7 +292,7 @@ The 2026-11-20 latencies above are from a laptop on a full core. The default `cp
 
 **Watch out:**
 
-- The Helm chart's default limits are **not** raised yet. Raising a default changes behavior for existing installs, so that decision waits on #2425 (still open) and the rest of the re-measure (#2430). #2426 and #2427 have shipped and should shrink most of the 2026-11-20 numbers.
+- The chart's default `limits.memory` rose from `512Mi` to `1Gi` in 1.3, which changes what an existing install requests from its nodes. To keep the old value, set `backend.resources.limits.memory: 512Mi`. See [Upgrading to 1.3.x](upgrade.md#upgrading-to-13x). #2426 and #2427 have shipped and should shrink most of the 2026-11-20 numbers.
 - The 2026-11-20 numbers are pre-fix numbers from a local run (Apple Silicon laptop, PostgreSQL 17, `DEBUG=False`, an aged copy of the demo seed). Treat them as a floor for sizing, not a guarantee. Re-measure on your own data.
 - The 2026-11-20 numbers were also measured before the [Analytics limits](#analytics-limits) existed. Since 1.3 a request that would hold more than `ANALYTICS_MAX_MOVEMENTS` movement rows is refused with `analytics_too_large`, and each process computes at most `ANALYTICS_MAX_CONCURRENT` Analytics requests at once. If you raise `limits.memory` for a large board, raise `ANALYTICS_MAX_MOVEMENTS` with it, or that board's Analytics stays refused.
 - `daphne` has no `--max-requests`. If memory keeps climbing between Analytics bursts, restart the backend pods on a schedule (for example `kubectl -n <namespace> rollout restart deployment -l app.kubernetes.io/instance=<release>,app.kubernetes.io/component=backend`; in-flight requests can be cut and WebSocket clients reconnect). Tuning `MALLOC_ARENA_MAX` or `PYTHONMALLOC` is untested for Visiban, so measure before and after if you try it.
