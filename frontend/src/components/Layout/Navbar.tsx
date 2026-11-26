@@ -61,7 +61,11 @@ export default function Navbar({ user, breadcrumb, onLogout, primaryAction, sear
     setShowBell((v) => !v);
     if (!showBell) {
       const data = await listNotifications().catch(() => []);
-      setNotifications(data);
+      // #2081: the server marks a row read once its board is unavailable to
+      // the reader, so it normally never arrives here. A row that still does
+      // with `target_available: false` (a race) is hidden, with no tag. Only
+      // an explicit false hides: a server older than 1.3 omits the field.
+      setNotifications(data.filter((n) => n.target_available !== false));
     }
   };
 

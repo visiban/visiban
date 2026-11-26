@@ -46,6 +46,8 @@ List the 50 most recent **unread** notifications for the current user. Requires 
 
 Notifications referencing a board the requesting user no longer has access to are filtered from this list (and from `unread-count` below) — see #987.
 
+**Watch out:** since 1.3 (#2081), this request also marks those notifications **read**, so each one leaves your inbox for good instead of staying unread behind the filter. It only ever changes your own notifications. A notification stays read if your access to the board comes back later. A notification on a deleted board is deleted with the board, so the response is the same whether a board was deleted or your access was removed. `unread-count` does not mark anything; it already leaves those rows out.
+
 **Response**
 ```json
 [
@@ -65,7 +67,8 @@ Notifications referencing a board the requesting user no longer has access to ar
     "board_name": "Sales Pipeline",
     "mention_source": null,
     "read": false,
-    "created_at": "2026-03-15T09:41:22Z"
+    "created_at": "2026-03-15T09:41:22Z",
+    "target_available": true
   }
 ]
 ```
@@ -83,6 +86,7 @@ Notifications referencing a board the requesting user no longer has access to ar
 | `mention_source` | string / null | Since 1.3 (#2203). Where a `mentioned` notification's @mention lives: `comment` or `description`. `null` for every other `action_type`, and for mentions recorded before 1.3. The web app and the notification email open a `comment` mention on the card's Comments tab (`?card=<id>&tab=comments`); a `description` mention or a `null` source opens the card on its default tab. The set may grow, so treat an unrecognized value like `null`. |
 | `read` | boolean | Always `false` — this endpoint only returns unread notifications |
 | `created_at` | string | ISO 8601 timestamp |
+| `target_available` | boolean | Since 1.3 (#2081). Whether you can still open the notification's link: `true` for a notification with no board, and for one on a board you can access. Because this endpoint marks unavailable notifications read before it lists, it normally returns `true` only; treat a row with `false` as gone and do not show it. It never says why a target is unavailable: a deleted board and a board you lost access to look the same. |
 
 ---
 

@@ -279,7 +279,7 @@ describe('Navbar — hosted demo (#1193)', () => {
     vi.clearAllMocks()
     mockGetUnreadCount.mockResolvedValue(0)
     mockListNotifications.mockResolvedValue([
-      { id: 1, verb: 'moved a card', actor: null, card_id: 5, card_title: 'Card', board_id: 9, board_name: 'Board', action_type: 'card_moved', mention_source: null, read: false, created_at: new Date().toISOString() },
+      { id: 1, verb: 'moved a card', actor: null, card_id: 5, card_title: 'Card', board_id: 9, board_name: 'Board', action_type: 'card_moved', mention_source: null, target_available: true, read: false, created_at: new Date().toISOString() },
     ])
   })
 

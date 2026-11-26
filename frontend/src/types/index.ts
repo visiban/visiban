@@ -1265,6 +1265,13 @@ export interface Notification {
   mention_source: NotificationMentionSource | null;
   read: boolean;
   created_at: string;
+  /**
+   * Since 1.3 (#2081): whether you can still open this notification's link.
+   * The server marks a notification read once its board is unavailable to
+   * you, so the list normally carries `true` only; a row with `false` is
+   * hidden from the bell. Deleted and revoked targets read the same.
+   */
+  target_available: boolean;
 }
 
 export type NotificationMentionSource = 'comment' | 'description';
