@@ -10,6 +10,8 @@ const PARENT = { ...CARD, title: 'Acme: analytics module' }
 const BOARD = { ...BOARD_FULL, cards_can_have_children: true, cards: [PARENT] }
 const LANE_ID = BOARD_FULL.swimlanes[0].id
 
+// Pre-B (#2370 owner decision): in_progress 5 includes the 1 planned child, so the page shows 4 (shownInProgress).
+// After MR B the server excludes planned itself; then send in_progress 4 here and the asserted strings stay the same.
 const view = {
   board_total: { in_progress: 5, total: 6, blocked: 1, hidden: 4, planned: 1 },
   lanes: [{

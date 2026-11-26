@@ -40,6 +40,15 @@ const base = { options: DEFAULT_CHILDREN_OPTIONS, onOptionsChange: vi.fn(), onOp
 
 beforeEach(() => { getChildrenView.mockReset(); moveCard.mockReset() })
 
+describe('shownInProgress, the one in-progress derivation (#2370, #2550)', () => {
+  // Reconcile point: after MR B the server's in_progress already excludes planned, and this becomes the identity.
+  it('subtracts planned (pre-B)', async () => {
+    const { shownInProgress } = await import('../utils/childrenMode')
+    expect(shownInProgress({ in_progress: 5, planned: 1 })).toBe(4)
+    expect(shownInProgress({ in_progress: 1, planned: 3 })).toBe(0)
+  })
+})
+
 describe('Children mode live helpers (#2370 item 9)', () => {
   it('holds the order on screen, appends new rows and drops gone ones', () => {
     const a = { id: 1, v: 'a' }, b = { id: 2, v: 'b' }, c = { id: 3, v: 'c' }

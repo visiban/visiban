@@ -153,7 +153,12 @@ export function laneLink(origin: string, boardId: number, laneId: number): strin
   return `${origin}/boards/${boardId}?show=children&lane=${laneId}`;
 }
 
-/** "In progress" as the board shows it: not done and not planned (#2370 clarification 3, #2550). */
+/**
+ * "In progress" as the board shows it: not done and not planned (#2370 clarification 3, #2550). The ONE place the
+ * frontend derives it: every count shown in Children mode, the lane action and the Children tab link reads it here.
+ * Reconcile point (owner decision): once MR B's `children_view.py` returns `in_progress` already excluding planned
+ * children, this becomes `c.in_progress`; the tests that pin the subtraction are named "...subtracts planned (pre-B)".
+ */
 export const shownInProgress = (c: { in_progress: number; planned: number }) => Math.max(0, c.in_progress - c.planned);
 
 /**
