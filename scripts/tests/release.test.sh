@@ -34,6 +34,22 @@ check() { # <desc> <rc>
   if [ "$2" -eq 0 ]; then pass=$((pass + 1)); else echo "  FAIL: $1"; fail=$((fail + 1)); fi
 }
 
+# Tripwires, first on PATH for every case below: no run here may reach a real
+# networked CLI with the operator's (or the runner's) credentials. A stub's non-zero
+# exit alone can be swallowed (`|| true`, a warn-and-continue probe), so each hit is
+# also recorded and the log is asserted empty at the end. Cases that need a working
+# fake prepend their own stub ahead of these.
+TRIP="$(mktemp -d)"
+TRIP_LOG="$TRIP/hits"
+mkdir -p "$TRIP/bin"
+for tool in glab gh curl wget docker crane helm kubectl ssh scp cosign skopeo; do
+  printf '%s\n' '#!/usr/bin/env bash' "echo \"$tool \$*\" >> \"$TRIP_LOG\"" \
+    "echo \"TRIPWIRE: unexpected $tool call\" >&2" 'exit 97' > "$TRIP/bin/$tool"
+done
+chmod +x "$TRIP"/bin/*
+export PATH="$TRIP/bin:$PATH"
+unset GLAB  # check-security-deferred.sh would take a path from it, bypassing the stub
+
 # The script's own --self-test proves rotate_changelog and refuse_if_published
 # against their known regression cases.
 set +e
@@ -215,7 +231,7 @@ E2E_BRANCH="chore/release-${E2E_VERSION}"
 # make_e2e <scenario> <release.sh to run>  — builds $E2E (stubs, bare origin, clone).
 #   merged        MR already merged; another commit landed on main after it
 #   merge-fails   `glab mr merge` fails and the MR stays open
-#   bad-sha       MR reports a merge commit that is not in main's history
+#   bad-sha       MR reports a real, green commit that is not in main's history
 make_e2e() {
   E2E="$(mktemp -d)"
   mkdir -p "$E2E/bin" "$E2E/home" "$E2E/state"
@@ -240,19 +256,27 @@ case "$1 ${2:-}" in
       echo "$merge" > "$st/merge_sha"
       echo "$later" > "$st/later_sha"
     fi
+    if [[ "$scenario" == "bad-sha" ]]; then
+      # A commit that exists in the clone (cwd) but is on no branch, so only an
+      # ancestry check rejects it; mere existence would not.
+      git -c user.email=t@t -c user.name=t commit-tree "HEAD^{tree}" -p HEAD -m side > "$st/side_sha" || exit 1
+    fi
     echo "https://gitlab.invalid/x/y/-/merge_requests/4242"
     ;;
   "api projects/:id/merge_requests/4242")
     case "$scenario" in
       merged)      state=merged; sha="\"$(cat "$st/merge_sha")\"" ;;
-      bad-sha)     state=merged; sha='"0123456789012345678901234567890123456789"' ;;
+      bad-sha)     state=merged; sha="\"$(cat "$st/side_sha")\"" ;;
       merge-fails) state=opened; sha=null ;;
     esac
     printf '{"state":"%s","merge_commit_sha":%s,"head_pipeline":{"status":"success"}}\n' "$state" "$sha"
     ;;
   "api projects/:id/pipelines?sha="*)
-    # Only the merge commit has a green pipeline; asking about any other commit fails.
-    if [[ "$2" == "projects/:id/pipelines?sha=$(cat "$st/merge_sha" 2>/dev/null)&per_page=1" ]]; then
+    # Only the commit the MR reports has a green pipeline; any other commit fails. In
+    # bad-sha that is the off-main one, so the ancestry check alone stands before the tag.
+    green=merge_sha
+    [[ "$scenario" == "bad-sha" ]] && green=side_sha
+    if [[ "$2" == "projects/:id/pipelines?sha=$(cat "$st/$green" 2>/dev/null)&per_page=1" ]]; then
       echo '[{"status":"success"}]'
     else
       echo '[{"status":"failed"}]'
@@ -293,7 +317,28 @@ STUB
     done
     mkdir -p changelog.d
     echo "Release end-to-end fixture entry." > changelog.d/release-test-fixture.fixed.md
-    git add scripts changelog.d
+    # Minimal stand-ins for every file release.sh rewrites or checks, so these cases
+    # never depend on the real repo's content: drift there is not what is under test,
+    # and lint-selftests-alpine does not run when those files change.
+    mkdir -p frontend docs/getting-started helm/visiban
+    printf '%s\n' '# Changelog' '' '## [Unreleased]' '' '---' '' '## [0.0.1] — 2000-01-01' '' \
+      '### Fixed' '- Old entry.' > CHANGELOG.md
+    echo 'APP_VERSION=v0.0.1' > .env.example
+    printf '%s\n' '{' '  "version": "0.0.1"' '}' > frontend/package.json
+    printf '%s\n' 'docker pull ghcr.io/visiban/visiban/backend:v0.0.1' \
+      'docker pull ghcr.io/visiban/visiban/frontend:v0.0.1' > README.md
+    echo 'APP_VERSION=v0.0.1' > docs/getting-started/installation.md
+    printf '%s\n' '--set backend.image.tag=v0.0.1' '--set frontend.image.tag=v0.0.1' \
+      > docs/getting-started/kubernetes.md
+    printf '%s\n' '!!! note "Latest release"' '    **0.0.1** is the current stable release.' > docs/index.md
+    printf '%s\n' 'backend:' '  image:' '    repository: ghcr.io/visiban/visiban/backend' '    tag: "v0.0.1"' \
+      'frontend:' '  image:' '    repository: ghcr.io/visiban/visiban/frontend' '    tag: "v0.0.1"' \
+      > helm/visiban/values.yaml
+    printf '%s\n' 'version: 0.1.0' 'appVersion: "0.0.1"' > helm/visiban/Chart.yaml
+    # release.sh requires four fail-closed APP_VERSION references.
+    for _ in 1 2 3 4; do echo '# ${APP_VERSION:?}'; done > docker-compose.prod.yml
+    git add scripts changelog.d CHANGELOG.md .env.example frontend/package.json README.md \
+      docs helm/visiban docker-compose.prod.yml
     git commit -qm "test: end-to-end fixture"
     git push -q origin main
   )
@@ -362,16 +407,18 @@ else
 fi
 rm -rf "$E2E"
 
-# The merge commit is not on main: stop before the main-pipeline gate, publish nothing.
+# The merge commit exists but is not on main: stop before the main-pipeline gate, publish nothing.
 make_e2e bad-sha "$SCRIPT"
 run_e2e
+SIDE="$(cat "$E2E/state/side_sha" 2>/dev/null || true)"
 if [ "$E2E_RC" -ne 0 ] && grep -q "is not in local main's history" <<<"$E2E_OUT" \
+   && [ -n "$SIDE" ] && git -C "$E2E/repo" cat-file -e "${SIDE}^{commit}" \
    && ! grep -q "Confirming main's own pipeline" <<<"$E2E_OUT" \
    && [ -z "$(origin_tag)" ] && ! grep -q "^glab release" "$E2E/state/calls" \
    && [ ! -e "$E2E/state/unexpected" ]; then
   pass=$((pass + 1))
 else
-  e2e_fail "an unverifiable merge commit should stop the release with no tag"
+  e2e_fail "an off-main merge commit should stop the release with no tag"
 fi
 rm -rf "$E2E"
 
@@ -397,6 +444,22 @@ if mutate 'git tag "$TAG" "$MERGE_SHA"' 'git tag "$TAG"' "$MUT/tag-head.sh"; the
   rm -rf "$E2E"
 else
   echo "  FAIL: tag-HEAD mutation did not apply; update it to match release.sh"; fail=$((fail + 1))
+fi
+
+# Weakening the ancestry check to an existence check must tag the off-main commit,
+# which the bad-sha case asserts does not happen.
+if mutate '  if ! git merge-base --is-ancestor "$sha" HEAD 2>/dev/null; then' \
+     '  if ! git cat-file -e "${sha}^{commit}" 2>/dev/null; then' "$MUT/exists-only.sh"; then
+  make_e2e bad-sha "$MUT/exists-only.sh"
+  run_e2e
+  if [ "$E2E_RC" -eq 0 ] && [ "$(origin_tag)" = "$(cat "$E2E/state/side_sha")" ]; then
+    pass=$((pass + 1))
+  else
+    e2e_fail "an existence-only check should be visible as a tag on the off-main commit (tag='$(origin_tag)')"
+  fi
+  rm -rf "$E2E"
+else
+  echo "  FAIL: ancestry-check mutation did not apply; update it to match release.sh"; fail=$((fail + 1))
 fi
 
 # Dropping either `|| exit 1` changes no behavior under errexit, so --self-test's
@@ -429,6 +492,15 @@ else
   echo "  FAIL: '|| exit 1' mutations did not apply; update them to match release.sh"; fail=$((fail + 1))
 fi
 rm -rf "$MUT" "$FIXTURE_SRC"
+
+if [ ! -s "$TRIP_LOG" ]; then
+  pass=$((pass + 1))
+else
+  echo "  FAIL: a case reached a networked tool that has no fake of its own:"
+  sed 's/^/    /' "$TRIP_LOG"
+  fail=$((fail + 1))
+fi
+rm -rf "$TRIP"
 
 echo "release.test.sh: ${pass} passed, ${fail} failed"
 [ "$fail" -eq 0 ]
