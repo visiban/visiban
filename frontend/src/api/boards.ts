@@ -122,10 +122,23 @@ export const createBoard = (data: { name: string; description?: string; template
 export const getBoard = (id: number) =>
   client.get<Board>(`/api/v1/boards/${id}/`).then((r) => r.data);
 
-/** A board's columns (#2549: the parent board's Needed options). Accepts a paginated or a bare list. */
-export const getColumns = (boardId: number) =>
-  client.get<Column[] | { results: Column[] }>(`/api/v1/boards/${boardId}/columns/`)
-    .then((r) => (Array.isArray(r.data) ? r.data : r.data.results));
+/**
+ * A board's columns (#2549: the parent board's Needed options). The list endpoint pages at 50, so this follows
+ * `?page=N` until `next` is null: a board with more columns must still offer every later column. A bare-list
+ * response (no pagination) is returned as is.
+ */
+export const getColumns = async (boardId: number): Promise<Column[]> => {
+  const all: Column[] = [];
+  for (let page = 1; ; page += 1) {
+    const { data } = await client.get<Column[] | { results: Column[]; next?: string | null }>(
+      `/api/v1/boards/${boardId}/columns/`,
+      page === 1 ? undefined : { params: { page } },
+    );
+    if (Array.isArray(data)) return data;
+    all.push(...data.results);
+    if (!data.next || data.results.length === 0) return all;
+  }
+};
 
 export const getBoardFull = (id: number) =>
   client.get<BoardFull>(`/api/v1/boards/${id}/full/`).then((r) => r.data);

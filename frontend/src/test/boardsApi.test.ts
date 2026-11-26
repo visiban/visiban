@@ -15,6 +15,7 @@ vi.mock('../api/client', () => {
 
 import client from '../api/client'
 import {
+  getColumns,
   recomputeBoardHealth,
   listBoardInviteLinks,
   listBoardInviteLinksPage,
@@ -730,5 +731,30 @@ describe('export history and card custom field definitions (#1759)', () => {
     vi.mocked(client.post).mockResolvedValueOnce({ data: [{ id: 2 }, { id: 1 }] })
     await expect(reorderCustomFields(3, [2, 1])).resolves.toEqual([{ id: 2 }, { id: 1 }])
     expect(client.post).toHaveBeenCalledWith('/api/v1/boards/3/custom-fields/reorder/', { order: [2, 1] })
+  })
+})
+
+// #2549: the columns list pages at 50; the Needed options must cover every later column on a larger board.
+describe('getColumns (#2549)', () => {
+  const col = (id: number) => ({ id, name: `C${id}`, position: id })
+  beforeEach(() => { vi.mocked(client.get).mockReset() })
+
+  it('follows every page of a board with more than 50 columns', async () => {
+    const page1 = Array.from({ length: 50 }, (_, i) => col(i + 1))
+    const page2 = Array.from({ length: 20 }, (_, i) => col(i + 51))
+    vi.mocked(client.get)
+      .mockResolvedValueOnce({ data: { results: page1, next: 'http://x/api/v1/boards/7/columns/?page=2' } })
+      .mockResolvedValueOnce({ data: { results: page2, next: null } })
+    const cols = await getColumns(7)
+    expect(cols).toHaveLength(70)
+    expect(cols[69].id).toBe(70)
+    expect(vi.mocked(client.get)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(client.get).mock.calls[1]).toEqual(['/api/v1/boards/7/columns/', { params: { page: 2 } }])
+  })
+
+  it('returns a bare list as is, without a second request', async () => {
+    vi.mocked(client.get).mockResolvedValueOnce({ data: [col(1), col(2)] })
+    expect(await getColumns(7)).toHaveLength(2)
+    expect(vi.mocked(client.get)).toHaveBeenCalledTimes(1)
   })
 })
