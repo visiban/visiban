@@ -61,10 +61,12 @@ export default function Navbar({ user, breadcrumb, onLogout, primaryAction, sear
     setShowBell((v) => !v);
     if (!showBell) {
       const data = await listNotifications().catch(() => []);
-      // #2081: the server marks a row read once its board is unavailable to
-      // the reader, so it normally never arrives here. A row that still does
-      // with `target_available: false` (a race) is hidden, with no tag. Only
-      // an explicit false hides: a server older than 1.3 omits the field.
+      // #2081: the server leaves out (and marks read) rows whose board the
+      // reader can no longer open, and annotates the rest `target_available:
+      // true`, so it never emits `false` today. This client filter only guards
+      // against a future server that lists such rows; it hides them, with no
+      // tag. Only an explicit false hides: a server older than 1.3 omits the
+      // field.
       setNotifications(data.filter((n) => n.target_available !== false));
     }
   };

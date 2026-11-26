@@ -18,7 +18,7 @@ The navbar shows a bell icon with an unread count badge. Clicking it opens a dro
 
 Click **Mark all read** to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.
 
-If you can no longer open a notification's board, because the board was deleted or you were removed from it, the notification leaves the bell. Since 1.3, Visiban also marks it read the next time you open the bell, so it stays gone even if you are added back to the board. This also covers a notification email whose link now opens a board you cannot reach.
+If you can no longer open a notification's board, the notification leaves the bell. Notifications on a board you were removed from are marked read the next time you open the bell (since 1.3), so they stay read even if you are added back to the board; before 1.3 they reappeared. Notifications on a deleted board are removed with it. This also covers a notification email whose link now opens a board you cannot reach.
 
 !!! note "Notification limit"
     The dropdown shows at most **50 unread notifications**. Older unread notifications beyond the 50 most recent are not shown in the UI, though they are still marked read when you click **Mark all read**.
