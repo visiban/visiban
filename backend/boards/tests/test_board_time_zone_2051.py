@@ -16,7 +16,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from boards.models import Board, BoardMembership, CardMovement
 from boards.services import flow_metrics as fm
-from boards.tests.test_flow_metrics import METRICS, EndpointFixture, FlowFixture
+from boards.tests.test_flow_metrics import METRICS, EndpointFixture, FlowFixture, GroupingFixture
 
 UTC = datetime.timezone.utc
 LA = zoneinfo.ZoneInfo("America/Los_Angeles")
@@ -99,6 +99,21 @@ class TimeZoneEndpointTests(EndpointFixture):
                 self.set_zone(name)
                 samples = self.client.get(self.url("throughput"), params).json()["samples"]
                 self.assertEqual([s["start"] for s in samples if s["count"]], [day])
+
+    def test_drill_down_lists_a_card_done_late_in_the_local_day(self):
+        # 03:00Z on D+1 is 19:00 or 20:00 on D in Los Angeles: the card is
+        # done by the end of local day D, though not by UTC midnight of D+1.
+        day = (self.now - datetime.timedelta(days=10)).date()
+        card = self.path(self.backlog, 30, self.doing, 20)
+        self.row(card, self.doing, self.done, 5)
+        done_at = at(day.year, day.month, day.day, 3) + datetime.timedelta(days=1)
+        CardMovement.objects.filter(card=card, to_column=self.done).update(moved_at=done_at)
+        Card = type(card)
+        Card.objects.filter(pk=card.pk).update(column=self.done)
+        self.set_zone("America/Los_Angeles")
+        body = self.client.get(self.url("cumulative-flow"), {"date": day.isoformat()}).json()
+        done = next(c for c in body["columns"] if c["column_uid"] == self.done.uid)
+        self.assertIn(card.uid, done["card_uids"])
 
     def test_drill_down_today_is_the_board_zones_today(self):
         # Pin "now" at 03:00Z: still yesterday in Los Angeles, so the UTC
@@ -212,3 +227,22 @@ class TimeZoneSerializerTests(EndpointFixture):
         self.assertIn(resp.status_code, (400, 403, 405), resp.content)
         self.board.refresh_from_db()
         self.assertIsNone(self.board.time_zone)
+
+
+class TimeZoneGroupingTests(GroupingFixture):
+    def test_a_completion_before_local_midnight_does_not_rank_its_group(self):
+        # 03:00Z on the first day is the previous evening in Los Angeles, before
+        # the range opens at local midnight, so the lane is not active in it.
+        day = (self.now - datetime.timedelta(days=10)).date()
+        card = self.card(self.done, created=40, lane=self.other_lane)
+        self.row(card, None, self.backlog, 40)
+        self.row(card, self.backlog, self.doing, 30)
+        self.row(card, self.doing, self.done, 20)
+        CardMovement.objects.filter(card=card, to_column=self.done).update(moved_at=at(day.year, day.month, day.day, 3))
+        Board.objects.filter(pk=self.board.pk).update(time_zone="America/Los_Angeles")
+        body = self.get(
+            "throughput", group_by="swimlane", from_date=day.isoformat(),
+            to_date=(day + datetime.timedelta(days=3)).isoformat(),
+        )
+        keys = [g["key"] for g in body["grouping"]["groups"]]
+        self.assertNotIn(str(self.other_lane.id), keys)
