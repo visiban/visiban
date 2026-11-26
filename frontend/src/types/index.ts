@@ -1503,6 +1503,14 @@ export interface GroupBrief {
   ancestors?: { id: number; name: string }[];
 }
 
+/** One entry of `Board.stage_counts` (#2483): a column and its live card count. */
+export interface BoardStageCount {
+  uid: string;
+  name: string;
+  color: string;
+  card_count: number;
+}
+
 export interface Board {
   id: number;
   uid: string;
@@ -1521,6 +1529,12 @@ export interface Board {
    * card_count + archived_card_count, not card_count alone.
    */
   archived_card_count: number;
+  /**
+   * Live cards per stage (column), in board order, for the home stage bar (#2483, since 1.3).
+   * Every column is listed, zero-card ones included; the counts sum to card_count. Optional
+   * because an older server does not send it: the bar is then left out.
+   */
+  stage_counts?: BoardStageCount[];
   staleness_threshold_days: number;
   stale_warning_pct: number;
   /** @deprecated No effect (#1429); stored and returned for API compatibility, card priorities are not restricted by it. */

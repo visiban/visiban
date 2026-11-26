@@ -6,7 +6,7 @@ import re
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models as _db_models
-from django.db.models import F, Prefetch, Q
+from django.db.models import Count, F, Manager, Prefetch, Q
 from django.db.models.functions import Coalesce, Concat, NullIf
 from django.utils.dateparse import parse_date
 from django.utils import timezone
@@ -5164,6 +5164,61 @@ def _clean_parent_name(value):
     return value
 
 
+STAGE_COUNTS_HELP = (
+    "Live cards per stage (column) of this board, in board order, for the home stage bar "
+    "(#2483, since 1.3). One entry per column, including columns with no cards, so the first "
+    "and last entries name the board's ends. A stage is a column: cards in a column's "
+    "sub-columns count toward that column. Archived cards are left out, so the counts sum "
+    "to card_count. Columns have no archived state, so every column is listed."
+)
+
+
+class BoardStageCountSerializer(serializers.Serializer):
+    """One stage of ``BoardSerializer.stage_counts`` (#2483)."""
+
+    uid = serializers.CharField(read_only=True)
+    name = serializers.CharField(read_only=True)
+    color = serializers.CharField(read_only=True)
+    card_count = serializers.IntegerField(read_only=True, min_value=0)
+
+
+def stage_counts_for_boards(board_ids):
+    """``{board_id: [stage, ...]}`` for every board in ``board_ids``, in ONE query (#2483).
+
+    A stage is a ``Column``: sub-columns (#1102) are not Column rows and a
+    card's ``column`` still points at its stage, so they need no handling. One
+    aggregate over ``columns LEFT JOIN cards`` (a single multi-valued join, so
+    nothing multiplies, unlike #1723): live cards only, so each board's sum
+    equals its ``card_count`` annotation. Every card on a board is visible to
+    every viewer who can list the board (there is no per-viewer card filter),
+    so the counts are the same for all of them and safe in a broadcast payload
+    that goes to the board's members. A board with no columns maps to [].
+    """
+    ids = list(dict.fromkeys(board_ids))
+    out = {pk: [] for pk in ids}
+    if not ids:
+        return out
+    rows = (
+        Column.objects.filter(board_id__in=ids)
+        .order_by("board_id", "position", "id")
+        .values("board_id", "uid", "name", "color")
+        .annotate(card_count=Count("cards", filter=Q(cards__archived_at__isnull=True)))
+    )
+    for row in rows:
+        board_id = row.pop("board_id")
+        out[board_id].append(row)
+    return out
+
+
+class BoardListSerializer(HealthStatusListSerializer):
+    """Board lists: one health map (#1133) and one stage-count query (#2483) per list."""
+
+    def to_representation(self, data):
+        items = list(data.all() if isinstance(data, Manager) else data)
+        self.child.prime_stage_counts(items)
+        return super().to_representation(items)
+
+
 @extend_schema_serializer(deprecate_fields=["allowed_priorities"])
 class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
@@ -5186,6 +5241,9 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
     group_name = serializers.SerializerMethodField(allow_null=True)
     group_detail = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
+    # #2483: additive, read-only. Lists prime one query for the whole page
+    # (BoardListSerializer); see get_stage_counts.
+    stage_counts = serializers.SerializerMethodField(help_text=STAGE_COUNTS_HELP)
     # Not the model help_text (#1077): that one describes the intent, and the
     # schema has to describe what the server does — which is nothing yet.
     allowed_priorities = AllowedPrioritiesField(
@@ -5261,10 +5319,11 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "allow_assignee_override", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children", "default_child_board", "parent_name_singular", "parent_name_plural"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "stage_counts", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "allow_assignee_override", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children", "default_child_board", "parent_name_singular", "parent_name_plural"]
         read_only_fields = ["uid", "created_at", "updated_at"]
-        # Resolves every row's effective health from one ancestor map (#1133).
-        list_serializer_class = HealthStatusListSerializer
+        # Resolves every row's effective health from one ancestor map (#1133)
+        # and every row's stage counts from one query (#2483).
+        list_serializer_class = BoardListSerializer
         # `group` keeps its auto-generated field (same schema type, nullable,
         # optional); only the unknown-id message is replaced, so that an
         # unknown id and a group the caller may not use answer with the same
@@ -5680,6 +5739,20 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
             return obj._archived_card_count
         note_fallback(self, "get_archived_card_count")
         return obj.cards.filter(archived_at__isnull=False).count()
+
+    def prime_stage_counts(self, items):
+        """Load every listed board's stage counts in one query (BoardListSerializer)."""
+        self._stage_counts_map = stage_counts_for_boards(obj.pk for obj in items)
+
+    @extend_schema_field(BoardStageCountSerializer(many=True))
+    def get_stage_counts(self, obj):
+        primed = getattr(self, "_stage_counts_map", None)
+        if primed is not None and obj.pk in primed:
+            return primed[obj.pk]
+        # A single board (retrieve, a write's response or broadcast) pays one
+        # query; a list that reaches here skipped BoardListSerializer.
+        note_fallback(self, "get_stage_counts")
+        return stage_counts_for_boards([obj.pk])[obj.pk]
 
     def get_group_name(self, obj) -> str | None:
         return _group_name_for_board(obj)

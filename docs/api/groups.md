@@ -367,6 +367,13 @@ The board always lands in the group in the URL. A `group` key in the body is ign
   "member_count": 1,
   "card_count": 0,
   "archived_card_count": 0,
+  "stage_counts": [
+    { "uid": "8c41e0a9d2f35b76", "name": "Backlog", "color": "#6B7280", "card_count": 0 },
+    { "uid": "e17b3f02c9a4d658", "name": "To Do", "color": "#3B82F6", "card_count": 0 },
+    { "uid": "4d9a6c1e0b7f2385", "name": "Doing", "color": "#F59E0B", "card_count": 0 },
+    { "uid": "b25f8e7a01c3d964", "name": "Review", "color": "#8B5CF6", "card_count": 0 },
+    { "uid": "0f6d3b9c4a8e1275", "name": "Done", "color": "#10B981", "card_count": 0 }
+  ],
   "staleness_threshold_days": 7,
   "stale_warning_pct": 50,
   "allowed_priorities": [],

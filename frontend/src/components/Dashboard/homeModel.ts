@@ -3,7 +3,7 @@
  * per-board stale/blocked signals, the All boards filters and the Needs attention ranking. Kept
  * out of the page so each copy rule and ordering rule is unit-tested on its own.
  */
-import type { Board, Group, User } from "../../types";
+import type { Board, BoardStageCount, Group, User } from "../../types";
 import { HEALTH_STATUS_LABELS } from "../../constants/healthStatus";
 import { healthReviewCue } from "../../utils/healthStatus";
 import type { RecentBoardEntry } from "../../hooks/useRecentBoardsPref";
@@ -227,4 +227,30 @@ export function groupAvatarStack(group: Pick<Group, "owner" | "member_count" | "
   const preview = group.member_preview && group.member_preview.length > 0 ? group.member_preview : [group.owner];
   const users = preview.slice(0, GROUP_AVATAR_LIMIT);
   return { users, more: Math.max(0, group.member_count - users.length) };
+}
+
+/** A board's stage bar (#2483): the stages that hold cards, and the first and last stage names. */
+export interface StageBarModel {
+  /** Stages with at least one live card, in board order; each one's share of the bar is `card_count / total`. */
+  segments: BoardStageCount[];
+  total: number;
+  first: string;
+  /** null when the board has a single stage, so its name is shown once. */
+  last: string | null;
+  /** The bar's accessible name: every stage with its count, zeros included. */
+  label: string;
+}
+
+/** null when there is nothing to draw: an older server that sends no `stage_counts`, or a board with no columns. */
+export function stageBar(board: Pick<Board, "stage_counts">): StageBarModel | null {
+  const stages = board.stage_counts;
+  if (!stages || stages.length === 0) return null;
+  const total = stages.reduce((sum, s) => sum + s.card_count, 0);
+  return {
+    segments: stages.filter((s) => s.card_count > 0),
+    total,
+    first: stages[0].name,
+    last: stages.length > 1 ? stages[stages.length - 1].name : null,
+    label: `Cards by stage: ${stages.map((s) => `${s.name} ${s.card_count}`).join(", ")}`,
+  };
 }

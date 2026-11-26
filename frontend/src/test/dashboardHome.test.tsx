@@ -109,6 +109,21 @@ describe('Home status page (#2474)', () => {
     expect(quiet).toHaveTextContent('Updated 2h ago')
   })
 
+  it('rows draw the stage bar on desktop only (hidden on phones), between the signals and the status (#2483)', async () => {
+    const stage_counts = [{ uid: 'c1', name: 'Todo', color: '#111111', card_count: 1 }, { uid: 'c2', name: 'Shipped', color: '#222222', card_count: 1 }]
+    mockListBoards.mockResolvedValue([mk(1, { name: 'Staged', stage_counts }), mk(2, { name: 'Bare', stage_counts: [] })])
+    renderHome()
+    const rows = await screen.findAllByRole('listitem')
+    const staged = rows.find((r) => r.textContent?.includes('Staged'))!
+    const bare = rows.find((r) => r.textContent?.includes('Bare'))!
+    const bar = within(staged).getByTestId('stage-bar')
+    expect(bar).toHaveClass('max-sm:hidden')
+    expect(within(bar).getByRole('img')).toHaveAccessibleName('Cards by stage: Todo 1, Shipped 1')
+    expect(bar).toHaveTextContent('Todo')
+    expect(bar).toHaveTextContent('Shipped')
+    expect(within(bare).queryByTestId('stage-bar')).not.toBeInTheDocument()
+  })
+
   it('shows the not-reviewed cue on a row', async () => {
     mockListBoards.mockResolvedValue([mk(1, {
       health_status: 'at_risk', effective_health_status: 'at_risk', health_status_origin: 'manual',
@@ -243,6 +258,26 @@ describe('Home status page (#2474)', () => {
       expect(tiles[1]).toHaveTextContent('Stale, blocked: no data')
       await u.click(within(tiles[0]).getByRole('button'))
       expect(mockNavigate).toHaveBeenCalledWith('/boards/1')
+    })
+
+    it('draws the stage bar with its end names, and none when the server sends no stage_counts (#2483)', async () => {
+      const stage_counts = [
+        { uid: 'c1', name: 'Backlog', color: '#111111', card_count: 2 },
+        { uid: 'c2', name: 'Doing', color: '#222222', card_count: 0 },
+        { uid: 'c3', name: 'Done', color: '#333333', card_count: 6 },
+      ]
+      mockListBoards.mockResolvedValue([mk(1, { name: 'Alpha', stage_counts }), mk(2, { name: 'Beta' })])
+      renderHome({ recentBoards: [{ id: 1, name: 'Alpha' }, { id: 2, name: 'Beta' }] })
+      const section = (await screen.findByRole('heading', { name: 'Jump back in' })).closest('section')!
+      const [alpha, beta] = within(section).getAllByRole('listitem')
+      const bar = within(alpha).getByRole('img', { name: 'Cards by stage: Backlog 2, Doing 0, Done 6' })
+      const segments = within(alpha).getAllByTestId('stage-bar-segment')
+      expect(segments).toHaveLength(2)
+      expect(segments[0]).toHaveStyle({ flexGrow: '2', backgroundColor: '#111111' })
+      expect(segments[1]).toHaveStyle({ flexGrow: '6', backgroundColor: '#333333' })
+      expect(bar.parentElement).toHaveTextContent('Backlog')
+      expect(bar.parentElement).toHaveTextContent('Done')
+      expect(within(beta).queryByTestId('stage-bar')).not.toBeInTheDocument()
     })
 
     it('omits the age for an entry stored before openedAt existed', async () => {
