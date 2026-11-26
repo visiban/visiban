@@ -4548,8 +4548,15 @@ describe('BoardSettingsModal docs links by section (#2593)', () => {
     ['sharing', 'public sharing', 'board.sharing'],
     ['export', 'export and import', 'board.export'],
     ['members', 'board roles', 'permissions'],
-  ] as const)('%s section links %s', async (section, subject, topic) => {
-    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab={section} onUpdateBoardSettings={vi.fn()} />)
+    ['rules', 'child cards', 'child-cards'],
+    ['lens', 'setting up the Issue Board Lens', 'lens.configure', { gitLensEnabled: true }],
+    ['rules', 'WIP limits', 'wip-limit', { isAdmin: false }],
+    ['fields', 'card fields', 'custom-fields'],
+    ['fields', 'card fields', 'custom-fields', { isAdmin: false }],
+    ['swimlane-fields', 'swimlane fields', 'swimlane-fields'],
+    ['swimlane-fields', 'swimlane fields', 'swimlane-fields', { isAdmin: false }],
+  ] as const)('%s section links %s', async (section, subject, topic, extra: { isAdmin?: boolean; gitLensEnabled?: boolean } = {}) => {
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={extra.isAdmin ?? true} gitLensEnabled={extra.gitLensEnabled} onClose={vi.fn()} initialTab={section} onUpdateBoardSettings={vi.fn()} />)
     const link = await screen.findByRole('link', { name: helpName(subject) })
     expect(link).toHaveAttribute('href', docsUrl(topic))
   })

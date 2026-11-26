@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardInvitesTab from '../components/Admin/BoardInvitesTab'
+import { docsUrl } from '../help/docsUrl'
 import type { AdminBoardInviteLink } from '../types'
 
 // #439 — Admin → Board Invites: every board's invites with a status filter,
@@ -55,6 +56,13 @@ describe('BoardInvitesTab (#439)', () => {
     render(<BoardInvitesTab />)
     expect(await screen.findByText('No pending board invites.')).toBeInTheDocument()
     expect(mockList).toHaveBeenLastCalledWith({ status: 'pending', offset: 0 })
+  })
+
+  it('links the Board invites docs section from the heading (#2593)', async () => {
+    render(<BoardInvitesTab />)
+    const heading = await screen.findByRole('heading', { level: 3, name: 'Board invites' })
+    const link = within(heading.parentElement!.parentElement!).getByRole('link', { name: 'Learn more about board invites, opens docs' })
+    expect(link).toHaveAttribute('href', docsUrl('admin.board-invites'))
   })
 
   it('shows the load error', async () => {

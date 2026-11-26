@@ -401,7 +401,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
       .finally(() => setTesting(false));
   }
 
-  const heading = <PageHeading level="h3" title="Email" description="Where password resets and invites are sent from." headingRef={headingRef} />;
+  const heading = <PageHeading level="h3" title="Email" help="admin.email" description="Where password resets and invites are sent from." headingRef={headingRef} />;
 
   if (loading) {
     return (

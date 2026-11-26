@@ -47,6 +47,7 @@ describe('Site admin heading structure (#2476)', () => {
 describe('Site admin heading help links (#2593)', () => {
   it.each([
     ['general', 'General', 'the General and Email settings', 'admin.general'],
+    ['email', 'Email', 'email settings', 'admin.email'],
     ['users', 'Users', 'managing users', 'admin.users'],
     ['invite_links', 'Invite links', 'invite links', 'admin.invites'],
   ] as const)('the %s heading links its admin-panel docs section', async (tab, title, subject, topic) => {

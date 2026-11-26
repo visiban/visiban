@@ -1,4 +1,3 @@
-import HelpLink from "../../Common/HelpLink";
 import type { FlowFilters } from "../../../api/flowMetrics";
 import type { Column, FlowCumulativeFlow, FlowDwell, FlowThroughput, FlowWipAge } from "../../../types";
 import { ChartPanel } from "../../Common/Chart";
@@ -105,6 +104,7 @@ export default function FlowSection({
       summary={cumulative ? cumulativeFlowSummary(cumulative) : "Where cards queue and how long they wait."}
       notes={view === "chart" && cumulative ? [flowNote(row)] : []}
       testId="analytics-flow"
+      help="analytics.how-work-flows"
       view={view}
       onViewChange={onViewChange}
       table={<TableBody analytics={analytics} mode={mode} onModeChange={onModeChange} days={filters.days} />}
@@ -113,7 +113,7 @@ export default function FlowSection({
         <div className="flex flex-col gap-5 min-w-0">
           <FlowRow columns={row} cumulative={cumulative} throughput={throughput} days={filters.days} onOpenColumn={onOpenColumn} />
           <section aria-labelledby="analytics-time-heading" className="flex flex-col gap-2">
-            <div className="flex items-center gap-2"><h3 id="analytics-time-heading" className="text-sm font-semibold text-fg">Where the time goes</h3><HelpLink topic="analytics.how-work-flows" /></div>
+            <h3 id="analytics-time-heading" className="text-sm font-semibold text-fg">Where the time goes</h3>
             <p className="text-sm text-fg-secondary">
               {groups
                 ? `Median days a card spends in each column on the way to Done, split by ${breakdownNoun ?? "group"}. The longest bar is the slowest group.`

@@ -336,6 +336,17 @@ describe('the Table view is the heatmap table (#2262)', () => {
     expect(screen.getByText(/exited in the last 30 days/)).toBeInTheDocument()
   })
 
+  it('keeps the one docs link on the panel heading in Table view (#2593)', async () => {
+    render(<Harness />)
+    await userEvent.click(within(screen.getByRole('group', { name: 'How work flows view' })).getByRole('button', { name: 'table' }))
+    expect(screen.getAllByRole('link', { name: /^Learn more about how work flows/ })).toHaveLength(1)
+  })
+
+  it('keeps the docs link while the flow data is still loading (#2593)', () => {
+    render(<Harness cum={undefined as unknown as FlowCumulativeFlow} />)
+    expect(screen.getAllByRole('link', { name: /^Learn more about how work flows/ })).toHaveLength(1)
+  })
+
   it('says so when there is no analytics data', async () => {
     render(<Harness data={null} />)
     await userEvent.click(within(screen.getByRole('group', { name: 'How work flows view' })).getByRole('button', { name: 'table' }))

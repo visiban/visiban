@@ -16,7 +16,7 @@
  *   Analytics        analytics.definitions    features/analytics#flow-metric-definitions  (page title)
  *                    analytics.bottleneck     features/analytics#bottleneck               (Bottleneck panel)
  *                    analytics.cycle-time/.throughput/.cumulative-flow/.wip-age  features/analytics#flow-metrics (one per chart; analytics.flow-metrics kept)
- *                    analytics.how-work-flows features/analytics#how-work-flows           (Where the time goes)
+ *                    analytics.how-work-flows features/analytics#how-work-flows           ("How work flows" panel heading)
  *                    analytics.blocked        features/analytics#why-cards-get-blocked   (Why cards get blocked)
  *                    analytics.attention      features/analytics#needs-attention          (Needs attention)
  *   Health status    health.status            features/health-status#the-four-states     (status popover)
@@ -24,17 +24,17 @@
  *   Groups           groups.members/.invites/.defaults/.labels   features/groups#...      (Group settings sections)
  *   Board settings   board.display, wip-limit, board.stale, analytics.definitions, child-cards,
  *                    health.review, board.sharing, board.export, lens.configure, webhooks.setup,
- *                    column-policies, field-sets, permissions (Role column)
+ *                    column-policies, field-sets, custom-fields and swimlane-fields (tab text links), permissions (Role column)
  *   Integrations     tokens.personal, mcp (Access tokens), webhooks (service notice), webhooks.setup
  *   Issue Board Lens lens                     features/issue-board-lens#using-the-lens   (lens banner)
  *   Import           board.import, import.trello, import.samples
  *   Saved filters    saved-filters            features/saved-filters#saving-a-filter     (saved filters panel)
  *   Shortcuts        shortcuts                features/keyboard-shortcuts#keyboard-shortcuts (overlay)
  *   User menu        help/pageTopic.ts: board.overview, groups, admin.panel, else home
- *   Site admin       admin.general, admin.users, admin.invites  administration/admin-panel#...  (General, Users, Invite links headings)
+ *   Site admin       admin.general, admin.email, admin.users, admin.invites, admin.board-invites  administration/admin-panel#...  (section headings)
  *   Group overview   groups.members                              (Members card heading)
- *   Not linked yet   the home page (#2474) and the app shell (#2473). SSO/OIDC has no UI surface in the
- *                    app (configured by env vars), so it has no link.
+ *   Not in scope     the home page (#2474) and the app shell (#2473) are outside #2593's area list. SSO/OIDC has
+ *                    no UI surface in the app (configured by env vars), so it has no link.
  */
 export interface HelpTopic {
   /** Docs path relative to the docs root, ending in "/". Empty = docs home. */
@@ -229,6 +229,18 @@ export const HELP_TOPICS = {
     subject: "invite links",
     summary: "How to create, send and revoke invite links.",
   },
+  "admin.email": {
+    path: "administration/admin-panel/",
+    anchor: "email-section",
+    subject: "email settings",
+    summary: "Where password resets and invites are sent from.",
+  },
+  "admin.board-invites": {
+    path: "administration/admin-panel/",
+    anchor: "board-invites-section",
+    subject: "board invites",
+    summary: "How to review and revoke every board's invites.",
+  },
   "admin.panel": {
     path: "administration/admin-panel/",
     anchor: "general-and-email-sections",
@@ -362,6 +374,18 @@ export const HELP_TOPICS = {
     anchor: "hard-wip-enforcement",
     subject: "WIP limits",
     summary: "How WIP limits and hard WIP enforcement work.",
+  },
+  "custom-fields": {
+    path: "features/custom-fields/",
+    anchor: "managing-card-fields-board-settings-card-fields",
+    subject: "card fields",
+    summary: "How to add, pin and limit custom card fields.",
+  },
+  "swimlane-fields": {
+    path: "features/custom-fields/",
+    anchor: "managing-swimlane-fields-board-settings-swimlane-fields",
+    subject: "swimlane fields",
+    summary: "How to add swimlane fields and place them on the lane band.",
   },
   "field-sets": {
     path: "features/custom-fields/",
