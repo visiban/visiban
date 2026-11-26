@@ -417,15 +417,15 @@ class GroupRoleChangeTests(_ShareFixtures):
         self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
         self.assert_kept(token)
 
-    def test_adding_a_group_admin_as_a_direct_member_clears(self, bc):
-        """A direct membership outranks the group role, so this lowers the role."""
-        self.enable(user=self.group_admin)
+    def test_adding_a_group_admin_as_a_direct_member_is_refused(self, bc):
+        """A direct row below admin is refused (#1942), so the link is untouched."""
+        token = self.enable(user=self.group_admin)
         r = _client(self.owner).post(
             f"/api/v1/boards/{self.board.pk}/members/",
             {"user_id": self.group_admin.pk, "role": "member"}, format="json",
         )
-        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
-        self.assert_cleared()
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assert_kept(token)
 
     def test_adding_a_group_admin_as_a_direct_admin_keeps_link(self, bc):
         token = self.enable(user=self.group_admin)

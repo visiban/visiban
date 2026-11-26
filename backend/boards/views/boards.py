@@ -44,6 +44,7 @@ from ..models import (
 from ..permissions import (
     GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN,
     get_board_role,
+    group_derived_board_role,
 )
 from ..serializers import (
     EXPAND_QUERY_PARAMETER,
@@ -103,6 +104,24 @@ _BOARD_OWNER_REFUSED_CODE_HELP = (
     "`board_owner_protected`: the target is the board owner, whose membership "
     "cannot be removed or demoted."
 )
+
+
+# An explicit row outranks the group-derived role, so one below ``admin`` would
+# lower a group admin's access and a board admin could not be told apart from
+# the user it was written for (#1942). ``code`` is part of the public
+# ``{detail, code}`` 400 contract; ``detail`` is prose and may be reworded.
+GROUP_ADMIN_FLOOR_CODE = "group_admin_role_floor"
+GROUP_ADMIN_FLOOR_MESSAGE = (
+    "This user is an admin of the board through its group, so their board role "
+    "cannot be set below admin. Remove their direct membership to use the group role."
+)
+
+
+def _group_admin_floor_refusal():
+    return Response(
+        {"detail": GROUP_ADMIN_FLOOR_MESSAGE, "code": GROUP_ADMIN_FLOOR_CODE},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
 
 def _board_owner_refusal():
@@ -1662,8 +1681,9 @@ class BoardViewSet(
             400: OpenApiResponse(
                 description=(
                     "`role` is not a string within the allowed role set, moderator entitlement was requested "
-                    "for a collaborator or viewer role, or the change would give the board owner a role "
-                    "below `admin` (this one carries `code`). Nothing is written."
+                    "for a collaborator or viewer role, the change would give the board owner a role "
+                    "below `admin`, or would store a role below `admin` for a user who is an admin "
+                    "through the board's group (these two carry `code`). Nothing is written."
                 ),
                 response=inline_serializer(
                     name="AddMemberBadRequest",
@@ -1671,7 +1691,11 @@ class BoardViewSet(
                         "detail": serializers.CharField(),
                         "code": serializers.CharField(
                             required=False,
-                            help_text="Present only on a refused owner demotion. " + _BOARD_OWNER_REFUSED_CODE_HELP,
+                            help_text=(
+                                "Present only on a refused owner demotion or group-admin demotion. "
+                                + _BOARD_OWNER_REFUSED_CODE_HELP
+                                + " `group_admin_role_floor`: the user is a board admin through the board's group."
+                            ),
                         ),
                     },
                 ),
@@ -1749,6 +1773,20 @@ class BoardViewSet(
             and (role_supplied or existing is None)
         ):
             return _board_owner_refusal()
+        # Same shape as the owner guard above: a stored role below ``admin`` is
+        # refused for a user whose group membership already makes them admin.
+        # A request that leaves the stored role as it is (no role, or the same
+        # one) is not a change, so a row stored before this rule can still have
+        # its other fields edited, be raised, or be removed.
+        # A site-admin target seen by a caller who is not one keeps the #1706
+        # floor below instead (silent, so the answer matches any other user's).
+        if (
+            member_role != BoardMembership.Role.ADMIN
+            and (existing is None or member_role != existing.role)
+            and not (target_user.is_site_admin and not request.user.is_site_admin)
+            and group_derived_board_role(target_user, board) == BoardMembership.Role.ADMIN
+        ):
+            return _group_admin_floor_refusal()
         raw_mod = body.get("is_moderator")
         # Normalize: None means "not provided", else coerce to bool.
         # Multipart forms send "false"/"true" as strings.
@@ -1805,6 +1843,15 @@ class BoardViewSet(
                 # A row created while this request waited keeps its stored role
                 # when the request did not name one.
                 previous_role = membership.role
+                # The floor above, applied to a row that appeared while this
+                # request waited. Nothing has been written yet.
+                if (
+                    role_supplied
+                    and member_role != BoardMembership.Role.ADMIN
+                    and member_role != previous_role
+                    and group_derived_board_role(target_user, board) == BoardMembership.Role.ADMIN
+                ):
+                    return _group_admin_floor_refusal()
                 if role_supplied:
                     membership.role = member_role
                 elif is_moderator and membership.role in (
