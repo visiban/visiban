@@ -2,7 +2,7 @@
 
 ## What is Visiban?
 
-Visiban is a self-hosted, open-core Kanban board for teams of any size — from a single squad to a large organization. It runs on Django + PostgreSQL (backend) and React + TypeScript (frontend), deployable via Docker Compose or Helm. The core product is Apache 2.0 licensed with unlimited users and boards, so cost doesn't scale with headcount the way a per-seat SaaS tool does. Enterprise features (SSO, audit logs, automation, integrations) are in a separate private repo — as of this writing, **SAML SSO and SCIM directory sync are still in development there, not yet shipped**, which matters if a rollout depends on centralized identity provisioning at scale.
+**See how work flows. Know what needs attention.** Visiban is a self-hosted, open-core Kanban board with a swimlane for every customer, project or workstream, and every move on record. It suits teams of any size — from a single squad to a large organization. It runs on Django + PostgreSQL (backend) and React + TypeScript (frontend), deployable via Docker Compose or Helm. The core product is Apache 2.0 licensed with unlimited users and boards, so cost doesn't scale with headcount the way a per-seat SaaS tool does. Enterprise features (SSO, audit logs, automation, integrations) are in a separate private repo — as of this writing, **SAML SSO and SCIM directory sync are still in development there, not yet shipped**, which matters if a rollout depends on centralized identity provisioning at scale.
 
 ---
 
@@ -370,7 +370,7 @@ Visiban exposes a Model Context Protocol server (`/mcp`) so an MCP-compatible AI
 
 ---
 
-## Analytics
+## Analytics *(beta)*
 
 - **Dwell-time heatmap** — how long cards spend in each column; coloring is threshold-based: green (well under threshold), yellow (within the warning band), red (at or above threshold)
 - `staleness_threshold_days` board setting — configurable stale threshold; used by both the heatmap and stall detection

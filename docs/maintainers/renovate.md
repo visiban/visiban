@@ -1,11 +1,15 @@
-# Renovate (automated dependency updates)
+# Let Renovate open your dependency bump MRs
 
-Four CI scanners report vulnerable dependencies (`backend-dep-scan`, `frontend-dep-scan`,
-`dep-scan-osv`, `trivy-scan`). Renovate opens the bump MR. It runs as the scheduled `renovate`
-job in `.gitlab-ci.yml`, configured by `renovate.json` at the repo root.
+Do the [one-time setup](#one-time-setup-a-maintainer-does-this-by-hand) before you expect a bump MR.
 
-**Status: the job is inert until the one-time setup below is done.** It needs a token, which
-cannot be created from an MR. It reuses the existing Nightly schedule.
+**Why it matters:** Four CI scanners report vulnerable dependencies (`backend-dep-scan`,
+`frontend-dep-scan`, `dep-scan-osv`, `trivy-scan`). Renovate opens the bump MR.
+
+**How it works:** It runs as the scheduled `renovate` job in `.gitlab-ci.yml`, configured by
+`renovate.json` at the repo root.
+
+**Watch out:** **Status: the job is inert until the one-time setup below is done.** It needs a
+token, which cannot be created from an MR. It reuses the existing Nightly schedule.
 
 ## What it does
 
@@ -16,14 +20,16 @@ cannot be created from an MR. It reuses the existing Nightly schedule.
 | Docker | `backend/Dockerfile*`, `frontend/Dockerfile*`, `docker-compose*.yml`; in `.gitlab-ci.yml`, image tags written as `${DOCKERHUB_MIRROR}/<image>:<tag>` plus the `mcr.microsoft.com/playwright` image |
 | Helm | `helm/visiban/values.yaml`, including the plain-string `postgresql.image` (`postgres:17`) |
 
-Only the managers in `enabledManagers` run (`pip_requirements`, `npm`, `dockerfile`,
+**Enabled managers:** Only the managers in `enabledManagers` run (`pip_requirements`, `npm`, `dockerfile`,
 `docker-compose`, `helm-values` and the regex manager). Renovate's own defaults would also pick
 up `.nvmrc`, GitHub workflows, `pyproject.toml` and every image through its `gitlabci` manager,
-so those are off. `ignorePaths` keeps `scripts/`, `docs/`, `docs-site/`, `.github/` and
+so those are off.
+
+**Ignored paths:** `ignorePaths` keeps `scripts/`, `docs/`, `docs-site/`, `.github/` and
 `clients/python/` out of the enabled managers' default file patterns. In particular
 `scripts/uv-requirements.txt` (hash-pinned, tied to `UV_VERSION` in
 `scripts/lock-backend-requirements.sh`) and `scripts/pip-requirements.txt` (the pip floor many
-CI jobs install) are bumped by hand. To check what Renovate would manage after a config change,
+CI jobs install) are bumped by hand. **To check what Renovate would manage** after a config change,
 run an extract against a clean copy of the repo:
 
 ```bash
@@ -35,7 +41,7 @@ docker run --rm -v "$PWD":/w -w /w -e LOG_LEVEL=debug -e LOG_FORMAT=json node:24
 
 The `packageFiles` log line lists every file and dependency.
 
-Policy:
+**Policy:**
 
 - Minor and patch updates are grouped per ecosystem and opened on Monday before 6am ET.
 - Major updates are never grouped: one MR per package.
@@ -55,22 +61,24 @@ Policy:
 
 ### Changelog
 
-Routine Renovate MRs carry the `no-changelog` label, which `changelog-check` honors, so they need
+**Routine bumps need no fragment.** Routine Renovate MRs carry the `no-changelog` label, which `changelog-check` honors, so they need
 no `changelog.d/` fragment. A bump that changes behavior users see (a major framework upgrade, say)
 should get a fragment added by hand on the Renovate branch and the label removed.
 
 **Security bumps need a fragment.** MRs from a vulnerability alert carry `dependencies` and
 `security` but not `no-changelog`, so `changelog-check` fails until the reviewer adds a
 `changelog.d/<slug>.security.md` fragment to the Renovate branch (for example
-`changelog.d/django-cve-2026-1234.security.md`, no dots in the slug). Operators read the
-changelog to decide how urgently to upgrade, so a security fix must appear there.
+`changelog.d/django-cve-2026-1234.security.md`, no dots in the slug).
+
+**Why it matters:** Operators read the changelog to decide how urgently to upgrade, so a security fix must appear there.
 
 ### Detection gaps
 
 **Python lock file (regenerated automatically, #2482).** Renovate's pip manager edits
 `backend/requirements.txt` only, but the Dockerfiles install the hash-pinned
-`backend/requirements.lock`, and `backend-lock-check` fails when it is stale. A
-`postUpgradeTasks` rule in `renovate.json` therefore runs `scripts/lock-backend-requirements.sh`
+`backend/requirements.lock`, and `backend-lock-check` fails when it is stale.
+
+**How it works:** A `postUpgradeTasks` rule in `renovate.json` therefore runs `scripts/lock-backend-requirements.sh`
 on every pip branch and commits `backend/requirements.lock` and `backend/requirements-build.lock`
 with the bump. Three pieces must stay in step:
 
@@ -80,38 +88,47 @@ with the bump. Three pieces must stay in step:
 - the `renovate` job's script, which installs Python (containerbase `install-tool`) and then uv from
   `scripts/uv-requirements.txt` with `--require-hashes`, so the lock is generated by the same uv
   that `backend-lock-check` uses. When you bump uv, update `scripts/uv-requirements.txt` and
-  `UV_VERSION` in the lock script as before; the job follows automatically. The Python version
-  (`install-tool python 3.12.12`) is pinned by hand in that script; Renovate does not bump it.
-  The bootstrap is non-fatal, so if it fails the job logs a WARNING and only pip MRs lose their lock.
+  `UV_VERSION` in the lock script as before; the job follows automatically.
 
-If a pip MR still arrives with a red `backend-lock-check` (the task failed; read the `renovate`
+    The Python version (`install-tool python 3.12.12`) is pinned by hand in that script; Renovate does not bump it.
+    The bootstrap is non-fatal, so if it fails the job logs a WARNING and only pip MRs lose their lock.
+
+**Watch out:** If a pip MR still arrives with a red `backend-lock-check` (the task failed; read the `renovate`
 job log), check out the branch, run `scripts/lock-backend-requirements.sh` and commit the result.
 
 **Other manual pins.** Anything under `scripts/`, `docs/`, `docs-site/`, `.github/` and
 `clients/python/`, `frontend/.nvmrc`, and any `.gitlab-ci.yml` image that is neither behind
-`${DOCKERHUB_MIRROR}` nor the Playwright image stay manual. The Helm `postgres:17` image is
-managed, but only for minor and patch tags (see the PostgreSQL rule above). CI images pinned to
+`${DOCKERHUB_MIRROR}` nor the Playwright image stay manual.
+
+The Helm `postgres:17` image is managed, but only for minor and patch tags (see the PostgreSQL rule above). CI images pinned to
 node 20 for the `clients/typescript` floor (#2374) are exempt from major bumps.
 
 ## One-time setup (a maintainer does this by hand)
 
 1. **Bot account.** Create a GitLab user (for example `visiban-renovate-bot`) and add it to
    `visiban/visiban` as **Developer**. Developer is enough to push `renovate/*` branches and open
-   MRs; do not grant Maintainer. The project is on GitLab Free, where project access tokens are
-   not available, so the token belongs to this user.
+   MRs; do not grant Maintainer.
+
+    The project is on GitLab Free, where project access tokens are
+    not available, so the token belongs to this user.
+
 2. **Token.** As the bot, create a personal access token with scope **`api`** (Renovate needs
    it to create MRs and comments; `write_repository` alone is not enough) and the longest expiry
    GitLab allows. Note the expiry date.
 3. **CI variable.** In Settings, CI/CD, Variables, add `RENOVATE_TOKEN`: type Variable,
-   **Masked**, **Protected**, and set Visibility to masked. Protected means it reaches
-   only protected refs. A scheduled pipeline on `main` qualifies; MR pipelines and forks do not.
+   **Masked**, **Protected**, and set Visibility to masked.
+
+    Protected means it reaches only protected refs. A scheduled pipeline on `main` qualifies; MR pipelines and forks do not.
+
 4. **Schedule: nothing to create.** The job runs only on the existing Nightly schedule (the one
    that sets `CVE_SCAN=true`; see
    [Scheduled pipelines](../development/ci-gates.md#scheduled-pipelines)), never on the load-test
-   or mutation schedules, so adding the `RENOVATE_TOKEN` variable in step 3 is all it needs. Do not
-   add a schedule for it: every schedule runs the whole pipeline. Running nightly is harmless:
-   `renovate.json` limits when new branches are created to Monday before 6am ET, and the other
-   nights only rebase or refresh existing MRs.
+   or mutation schedules, so adding the `RENOVATE_TOKEN` variable in step 3 is all it needs.
+
+    Do not add a schedule for it: every schedule runs the whole pipeline. Running nightly is harmless:
+    `renovate.json` limits when new branches are created to Monday before 6am ET, and the other
+    nights only rebase or refresh existing MRs.
+
 5. **Labels.** Create the project labels `dependencies`, `security` and `no-changelog` so their colors are
    yours rather than GitLab's default.
 6. **Token row.** Fill in the expiry in the `RENOVATE_TOKEN` row of
@@ -124,13 +141,16 @@ Run the Nightly schedule manually (Build, Pipeline schedules, Run). The `renovat
 `RENOVATE_TOKEN` the job does not exist in the pipeline at all.
 
 After the first run with a token, open a pip MR and confirm its diff includes
-`backend/requirements.lock` and that `backend-lock-check` is green. That path could not be
-exercised before the token existed (#2482). Do not close #2482 until the first pip MR carries
-the regenerated lock. If the post-upgrade task fails with "uv is required", Renovate's subprocess
+`backend/requirements.lock` and that `backend-lock-check` is green.
+
+That path could not be exercised before the token existed (#2482). Do not close #2482 until the first pip MR carries
+the regenerated lock.
+
+**Watch out:** If the post-upgrade task fails with "uv is required", Renovate's subprocess
 did not inherit the job's PATH: point the `renovate.json` command at an absolute uv path and update
 `RENOVATE_ALLOWED_COMMANDS` to match, in the same change.
 
-The job is `allow_failure: true`: a Renovate hiccup (rate limit, registry outage) must not turn
+**Yes, but:** The job is `allow_failure: true`: a Renovate hiccup (rate limit, registry outage) must not turn
 the schedule red. Read the log if no MRs appear for a week.
 
 ## Changing the config
@@ -138,11 +158,14 @@ the schedule red. Read the log if no MRs appear for a week.
 - Edit `renovate.json`. The `renovate-config-check` job runs `renovate-config-validator --strict` on it
   (when `renovate.json` or `.gitlab-ci.yml` changes) and fails the MR on any error or warning.
 - The Renovate version is pinned twice and must move together: the image tag of the `renovate`
-  job and the `renovate@<version>` in the `renovate-config-check` job. Renovate does not bump
-  either pin: `renovate.json` disables the `renovate/renovate` dependency (the regex manager
-  would otherwise match the image tag), and the `npx` pin is not matched by any manager. Bump
-  both by hand, in one MR, to a release at least a few weeks old. The validator needs Node 24
-  (`engines.node ^24.11.0`), which is why that job runs on `node:24-alpine`.
+  job and the `renovate@<version>` in the `renovate-config-check` job.
+
+    Renovate does not bump either pin: `renovate.json` disables the `renovate/renovate` dependency (the regex manager
+    would otherwise match the image tag), and the `npx` pin is not matched by any manager.
+
+    Bump both by hand, in one MR, to a release at least a few weeks old. The validator needs Node 24
+    (`engines.node ^24.11.0`), which is why that job runs on `node:24-alpine`.
+
 - Validate locally: `npx --yes --package renovate@<pin> renovate-config-validator --strict`.
 
 ## Rotating the token

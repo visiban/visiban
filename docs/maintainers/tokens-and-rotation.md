@@ -51,11 +51,15 @@ they need Premium or Ultimate, and the `visiban` group is on the Free plan (chec
 token for the same reason.
 
 **Watch out:** **Minimum role depends on the reader.** The guard needs Reporter. `schedule-config-check`
-needs **Maintainer**, or the token's owner must own the schedules. GitLab's pipeline
+needs **Maintainer**, or the token's owner must own the schedules.
+
+GitLab's pipeline
 schedules API returns a schedule's `variables` only to Maintainers, Owners and the schedule's
 owner, and that check reads the variables. With a Reporter-owned token it would see every
 schedule with no variables at all, report every schedule-only variable as MISSING, and turn
-the scheduled pipelines red: a Developer- or Reporter-owned token is worse than none. The
+the scheduled pipelines red: a Developer- or Reporter-owned token is worse than none.
+
+The
 `read_api` scope keeps the token read-only whatever its owner's role, so a Maintainer bot
 account with a `read_api` token serves both.
 
@@ -69,19 +73,32 @@ Store it as a CI/CD variable named `GITLAB_API_TOKEN`, **masked** and **protecte
 
 **The enterprise mirror needs its own.** `visiban/visiban-enterprise` receives every tag and
 runs the same `.gitlab-ci.yml`, so its `v*` tag pipelines run the guard too, against the
-enterprise project's own API. They refuse to publish until that project also has a masked,
-protected `GITLAB_API_TOKEN`: a personal access token with `read_api`, whose owner has Reporter or higher on the enterprise project. They also
+enterprise project's own API.
+
+They refuse to publish until that project also has a masked,
+protected `GITLAB_API_TOKEN`: a personal access token with `read_api`, whose owner has Reporter or higher on the enterprise project.
+
+They also
 need a green enterprise `main` pipeline at the same commit that contains the
-`ALWAYS_REQUIRED` jobs. **As of 2026-10-31 neither holds, plus a third gap:** the enterprise
+`ALWAYS_REQUIRED` jobs.
+
+**As of 2026-10-31 neither holds, plus a third gap:** the enterprise
 project has no `GITLAB_API_TOKEN`, **no protected tags** (so a protected variable would never
 reach its tag pipelines), and its `main` pipeline has not been green since 2026-03-10 (every
 `backend-test` shard fails with `ImproperlyConfigured: settings.DATABASES ... supply the NAME`,
-which points at CI configuration missing on that project, not at code). Its tag pipelines
+which points at CI configuration missing on that project, not at code).
+
+Its tag pipelines
 therefore refuse to publish regardless of a token. This does not affect OSS releases, which
-publish from the OSS tag pipeline. When fixing it: get enterprise `main` green, protect `v*`
-there (Maintainers; `visiban-mirror-bot` is Maintainer, so mirroring still creates tags), then
-add a **separate** `read_api` token owned by `visiban-mirror-bot`. Never reuse the mirror's
-write token or the OSS token.
+publish from the OSS tag pipeline.
+
+When fixing it:
+
+1. Get enterprise `main` green.
+2. Protect `v*` there (Maintainers; `visiban-mirror-bot` is Maintainer, so mirroring still
+   creates tags).
+3. Add a **separate** `read_api` token owned by `visiban-mirror-bot`. Never reuse the mirror's
+   write token or the OSS token.
 
 **Verifying a token without a tag:** from a checkout detached at a commit whose `main`
 pipeline exists and is green (otherwise the guard waits up to 10 minutes, then reports it not
@@ -105,32 +122,43 @@ Why not something narrower:
 - **No token.** The project and its pipelines are public, and anonymous reads of the
   pipelines and jobs endpoints did work on 2026-10-26. But gitlab.com rate-limits
   unauthenticated API traffic per IP, per hour (`ratelimit-name:
-  unauthenticated_traffic_per_ip`). About 60 reads from one workstation that afternoon drew
-  429s with `retry-after` near an hour. The guard may poll for up to 45 minutes from a shared
-  runner IP. On that IP it would compete with every other tenant's anonymous traffic, and
-  a refusal caused by someone else's traffic is noise. The private enterprise mirror, which
-  receives every tag, has no anonymous option at all.
+  unauthenticated_traffic_per_ip`).
+
+    About 60 reads from one workstation that afternoon drew
+    429s with `retry-after` near an hour.
+
+    The guard may poll for up to 45 minutes from a shared
+    runner IP. On that IP it would compete with every other tenant's anonymous traffic, and
+    a refusal caused by someone else's traffic is noise. The private enterprise mirror, which
+    receives every tag, has no anonymous option at all.
 
 ## `RUNNER_STATUS_TOKEN`
 
 **The big picture:** Added in **#1084** for `arm64-runner-preflight`. The GitLab Runners API is not part of the
 CI_JOB_TOKEN-allowed endpoint set, so this job cannot authenticate with the ambient
 `CI_JOB_TOKEN` the way most other jobs in this file do for registry pushes — it needs an
-actual PAT. It is a **fine-grained** PAT with the `read_runner` permission, scoped to the
+actual PAT.
+
+It is a **fine-grained** PAT with the `read_runner` permission, scoped to the
 `visiban` **group** — not a classic `read_api`/Reporter-role PAT, and not project-scoped. The
 job queries the group Runners endpoint (`/groups/visiban/runners`) to match.
 
 **Corrected 2026-09-28:** three separate mistakes found in the same #1084 re-audit:
 
 1. This page and `.gitlab-ci.yml` both originally called this variable `RUNNERS_READ_TOKEN`
-   and described it as still needing to be created. It was, in fact, already created — just
-   as `RUNNER_STATUS_TOKEN` (confirmed present via the project variables API: masked,
-   protected, description "ARM64") — and the name never got reconciled between the variable
-   that was actually set up and the code/docs that expected a different one. Because a
-   missing variable and a wrong variable name both fail the same way (`... not set`), this
-   went unnoticed through #1084's original review. No release tag had actually been cut since
-   that merge, so this had not yet failed a real pipeline — but the next one would have,
-   skipping both arm64 legs and the manifest jobs silently.
+   and described it as still needing to be created.
+
+    It was, in fact, already created — just
+    as `RUNNER_STATUS_TOKEN` (confirmed present via the project variables API: masked,
+    protected, description "ARM64") — and the name never got reconciled between the variable
+    that was actually set up and the code/docs that expected a different one. Because a
+    missing variable and a wrong variable name both fail the same way (`... not set`), this
+    went unnoticed through #1084's original review.
+
+    No release tag had actually been cut since
+    that merge, so this had not yet failed a real pipeline — but the next one would have,
+    skipping both arm64 legs and the manifest jobs silently.
+
 2. The scope/type description above was also wrong (originally "`read_api`-scope PAT, at
    least Reporter on the group") — the token's own metadata (personal access tokens API)
    shows it is actually a fine-grained PAT with `read_runner`, scoped to the `visiban` group,
@@ -154,10 +182,14 @@ endpoint.
 Some earlier notes (including this page's source issue) refer to the GitHub release token as
 `GITHUB_TOKEN`. That name is wrong for this repo. Verified directly against
 `.gitlab-ci.yml`: the `github-release` job calls `gh release create` with no explicit
-`--token` flag, so the `gh` CLI picks up `GH_TOKEN` from the environment automatically. The
+`--token` flag, so the `gh` CLI picks up `GH_TOKEN` from the environment automatically.
+
+The
 GitLab CI/CD variable is named `GH_TOKEN` — confirmed present (`protected: true, masked:
 true`) via the project variables API, and there are zero references to `GITHUB_TOKEN`
-anywhere in `.gitlab-ci.yml`. If `github-release` ever fails with "set the `GH_TOKEN`
+anywhere in `.gitlab-ci.yml`.
+
+If `github-release` ever fails with "set the `GH_TOKEN`
 environment variable", the variable *name* is correct — check instead whether the tag is
 protected (protected variables are only injected on protected branches/tags).
 
@@ -182,27 +214,39 @@ long as the two memory notes below did (~5 months pending).
 `scripts/fuzz_deep_file_issue.py` (#1383) uses `FUZZ_DEEP_API_TOKEN` and falls back to
 `KAIZEN_API_TOKEN` when that is unset, so a project can run on one issue-filing token.
 A personal access token with the `api` scope, whose owner has **Reporter** role, is enough:
-Reporter can create issues and comment, and nothing here needs a higher role. It has to be a
+Reporter can create issues and comment, and nothing here needs a higher role.
+
+It has to be a
 personal token, ideally a bot user's. Project access tokens need Premium on GitLab.com, and
-the `visiban` group is on Free (see [above](#gitlab_api_token-and-the-release-guard)). Neither token exists yet. Until one
+the `visiban` group is on Free (see [above](#gitlab_api_token-and-the-release-guard)).
+
+Neither token exists yet. Until one
 does, both jobs only report what they would have filed.
 
 **Watch out:** The fallback **ties the two tokens' rotation together**. If only `KAIZEN_API_TOKEN` is
 configured, it is also the deep-fuzz filer, so revoking or rotating it silently stops deep-fuzz
-filing too. Rotate or revoke it as a deep-fuzz credential as well as a kaizen one. To separate
+filing too.
+
+Rotate or revoke it as a deep-fuzz credential as well as a kaizen one. To separate
 them, create `FUZZ_DEEP_API_TOKEN`, which takes precedence.
 
 ## `DOCS_DEPLOY_TOKEN` — historical note and current status
 
 **Yes, but:** A memory note dated 2026-04-07 recorded `DOCS_DEPLOY_TOKEN` as mistakenly set to a GitHub
 PAT (`ghp_...`), which GitLab's git auth would reject when `mike` tries to push to
-`gh-pages`. As of this writing (2026-09-14), that is **not** the current failure mode: the
+`gh-pages`.
+
+As of this writing (2026-09-14), that is **not** the current failure mode: the
 `gh-pages` pipeline has completed successfully multiple times today, which requires
 `docs-deploy`'s `git remote set-url` + push step to have authenticated successfully — so
-whatever token is currently stored works for GitLab git auth. The project's
+whatever token is currently stored works for GitLab git auth.
+
+The project's
 `access_tokens` API returns no project access tokens for `visiban/visiban`, which means the
 current `DOCS_DEPLOY_TOKEN` is not a project access token registered on this project (it may
-be a personal or group access token instead). Its expiry is not visible from this project's
+be a personal or group access token instead).
+
+Its expiry is not visible from this project's
 API and is not currently recorded anywhere — worth doing the same GitHub-style expiry
 capture for it as a follow-up, since "working today" says nothing about "working next
 quarter."
@@ -213,7 +257,9 @@ Issue **#141** ("MinIO creds hardcoded in runner `config.toml`") is **closed**. 
 `.gitlab-ci.yml` cache-template comments document the fixed form: `config.toml` should
 reference `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` / `MINIO_ENDPOINT` / `MINIO_BUCKET` via env
 interpolation rather than hardcoding values, and those four variables are now present as
-masked, protected GitLab CI/CD variables. This matches the issue's recommended fix. The
+masked, protected GitLab CI/CD variables.
+
+This matches the issue's recommended fix. The
 MinIO instance is internal-only and the group runners are not internet-exposed, which is why
 this was tracked as low-priority rather than urgent. If you provision a new runner, confirm
 its `config.toml` follows the interpolated form — do not hardcode the values again.
@@ -233,15 +279,20 @@ its `config.toml` follows the interpolated form — do not hardcode the values a
         (`ghcr-push-backend` / `ghcr-push-frontend` were removed 2026-09-28 — they had no
         `rules:` restricting them to a specific pipeline and could overwrite the multi-arch
         GHCR `:latest` manifest with a single-arch amd64 image from any pipeline's deploy
-        stage). Test via a pre-release tag (e.g. `v1.2.0-rc.1`) instead — it exercises
+        stage).
+
+        Test via a pre-release tag (e.g. `v1.2.0-rc.1`) instead — it exercises
         `backend-docker-push` / `frontend-docker-push` (kaniko, pushes `-amd64`-suffixed GHCR
         tags) and, if the arm64 leg and preflight also pass, `backend-manifest` /
-        `frontend-manifest` (assembles the real GHCR `:<tag>`). A pre-release tag only ever
+        `frontend-manifest` (assembles the real GHCR `:<tag>`).
+
+        A pre-release tag only ever
         gets its own exact `:<tag>` — `backend-manifest`/`frontend-manifest` alias `:latest`
         (and `:MAJOR.MINOR`) onto a stable release tag only, so this test never touches the
         real `:latest` reference on either registry (a bug that did exactly that, from
         v1.2.0-alpha.1 through v1.2.0-alpha.3, was fixed; see the `STABLE_TAGS` gating in
         both jobs).
+
       - `DOCS_DEPLOY_TOKEN`: run the `docs-deploy` job manually on `main` with a
         `DOCS_VERSION` set (see the job's comment block in `.gitlab-ci.yml`).
       - Mirror bot PAT: push any commit to `main` and confirm it appears on

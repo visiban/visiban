@@ -16,8 +16,18 @@ import { shimIds } from './anchors.mjs'
 
 const old = readFileSync(new URL('../../docs/index.md', import.meta.url), 'utf8')
 const neu = readFileSync(new URL('../src/content/docs/index.md', import.meta.url), 'utf8')
-const run = (o, n, docsPath = 'index.md') =>
-  comparePage({ old: o, neu: n, docsPath, ids: new Set([...anchorsOf(n), ...shimIds(n)]) })
+// scripts/release.sh rewrites the release banner in docs/index.md only, so it
+// is left out of both sides: a release must not read as a lost fact. The titles
+// are the three release.sh writes, in mkdocs and Starlight form.
+const TITLE = '(?:Latest release|Release candidate|Pre-release)'
+const BANNER = new RegExp(
+  `^(?:!!! (?:warning|note) "${TITLE}"\\n(?: {4}.*\\n)+|:::(?:note|caution)\\[${TITLE}\\]\\n(?:(?!:::).*\\n)*:::\\n)`,
+  'm',
+)
+const run = (o, n, docsPath = 'index.md') => {
+  const [a, b] = [o, n].map((text) => text.replace(BANNER, ''))
+  return comparePage({ old: a, neu: b, docsPath, ids: new Set([...anchorsOf(b), ...shimIds(b)]) })
+}
 const count = (lost) => Object.values(lost).reduce((a, v) => a + v.length, 0)
 const without = (text, re) => {
   const out = text.replace(re, '')
@@ -40,6 +50,19 @@ t('a "**" glob inside inline code does not hide later bold terms', () => {
 
 t('baseline: the prototype root page loses nothing', () => assert.equal(count(run(old, neu)), 0, JSON.stringify(run(old, neu))))
 
+t('a release banner bumped in the original only is not a loss', () => {
+  for (const [kind, title, version, link] of [
+    ['note', 'Latest release', '1.3.0', 'https://gitlab.com/visiban/visiban/-/releases/v1.3.0'],
+    ['warning', 'Release candidate', '1.3.0-rc.1', 'https://gitlab.com/visiban/visiban/-/issues'],
+    ['warning', 'Pre-release', '1.3.0-beta.1', 'https://gitlab.com/visiban/visiban/-/issues'],
+  ]) {
+    const banner = `!!! ${kind} "${title}"\n    **${version}** is out. [Read](${link}).\n`
+    const bumped = old.replace(BANNER, banner)
+    assert.ok(bumped.includes(banner), `control did not apply: ${title}`)
+    assert.equal(count(run(bumped, neu)), 0, JSON.stringify(run(bumped, neu)))
+  }
+})
+
 for (const [name, re, kind] of [
   ['the Invite links bullet', /^- \*\*Invite links\.\*\*.*\n/m, 'terms'],
   ['the Custom fields 1.2+ bullet', /^- \*\*Custom fields .*\n/m, 'terms'],
@@ -60,9 +83,18 @@ t('"Five roles" -> "Several roles" is reported (counts)', () => {
 
 const badge = (v) => `<span class="vb-version" title="Added in ${v}">${v}+</span>`
 
-t('the original *(1.2)* notes are satisfied by 1.2+ badges in the rewrite (versions)', () => {
+t('the original 1.2+ badges are satisfied by 1.2+ badges in the rewrite (versions)', () => {
+  assert.ok(old.includes(badge('1.2')))
   assert.ok(neu.includes(badge('1.2')))
   assert.deepEqual(run(old, neu).versions, [])
+})
+
+// A synthetic original: docs/index.md carries badges now, so this form is no
+// longer exercised by the real page.
+t('a "*(1.2)*" bullet note may become a badge, but not vanish (versions)', () => {
+  const o = '# P\n\n- **Fields** *(1.2)*. Typed.\n'
+  assert.deepEqual(run(o, `# P\n\n- **Fields ${badge('1.2')}.** Typed.\n`, 'x/p.md').versions, [])
+  assert.equal(run(o, '# P\n\n- **Fields.** Typed.\n', 'x/p.md').versions.length, 1)
 })
 
 t('removing one 1.2+ badge is reported (versions)', () => {
@@ -115,9 +147,11 @@ t('a prose note can not be replaced by a badge (versions)', () => {
   assert.deepEqual(lost.badges, [])
 })
 
+// Links are compared as a set, so the row dropped here must be the page's only
+// link to its target (Analytics is also linked from the intro).
 t('dropping a Quick links row is reported (internal)', () => {
-  const lost = run(old, without(neu, /^\| \[Analytics\].*\n/m))
-  assert.ok(lost.internal.includes('features/analytics'), JSON.stringify(lost.internal))
+  const lost = run(old, without(neu, /^\| \[Notifications\].*\n/m))
+  assert.ok(lost.internal.includes('features/notifications'), JSON.stringify(lost.internal))
 })
 
 t('flattening a warning into prose is reported (callouts)', () => {

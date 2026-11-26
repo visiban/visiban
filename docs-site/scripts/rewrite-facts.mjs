@@ -27,6 +27,7 @@
 //             Every other note is PROSE ("scopes are new in 1.2", "Since 1.2,
 //             the chart ...", "Changed in 1.2", "removed in 1.1") and must
 //             survive as the same phrase; a badge does not stand in for it.
+//             A badge already in the original counts as a feature-level note.
 //   badges    every version badge in the rewrite is well formed (label
 //             MAJOR.MINOR+, title "Added in MAJOR.MINOR"), is never 1.0 or
 //             older (1.0 is the base product; nothing is "added" in it), and
@@ -176,10 +177,14 @@ function lostVersions(old, neu) {
     if ((nPhrases[phrase] ?? 0) < k) lost.push(phrase)
   }
   // Feature-level addition notes: per version, badges + surviving feature-level notes.
-  const need = tally(o.filter((v) => v.feature).map((v) => v.version))
-  const have = tally([...n.filter((v) => v.feature).map((v) => v.version), ...badges(neu).map((b) => b.label.replace(/\+$/, ''))])
+  // The original's own badges count too: once a source page carries badges
+  // instead of "*(1.2)*" notes, counting only notes would let a rewrite drop
+  // every badge without a report (#2614).
+  const badgeVersions = (text) => badges(text).map((b) => b.label.replace(/\+$/, ''))
+  const need = tally([...o.filter((v) => v.feature).map((v) => v.version), ...badgeVersions(old)])
+  const have = tally([...n.filter((v) => v.feature).map((v) => v.version), ...badgeVersions(neu)])
   for (const [ver, k] of Object.entries(need)) {
-    if ((have[ver] ?? 0) < k) lost.push(`added in ${ver}: ${k} feature-level note(s) in the original, ${have[ver] ?? 0} badge(s)/note(s) in the rewrite`)
+    if ((have[ver] ?? 0) < k) lost.push(`added in ${ver}: ${k} feature-level note(s)/badge(s) in the original, ${have[ver] ?? 0} badge(s)/note(s) in the rewrite`)
   }
   return lost
 }
