@@ -112,6 +112,18 @@ class TimeZoneEndpointTests(EndpointFixture):
         self.assertIn("America/Los_Angeles day before today", refused.json()["detail"])
         self.assertEqual(accepted.status_code, 200, accepted.content)
 
+    def test_drill_down_refusal_names_the_resolved_zone_not_the_stored_text(self):
+        # A stored name the tz database lacks buckets in UTC, and the message
+        # must say UTC rather than echo the stored text.
+        type(self.board).objects.filter(pk=self.board.pk).update(time_zone="Mars/Olympus_Mons")
+        now = at(2026, 11, 20, 3)
+        with mock.patch("boards.views.analytics.timezone.now", return_value=now):
+            refused = self.client.get(self.url("cumulative-flow"), {"date": "2026-11-20"})
+        self.assertEqual(refused.status_code, 400, refused.content)
+        detail = refused.json()["detail"]
+        self.assertIn("whole UTC day before today", detail)
+        self.assertNotIn("Mars", detail)
+
     def test_to_date_defaults_to_the_board_zones_today(self):
         self.set_zone("America/Los_Angeles")
         with mock.patch("boards.views.analytics.timezone.now", return_value=at(2026, 11, 20, 3)):

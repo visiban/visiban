@@ -529,7 +529,7 @@ All board roles may call `board_flow_metrics`; it needs only `mcp:read` and spen
 
 > **Added in 1.3** (#1151)
 
-Cards that have been in their current column longer than the given percentile of how long cards stayed in that column. The history is the stays that ended in the last 90 days (`history_days`, REST's default dwell range), board-wide. Done columns and archived cards never appear. All board roles; `mcp:read`; compute bucket.
+Cards that have been in their current column longer than the given percentile of how long cards stayed in that column. The history is the stays that ended in the last 90 days (`history_days`, REST's default dwell range), board-wide. The 90-day window is counted in calendar days of the board's time zone (UTC when none is set), like the REST flow metrics. Done columns and archived cards never appear. All board roles; `mcp:read`; compute bucket.
 
 **Arguments:** `board_id` (integer, required); `percentile` (integer 1 to 99, default `85`). A high percentile needs many samples: above 95 a column almost always has a `null` threshold.
 

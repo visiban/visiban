@@ -1969,8 +1969,11 @@ class BoardAnalyticsMixin:
         if day is not None and day >= now.astimezone(zone).date():
             # Today is still running, so it is never a bucket (ADR "Whole days"),
             # and "today" is the board's (#2051). A UTC board keeps its message.
+            # The label comes from the resolved zone, never the stored text: a
+            # name the tz database lacks reads as UTC here, and its raw value is
+            # user-chosen text that must not be echoed.
             raise CodedValidationError(
-                INVALID_QUERY_PARAM, f"date must be a whole {board.time_zone or 'UTC'} day before today.",
+                INVALID_QUERY_PARAM, f"date must be a whole {getattr(zone, 'key', 'UTC')} day before today.",
             )
         with _analytics_slot(request, board, "metrics_cumulative_flow"):
             if day is None:
