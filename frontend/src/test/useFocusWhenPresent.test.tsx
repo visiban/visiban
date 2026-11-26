@@ -52,6 +52,19 @@ describe('useFocusWhenPresent (#2632)', () => {
   })
 })
 
+describe('useFocusWhenPresent unmount (#2632)', () => {
+  it('does not focus a target that mounts after the owner unmounted', async () => {
+    const { unmount } = render(<Harness />)
+    act(() => screen.getByText('ask').click())
+    unmount()
+    const late = document.createElement('button')
+    late.id = 'target'
+    await act(async () => { document.body.appendChild(late) })
+    expect(late).not.toHaveFocus()
+    late.remove()
+  })
+})
+
 describe('useFocusWhenPresent stale focus (#2632)', () => {
   it('does not pull focus back after the user blurs to body', async () => {
     render(<Harness />)

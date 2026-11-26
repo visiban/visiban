@@ -207,11 +207,13 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
   useLayoutEffect(() => {
     const pending = pendingCursorRef.current;
     const ta = textareaRef.current;
-    // Wait for the controlled value to match, so a parent that commits later still gets its cursor.
-    if (!pending || !ta || value !== pending.text) return;
+    if (!pending || !ta) return;
+    // Always consume on the first run after the pick: a parent that normalizes the value would
+    // otherwise leave this pending and steal focus on a later matching value. Mismatch is best-effort.
     pendingCursorRef.current = null;
+    const pos = value === pending.text ? pending.pos : Math.min(pending.pos, value.length);
     ta.focus();
-    ta.setSelectionRange(pending.pos, pending.pos);
+    ta.setSelectionRange(pos, pos);
   }, [value, cursorTick]);
 
   // Escape closes the open suggestion popup (priority 43, above the card panel's 30) rather than

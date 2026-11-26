@@ -2349,6 +2349,33 @@ describe('BoardView', () => {
       }
     })
 
+    it('focuses the moved card in the same commit as Keep in and as Move, with no frame wait (#2632)', async () => {
+      const user = userEvent.setup()
+      const moveCard = vi.fn().mockResolvedValue({ ok: true })
+      mockBoardContextValue = defaultContext({ board: policyBoard('confirm'), moveCard })
+      render(<BoardView {...defaultProps()} />)
+      const cardEl = document.createElement('div')
+      cardEl.tabIndex = 0
+      cardEl.dataset.cardId = '1'
+      document.body.appendChild(cardEl)
+      try {
+        await drop(1, 'cell:11:20')
+        await user.click(screen.getByRole('button', { name: 'Keep in To Do' }))
+        // No waitFor: a requestAnimationFrame restore would not have run yet.
+        expect(cardEl).toHaveFocus()
+
+        cardEl.blur()
+        await drop(1, 'cell:11:20')
+        await user.click(screen.getByRole('checkbox', { name: 'Has an owner' }))
+        await user.click(screen.getByRole('checkbox', { name: 'Tests pass' }))
+        await user.click(screen.getByRole('button', { name: 'Move to Review' }))
+        expect(moveCard).toHaveBeenCalledTimes(1)
+        expect(cardEl).toHaveFocus()
+      } finally {
+        cardEl.remove()
+      }
+    })
+
     it('keep-in cancels the move and says so', async () => {
       const user = userEvent.setup()
       const moveCard = vi.fn().mockResolvedValue({ ok: true })

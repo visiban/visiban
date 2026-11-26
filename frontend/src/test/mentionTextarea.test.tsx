@@ -585,14 +585,43 @@ describe('MentionTextarea keyboard insertion (#1759)', () => {
   })
 
   it('puts the cursor after the inserted mention in the commit that shows it (#2632)', async () => {
+    // A requestAnimationFrame restore never fires here, so only a layout effect can pass.
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0)
     const user = userEvent.setup()
     render(<Controlled onSubmit={vi.fn()} />)
     const ta = screen.getByRole('combobox') as HTMLTextAreaElement
     await user.type(ta, 'hey @')
+    ta.blur()
     await user.click(await screen.findByText('Alice Smith'))
     expect(ta).toHaveValue('hey @alice ')
     expect(ta).toHaveFocus()
     expect(ta.selectionStart).toBe('hey @alice '.length)
     expect(ta.selectionEnd).toBe('hey @alice '.length)
+  })
+
+  it('clears the pending cursor when the parent normalizes the value, so a later match does not steal focus (#2632)', async () => {
+    const user = userEvent.setup()
+    function Upper() {
+      const [v, setV] = useState('')
+      return (
+        <>
+          <MentionTextarea value={v} onChange={(n) => setV(n.toUpperCase())} members={members} />
+          <button onClick={() => setV('HEY @alice ')}>force</button>
+          <input aria-label="other" />
+        </>
+      )
+    }
+    render(<Upper />)
+    const ta = screen.getByRole('combobox') as HTMLTextAreaElement
+    await user.type(ta, 'hey @')
+    await user.click(await screen.findByText('Alice Smith'))
+    expect(ta).toHaveValue('HEY @ALICE ')
+    const other = screen.getByLabelText('other')
+    await user.click(other)
+    const force = screen.getByText('force')
+    await user.click(force)
+    expect(ta).toHaveValue('HEY @alice ')
+    expect(force).toHaveFocus()
+    expect(ta).not.toHaveFocus()
   })
 })

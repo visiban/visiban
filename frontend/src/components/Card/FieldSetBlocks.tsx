@@ -222,7 +222,7 @@ export default function FieldSetBlocks(props: Props) {
     const container = [rootRef.current, layerRef.current].find((n) => n && active && n.contains(active)) ?? null;
     const row = active?.closest("[data-fact-section]");
     const heldId = container && row ? Number(row.getAttribute("data-fact-section")?.slice("field:".length)) : null;
-    const apply = () => {
+    const apply = (checkFocus = true) => {
       setSets((prev) => {
         const gone = prev.filter((p) => !props.sets.some((s) => s.uid === p.uid));
         if (gone.length > 0) setAnnouncement(`${gone.map((g) => g.name).join(", ")} was removed. Its fields are now under Other fields.`);
@@ -235,7 +235,7 @@ export default function FieldSetBlocks(props: Props) {
         }
         return props.sets;
       });
-      if (!container) return;
+      if (!container || !checkFocus) return;
       // The focused control may have gone with its block: a layout effect checks once the regrouped
       // blocks are in the DOM, so focus never rests on body (focus rule 3, #2608, #2632).
       setFocusCheck((n) => n + 1);
@@ -245,7 +245,8 @@ export default function FieldSetBlocks(props: Props) {
         const next = (event as FocusEvent).relatedTarget;
         if (next instanceof Element && next.closest("[data-fact-section]") === row) return;
         container.removeEventListener("focusout", onOut);
-        apply();
+        // Focus is moving to another element (relatedTarget set): the check would see body mid-blur and steal it.
+        apply(next === null);
       };
       container.addEventListener("focusout", onOut);
       return () => container.removeEventListener("focusout", onOut);

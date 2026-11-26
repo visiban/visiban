@@ -1,4 +1,5 @@
 import type React from "react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import type { BoardFull, CustomFieldDefinition, CustomFieldSet, CustomFieldValue } from "../types";
@@ -363,6 +364,34 @@ describe("FieldSetBlocks focus, empty states and live updates (#2570)", () => {
     act(() => { input.blur(); });
     expect(document.activeElement).not.toBe(document.body);
     expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
+  });
+
+  it("does not steal focus when the user tabs away as a held regroup applies (#2632)", async () => {
+    const user = userEvent.setup();
+    const { props, rerender } = renderBlocks({ values: [], sets: [fset(1, "MEDDIC", [1, 2, 3])] });
+    fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+    const input = screen.getByLabelText("Metrics");
+    expect(input).toHaveFocus();
+    rerender(<div role="dialog"><FieldSetBlocks {...props} sets={[fset(1, "MEDDIC", [1, 2, 3], { name: "Renamed" } as never)]} /></div>);
+    await user.tab();
+    expect(screen.getByLabelText("Champion")).toHaveFocus();
+  });
+
+  it("does not run the focus check when focusout carries a relatedTarget, even with body active mid-blur (#2632)", () => {
+    const { props, rerender } = renderBlocks({ values: [], sets: [fset(1, "MEDDIC", [1, 2, 3])] });
+    fireEvent.click(screen.getByRole("button", { name: "Fill in" }));
+    const input = screen.getByLabelText("Metrics");
+    rerender(<div role="dialog"><FieldSetBlocks {...props} sets={[fset(1, "MEDDIC", [1, 2, 3], { name: "Renamed" })]} /></div>);
+    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+    // During a real blur, activeElement is already body while focusout dispatches.
+    Object.defineProperty(document, "activeElement", { get: () => document.body, configurable: true });
+    try {
+      act(() => { fireEvent.focusOut(input, { relatedTarget: screen.getByLabelText("Champion") }); });
+      expect(focusSpy).not.toHaveBeenCalled();
+    } finally {
+      delete (document as unknown as { activeElement?: unknown }).activeElement;
+      focusSpy.mockRestore();
+    }
   });
 
   it("keeps focus on the Maximize layer after Escape reverts a text field", () => {
