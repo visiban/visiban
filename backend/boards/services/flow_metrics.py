@@ -1304,18 +1304,20 @@ def refuse_if_range_exceeds_budget(board, flow_range, *, swimlane_id=None, label
     (``board, moved_at, card``), stopped one row past the budget. Rows whose
     ``board`` is still NULL (written before migration 0080) are left out of
     the count, which keeps it a lower bound; the streamed count in
-    ``_movement_rows`` stays the real limit.
+    ``_movement_rows`` stays the real limit. A swimlane or label filter
+    skips the check: the count would then join ``cards`` and read the heap
+    per row, and a selective filter would walk the whole range for an early
+    exit that rarely fires; the streamed count still applies.
     """
+    if swimlane_id is not None or label_id is not None:
+        return
     counter = analytics_admission.row_counter()
-    room = counter.budget - counter.movements
+    room = max(0, counter.budget - counter.movements)
     in_range = CardMovement.objects.order_by().filter(
         board=board, card__isnull=False, moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
     )
-    if swimlane_id is not None:
-        in_range = in_range.filter(card__swimlane_id=swimlane_id)
-    if label_id is not None:
-        in_range = in_range.filter(card__labels=label_id)
-    if in_range.values("id")[: room + 1].count() > room:
+    # card_id, a key column of the index: an index-only read on its face.
+    if in_range.values("card_id")[: room + 1].count() > room:
         raise analytics_admission.AnalyticsTooLarge()
 
 

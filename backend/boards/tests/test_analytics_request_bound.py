@@ -214,14 +214,28 @@ class LongWindowSizeTests(FlowFixture):
         with override_settings(ANALYTICS_MAX_MOVEMENTS=held):
             self._held("days=365")
 
-    def test_filters_narrow_the_count(self):
-        other = self.other_lane
+    def test_a_filtered_request_skips_the_precheck_and_keeps_the_streamed_limit(self):
+        # An empty swimlane: the unfiltered in-range count is over the budget,
+        # but it is no lower bound for the filtered load, which is answered.
         with override_settings(ANALYTICS_MAX_MOVEMENTS=1), \
                 mock.patch("django.utils.timezone.now", return_value=self.now), \
                 mock.patch.object(flow_metrics, "load_recent_dwell", wraps=flow_metrics.load_recent_dwell) as load:
-            response = self.client.get(self.url(f"days=365&swimlane_id={other.pk}"))
+            response = self.client.get(self.url(f"days=365&swimlane_id={self.other_lane.pk}"))
         self.assertEqual(response.status_code, 200)
         load.assert_called_once()
+        # The lane with the history is still refused, by the streamed count.
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=1), \
+                mock.patch("django.utils.timezone.now", return_value=self.now):
+            response = self.client.get(self.url(f"days=365&swimlane_id={self.lane.pk}"))
+        self.assertEqual(response.status_code, 422)
+
+    def test_an_exhausted_ticket_is_refused_without_a_negative_slice(self):
+        flow_range = flow_metrics.rolling_range(365, now=self.now, zone=flow_metrics.zone_of(self.board))
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=1):
+            with analytics_slot(self.user, board_id=self.board.pk, endpoint="test") as ticket:
+                ticket.movements = 5
+                with self.assertRaises(AnalyticsTooLarge):
+                    flow_metrics.refuse_if_range_exceeds_budget(self.board, flow_range)
 
     def test_the_default_window_runs_no_precheck(self):
         with mock.patch.object(flow_metrics, "refuse_if_range_exceeds_budget") as precheck:
@@ -286,6 +300,52 @@ class StatementTimeoutTests(TransactionTestCase):
         finally:
             with connection.cursor() as cursor:
                 cursor.execute("RESET statement_timeout")
+
+    @override_settings(ANALYTICS_MAX_SECONDS=60)
+    def test_quick_queries_share_one_setting_and_the_restore_still_runs(self):
+        before = _statement_timeout()
+        with mock.patch.object(
+            admission._DeadlineWrapper, "_set", side_effect=admission._DeadlineWrapper._set,
+        ) as setter:
+            with analytics_slot(_user(1), board_id=1, endpoint="test"):
+                for _ in range(5):
+                    Board.objects.count()
+        # One setting for the five queries, one restore at the end.
+        self.assertEqual(setter.call_count, 2)
+        self.assertEqual(_statement_timeout(), before)
+
+    @override_settings(ANALYTICS_MAX_SECONDS=60)
+    def test_a_reconnect_inside_the_slot_restores_both_connections(self):
+        before = _statement_timeout()
+        with analytics_slot(_user(1), board_id=1, endpoint="test"):
+            Board.objects.count()
+            self.assertNotEqual(_statement_timeout(), before)
+            connection.close()
+            Board.objects.count()
+            self.assertNotEqual(_statement_timeout(), before)
+        self.assertEqual(_statement_timeout(), before)
+
+    @override_settings(ANALYTICS_MAX_SECONDS=60)
+    def test_a_failed_restore_closes_the_connection(self):
+        import psycopg
+
+        before = _statement_timeout()
+        real = admission._DeadlineWrapper._set
+        calls = []
+
+        def flaky(raw, ms):
+            calls.append(ms)
+            if len(calls) > 1:
+                raise psycopg.OperationalError("restore failed")
+            real(raw, ms)
+
+        with mock.patch.object(admission._DeadlineWrapper, "_set", side_effect=flaky), \
+                self.assertLogs("boards.services.analytics_admission", logging.WARNING):
+            with analytics_slot(_user(1), board_id=1, endpoint="test"):
+                Board.objects.count()
+        self.assertIsNone(connection.connection)
+        # The next query opens a fresh connection with the session default.
+        self.assertEqual(_statement_timeout(), before)
 
     def test_a_request_held_by_a_long_statement_frees_its_slot_for_a_waiter(self):
         # The first request's query would run 10 s; the bound cancels it at

@@ -283,7 +283,7 @@ does not help the `date` drill-down, which reads every card of the board whateve
 the range (only the few rows that decide where each card rests that day, counted
 against the same fixed ceiling as the settled pass). The rows are
 counted as they are read, so this refusal can take as long as reading up to the
-limit, except on `analytics` with `days` over 90: there the movements dated
+limit, except on `analytics` with `days` over 90 and no `swimlane_id` or `label_id`: there the movements dated
 inside the range are counted first, and when they alone are over the limit the
 request is refused before its history is read.
 

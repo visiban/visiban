@@ -448,7 +448,7 @@ ANALYTICS_EXTENSIONS.append(delivery_risk)
 ### `GET /api/v1/boards/{id}/analytics/`
 Time-in-stage heatmap derived from `CardMovement` records.
 
-**Errors:** besides `400` for a bad query parameter, `404` for a board you cannot access, `503` `analytics_busy` (with `Retry-After: 10`), `503` `analytics_timeout` (no `Retry-After`) and `422` `analytics_too_large`. *Added in 1.3* (#2428). With `days` over 90 the movements dated inside the range are counted first, and a request whose in-range movements alone exceed `ANALYTICS_MAX_MOVEMENTS` (for example `days=365` on a board with years of busy history) is refused `422` `analytics_too_large` before its history is read. See [Analytics refusals](index.md#analytics-refusals-analytics_busy-analytics_too_large).
+**Errors:** besides `400` for a bad query parameter, `404` for a board you cannot access, `503` `analytics_busy` (with `Retry-After: 10`), `503` `analytics_timeout` (no `Retry-After`) and `422` `analytics_too_large`. *Added in 1.3* (#2428). With `days` over 90 and no `swimlane_id` or `label_id`, the movements dated inside the range are counted first, and a request whose in-range movements alone exceed `ANALYTICS_MAX_MOVEMENTS` (for example `days=365` on a board with years of busy history) is refused `422` `analytics_too_large` before its history is read. See [Analytics refusals](index.md#analytics-refusals-analytics_busy-analytics_too_large).
 
 **Query parameters:**
 

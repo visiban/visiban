@@ -54,6 +54,7 @@ import threading
 import time
 from contextlib import contextmanager
 
+import psycopg
 from django.conf import settings
 from django.db import OperationalError, connection
 from rest_framework import status
@@ -87,6 +88,11 @@ ANALYTICS_BUSY_CODE = "analytics_busy"
 ANALYTICS_BUSY_DETAIL = "Analytics is busy on this server right now. Try again in a moment."
 # How many rows ``Ticket.count_rows`` lets pass between two reads of the clock.
 DEADLINE_CHECK_ROWS = 1000
+# How stale the last statement_timeout may get before a query sets it again.
+# A setting made at t0 lets a statement started at t1 run to the deadline
+# plus (t1 - t0), so this is the most a statement may outlast the deadline;
+# re-setting it only this often keeps a quick request at one extra round trip.
+STATEMENT_TIMEOUT_SLACK_SECONDS = 0.5
 # The PostgreSQL error a cancelled statement raises (statement_timeout).
 _QUERY_CANCELED = "57014"
 
@@ -331,43 +337,76 @@ class _DeadlineWrapper:
     ``statement_timeout`` (read once, before the first change) is never
     loosened: the lower of the two applies. The setting is written on the
     raw connection, outside Django's query log, so it adds nothing to a
-    query count; ``restore`` puts the value read before the first change
+    query count, and only when the last setting is more than
+    ``STATEMENT_TIMEOUT_SLACK_SECONDS`` old. A server-side cursor's later
+    FETCHes run under the value its DECLARE set; the row loop's deadline
+    check stops them. The setting is per session, so it needs Django's own
+    connections or a session-mode pooler, not a transaction-mode one; ``restore`` puts the value read before the first change
     back when the slot ends, so a pooled connection never keeps it.
     """
 
     def __init__(self, ticket):
         self.ticket = ticket
+        self.db = None
         self.raw = None
         self.session_ms = None
+        self.applied_at = None
 
     def __call__(self, execute, sql, params, many, context):
         self.ticket.check_deadline()
         db = context["connection"]
         if db.vendor == "postgresql":
-            self._apply(db.connection)
+            self._apply(db, db.connection)
         return execute(sql, params, many, context)
 
-    def _apply(self, raw):
+    def _apply(self, db, raw):
+        # An aborted transaction refuses every statement until its rollback:
+        # leave the query to raise Django's own error.
+        if raw.info.transaction_status == psycopg.pq.TransactionStatus.INERROR:
+            return
+        if self.raw is not None and raw is not self.raw:
+            # Django reconnected inside the slot: put the old connection's
+            # value back (if it is still open) and start over on the new one.
+            self.restore()
+            self.raw = None
+            self.applied_at = None
         if self.raw is None:
             row = raw.execute("SELECT setting FROM pg_settings WHERE name = 'statement_timeout'").fetchone()
             self.session_ms = int(row[0]) if row else 0
+            self.db = db
             self.raw = raw
+        now = time.monotonic()
+        if self.applied_at is not None and now - self.applied_at <= STATEMENT_TIMEOUT_SLACK_SECONDS:
+            return
         # At least 1 ms: 0 would mean "no timeout" to PostgreSQL.
-        ms = max(1, int(self.ticket.remaining() * 1000))
+        ms = max(1, int((self.ticket.deadline - now) * 1000))
         if self.session_ms:
             ms = min(ms, self.session_ms)
+        self._set(raw, ms)
+        self.applied_at = now
+
+    @staticmethod
+    def _set(raw, ms):
         raw.execute("SELECT set_config('statement_timeout', %s, false)", (str(ms),))
 
     def restore(self):
-        if self.raw is None:
+        raw = self.raw
+        if raw is None or raw.closed:
+            return
+        if raw.info.transaction_status == psycopg.pq.TransactionStatus.INERROR:
+            # A statement was cancelled inside an atomic block: the rollback
+            # undoes the setting too, since SET is transactional in PostgreSQL.
             return
         try:
-            self.raw.execute("SELECT set_config('statement_timeout', %s, false)", (str(self.session_ms),))
-        except Exception:  # noqa: BLE001
-            # The transaction was aborted (a cancelled statement inside an
-            # atomic block): its rollback undoes the setting too, since SET
-            # is transactional in PostgreSQL.
-            logger.debug("analytics.replay statement_timeout reset deferred to rollback")
+            self._set(raw, self.session_ms)
+        except psycopg.Error:
+            # The value could not be put back on a live connection: close it
+            # so it is never reused (or returned to the pool) with it.
+            logger.warning("analytics.replay could not restore statement_timeout; closing the connection")
+            if self.db is not None and self.db.connection is raw:
+                self.db.close()
+            else:
+                raw.close()
 
 
 def _log(user_id, board_id, endpoint, movements, streamed, started, outcome):

@@ -61,7 +61,7 @@ NON_SERVICE_CODES = {
     "validation_error", "missing_scope", "maintenance_mode", "throttled",
     "demo_read_only",
     # The analytics gate's refusals (#2428), from board_flow_metrics and aging_cards.
-    "analytics_busy", "analytics_too_large",
+    "analytics_busy", "analytics_timeout", "analytics_too_large",
 }
 
 # Exact class -> wire code mapping. Pinned per class, not just as a set, so
