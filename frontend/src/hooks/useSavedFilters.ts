@@ -5,7 +5,7 @@ import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import { loadCustomFields } from "./usePersistedFilters";
 import { sanitizeLaneFilter } from "../utils/laneFilter";
 import { sanitizeSubColumnIds, sanitizeTrackStates } from "../utils/stageFilter";
-import { sanitizeParentFilter } from "../utils/parentFilter";
+import { sanitizeParentFilter, sanitizeParentLaneFilter } from "../utils/parentFilter";
 import { sanitizePlannedFilter } from "../utils/plannedFilter";
 import { normalizeFiltersForSave } from "../utils/numberFilter";
 
@@ -95,6 +95,8 @@ export function useSavedFilters(boardId: number) {
     const trackStates = sanitizeTrackStates(s["trackStates"]);
     // #2209 — absent in a filter saved before the Parent filter existed.
     const parentFilter = sanitizeParentFilter(s["parentFilter"]);
+    // #2370 — absent in a filter saved before the Parent lane filter existed.
+    const parentLaneFilter = sanitizeParentLaneFilter(s["parentLaneFilter"]);
     // #2550 — absent in a filter saved before the Planned filter existed.
     const plannedFilter = sanitizePlannedFilter(s["plannedFilter"]);
     return {
@@ -130,6 +132,7 @@ export function useSavedFilters(boardId: number) {
       ...(subColumnIds ? { subColumnIds } : {}),
       ...(trackStates ? { trackStates } : {}),
       ...(parentFilter !== undefined ? { parentFilter } : {}),
+      ...(parentLaneFilter !== undefined ? { parentLaneFilter } : {}),
       ...(plannedFilter !== undefined ? { plannedFilter } : {}),
     };
   }, []);

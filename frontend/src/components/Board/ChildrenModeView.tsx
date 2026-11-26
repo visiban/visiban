@@ -4,10 +4,11 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { ChildrenView, ChildrenViewBoard, ChildrenViewChild, ChildrenViewLane, ChildrenViewRow } from "../../types";
 import {
   CHILDREN_MODE_ESCAPE_PRIORITY, LARGE_LANE_PARENTS, blockedDays, cellName, childCardName, compactRowLabel, foldLabel,
-  isFoldedRow, laneBandName, laneBlockedLabel, laneLink, laneSubtitle, laneTotalLabel, lockedRowText, moreParentsLabel,
+  columnHeadCaption, columnMeterPct, isFoldedRow, laneBandName, laneBlockedLabel, laneLink, laneSubtitle, laneTotalLabel, lockedRowText, moreParentsLabel,
   parentsLabel, rowDoneLabel, shownInProgress, visibleChildren, type ChildrenModeOptions,
 } from "../../utils/childrenMode";
 import Avatar from "../Common/Avatar";
+import OverflowMenu from "../Layout/OverflowMenu";
 
 /**
  * Children mode on the Board tab (#2370, planned sections #2550; canvas 6a/6b/7/8 §3): one row per parent, grouped
@@ -26,6 +27,14 @@ interface Props {
   /** Bumped by the host on a board change, to re-read in place. */
   refreshKey?: number;
   phone?: boolean;
+  /** This (parent) board's name, for the child-board heading "Parent · column on {board}". */
+  boardName?: string;
+  /** Focus (everyone): show only that lane (`?lane=`), or every lane on null. */
+  onFocusLane?: (laneId: number | null) => void;
+  /** Admin ⋮ "Edit swimlane…"; absent for a non-admin, which hides the menu. */
+  onEditLane?: (laneId: number) => void;
+  /** Admin ⋮ "Change field order…", when the board has lane fields to order. */
+  onEditFieldOrder?: () => void;
 }
 
 const tgt = "min-h-11 sm:min-h-8";
@@ -55,7 +64,11 @@ const LockIcon = () => (
   </svg>
 );
 
-export default function ChildrenModeView({ boardId, laneId, options, onOptionsChange, onOpenParent, refreshKey = 0, phone = false }: Props) {
+export default function ChildrenModeView({ boardId, laneId: laneProp, options, onOptionsChange, onOpenParent, refreshKey = 0, phone = false, boardName = "this board", onFocusLane, onEditLane, onEditFieldOrder }: Props) {
+  // A lane the server no longer finds (deleted since the board loaded) is treated as no lane: Children mode
+  // renders with the default expansion, never an error, and a missing lane reads the same as a hidden one (#2370 item 1).
+  const [goneLane, setGoneLane] = useState<number | null>(null);
+  const laneId = laneProp != null && laneProp === goneLane ? null : laneProp;
   const [data, setData] = useState<ChildrenView | null>(null);
   const [error, setError] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -92,7 +105,11 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
           setCollapsed(new Set(laneId == null ? [] : d.lanes.filter((l) => l.id !== laneId).map((l) => l.id)));
         }
       })
-      .catch((e: unknown) => { if (!ctrl.signal.aborted && (e as { name?: string })?.name !== "CanceledError") setError(true); });
+      .catch((e: unknown) => {
+        if (ctrl.signal.aborted || (e as { name?: string })?.name === "CanceledError") return;
+        if (laneId != null && (e as { response?: { status?: number } })?.response?.status === 404) { setGoneLane(laneId); return; }
+        setError(true);
+      });
     return () => ctrl.abort();
   }, [boardId, laneId, options.showDone, refreshKey, retry]);
 
@@ -214,6 +231,9 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
       else if (e.key === "ArrowUp") next = [...stops].reverse().find((s) => s.c === cur.c && (s.r < cur.r || (s.r === cur.r && s.i < cur.i)));
       else if (e.key === "ArrowRight") next = stops.find((s) => s.r === cur.r && s.c > cur.c);
       else if (e.key === "ArrowLeft") next = [...stops].reverse().find((s) => s.r === cur.r && s.c < cur.c);
+      // Home/End: the row's first cell (the parent) and last stop; with Ctrl, the grid's first and last (#2370 item 10).
+      else if (e.key === "Home") next = e.ctrlKey ? stops[0] : stops.find((s) => s.r === cur.r);
+      else if (e.key === "End") next = e.ctrlKey ? stops[stops.length - 1] : [...stops].reverse().find((s) => s.r === cur.r);
       else return;
       e.preventDefault();
       if (!next) return;
@@ -224,21 +244,33 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
     return (
       <div key={board.id} className="overflow-x-auto">
         <div className="min-w-max" style={{ display: "grid", gridTemplateColumns: template }}>
-          <div className="px-2 py-1 text-xs text-fg-secondary">
-            <span className="block font-medium text-fg">Parent · column on this board</span>
-            <span>Children on {board.name}</span>
+          <div className="px-2 py-1 text-xs text-fg-secondary flex flex-col justify-end">
+            <span className="block font-medium text-fg">Parent · column on {boardName}</span>
+            <span>Children on <a href={`/boards/${board.id}`} className={`${FOCUS} text-link hover:underline rounded`}>{board.name}</a></span>
           </div>
-          {cols.map((col) => (
-            <div key={col.id} className="px-2 py-1 text-xs border-l border-line">
-              <span className="block font-medium text-fg">{col.name}</span>
-              {!col.is_done && (
-                <span className="text-fg-secondary">
-                  {rows.reduce((n, r) => n + r.children.filter((k) => k.column_id === col.id).length, 0)} of {col.card_count} on {board.name}
-                  {col.wip_limit != null ? ` · limit ${col.wip_limit}` : ""}
-                </span>
-              )}
-            </div>
-          ))}
+          {cols.map((col) => {
+            // Whole-column counts and the limit meter are the child board's own (artboard 6a).
+            const pct = columnMeterPct(col);
+            const shownHere = rows.reduce((n, r) => n + r.children.filter((k) => k.column_id === col.id).length, 0);
+            return (
+              <div key={col.id} className="px-2 py-1 text-xs border-l border-line" data-testid="children-column-head">
+                <span className="block font-medium text-fg">{col.name}</span>
+                <span className="text-fg-secondary">{columnHeadCaption(col, shownHere, board.name, options.showDone)}</span>
+                {pct != null && !col.is_done && (
+                  <span
+                    role="meter"
+                    aria-label={`${col.name} on ${board.name}: ${col.card_count} of limit ${col.wip_limit}`}
+                    aria-valuemin={0}
+                    aria-valuemax={col.wip_limit ?? 0}
+                    aria-valuenow={col.card_count}
+                    className="mt-1 block h-1 w-full overflow-hidden rounded bg-surface-active"
+                  >
+                    <span className={`block h-full ${col.card_count > (col.wip_limit ?? 0) ? "bg-danger" : "bg-primary"}`} style={{ width: `${pct}%` }} />
+                  </span>
+                )}
+              </div>
+            );
+          })}
           {Array.from({ length: maxCols - cols.length }, (_, i) => <div key={`pad-${i}`} aria-hidden="true" />)}
         </div>
         <div
@@ -369,15 +401,36 @@ export default function ChildrenModeView({ boardId, laneId, options, onOptionsCh
                   {lane.name}
                 </button>
               </h3>
+              {/* Lane actions beside the name: Focus (everyone), Copy link (this mode only), the admin ⋮. */}
+              {onFocusLane && (
+                <button
+                  type="button"
+                  aria-pressed={laneId === lane.id}
+                  aria-label={`Focus on ${lane.name}`}
+                  onClick={() => onFocusLane(laneId === lane.id ? null : lane.id)}
+                  className={`${FOCUS} ${tgt} px-2 text-xs rounded border ${laneId === lane.id ? "border-info text-info-on-tint bg-info/10" : "border-line-strong text-fg-secondary hover:bg-surface-hover hover:text-fg"}`}
+                >
+                  Focus
+                </button>
+              )}
+              <button type="button" onClick={() => void copyLink(lane)} className={`${FOCUS} ${tgt} px-2 text-xs text-fg-secondary rounded border border-line-strong hover:bg-surface-hover hover:text-fg`}>
+                {copiedLane === lane.id ? "Link copied" : "Copy link"}
+              </button>
+              {onEditLane && (
+                <OverflowMenu
+                  ariaLabel={`${lane.name} lane menu`}
+                  triggerClassName={`${FOCUS} inline-flex items-center justify-center min-w-11 sm:min-w-8 ${tgt} rounded text-fg-secondary hover:text-fg hover:bg-surface-hover`}
+                  items={[
+                    { id: "edit", label: "Edit swimlane…", onSelect: () => onEditLane(lane.id) },
+                    ...(onEditFieldOrder ? [{ id: "field-order", label: "Change field order…", onSelect: onEditFieldOrder }] : []),
+                  ]}
+                />
+              )}
               <span className="text-xs text-fg-secondary">{isCollapsed ? parentsLabel(lane.parents) : laneSubtitle(lane)}</span>
               <span className="text-sm text-fg">{laneTotalLabel(lane)}</span>
               <LaneBar lane={lane} />
               <span className={`text-sm ${lane.blocked > 0 ? "text-danger font-medium" : "text-fg-secondary"}`}>{laneBlockedLabel(lane)}</span>
               {lane.hidden > 0 && <span className="inline-flex items-center gap-1 text-sm text-fg-secondary"><LockIcon />+{lane.hidden} on a board you can&apos;t open</span>}
-              <span className="flex-1" />
-              <button type="button" onClick={() => void copyLink(lane)} className={`${FOCUS} ${tgt} px-2 text-xs text-fg-secondary rounded hover:bg-surface-hover hover:text-fg`}>
-                {copiedLane === lane.id ? "Link copied" : "Copy link"}
-              </button>
             </div>
             {!isCollapsed && (
               <div className="pb-2">

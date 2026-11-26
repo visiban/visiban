@@ -4,7 +4,7 @@ import type { BoardFull, BoardUser, CustomFieldDefinition, SavedFilter } from ".
 import { userDisplayName } from "../../types";
 import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { isCardBlocked } from "../../utils/blockedState";
-import { parentFilterAvailable, parentFilterLabel, parentFilterOptions, type ParentFilter } from "../../utils/parentFilter";
+import { parentFilterAvailable, parentFilterLabel, parentFilterOptions, parentLaneFilterLabel, parentLaneFilterOptions, type ParentFilter } from "../../utils/parentFilter";
 import { plannedFilterAvailable, plannedFilterLabel, type PlannedFilter } from "../../utils/plannedFilter";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { choiceColorBase } from "../../constants/choiceColors";
@@ -57,7 +57,7 @@ interface Props {
 const PANEL_WIDTH = 520;
 const FOCUSABLE = 'button:not([disabled]),select:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "planned" | "blocked" | "parent" | "subColumn" | "trackState" | "lanes" | `cf:${number}`;
+type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "planned" | "blocked" | "parent" | "parentLane" | "subColumn" | "trackState" | "lanes" | `cf:${number}`;
 interface Row {
   id: RowId;
   label: string;
@@ -213,6 +213,7 @@ export default function FilterPanel({
   const hasTracks = board.columns.some((c) => (c.tracks?.length ?? 0) > 0);
   const blockedCount = useMemo(() => board.cards.filter(isCardBlocked).length, [board.cards]);
   const parentOptions = useMemo(() => parentFilterOptions(board.cards), [board.cards]);
+  const parentLaneOptions = useMemo(() => parentLaneFilterOptions(board.cards), [board.cards]);
   const isBoardAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const laneFields = useMemo(
     () => laneFilterFields(board.swimlane_custom_field_definitions ?? [], isBoardAdmin),
@@ -260,6 +261,10 @@ export default function FilterPanel({
   // #2209 — the Parent row, on a child-tier board with linked cards (or while the filter is active).
   if (parentFilterAvailable(board, filters.parentFilter)) {
     rows.push({ id: "parent", label: "Parent", value: parentFilterLabel(filters.parentFilter, board.cards) });
+  }
+  // #2370 — the Parent lane row: the same availability as Parent (or while it is active itself).
+  if (parentFilterAvailable(board, filters.parentLaneFilter)) {
+    rows.push({ id: "parentLane", label: "Parent lane", value: parentLaneFilterLabel(filters.parentLaneFilter, board.cards) });
   }
   // #2367 — sub-column and Track state rows exist only when the board has a split stage / tracks.
   if (hasSubColumns) {
@@ -550,6 +555,27 @@ export default function FilterPanel({
             {options.map((o) => (
               <label key={o.key} className="flex items-center gap-2 px-2 py-1 max-sm:min-h-11 rounded text-sm text-fg cursor-pointer hover:bg-surface-hover focus-within:ring-2 focus-within:ring-primary-emphasis">
                 <input type="radio" name={`${id}-parent`} checked={filters.parentFilter === o.value} onChange={() => setParent(o.value)} className="accent-primary" />
+                <span className="min-w-0 break-words">{o.label}</span>
+              </label>
+            ))}
+          </div>
+        );
+      }
+      case "parentLane": {
+        // Any, then each lane of a parent the viewer can open: never a lane on a board they cannot open.
+        const setLane = (v: number | undefined) => {
+          const { parentLaneFilter: _dropped, ...rest } = filters;
+          onChange(v === undefined ? rest : { ...rest, parentLaneFilter: v });
+        };
+        const options: { key: string; value: number | undefined; label: string }[] = [
+          { key: "any-value", value: undefined, label: "Any" },
+          ...parentLaneOptions.map((o) => ({ key: `l-${o.id}`, value: o.id, label: o.label })),
+        ];
+        return (
+          <div role="radiogroup" aria-label="Parent lane" className="max-h-64 overflow-y-auto">
+            {options.map((o) => (
+              <label key={o.key} className="flex items-center gap-2 px-2 py-1 max-sm:min-h-11 rounded text-sm text-fg cursor-pointer hover:bg-surface-hover focus-within:ring-2 focus-within:ring-primary-emphasis">
+                <input type="radio" name={`${id}-parent-lane`} checked={filters.parentLaneFilter === o.value} onChange={() => setLane(o.value)} className="accent-primary" />
                 <span className="min-w-0 break-words">{o.label}</span>
               </label>
             ))}

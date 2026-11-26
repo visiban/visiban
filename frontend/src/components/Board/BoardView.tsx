@@ -128,11 +128,13 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
 import { firstNotDoneColumn, wouldBecomeIntakeColumn } from "../../utils/intakeColumn";
-import { parseParentFilterParam } from "../../utils/parentFilter";
+import { parseParentFilterParam, parseParentLaneFilterParam } from "../../utils/parentFilter";
 import { countUnusableLaneRules, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam, withHideUnmatched, withLaneItems } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 import ChildrenModeView from "./ChildrenModeView";
-import { loadChildrenOptions, loadShowMode, parseLaneParam, saveChildrenOptions, saveShowMode, type BoardShowMode, type ChildrenModeOptions, type PlannedOption } from "../../utils/childrenMode";
+import EditSwimlaneModal from "./EditSwimlaneModal";
+import { useChildrenLaneCounts } from "../../hooks/useChildrenLaneCounts";
+import { loadChildrenOptions, loadShowMode, resolveLaneParam, saveChildrenOptions, saveShowMode, type BoardShowMode, type ChildrenModeOptions, type PlannedOption } from "../../utils/childrenMode";
 
 interface Props {
   onBoardDeleted?: () => void;
@@ -1582,11 +1584,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const fHideUnmatched = searchParams.get("f_hide_unmatched");
     // #2209 — the Parent filter travels as f_parent=<card id>|any|none: the Children tab's "Open on <board>".
     const fParent = searchParams.get("f_parent");
-    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null || fBlocked !== null || fLanes !== null || fHideUnmatched !== null || fParent !== null;
+    // #2370 — the Parent lane filter travels as f_parent_lane=<lane id>.
+    const fParentLane = searchParams.get("f_parent_lane");
+    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null || fBlocked !== null || fLanes !== null || fHideUnmatched !== null || fParent !== null || fParentLane !== null;
     if (!hasUrlFilters) return persistedFilters;
     const laneFilter = withHideUnmatched(parseLaneFilterParam(fLanes), fHideUnmatched === "1");
     const parentFilter = parseParentFilterParam(fParent);
+    const parentLaneFilter = parseParentLaneFilterParam(fParentLane);
     return {
+      ...(parentLaneFilter !== undefined ? { parentLaneFilter } : {}),
       ...(laneFilter ? { laneFilter } : {}),
       ...(parentFilter !== undefined ? { parentFilter } : {}),
       search: fSearch ?? "",
@@ -1658,6 +1664,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       else prev.delete("f_hide_unmatched");
       if (next.parentFilter !== undefined) prev.set("f_parent", String(next.parentFilter));
       else prev.delete("f_parent");
+      if (next.parentLaneFilter !== undefined) prev.set("f_parent_lane", String(next.parentLaneFilter));
+      else prev.delete("f_parent_lane");
       return prev;
     }, { replace: true });
   }, [setPersistedFilters, setSearchParams]);
@@ -2530,7 +2538,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const childrenModeAvailable = board.cards_can_have_children === true;
   const showParam = searchParams.get("show");
   const childrenMode = childrenModeAvailable && showParam === "children";
-  const childrenLane = parseLaneParam(searchParams.get("lane"));
+  // A `?lane=` that names no lane the viewer was served (deleted, another board's) is simply absent (#2370 item 1).
+  const childrenLane = resolveLaneParam(searchParams.get("lane"), board.swimlanes.map((l) => l.id));
+  // The Children lane action's counts (#2370 way in 1), read only in Cards mode on the Board tab.
+  const childrenLaneCounts = useChildrenLaneCounts(board.id, childrenModeAvailable && !childrenMode && view === "board");
+  const [childrenEditLaneId, setChildrenEditLaneId] = useState<number | null>(null);
+  const childrenEditLane = childrenMode && isAdmin ? board.swimlanes.find((l) => l.id === childrenEditLaneId) ?? null : null;
   const [childrenOptions, setChildrenOptionsState] = useState<ChildrenModeOptions>(() => loadChildrenOptions(board.id));
   const setChildrenOptions = useCallback((next: ChildrenModeOptions) => {
     setChildrenOptionsState(next);
@@ -2556,6 +2569,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       return prev;
     }, { replace: true });
   }, [setSearchParams]);
+  // The Children lane action: Children mode at that lane (`?show=children&lane=<id>`), remembered like the switch.
+  const openChildrenLane = useCallback((laneId: number) => {
+    saveShowMode(board.id, "children");
+    setSearchParams((prev) => { prev.set("show", "children"); prev.set("lane", String(laneId)); return prev; }, { replace: true });
+  }, [board.id, setSearchParams]);
   const showChipCountsValue = useMemo(
     () => showChipCounts(board.cards, board.columns),
     // todayStr: the clock read that moves the overdue boundary at local midnight.
@@ -3772,7 +3790,28 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onOptionsChange={setChildrenOptions}
             onOpenParent={(id) => { const c = board.cards.find((x) => x.id === id); if (c) handleCardClick(c); }}
             phone={isPhone}
+            boardName={board.name}
+            onFocusLane={setChildrenLane}
+            onEditLane={isAdmin ? setChildrenEditLaneId : undefined}
+            onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
           />
+          {childrenEditLane && (
+            <EditSwimlaneModal
+              boardId={board.id}
+              swimlane={childrenEditLane}
+              cardCount={board.cards.filter((c) => c.swimlane === childrenEditLane.id).length}
+              columns={board.columns}
+              laneCards={board.cards.filter((c) => c.swimlane === childrenEditLane.id)}
+              boardColors={boardColors}
+              limitFlags={board}
+              members={board.members}
+              onUpdated={(sl) => { handleLocalSwimlaneUpdated(sl); setChildrenEditLaneId(null); }}
+              onDeleted={(id) => { onSwimlaneDeleted(id); setChildrenEditLaneId(null); }}
+              onClose={() => setChildrenEditLaneId(null)}
+              swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
+              userDateFormat={userDateFormat}
+            />
+          )}
         </SectionErrorBoundary>
       ) : (
       <SectionErrorBoundary section="Board grid">
@@ -3998,6 +4037,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       onToggleCollapse={() => toggleCollapsedSwimlane(swimlane.id)}
                       onFocus={enterFocus}
                       onExitFocus={exitFocus}
+                      childrenAction={childrenModeAvailable ? { inProgress: childrenLaneCounts.get(swimlane.id) ?? null, onOpen: () => openChildrenLane(swimlane.id) } : undefined}
                       isFocused={focusedSwimlaneId === swimlane.id}
                       density={effectiveCardDensity}
                       userTimezone={userTimezone} currentUserId={currentUser?.id}

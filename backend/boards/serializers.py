@@ -6577,6 +6577,7 @@ class SavedFilterSerializer(serializers.ModelSerializer):
         "search", "assigneeIds", "labelIds", "priorities", "dueDate", "blockedOnly",
         "customFields", "visibleCustomFieldFilterIds", "laneFilter",
         "subColumnIds", "trackStates", "parentFilter", "plannedFilter",
+        "parentLaneFilter",
     }
     # plannedFilter (#2550) is additive and optional: "hide" or "only" planned
     # children, matched client-side on the card's own planned state. Mirrored
@@ -6588,6 +6589,9 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     # saved id that names any other card matches nothing on the board. The
     # bound is mirrored in frontend/src/utils/parentFilter.ts.
     _PARENT_FILTER_WORDS = {"any", "none"}
+    # parentLaneFilter (#2370) is additive and optional: one lane id on a
+    # parent board, matched client-side on Card.parent.swimlane_id. Never
+    # resolved here, for the same reason as parentFilter; same id bound.
     _PARENT_FILTER_MAX_ID = 2**31 - 1
     # subColumnIds / trackStates (#2367) are additive and optional: show only
     # cards in those sub-columns / with a track in one of those states. A
@@ -6641,7 +6645,7 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     state_json = serializers.DictField(
         help_text=(
             "Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate, "
-            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter, subColumnIds, trackStates, parentFilter, plannedFilter}."
+            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter, subColumnIds, trackStates, parentFilter, plannedFilter, parentLaneFilter}."
         ),
     )
 
@@ -6722,6 +6726,10 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     'state_json.parentFilter must be "any", "none" or a card id.'
                 )
+        if "parentLaneFilter" in value:
+            pl = value["parentLaneFilter"]
+            if not (isinstance(pl, int) and not isinstance(pl, bool) and 0 < pl <= self._PARENT_FILTER_MAX_ID):
+                raise serializers.ValidationError("state_json.parentLaneFilter must be a lane id.")
         if "plannedFilter" in value:
             pl = value["plannedFilter"]
             if not (isinstance(pl, str) and pl in self._PLANNED_FILTER_VALUES):

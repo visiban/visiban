@@ -22,6 +22,7 @@ vi.mock('../api/cards', () => ({
   moveCard: vi.fn(),
   unlinkCardChild: vi.fn(),
   addChild: vi.fn(),
+  getChildrenView: vi.fn(),
 }))
 vi.mock('../api/boards', () => ({ patchBoard: vi.fn() }))
 
@@ -1080,5 +1081,30 @@ describe('Children tab Try again focus (#2575)', () => {
     renderTab(st)
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(screen.getByTestId('card-children-tab')).toHaveFocus()
+  })
+})
+
+describe('CardChildrenTab: All children in the lane (#2370 way in 2)', () => {
+  it('is Tab stop 8, after Movement history, and opens Children mode at the parent lane with its count', async () => {
+    const { getChildrenView } = await import('../api/cards')
+    vi.mocked(getChildrenView).mockResolvedValue({ lanes: [{ id: 3, in_progress: 14, planned: 2 }] } as never)
+    render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lane={{ id: 3, name: 'Acme Corp' }} />)
+    const link = await screen.findByRole('link', { name: 'All children in Acme Corp (12 in progress)' })
+    expect(link).toHaveAttribute('href', '/boards/1?show=children&lane=3')
+    expect(getChildrenView).toHaveBeenCalledWith(1, { lane: 3 }, expect.anything())
+    const history = screen.getByRole('link', { name: 'Movement history of these children' })
+    expect(history.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps the link without a count when the read fails, and has no link without a lane or children', async () => {
+    const { getChildrenView } = await import('../api/cards')
+    vi.mocked(getChildrenView).mockRejectedValue(new Error('nope'))
+    const { unmount } = render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lane={{ id: 3, name: 'Acme Corp' }} />)
+    expect(await screen.findByRole('link', { name: 'All children in Acme Corp' })).toBeInTheDocument()
+    unmount()
+    vi.mocked(getChildrenView).mockClear()
+    render(<CardChildrenTab board={{ ...parentBoard, cards_can_have_children: false }} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lane={{ id: 3, name: 'Acme Corp' }} />)
+    expect(screen.queryByTestId('all-children-in-lane')).toBeNull()
+    expect(getChildrenView).not.toHaveBeenCalled()
   })
 })

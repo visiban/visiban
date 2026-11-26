@@ -1,4 +1,6 @@
 import { focusSurvivor } from "../../utils/focusSurvivor";
+import { useChildrenLaneCounts } from "../../hooks/useChildrenLaneCounts";
+import { allChildrenLinkText } from "../../utils/childrenMode";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import HelpLink from "../Common/HelpLink";
 import { Link, useInRouterContext } from "react-router-dom";
@@ -75,6 +77,11 @@ interface Props {
    * existing stay focusable but `aria-disabled`, with the reason beside them.
    */
   cardArchived?: boolean;
+  /**
+   * The parent's own lane on this board (#2370 way in 2): Tab stop 8, "All children in {lane} (N in progress)",
+   * opens Children mode at that lane. Absent: no link.
+   */
+  lane?: { id: number; name: string } | null;
 }
 
 const ARCHIVED_PARENT_REASON = "This card is archived. Restore it before adding or linking children.";
@@ -86,13 +93,15 @@ const ARCHIVED_PARENT_REASON = "This card is archived. Restore it before adding 
  * `CardMovement` history and broadcasts apply unchanged. The parent board's role never authorizes a write on
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
-export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false, laterColumns, currentUserId = null }: Props) {
+export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false, laterColumns, currentUserId = null, lane = null }: Props) {
   const { notify, dismiss } = useToast();
   // Minute ticker (#2210 footer uses the same one) so "Work moved Xd ago" never goes stale
   // while the tab stays open.
   const clock = useSharedMinuteClock();
   const inRouter = useInRouterContext();
   const archivedReasonId = useId();
+  // The lane's in-progress count is the server's lane rollup (children-view), read only where Children mode exists.
+  const laneCounts = useChildrenLaneCounts(board.id, !!lane && board.cards_can_have_children === true, lane?.id ?? null);
   const { data, error, loading, reload } = state;
   const rootRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -621,6 +630,15 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
         {inRouter
           ? <Link to={historyUrl} className={`${tgt} self-start inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Movement history of these children</Link>
           : <a href={historyUrl} className={`${tgt} self-start inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Movement history of these children</a>}
+        {/* Tab stop 8 (#2370): the parent's whole lane in Children mode on this board. */}
+        {lane && board.cards_can_have_children === true && (() => {
+          const href = `/boards/${board.id}?show=children&lane=${lane.id}`;
+          const text = allChildrenLinkText(lane.name, laneCounts.get(lane.id) ?? null);
+          const cls = `${tgt} self-start inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`;
+          return inRouter
+            ? <Link to={href} className={cls} data-testid="all-children-in-lane">{text}</Link>
+            : <a href={href} className={cls} data-testid="all-children-in-lane">{text}</a>;
+        })()}
         <p className="text-xs text-fg-muted">Arrows move between cards · Enter open on {boardName} · Esc back</p>
       </div>
     );

@@ -2738,6 +2738,7 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
               laterColumns={laterParentColumns(board.columns, card.column)}
               cardArchived={!!card.archived_at}
               canHaveChildren={canHaveChildren}
+              lane={(() => { const l = board.swimlanes?.find((x) => x.id === card.swimlane); return l ? { id: l.id, name: l.name } : null; })()}
               state={childrenState}
               remoteSignal={childrenRefreshSignal}
               lastMovedAt={card.children_rollup && "last_moved_at" in card.children_rollup ? card.children_rollup.last_moved_at : null}

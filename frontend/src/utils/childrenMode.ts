@@ -79,6 +79,44 @@ export function parseLaneParam(raw: string | null): number | null {
   return Number(raw);
 }
 
+/**
+ * The `?lane=` Children mode uses: the parsed id only when it names a lane on this board the viewer was
+ * served, else null (#2370 checklist item 1). A lane the viewer can't see is simply absent: the mode renders
+ * with the default expansion and never asks the server about it, so a missing lane and another board's lane
+ * read the same, and nothing about either leaks.
+ */
+export function resolveLaneParam(raw: string | null, laneIds: readonly number[]): number | null {
+  const id = parseLaneParam(raw);
+  return id != null && laneIds.includes(id) ? id : null;
+}
+
+/** The lane action's in-progress chip (#2370 way in 1): "12 in progress". */
+export const inProgressChip = (n: number) => `${n} in progress`;
+
+/** The Children tab's link to the parent's lane (#2370 way in 2): "All children in Acme Corp (12 in progress)". */
+export function allChildrenLinkText(laneName: string, inProgress: number | null): string {
+  return inProgress == null ? `All children in ${laneName}` : `All children in ${laneName} (${inProgress} in progress)`;
+}
+
+/**
+ * A child-board column head's caption (artboard 6a): "3 of 4 on Delivery · limit 5" for a column with children
+ * here, its whole-column count and limit; the Done column reads "Count per row · Show opens them" while done
+ * cards are folded.
+ */
+export function columnHeadCaption(
+  col: { is_done: boolean; card_count: number; wip_limit: number | null },
+  shownHere: number, boardName: string, showDone: boolean,
+): string {
+  if (col.is_done && !showDone) return "Count per row · Show opens them";
+  return `${shownHere} of ${col.card_count} on ${boardName}${col.wip_limit != null ? ` · limit ${col.wip_limit}` : ""}`;
+}
+
+/** The column meter's fill, the whole column against its WIP limit (0-100), or null with no limit. */
+export function columnMeterPct(col: { card_count: number; wip_limit: number | null }): number | null {
+  if (col.wip_limit == null || col.wip_limit <= 0) return null;
+  return Math.min(100, Math.round((col.card_count / col.wip_limit) * 100));
+}
+
 /** The shareable link to one lane in Children mode: `?show=children&lane=<lane id>`. */
 export function laneLink(origin: string, boardId: number, laneId: number): string {
   return `${origin}/boards/${boardId}?show=children&lane=${laneId}`;

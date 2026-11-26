@@ -100,6 +100,11 @@ export interface FilterState {
    */
   parentFilter?: ParentFilter;
   /**
+   * #2370 — the Parent lane filter on a child board: one parent-board lane id. Optional and absent from
+   * EMPTY_FILTER (absent = Any), like `parentFilter`. Matched on `Card.parent.swimlane_id`.
+   */
+  parentLaneFilter?: number;
+  /**
    * #2550 — the Planned filter on a child board: "hide" or "only" planned children. Optional and absent
    * from EMPTY_FILTER (absent = Any), like `parentFilter`. Matched on the card's own `planned` field.
    */
@@ -131,6 +136,7 @@ export function countActiveFilters(f: FilterState): number {
     (f.subColumnIds?.length ?? 0) > 0,
     (f.trackStates?.length ?? 0) > 0,
     f.parentFilter !== undefined,
+    f.parentLaneFilter !== undefined,
     f.plannedFilter !== undefined,
     // #2205 — all lane rules count as one dimension; the per-rule count is on the Lanes trigger.
     isLaneFilterActive(f.laneFilter),
