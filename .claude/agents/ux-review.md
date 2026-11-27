@@ -64,7 +64,7 @@ Mark each as:
 - 🟡 **Important** — should be resolved before merging
 - 🟢 **Deferred** — acceptable to log as a follow-up
 
-**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 Blocking questions, so it lands in the MR's `## Gates` line.
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 items among the findings counted in `<N>`: every 🔴 blocking finding from the § 2 design-system audit (a missing focus ring, a new `focus-visible:` instance, or any other item you rated 🔴) plus every 🔴 Blocking open question from this section. 🟡, 🟢, ⚠️ and the § 4 ❌ ratings are not blocking. It lands in the MR's `## Gates` line.
 
 ### 6. Recommend an approach
 - Preferred implementation with rationale

@@ -155,7 +155,7 @@ End the proposal by marking each open question as:
 - 🟡 **Important** — should be resolved before merging
 - 🟢 **Deferred** — acceptable to log as a follow-up
 
-**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 Blocking open questions it raised (0 if none), so it lands in the MR's `## Gates` line.
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 Blocking open questions among the findings counted in `<N>` (those that changed the design; 0 if none), so it lands in the MR's `## Gates` line.
 
 ## Tone
 

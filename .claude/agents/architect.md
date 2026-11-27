@@ -86,7 +86,7 @@ List any design decisions that are not yet resolved and should be answered befor
 - 🟡 **Important** — should be decided before merging, but won't block a spike
 - 🟢 **Nice to have** — can be deferred to a follow-up issue
 
-**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 Blocking questions, so it lands in the MR's `## Gates` line.
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 Blocking questions among the findings counted in `<N>` (those that changed the design), so it lands in the MR's `## Gates` line.
 
 #### 4. Recommend an approach
 Give a concise recommendation:

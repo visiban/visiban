@@ -1118,6 +1118,8 @@ def self_test() -> int:
          and parse_blocking("3 findings (sonnet)", 3) == ("absent", None)
          and parse_blocking("3 findings (sonnet; blocking x)", 3)[0] == "malformed"
          and parse_blocking("3 findings (sonnet; blocking)", 3)[0] == "malformed"
+         and parse_blocking("3 findings (sonnet; blocking 1x)", 3)[0] == "malformed"
+         and parse_blocking("3 findings (sonnet; blocking 1 of 3)", 3)[0] == "malformed"
          and parse_blocking("2 findings (sonnet; blocking 3)", 2) == ("exceeds", 3)
          and parse_outcome("3 findings (sonnet; blocking 1)") == ("findings", 3)),
         ("blocking rate counts only runs carrying the field; bad ones are flagged, not scored (#2680)",

@@ -322,7 +322,7 @@ Never present this report's contents as user research or as a substitute for
   budget-stopped)`) is an unfinished pass: it is read as unscored, never as a
   `0 findings` run, and never feeds yield or the zero streak.
 - **Report the blocking-hit rate beside yield (#2680).** A line's optional `blocking <k>`
-  counts the findings the gate put in its own blocking tier; the report's
+  counts the findings among those in `<N>` that the gate put in its own blocking tier; the report's
   `blocking-hit rate` is the share of field-carrying runs with `k > 0`. Say how many runs
   carried the field, and draw no severity verdict from a sample that is mostly pre-field
   ledgers. A `blocking x` or `blocking` above the findings count is flagged, not scored.

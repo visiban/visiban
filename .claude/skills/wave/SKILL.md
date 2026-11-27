@@ -697,7 +697,7 @@ Every agent finishes by, in order:
 7. Include `Closes #NNN` in the MR description, the `completeness-check`
    `## Requirements` table, and a `## Gates` section with one
    `gate: <name> — <N> findings (<model>; blocking <k>)` line per gate run, `<k>` being the
-   count the gate itself reported as blocking (`blocking 0` is a real value; #2680) (including
+   number of findings among those counted in `<N>` that the gate itself reported as blocking (`blocking 0` is a real value; #2680) (including
    `completeness-check — <N> findings (model: <sonnet|opus|fable>; blocking <k>; causes: <tally>)`, plus
    `completeness-check/fix-diff — <N> findings (model: <sonnet|opus|fable>; blocking <k>)` when Step 5.4
    triggered the re-check, or — when Step 5.4 triggered round 2 instead —

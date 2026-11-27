@@ -178,11 +178,19 @@ Rules:
 - **Record severity: `blocking <k>` (#2680).** A numeric outcome carries `blocking <k>` as
   a `;`-separated item in its parenthetical, e.g.
   `- gate: security-review — 3 findings (model: sonnet; blocking 1)`. `<k>` counts the
-  findings the gate itself put in its blocking tier (🔴 for `perf-check`, `rbac-check`,
-  `security-review`, `broadcast-check`, `migration-check`, `architect`, `ux-review`,
-  `ux-design`; BLOCKER for `completeness-check`; ❌ for `regression-check`; each agent file
-  names its tier and tells you to report the count). It is required on new lines with a
-  numeric outcome. `blocking 0` is a real value: record it, never omit it because nothing
+  findings **among those counted in `<N>`** that the gate itself put in its blocking tier,
+  so `<k>` never exceeds `<N>` (for a design-stage gate, a 🔴 question that did not change
+  the design is in neither). Each registered gate's file names its tier and tells you to
+  report the count: 🔴 for `perf-check`, `rbac-check`, `security-review`, `broadcast-check`,
+  `migration-check`, `architect`, `ux-design` and `voc` (its 🔴 blockers); 🔴 audit findings
+  plus 🔴 Blocking questions for `ux-review`; BLOCKER for `completeness-check` (each round
+  and `/fix-diff`); ❌ for `regression-check`; a required doc change still missing for
+  `api-docs`; a classification that conflicts with the plan for `enterprise-check`; 🔴 Do
+  not add for `dependency`; and `test-scaffold` has none (`blocking 0`). `dependency` and
+  `test-scaffold` are helpers that get no line by default. `changelog` and `docs-writer` are
+  deliverable helpers with no tier: when a line is written for one, it carries no
+  `blocking` field. It is required on other new lines with a numeric outcome.
+  `blocking 0` is a real value: record it, never omit it because nothing
   was blocking. `<k>` is an integer no greater than `<N>`; `scripts/kaizen_gate_ledger.py`
   flags `blocking x` and `blocking` above the findings count and keeps them out of the
   rate. `n/a`, `skipped` and `budget-stopped` lines carry no field. Ledgers written before

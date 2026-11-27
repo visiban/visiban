@@ -252,8 +252,8 @@ The `## Gates` ledger (format in `.claude/skills/mr/SKILL.md`) carries:
 - gate: completeness-check — <N> findings (model: <sonnet|opus>; blocking <k>; causes: <tally>)
 ```
 
-`<k>` is the number of those findings your report rated BLOCKER (the blocking tier; GAP
-and OK are not); report it to the caller. `blocking 0` is a real value, recorded like any
+`<k>` is the number of BLOCKERs among the findings counted in `<N>` (the blocking tier; GAP
+and OK are not), so `<k>` never exceeds `<N>`; report it to the caller. `blocking 0` is a real value, recorded like any
 zero. The same item goes on the round 2 and fix-diff lines below.
 
 `<N>` counts BLOCKERs and GAPs that **changed the branch or were consciously deferred** —
@@ -268,7 +268,8 @@ first item in the parenthetical and the overlap last:
 - gate: completeness-check — <N> findings (round 2; opus; blocking <b>; causes: <tally>; overlap <k>/<M>)
 ```
 
-`<N>` counts only what round 1 did not already report; `<k>/<M>` is how many of round 2's
+`<N>` counts only what round 1 did not already report, and `<b>` is the number of BLOCKERs
+among those `<N>` — a BLOCKER round 1 already reported counts in neither; `<k>/<M>` is how many of round 2's
 `<M>` findings round 1 had already reported. Keep the gate name unchanged — it must
 resolve to an existing agent, and `scripts/kaizen_gate_ledger.py` splits the line out as
 `completeness-check:r2` by the `(round 2` marker. When round 2 ran, the fix-diff line is
