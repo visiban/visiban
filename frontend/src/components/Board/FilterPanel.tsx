@@ -396,7 +396,7 @@ export default function FilterPanel({
   const laneHitValue = (h: NameHit): string | null => {
     const def = laneFields.find((f) => f.id === h.fieldId);
     if (!def) return null;
-    const show = (raw: string) => (h.fieldType === "checkbox" ? (raw === "true" ? "Yes" : raw === "false" ? "No" : raw) : laneValueLabel(def, raw, laneValueFmt));
+    const show = (raw: string) => (h.fieldType === "checkbox" ? (raw === "true" ? "Yes" : raw === "false" ? "No" : raw) : h.fieldType === "multi_select" ? raw : laneValueLabel(def, raw, laneValueFmt));
     // An incomplete rule (an auto-added one with no value yet) filters nothing, so the row reads "Any".
     const vals = (filters.laneFilter?.items ?? []).flatMap((it) => (it.kind === "rule" ? [it] : it.rules))
       .filter((r) => r.field === h.fieldId && isRuleComplete(r, h.fieldType as RuleFieldType))

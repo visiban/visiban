@@ -727,8 +727,13 @@ describe('FilterPanel search (#2437)', () => {
 
   it('a lane field with several values lists them and counts as active (#2659)', async () => {
     const u = userEvent.setup()
-    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 50, op: 'is', values: ['gold', 'silver'] }] }
-    setup({ board: searchBoard(), filters: { ...EMPTY_FILTER, laneFilter } as unknown as FilterState })
+    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 52, op: 'is', values: ['gold', 'silver'] }] }
+    // Several values are a multi-select shape (a dropdown rule with `values` is unusable), so use a multi-select field.
+    const base = searchBoard()
+    const board = { ...base, swimlane_custom_field_definitions: [
+      { ...(base.swimlane_custom_field_definitions as never[])[0] as object, id: 52, name: 'Tier', field_type: 'multi_select' },
+    ] } as never
+    setup({ board, filters: { ...EMPTY_FILTER, laneFilter } as unknown as FilterState })
     await open(u)
     await u.type(box(), 'tier')
     const row = screen.getByRole('button', { name: /Swimlane.*Tier/ })
