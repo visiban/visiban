@@ -722,6 +722,38 @@ export default function FilterPanel({
             </button>
           ))}
         </div>
+        {/* #2695 — saved filters as one-click presets in the pinned header, under search and scope. The
+            full list (rename, share, delete) stays in the filter bar's SavedFiltersDropdown. The row hides
+            while a query is typed, and when nothing is saved and nothing is active (nothing to save yet). */}
+        {!needle && (savedFiltersLoading || savedFilters.length > 0 || hasChips) && (
+          <div data-testid="filter-panel-saved" className="flex items-center gap-2 min-w-0">
+            <h3 className="shrink-0 text-xs font-semibold uppercase tracking-wide text-fg-secondary">Saved</h3>
+            {savedFiltersLoading ? (
+              <p role="status" className="text-xs text-fg-muted italic">Loading…</p>
+            ) : savedFilters.length === 0 ? (
+              <p className="text-xs text-fg-secondary">None yet. Save this view to reuse it in one click.</p>
+            ) : (
+              <ul aria-label="Saved filters" className="flex items-center gap-1.5 min-w-0 overflow-x-auto py-0.5 px-0.5">
+                {savedFilters.map((sf) => {
+                  const applied = activeFilterId === sf.id;
+                  return (
+                    <li key={sf.id} className="shrink-0">
+                      <button
+                        type="button"
+                        aria-pressed={applied}
+                        onClick={() => { onLoadSaved(sf); close(); triggerRef.current?.focus(); }}
+                        className={`inline-flex items-center gap-1 max-w-[210px] text-xs rounded-full border px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${applied ? "bg-primary-emphasis/10 text-info-on-tint border-info/40 font-semibold" : "text-fg border-line-strong hover:bg-surface-hover"}`}
+                      >
+                        <ActiveMark active={applied} testId="saved-filter-mark" />
+                        <span className="truncate">{sf.name}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
       <div data-testid="filter-panel-body" className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2">
       {chips.length + laneChips.length > 0 && (
@@ -850,31 +882,6 @@ export default function FilterPanel({
           </ul>
         </>
       )}
-
-      <div className="border-t border-line pt-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2 pb-1">Saved filters</h3>
-        {savedFiltersLoading ? (
-          <p role="status" className="px-2 py-1 text-xs text-fg-muted italic">Loading…</p>
-        ) : savedFilters.length === 0 ? (
-          <p className="px-2 py-1 text-sm text-fg-secondary">No saved filters yet.</p>
-        ) : (
-          <ul aria-label="Saved filters" className="space-y-0.5">
-            {savedFilters.map((sf) => (
-              <li key={sf.id}>
-                <button
-                  type="button"
-                  aria-pressed={activeFilterId === sf.id}
-                  onClick={() => { onLoadSaved(sf); close(); triggerRef.current?.focus(); }}
-                  className={`w-full flex items-center gap-1.5 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${activeFilterId === sf.id ? "bg-primary-emphasis/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
-                >
-                  <ActiveMark active={activeFilterId === sf.id} testId="saved-filter-mark" />
-                  <span className="truncate">{sf.name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
 
       </div>
       <div data-testid="filter-panel-footer" className="shrink-0 border-t border-line px-3 py-2 space-y-2">

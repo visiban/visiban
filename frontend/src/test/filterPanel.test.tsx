@@ -78,7 +78,7 @@ describe('FilterPanel (#2301)', () => {
       'SearchAny', 'AssigneeAny', 'LabelAny', 'PriorityAny', 'Due dateAny', 'BlockedAny',
       'RegionAny', 'NotesAny', 'BudgetAny', 'Go liveAny', 'ApprovedAny',
     ])
-    expect(screen.getByText('Saved filters')).toBeInTheDocument()
+    expect(within(screen.getByTestId('filter-panel-header')).getByRole('list', { name: 'Saved filters' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'My open work' })).toBeInTheDocument()
   })
 
@@ -252,11 +252,16 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.getByRole('button', { name: 'My open work' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('says so when there are no saved filters', async () => {
+  it('with nothing saved, teaches Save filter only while something is active, else hides the row (#2695)', async () => {
     const u = userEvent.setup()
     setup({ savedFilters: [] })
     await open(u)
-    expect(screen.getByText(/No saved filters yet\./)).toBeInTheDocument()
+    expect(screen.queryByTestId('filter-panel-saved')).toBeNull()
+    expect(screen.queryByText(/None yet/)).toBeNull()
+    cleanup()
+    setup({ savedFilters: [], filters: { ...EMPTY_FILTER, blockedOnly: true } })
+    await open(u)
+    expect(within(screen.getByTestId('filter-panel-saved')).getByText('None yet. Save this view to reuse it in one click.')).toBeInTheDocument()
   })
 
   it('the header Filter bar switch toggles the bar and keeps the panel open with focus on the switch (#2691)', async () => {
@@ -360,7 +365,7 @@ describe('FilterPanel (#2301)', () => {
     )
     await u.click(screen.getByRole('button', { name: /^Filters/ }))
     expect(screen.getByText('Loading…')).toBeInTheDocument()
-    expect(screen.queryByText(/No saved filters yet/)).toBeNull()
+    expect(screen.queryByText(/None yet/)).toBeNull()
   })
 
   it('Shift+Tab off the search input reaches the switch, and Shift+Tab off the switch wraps inside the panel (#2691)', async () => {
@@ -1167,5 +1172,46 @@ describe('FilterPanel pinned shell and Filter bar switch (#2691)', () => {
     radio.focus()
     fireEvent.keyDown(radio, { key: 'ArrowDown' })
     expect(screen.getByRole('button', { name: /^Blocked/ })).not.toHaveFocus()
+  })
+})
+
+describe('FilterPanel saved presets (#2695)', () => {
+  const two: SavedFilter[] = [
+    { id: 5, name: 'My open work', state_json: {}, state_version: 1, created_at: '' },
+    { id: 6, name: 'Shared triage', state_json: {}, state_version: 1, created_at: '' },
+  ]
+
+  it('pins the presets under search and scope, before the field list in Tab order, and applies one in one click', async () => {
+    const u = userEvent.setup()
+    const { onLoadSaved } = setup({ savedFilters: two, activeFilterId: 6 })
+    await open(u)
+    const row = screen.getByTestId('filter-panel-saved')
+    expect(screen.getByTestId('filter-panel-header')).toContainElement(row)
+    const pills = within(row).getAllByRole('button')
+    expect(pills.map((p) => p.textContent)).toEqual(['My open work', 'Shared triage'])
+    // The applied preset is a checked info-tint pill; tint is not the only cue (ActiveMark).
+    expect(pills[1]).toHaveAttribute('aria-pressed', 'true')
+    expect(pills[1].className).toContain('text-info-on-tint')
+    expect(within(pills[1]).getByTestId('saved-filter-mark')).toBeInTheDocument()
+    expect(pills[0]).toHaveAttribute('aria-pressed', 'false')
+    expect(within(row).getByRole('list', { name: 'Saved filters' }).className).toContain('overflow-x-auto')
+    // Tab from the Swimlane fields scope chip reaches the first pill, then the list.
+    screen.getByRole('button', { name: 'Swimlane fields' }).focus()
+    await u.tab()
+    expect(pills[0]).toHaveFocus()
+    await u.click(pills[0])
+    expect(onLoadSaved).toHaveBeenCalledWith(two[0])
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('button', { name: /^Filters/ })).toHaveFocus()
+  })
+
+  it('hides the row while a query is typed', async () => {
+    const u = userEvent.setup()
+    setup({ savedFilters: two })
+    await open(u)
+    await u.keyboard('re')
+    expect(screen.queryByTestId('filter-panel-saved')).toBeNull()
+    await u.clear(screen.getByRole('textbox', { name: 'Search fields and values to filter' }))
+    expect(screen.getByTestId('filter-panel-saved')).toBeInTheDocument()
   })
 })
