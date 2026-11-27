@@ -224,7 +224,7 @@ Enterprise features are things like: SAML, SCIM (directory sync / JIT provisioni
 
 ## Frontend UI conventions
 
-See [`frontend/CLAUDE.md`](frontend/CLAUDE.md) for all frontend UI and branding rules. It is an always-loaded index: the rules that apply to almost every edit (color tokens, buttons, inputs, typography, focus, motion) are there in full, and its Topic index points to the `frontend/ui-conventions/<topic>.md` file for everything else (modals, dropdowns, badges, cards, swimlanes, settings, charts and more). A new rule goes into its topic file, plus one index line for a new section; `frontend-claude-md-size` in CI caps the index at 48 KB (#2681).
+See [`frontend/CLAUDE.md`](frontend/CLAUDE.md) for all frontend UI and branding rules. It is an always-loaded index: the rules that apply to almost every edit (color tokens, buttons, inputs, dropdown menus, typography, focus, motion) are there in full, and its Topic index points to the `frontend/ui-conventions/<topic>.md` file for everything else (modals, badges, cards, swimlanes, settings, charts and more). A new rule goes into its topic file, plus one index line for a new section; `frontend-claude-md-size` in CI caps the index at 64 KiB (#2681).
 
 ---
 

@@ -6,6 +6,7 @@ This file is the always-loaded index of the frontend UI rules. The sections belo
 
 - **A new rule goes into the topic file it belongs to**, inside its section, or as a new `## ` section there. A new section also gets one line in the Topic index: `` - **<Section title>** — <one-sentence rule summary> → `frontend/ui-conventions/<file>.md` ``. A new topic file gets a `### ` heading there.
 - **Only a rule that applies to almost every frontend edit goes here in full.** Moving a section between this file and a topic file moves its text unchanged.
+- **Inside the sections kept here, "above" and "below" refer to the pre-split file.** A `§ <title>` that is not in this file is found through the Topic index; rewording those pointers is tracked in #2689.
 - `scripts/check-frontend-claude-md.py` (CI job `frontend-claude-md-size`) fails when this file exceeds 64 KiB, an index line exceeds 300 characters, an index line points at a missing file or section, or a topic-file section has no index line.
 
 ## Color tokens

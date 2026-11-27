@@ -3701,6 +3701,7 @@ frontend-claude-md-size:
         - frontend/CLAUDE.md
         - frontend/ui-conventions/**/*
         - scripts/check-frontend-claude-md.py
+        - scripts/_paths.py
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *frontend-claude-md-paths

@@ -10,7 +10,10 @@ keeps the index short and keeps every topic section reachable from it:
   2. An index line (`- **<title>** — <summary> → `frontend/ui-conventions/<file>.md``)
      is at most MAX_INDEX_LINE characters.
   3. Every index line points at an existing topic file that has a `## <title>` section.
-  4. Every `## ` section of every topic file has an index line pointing at it.
+  4. Every `## ` section of every topic file (searched recursively; only `.md` files are
+     allowed under the directory) has an index line pointing at it.
+  5. Section titles are unique across the index's kept sections and all topic files, so a
+     `§ <title>` citation resolves through exactly one Topic-index line.
 
 `--lossless <old-file>` is the proof for a move (the #2681 split, or any later move
 between the index and a topic file): every non-blank line of <old-file>, headings
@@ -96,18 +99,32 @@ def check(root: Path, index: Path | None = None) -> list[str]:
             errors.append(f"{index}:{n}: {rel} has no '## {title}' section.")
         pointed.add((title, rel))
     topic_dir = root / TOPIC_DIR
-    for topic in sorted(topic_dir.glob("*.md")) if topic_dir.is_dir() else []:
-        rel = f"{TOPIC_DIR}/{topic.name}"
+    # rglob, not glob: pointers into subdirectories are accepted above and CI watches `**/*`,
+    # so a section in `ui-conventions/sub/x.md` must not escape the index-line check.
+    files = sorted(p for p in topic_dir.rglob("*") if p.is_file()) if topic_dir.is_dir() else []
+    owners: dict[str, list[str]] = collections.defaultdict(list)
+    for title in _sections(index):
+        owners[title].append(INDEX)
+    for topic in files:
+        rel = topic.relative_to(root).as_posix()
+        if topic.suffix != ".md":
+            errors.append(f"{rel}: not a .md file; only .md files are allowed under {TOPIC_DIR}/ (a section in it would escape the index check).")
+            continue
         for title in _sections(topic):
+            owners[title].append(rel)
             if (title, rel) not in pointed:
                 errors.append(f"{rel}: section '## {title}' has no index line in {INDEX}.")
+    # A "§ <title>" citation must resolve through exactly one Topic-index line.
+    for title, where in owners.items():
+        if len(where) > 1:
+            errors.append(f"duplicate section title '## {title}' in {', '.join(where)}; section titles must be unique.")
     return errors
 
 
 def lossless(root: Path, old: Path) -> tuple[int, list[str]]:
     have: collections.Counter[str] = collections.Counter(_lines(root / INDEX))
     topic_dir = root / TOPIC_DIR
-    for topic in sorted(topic_dir.glob("*.md")) if topic_dir.is_dir() else []:
+    for topic in sorted(topic_dir.rglob("*.md")) if topic_dir.is_dir() else []:
         have.update(line.replace("](../../", "](../") for line in _lines(topic))
     want = collections.Counter(line for line in _lines(old) if line.strip())
     missing = [line for line, count in want.items() if have[line] < count]
@@ -121,6 +138,7 @@ def self_test() -> int:
         (base / TOPIC_DIR).mkdir(parents=True, exist_ok=True)
         (base / INDEX).write_text(index, encoding="utf-8")
         for name, body in topics.items():
+            (base / TOPIC_DIR / name).parent.mkdir(parents=True, exist_ok=True)
             (base / TOPIC_DIR / name).write_text(body, encoding="utf-8")
         return base
 
@@ -143,6 +161,18 @@ def self_test() -> int:
          {"cards.md": good_topic["cards.md"] + "\n## Orphan\n\n- text\n"}, "section '## Orphan' has no index line"),
         ("a fenced '## ' line is not a section", good_index,
          {"cards.md": good_topic["cards.md"] + "\n```md\n## not a heading\n```\n"}, None),
+        ("a section in a subdirectory without an index line fails", good_index,
+         {"cards.md": good_topic["cards.md"], "sub/x.md": "## Hidden\n\n- text\n"}, "sub/x.md: section '## Hidden' has no index line"),
+        ("a non-.md file under the topic dir fails", good_index,
+         {"cards.md": good_topic["cards.md"], "extra.markdown": "## Sneaky\n\n- text\n"}, "extra.markdown: not a .md file"),
+        ("the same section title in two topic files fails",
+         good_index + f"- **Cards** — Dup. → `{TOPIC_DIR}/more.md`\n",
+         {"cards.md": good_topic["cards.md"], "more.md": "## Cards\n\n- other\n"}, "duplicate section title '## Cards'"),
+        ("a title duplicated between the index and a topic file fails",
+         good_index + f"- **Color tokens** — Dup. → `{TOPIC_DIR}/cards.md`\n",
+         {"cards.md": good_topic["cards.md"] + "\n## Color tokens\n\n- again\n"}, "duplicate section title '## Color tokens'"),
+        ("a pointer escaping the conventions dir fails",
+         good_index + f"- **Cards** — Escape. → `frontend/other/cards.md`\n", good_topic, "points outside"),
         ("a moved-from note in a topic file is not a section", good_index,
          {"cards.md": good_topic["cards.md"].replace("# Card face\n", "# Card face\n\nMoved verbatim; \"above\" means the old file.\n")}, None),
     ]
@@ -159,15 +189,16 @@ def self_test() -> int:
             failures.append(f"{name}: expected {expect or 'clean'}, got {errors}")
 
     lossless_cases = [
-        ("verbatim move is lossless (relative link rebased)", good_topic, False),
-        ("dropped line is caught", {"cards.md": good_topic["cards.md"].replace("- A card is calm.\n", "")}, True),
-        ("reworded line is caught", {"cards.md": good_topic["cards.md"].replace("calm", "quiet")}, True),
-        ("dropped heading is caught", {"cards.md": good_topic["cards.md"].replace("## Cards\n", "")}, True),
+        ("verbatim move is lossless (relative link rebased)", good_topic, False, old),
+        ("dropped line is caught", {"cards.md": good_topic["cards.md"].replace("- A card is calm.\n", "")}, True, old),
+        ("reworded line is caught", {"cards.md": good_topic["cards.md"].replace("calm", "quiet")}, True, old),
+        ("dropped heading is caught", {"cards.md": good_topic["cards.md"].replace("## Cards\n", "")}, True, old),
+        ("a line the old file had twice, kept once, is caught", good_topic, True, old + "- A card is calm.\n"),
     ]
-    for name, topics, expect_fail in lossless_cases:
+    for name, topics, expect_fail, old_text in lossless_cases:
         with tempfile.TemporaryDirectory() as tmp:
             base = build(Path(tmp), good_index, topics)
-            (base / "old.md").write_text(old, encoding="utf-8")
+            (base / "old.md").write_text(old_text, encoding="utf-8")
             _, missing = lossless(base, base / "old.md")
         if bool(missing) != expect_fail:
             failures.append(f"lossless {name}: expected {'missing lines' if expect_fail else 'none'}, got {missing}")
