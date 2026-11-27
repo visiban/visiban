@@ -1679,8 +1679,8 @@ class BoardMembershipAdmin(RowVersionAdminMixin, _BoardEventAdminMixin, admin.Mo
             self.keep_unchanged_fields(obj, form, stored)
         super().save_model(request, obj, form, change)
         # A role change (or a membership moved to another user or board) can
-        # end the standing a share link's enabler held (#1865). So can an add:
-        # a direct membership outranks a group-derived admin role.
+        # end the standing a share link's enabler held (#1865). An add is
+        # checked the same way.
         revoke_lapsed_share_links(board_ids={stored_board_id, obj.board_id})
 
     def delete_model(self, request, obj):

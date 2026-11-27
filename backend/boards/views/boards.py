@@ -1899,9 +1899,8 @@ class BoardViewSet(
                     membership.is_moderator = False
                 membership.save()
             # A board admin moved to a lower role stops holding a share link
-            # they enabled, unless still an admin another way (#1865). On a
-            # create too: a direct membership outranks a group-derived role,
-            # so adding a group admin as a direct member lowers their role.
+            # they enabled, unless still an admin another way (#1865). A
+            # create is checked the same way.
             from ..services.share_links import revoke_lapsed_share_links
             revoke_lapsed_share_links(enabler=target_user, board_ids=[board.pk])
             # Assign user directly so BoardMembershipSerializer does not issue a

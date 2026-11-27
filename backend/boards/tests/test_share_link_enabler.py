@@ -693,20 +693,22 @@ class DjangoAdminTests(_ShareFixtures):
         self.assertEqual(r.status_code, 302)
         self.assert_cleared()
 
-    def test_membership_add_in_admin_clears(self, bc):
-        """Adding a direct lower membership for a group admin lowers their role."""
+    def test_membership_add_below_group_admin_role_is_refused_in_admin(self, bc):
+        """A group admin's board role is not set below admin in the admin (#1942),
+        so their link stays as it was."""
         group = Group.objects.create(name="GA1865", owner=self.owner)
         group_admin = User.objects.create_user(username="ga_adm1865", password=PW)
         GroupMembership.objects.create(group=group, user=group_admin, role=GroupMembership.Role.ADMIN)
         Board.objects.filter(pk=self.board.pk).update(group=group)
-        self.enable(user=group_admin)
+        token = self.enable(user=group_admin)
         url = reverse("admin:boards_boardmembership_add")
         r = self.web.post(url, self._form_data(
             url, board=str(self.board.pk), user=str(group_admin.pk), role="member",
         ))
-        self.assertEqual(r.status_code, 302, getattr(r, "context", None) and r.context["adminform"].form.errors)
-        self.assertTrue(BoardMembership.objects.filter(board=self.board, user=group_admin).exists())
-        self.assert_cleared()
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("role", r.context["adminform"].form.errors)
+        self.assertFalse(BoardMembership.objects.filter(board=self.board, user=group_admin).exists())
+        self.assert_kept(token)
 
     def test_board_owner_change_in_admin_clears(self, bc):
         heir = User.objects.create_user(username="heir_adm1865", password=PW)
