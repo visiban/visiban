@@ -227,6 +227,16 @@ describe('FlowMetricsDashboard states', () => {
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
   })
 
+  it('explains a timed-out request and hides Retry (#2645)', async () => {
+    mockAll()
+    cycleMock.mockRejectedValueOnce({ response: { status: 503, data: { code: 'analytics_timeout', detail: 'x' } } })
+    render(<FlowMetricsDashboard {...props} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This took longer than the server allows. Try a shorter period, or ask your administrator.',
+    )
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+  })
+
   it('explains a busy server that stayed busy, and keeps Retry (#2428)', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
@@ -779,6 +789,15 @@ describe('the drill-down drawer', () => {
 
   it('explains a day list over the size limit without a Retry (#2428)', async () => {
     dayMock.mockRejectedValueOnce({ response: { status: 422, data: { code: 'analytics_too_large', detail: 'x' } } })
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: /1 card$/ }))
+    const dialog = within(await screen.findByRole('dialog', { name: /^Cards on/ }))
+    expect(await dialog.findByRole('alert')).toHaveTextContent("so these cards can't be listed here. Ask your administrator.")
+    expect(dialog.queryByRole('button', { name: 'Retry' })).toBeNull()
+  })
+
+  it('explains a timed-out day list without a Retry (#2645)', async () => {
+    dayMock.mockRejectedValueOnce({ response: { status: 503, data: { code: 'analytics_timeout', detail: 'x' } } })
     await renderLoaded()
     await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: /1 card$/ }))
     const dialog = within(await screen.findByRole('dialog', { name: /^Cards on/ }))

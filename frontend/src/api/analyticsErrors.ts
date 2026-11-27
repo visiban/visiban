@@ -3,13 +3,16 @@ import { retryAfterDelayMs } from "./retryAfter";
 
 /**
  * The analytics limits' refusals (#2428): `analytics_busy` (503, retry after
- * Retry-After) and `analytics_too_large` (422, retrying does not help).
+ * Retry-After), `analytics_timeout` (503, #2645: the request ran past the
+ * server's time limit, so the same request would likely run as long again) and
+ * `analytics_too_large` (422, retrying does not help).
  * Matched on status plus code, like `isSessionUnavailableError`, since a proxy
  * also answers 503.
  */
-export type AnalyticsErrorKind = "busy" | "too_large" | "other";
+export type AnalyticsErrorKind = "busy" | "timeout" | "too_large" | "other";
 
 const BUSY: AnalyticsErrorCode = "analytics_busy";
+const TIMEOUT: AnalyticsErrorCode = "analytics_timeout";
 const TOO_LARGE: AnalyticsErrorCode = "analytics_too_large";
 const BUSY_RETRY_DEFAULT_MS = 10_000;
 
@@ -17,14 +20,16 @@ export function analyticsErrorKind(reason: unknown): AnalyticsErrorKind {
   const response = (reason as { response?: { status?: number; data?: unknown } } | null)?.response;
   const code = (response?.data as { code?: unknown } | undefined)?.code;
   if (response?.status === 503 && code === BUSY) return "busy";
+  if (response?.status === 503 && code === TIMEOUT) return "timeout";
   if (response?.status === 422 && code === TOO_LARGE) return "too_large";
   return "other";
 }
 
-/** The worst of several failures: too_large wins (retrying cannot help), then busy. */
+/** The worst of several failures: too_large wins (retrying cannot help), then timeout, then busy. */
 export function worstAnalyticsErrorKind(reasons: unknown[]): AnalyticsErrorKind {
   const kinds = reasons.map((reason) => analyticsErrorKind(reason));
   if (kinds.includes("too_large")) return "too_large";
+  if (kinds.includes("timeout")) return "timeout";
   if (kinds.includes("busy")) return "busy";
   return "other";
 }
@@ -39,6 +44,11 @@ export function analyticsErrorMessage(
   kind: AnalyticsErrorKind, { wholeHistory = false, noPeriod = false } = {},
 ): string | null {
   if (kind === "busy") return "Analytics is busy right now. Try again in a moment.";
+  if (kind === "timeout") {
+    if (wholeHistory) return "This took longer than the server allows, so these cards can't be listed here. Ask your administrator.";
+    if (noPeriod) return "This took longer than the server allows. Ask your administrator.";
+    return "This took longer than the server allows. Try a shorter period, or ask your administrator.";
+  }
   if (kind === "too_large") {
     // The headline matches the API's constant detail; the advice is only what helps on this surface.
     if (wholeHistory) {
@@ -50,9 +60,9 @@ export function analyticsErrorMessage(
   return null;
 }
 
-/** Whether a Retry control makes sense for this failure: never for too_large. */
+/** Whether a Retry control makes sense for this failure: never for too_large or timeout. */
 export function analyticsErrorRetryable(kind: AnalyticsErrorKind): boolean {
-  return kind !== "too_large";
+  return kind !== "too_large" && kind !== "timeout";
 }
 
 /** The rejection of a busy retry dropped because its caller unmounted or moved on. */

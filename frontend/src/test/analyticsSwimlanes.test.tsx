@@ -205,6 +205,18 @@ describe('Swimlanes view', () => {
     expect(vi.mocked(getFlowSwimlanes)).toHaveBeenCalledTimes(1)
   })
 
+  it('explains a timed-out request without a Retry (#2645)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getFlowSwimlanes).mockReset()
+    vi.mocked(getFlowSwimlanes).mockRejectedValue({ response: { status: 503, data: { code: 'analytics_timeout', detail: 'x' } } })
+    render(<AnalyticsView {...props} />)
+    await user.click(screen.getByRole('link', { name: 'Swimlanes' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('This took longer than the server allows. Try a shorter period')
+    expect(within(alert).queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(vi.mocked(getFlowSwimlanes)).toHaveBeenCalledTimes(1)
+  })
+
   it('explains a refused refetch and keeps the old numbers without a Retry (#2428)', async () => {
     const user = await openSwimlanes()
     vi.mocked(getFlowSwimlanes).mockRejectedValueOnce({ response: { status: 422, data: { code: 'analytics_too_large', detail: 'x' } } })
