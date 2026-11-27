@@ -2484,9 +2484,12 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
                         type="button"
                         aria-pressed={hideCompleted}
                         onClick={() => setHideCompleted((h) => !h)}
-                        className="max-sm:min-h-11 inline-flex items-center gap-1 text-xs text-fg-tertiary hover:text-fg whitespace-nowrap rounded px-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        className={`max-sm:min-h-11 inline-flex items-center gap-1 text-xs text-fg-tertiary hover:text-fg whitespace-nowrap rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                          hideCompleted ? "px-1" : "px-3"
+                        }`}
                       >
-                        <ActiveMark active={hideCompleted} />
+                        {/* #2673: idle holds the check's room as symmetric padding so the label reads centered */}
+                        {hideCompleted && <ActiveMark active />}
                         Hide completed
                       </button>
                     </div>

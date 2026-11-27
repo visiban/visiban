@@ -7,7 +7,8 @@ interface Props {
  * Non-color cue for the active state of a toggle or segmented control (#2185,
  * WCAG 1.4.1; same visual language as the select check from #2108/#2171).
  * A fill, tint, border or text color is never the only cue. The slot is always
- * rendered at a fixed width, so toggling never shifts the label. Decorative:
+ * rendered at a fixed width, so toggling never shifts the label (segmented controls
+ * and rows; standalone chips render the mark only when active, #2673). Decorative:
  * the state itself is carried by `aria-pressed` on the host button.
  */
 export default function ActiveMark({ active, testId = "active-mark" }: Props) {
