@@ -68,8 +68,14 @@ for (const width of [390, 1440]) {
       const mode = page.getByTestId('children-mode')
       await expect(mode).toBeVisible()
       await expect(page.locator('html')).toHaveAttribute('data-theme', scheme)
-      await expect(mode.getByText('4 in progress · 1 planned')).toBeVisible()
-      await expect(mode.getByText("+4 on a board you can't open")).toBeVisible()
+      await expect(mode.getByRole('region', { name: `${BOARD_FULL.swimlanes[0].name} lane` })).toContainText('4 in progress · 1 planned')
+      await expect(mode.getByText(width === 390 ? "+4 you can't open" : "+4 on a board you can't open")).toBeVisible()
+      // The board total sits beside the Show control from sm up; on phone the view tabs keep their own row.
+      if (width === 390) {
+        await expect(page.getByRole('navigation', { name: 'Board toolbar' }).getByRole('link', { name: 'Board' }).or(page.getByRole('navigation', { name: 'Board toolbar' }).getByRole('button', { name: 'Board', exact: true }))).toBeInViewport()
+      } else {
+        await expect(page.getByRole('navigation', { name: 'Board toolbar' }).getByTestId('children-board-total')).toHaveText('4 in progress')
+      }
       await expect(mode.getByRole('grid', { name: /children on Delivery, by parent/ })).toBeVisible()
       await expect(mode.getByRole('button', { name: '1 planned · Show' })).toHaveAttribute('aria-expanded', 'false')
       await expect(mode.getByText("4 children on a board you can't open. Their columns and titles are not shown.")).toBeVisible()
@@ -280,7 +286,7 @@ for (const scheme of ['light', 'dark'] as const) {
     await expectText(band.getByRole('button', { name: `Collapse lane ${laneName}, 4 in progress of 6` }).getByText(laneName), 'band name on tint')
     await expectText(band.getByText('4 in progress · 1 planned'), 'band total on tint')
     await expectText(band.getByText('1 blocked'), 'blocked on tint')
-    await expectText(band.getByText("+4 on a board you can't open"), 'hidden count on tint')
+    await expectText(band.getByText("+4 you can't open"), 'hidden count on tint')
     await expectText(band.getByRole('button', { name: `Copy link to ${laneName}` }), 'Copy link on tint')
 
     // One column at a time, with the phone board's column buttons; parents are headings inside it.

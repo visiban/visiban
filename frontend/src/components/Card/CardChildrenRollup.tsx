@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CardChildrenRollup as Rollup, CardChildrenRollupVisible, CardDensity } from "../../types";
-import { ROLLUP_SEGMENT_MAX, movementLine, neededNow, plannedPrefix, rollupSentence, rollupWarnings, type Tone } from "./childrenRollup";
+import { ROLLUP_SEGMENT_MAX, SEGMENT_CLASS, movementLine, neededNow, plannedPrefix, rollupSentence, rollupWarnings, type SegmentState, type Tone } from "./childrenRollup";
 import { useSharedMinuteClock } from "../../hooks/useSharedMinuteClock";
 import { todayInTimezone } from "../../utils/date";
 import { instanceTimezone } from "../../utils/instanceTimezone";
@@ -51,25 +51,11 @@ const ClockGlyph = () => (
   </svg>
 );
 
-type SegmentState = "planned" | "done" | "doing" | "todo" | "blocked";
-
 // The live-change ring sits outside the segment, past a 1px surface-colored offset, so it is
 // measured against the card and never against the segment's own fill: an inset ring on Doing was
 // the fill's own color (1:1) and on Done 1.04:1 light (#2210). `relative z-10` keeps a later
 // sibling from painting over it; the meter is not `overflow-hidden`, which would clip it.
 const RING_CLASS = "relative z-10 ring-2 ring-info ring-offset-1 ring-offset-surface";
-
-const SEGMENT_CLASS: Record<SegmentState, string> = {
-  done: "bg-success",
-  // Info outline with a left-half fill: --info is 5.75:1 (dark) / 5.17:1 (light) on the card,
-  // where --primary was 2.83:1 in dark (#2210). The half fill separates it from solid Done.
-  doing: "border border-info bg-[linear-gradient(90deg,currentColor_50%,transparent_50%)] text-info",
-  todo: "border border-fg-tertiary",
-  // #2551: planned work waits in To do, so its segment is the to-do outline, dashed: shape, not color.
-  planned: "border border-dashed border-fg-tertiary",
-  // Outline plus diagonal stripes: color is never the only cue.
-  blocked: "border border-danger bg-[repeating-linear-gradient(135deg,currentColor_0_1px,transparent_1px_3px)] text-danger",
-};
 
 /** Segments in board order: planned and to do (first column), blocked, doing, done. */
 function segments(r: CardChildrenRollupVisible): SegmentState[] {

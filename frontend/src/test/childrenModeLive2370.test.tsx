@@ -76,7 +76,7 @@ describe('Children mode column meter past the limit (#2370 ruling)', () => {
     getChildrenView.mockResolvedValue(view(rowsA(), 'member', 7))
     render(<ChildrenModeView {...base} />)
     const caption = await screen.findByText('0 of 7 on Delivery · limit 5 over')
-    expect(caption).toHaveClass('text-warning')
+    expect(caption).toHaveClass('text-warning-on-tint')
     expect(caption).not.toHaveClass('text-danger')
     const meter = screen.getByRole('meter', { name: 'Doing on Delivery: 7 of limit 5' })
     expect(meter.querySelector('span')).toHaveClass('bg-primary-emphasis')
@@ -95,7 +95,8 @@ describe('Children mode Move (#2370 item 11)', () => {
     render(<ChildrenModeView {...base} />)
     await screen.findByRole('button', { name: 'Move Scope' })
     expect(screen.getAllByRole('button', { name: /^Move / })).toHaveLength(2)
-    expect(screen.getByText(/Gamma/).closest('div')?.querySelector('button')).toBeNull()
+    const lockedRow = screen.getByRole('button', { name: 'Gamma' }).closest<HTMLElement>('[role="row"]')!
+    expect(within(lockedRow).queryByRole('button', { name: /^Move / })).toBeNull()
   })
 
   it('Move lives inside the card stop: Right reaches it, Left goes back, it is never a Tab stop', async () => {

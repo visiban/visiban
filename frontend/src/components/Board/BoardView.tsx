@@ -133,6 +133,7 @@ import { parseParentFilterParam, parseParentLaneFilterParam } from "../../utils/
 import { countUnusableLaneRules, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam, withHideUnmatched, withLaneItems } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 import ChildrenModeView from "./ChildrenModeView";
+import { ToggleField } from "../Common/Toggle";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 import { useChildrenLaneCounts } from "../../hooks/useChildrenLaneCounts";
 import { loadChildrenOptions, loadShowMode, resolveLaneParam, saveChildrenOptions, saveShowMode, type BoardShowMode, type ChildrenModeOptions, type PlannedOption } from "../../utils/childrenMode";
@@ -2622,6 +2623,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // The Children lane action's counts (#2370 way in 1), read only in Cards mode on the Board tab.
   const childrenLaneCounts = useChildrenLaneCounts(board.id, childrenModeAvailable && !childrenMode && view === "board", null, childrenViewTick);
   const [childrenEditLaneId, setChildrenEditLaneId] = useState<number | null>(null);
+  const [childrenTotal, setChildrenTotal] = useState<number | null>(null);
   const childrenEditLane = childrenMode && isAdmin ? board.swimlanes.find((l) => l.id === childrenEditLaneId) ?? null : null;
   const [childrenOptions, setChildrenOptionsState] = useState<ChildrenModeOptions>(() => loadChildrenOptions(board.id));
   const setChildrenOptions = useCallback((next: ChildrenModeOptions) => {
@@ -3464,14 +3466,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           last item and stays pinned to the trailing edge (on phones it is
           drawn only when not healthy, see below). */}
       {/* Phone (#2348): one 44px row, the tabs scrolling inside their own box with Filter, Activity and More after them, so the chrome is header + tab strip (about 92px) and the strip sits at the same y as the other views' (#2349). */}
-      <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3 max-sm:flex-nowrap max-sm:gap-x-1">
+      {/* A board whose cards can have children adds the Show control as its own phone row above the tabs (canvas 6b):
+          beside five action buttons it would squeeze the view tabs to nothing. */}
+      <nav aria-label="Board toolbar" className={`min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3 max-sm:gap-x-1 ${childrenModeAvailable && view === "board" ? "" : "max-sm:flex-nowrap"}`}>
         <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
           <ViewTabStrip view={view}>
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
           </ViewTabStrip>
           {childrenModeAvailable && view === "board" && (
-            <div role="group" aria-label="Show" data-testid="show-mode" className="flex items-center gap-1.5 max-sm:order-first max-sm:shrink-0">
-              <span className="text-xs text-fg-secondary max-sm:sr-only">Show</span>
+            <div role="group" aria-label="Show" data-testid="show-mode" className="flex items-center gap-1.5 max-sm:order-first max-sm:basis-full max-sm:pt-1">
+              <span className="text-xs text-fg-secondary">Show</span>
               <div className="flex border border-line-strong rounded overflow-hidden">
                 {(["cards", "children"] as const).map((m, i) => (
                   <button
@@ -3486,6 +3490,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 ))}
               </div>
             </div>
+          )}
+          {childrenMode && view === "board" && !isPhone && childrenTotal != null && (
+            <span data-testid="children-board-total" className="text-xs text-fg-secondary">{childrenTotal} in progress</span>
           )}
           <div className="flex-1 max-sm:hidden" />
           <div className="flex items-center gap-2 flex-wrap max-sm:order-2 max-sm:flex-nowrap max-sm:gap-1 max-sm:shrink-0">
@@ -3530,8 +3537,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 icon={ViewMenuIcon}
                 phoneHandoff={isPhone ? { openRequest: viewOpenRequest, anchorRef: filterTriggerRef } : undefined}
                 childrenOptions={childrenMode ? (
-                  <div role="group" aria-label="Children" className="space-y-2 border-b border-line pb-3">
-                    <span className="block text-xs font-medium text-fg-secondary">Children</span>
+                  <div role="group" aria-label="Children" className="space-y-2">
+                    <div>
+                    <span aria-hidden="true" className="block text-xs text-fg-secondary mb-1">Lanes</span>
                     <SingleSelectDropdown<number>
                       label="Lanes"
                       ariaLabel="Lanes"
@@ -3542,14 +3550,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       selected={focusedSwimlaneId ?? 0}
                       onChange={(v) => setChildrenFocus(v ? v : null)}
                     />
-                    <label className="flex items-center gap-2 text-sm text-fg min-h-11 sm:[@media(pointer:fine)]:min-h-8">
-                      <input type="checkbox" className="accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis" checked={childrenOptions.showDone} onChange={(e) => setChildrenOptions({ ...childrenOptions, showDone: e.target.checked })} />
-                      Show done cards
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-fg min-h-11 sm:[@media(pointer:fine)]:min-h-8">
-                      <input type="checkbox" className="accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis" checked={childrenOptions.blockedOnly} onChange={(e) => setChildrenOptions({ ...childrenOptions, blockedOnly: e.target.checked })} />
-                      Blocked only
-                    </label>
+                    </div>
+                    {/* Phone: switches in the Filter and view sheet (canvas 2f g); desktop: the View menu's checkbox rows. */}
+                    {([["showDone", "Show done cards"], ["blockedOnly", "Blocked only"]] as const).map(([key, label]) => isPhone ? (
+                      <div key={key} className="flex min-h-11 flex-col justify-center">
+                        <ToggleField label={label} checked={childrenOptions[key]} onChange={(v) => setChildrenOptions({ ...childrenOptions, [key]: v })} />
+                      </div>
+                    ) : (
+                      <label key={key} className="flex items-center gap-2 text-sm text-fg min-h-11 sm:[@media(pointer:fine)]:min-h-8">
+                        <input type="checkbox" className="accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis" checked={childrenOptions[key]} onChange={(e) => setChildrenOptions({ ...childrenOptions, [key]: e.target.checked })} />
+                        {label}
+                      </label>
+                    ))}
+                    <div>
+                    <span aria-hidden="true" className="block text-xs text-fg-secondary mb-1">Planned</span>
                     <SingleSelectDropdown<PlannedOption>
                       label="Planned"
                       ariaLabel="Planned"
@@ -3560,6 +3574,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       selected={childrenOptions.planned}
                       onChange={(v) => setChildrenOptions({ ...childrenOptions, planned: v ?? "any" })}
                     />
+                    </div>
                   </div>
                 ) : undefined}
                 presetPicker={
@@ -3889,6 +3904,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             phone={isPhone}
             laneColors={isPhone ? Object.fromEntries(board.swimlanes.map((s) => [s.id, s.color])) : undefined}
             boardName={board.name}
+            stalenessDays={board.staleness_threshold_days ?? 14}
+            onBoardTotal={setChildrenTotal}
             onFocusLane={setChildrenFocus}
             onEditLane={isAdmin ? setChildrenEditLaneId : undefined}
             onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}

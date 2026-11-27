@@ -90,7 +90,8 @@ describe('Children mode phone layout (#2370 item 12)', () => {
     expect(within(band).getByRole('button', { name: 'Collapse lane Acme Corp, 12 in progress of 16' })).toHaveAttribute('aria-expanded', 'true')
     expect(within(band).getByText('12 in progress of 16')).toBeInTheDocument()
     expect(within(band).getByText('3 blocked')).toHaveClass('text-danger-on-tint')
-    expect(within(band).getByText(/\+4 on a board you can't open/)).toBeInTheDocument()
+    // The phone's shorter wording (#2370 phone text); desktop keeps "on a board you can't open".
+    expect(within(band).getByText("+4 you can't open")).toBeInTheDocument()
     expect(within(band).getByRole('button', { name: 'Copy link to Acme Corp' })).toBeInTheDocument()
     // The lane actions row is PhoneBoard's footer: the band's last line, a subtle divider, px-3 pb-2.5 pt-2.
     const actionsRow = within(band).getByTestId('children-lane-actions')

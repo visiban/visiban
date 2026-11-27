@@ -7,6 +7,21 @@ export const ROLLUP_SEGMENT_MAX = 8;
 
 const DAY_MS = 86_400_000;
 
+export type SegmentState = "planned" | "done" | "doing" | "todo" | "blocked";
+
+/** One look per child state, shared by the card footer and Children mode's bars (#2370). */
+export const SEGMENT_CLASS: Record<SegmentState, string> = {
+  done: "bg-success",
+  // Info outline with a left-half fill: --info is 5.75:1 (dark) / 5.17:1 (light) on the card,
+  // where --primary was 2.83:1 in dark (#2210). The half fill separates it from solid Done.
+  doing: "border border-info bg-[linear-gradient(90deg,currentColor_50%,transparent_50%)] text-info",
+  todo: "border border-fg-tertiary",
+  // #2551: planned work waits in To do, so its segment is the to-do outline, dashed: shape, not color.
+  planned: "border border-dashed border-fg-tertiary",
+  // Outline plus diagonal stripes: color is never the only cue.
+  blocked: "border border-danger bg-[repeating-linear-gradient(135deg,currentColor_0_1px,transparent_1px_3px)] text-danger",
+};
+
 /** "just now", "3 hours ago", "1 day ago", "9 days ago" (canvas v24 wording, #2210). */
 export function relativeAge(iso: string, now: number): string {
   const ms = Math.max(0, now - new Date(iso).getTime());

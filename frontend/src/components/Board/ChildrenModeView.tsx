@@ -6,13 +6,14 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { CardChildrenColumn, ChildrenView, ChildrenViewBoard, ChildrenViewChild, ChildrenViewLane, ChildrenViewRow } from "../../types";
 import {
   CHILDREN_MODE_ESCAPE_PRIORITY, LARGE_LANE_PARENTS, blockedDays, cellName, changesPillText, childBoardSwitchLabel, childBoardSwitchName, childCardName, columnOverLimit, compactRowLabel, foldLabel,
-  columnHeadCaption, columnMeterPct, holdRowOrder, isFoldedRow, laneBandName, laneBlockedLabel, laneLink, laneSubtitle, laneTotalLabel, lockedRowText, moreParentsLabel,
+  columnHeadCaption, columnMeterPct, holdRowOrder, isFoldedRow, laneBandName, laneBlockedLabel, laneIdleLabel, laneLink, laneSubtitle, laneTotalLabel, laneTotalParts, phoneHiddenLabel, lockedRowText, moreParentsLabel,
   parentsLabel, pendingRowChanges, isBlockedColumnName, phoneBlockedColumnNote, phoneColumnCount, phoneEmptyCellText, rowDoneLabel, shownInProgress, visibleChildren, type ChildrenModeOptions,
   addPage, frontierLane, pageRowCount, type LaneRows, type LaneStore,
 } from "../../utils/childrenMode";
 import { columnTintStyle } from "../../utils/colorContrast";
 import { ChildMovePopover } from "../Card/CardChildrenTab";
 import { WRITE_ROLES, moveTargetState } from "../Card/cardChildren";
+import ChildStateBar from "../Card/ChildStateBar";
 import Avatar from "../Common/Avatar";
 import OverflowMenu from "../Layout/OverflowMenu";
 
@@ -59,26 +60,15 @@ interface Props {
   /** For the Move picker's assignee override and planned-date "today" (item 11). */
   currentUserId?: number | null;
   userTimezone?: string;
+  /** The board's stale threshold: a collapsed band reads "Work idle Nd" past it (the card rollup's idle rule). */
+  stalenessDays?: number;
+  /** Desktop: the host draws the board total beside the Show control; without it the view draws its own line. */
+  onBoardTotal?: (inProgress: number | null) => void;
 }
 
 // 44px on phone and under a coarse pointer at any width; 32px only for a fine pointer from `sm` up (#2370 ruling).
 const tgt = "min-h-11 sm:[@media(pointer:fine)]:min-h-8";
 const FOCUS = "focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
-
-function LaneBar({ lane }: { lane: Pick<ChildrenViewLane, "done" | "doing" | "blocked" | "todo" | "total"> }) {
-  if (lane.total === 0) return null;
-  const seg = (n: number, cls: string) =>
-    n > 0 ? <span className={`block h-full ${cls}`} style={{ width: `${(n / lane.total) * 100}%` }} /> : null;
-  return (
-    <span aria-hidden="true" className="flex h-1.5 w-32 overflow-hidden rounded bg-surface-active">
-      {seg(lane.done, "bg-success")}
-      {seg(lane.doing, "bg-primary")}
-      {/* The card rollup bar's blocked segment (CardChildrenRollup): stripes in currentColor, the danger token. */}
-      {seg(lane.blocked, "border border-danger text-danger bg-[repeating-linear-gradient(135deg,currentColor_0_1px,transparent_1px_3px)]")}
-      {seg(lane.todo, "bg-fg-tertiary")}
-    </span>
-  );
-}
 
 interface Stop { r: number; c: number; i: number; key: string }
 
@@ -149,7 +139,7 @@ async function readPages(p: Params, store: LaneStore, scope: number | null, owne
   return { store: st, head: { board_total: d.board_total, lanes: d.lanes, child_boards: boards } as Head };
 }
 
-export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneId: focusProp = null, laneFocusRequest = null, onLaneFocusDone, options, onOptionsChange, onOpenParent, refreshKey = 0, phone = false, laneColors, boardName = "this board", onFocusLane, onEditLane, onEditFieldOrder, currentUserId = null, userTimezone = "" }: Props) {
+export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneId: focusProp = null, laneFocusRequest = null, onLaneFocusDone, options, onOptionsChange, onOpenParent, refreshKey = 0, phone = false, laneColors, boardName = "this board", onFocusLane, onEditLane, onEditFieldOrder, currentUserId = null, userTimezone = "", stalenessDays = 14, onBoardTotal }: Props) {
   // A lane the server no longer finds (deleted since the board loaded) is treated as no lane: Children mode
   // renders with the default expansion, never an error, and a missing lane reads the same as a hidden one (#2370 item 1).
   const [goneLane, setGoneLane] = useState<number | null>(null);
@@ -384,6 +374,10 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
     }
   }, []);
 
+  const boardTotal = head ? shownInProgress(head.board_total) : null;
+  useEffect(() => { onBoardTotal?.(boardTotal); }, [boardTotal, onBoardTotal]);
+  useEffect(() => () => onBoardTotal?.(null), [onBoardTotal]);
+
   // Escape leaves the grid (board tier, below the View menu's 25): focus goes to the lane's collapse button.
   useEscapeStack(() => {
     const el = document.activeElement as HTMLElement | null;
@@ -464,16 +458,21 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
       ...focusProps(stop),
       "data-grid": gridKey,
       "data-child-card": child.id,
-      className: `${FOCUS} ${tgt} block min-w-0 rounded border bg-surface px-2 py-1 text-xs text-fg hover:bg-surface-hover ${canMove ? "pr-11 sm:[@media(pointer:fine)]:pr-8" : ""} ${child.planned ? "border-dashed border-line-strong" : "border-line"}`,
+      // The Move icon overlays the avatar on hover and focus; on touch it is always shown, so room is kept for it.
+      className: `${FOCUS} min-h-11 flex flex-col justify-center gap-1 min-w-0 rounded-lg border bg-surface shadow-sm px-2.5 py-1.5 text-[13px] text-fg hover:bg-surface-hover ${canMove ? "[@media(hover:none)]:pr-11" : ""} ${child.planned ? "border-dashed border-line-strong" : "border-line"}`,
     };
     const body = (
       <>
-        <span className="block font-medium leading-snug break-words">{child.title}</span>
-        <span className="mt-0.5 flex items-center gap-1 text-fg-secondary">
+        <span className="flex items-center justify-between gap-1.5">
+          <span data-child-title className="min-w-0 font-semibold leading-snug break-words">{child.title}</span>
           {child.assignee && <Avatar user={child.assignee} size="sm" />}
-          {child.planned && <span>Planned</span>}
-          {child.blocked && <span className="text-danger font-medium"><span aria-hidden="true">⊘</span>{days != null ? ` ${days}d` : " Blocked"}</span>}
         </span>
+        {(child.planned || child.blocked) && (
+          <span className="flex items-center gap-1.5 text-xs text-fg-secondary">
+            {child.planned && <span>Planned</span>}
+            {child.blocked && <span className="text-danger font-semibold"><span aria-hidden="true">⊘</span>{days != null ? ` ${days}d` : " Blocked"}</span>}
+          </span>
+        )}
       </>
     );
     return (
@@ -488,7 +487,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
             aria-label={`Move ${child.title}`}
             title={`Move ${child.title}`}
             onClick={() => { setMoveError(null); setMoving({ child, rowId: row.id, board }); }}
-            className={`${FOCUS} absolute right-0 top-0 inline-flex items-center justify-center min-w-11 min-h-11 sm:[@media(pointer:fine)]:min-w-8 sm:[@media(pointer:fine)]:min-h-8 rounded text-fg-secondary hover:text-fg hover:bg-surface-hover opacity-0 group-hover/card:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100`}
+            className={`${FOCUS} absolute right-0 top-0 inline-flex items-center justify-center min-w-11 min-h-11 sm:[@media(pointer:fine)]:min-w-8 sm:[@media(pointer:fine)]:min-h-8 rounded bg-surface text-fg-secondary hover:text-fg hover:bg-surface-hover opacity-0 group-hover/card:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100`}
           >
             {/* Move glyph: two opposed arrows, inline SVG on currentColor. */}
             <svg aria-hidden="true" viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -500,7 +499,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
     );
   };
 
-  const renderSection = (lane: ChildrenViewLane, board: ChildrenViewBoard, rows: ChildrenViewRow[], maxCols: number, large: boolean) => {
+  const renderSection = (lane: ChildrenViewLane, board: ChildrenViewBoard, rows: ChildrenViewRow[], layout: { maxCols: number; narrowDone: boolean; first: boolean }, large: boolean) => {
     const gridKey = `${lane.id}-${board.id}`;
     const allCols = board.columns;
     const firstColId = allCols[0]?.id;
@@ -508,9 +507,18 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
     // column until the viewer picks one (the planned fold lives in the first column).
     const phoneColumn = phone ? (allCols.find((c) => c.id === phoneCol[gridKey]) ?? allCols.find((c) => !c.is_done) ?? allCols[0]) : undefined;
     const cols = phone ? (phoneColumn ? [phoneColumn] : []) : allCols;
+    // A board with fewer columns keeps the empty space before its Done column, so Done lines up (canvas 6a).
+    const padCount = phone ? 0 : Math.max(0, layout.maxCols - allCols.length);
+    const doneAt = cols.findIndex((c) => c.is_done);
+    const padAt = doneAt < 0 ? cols.length : doneAt;
     // The roving stops in reading order: each row's parent cell, then each column's cards (or the cell).
     const stops: Stop[] = [];
     const cellsByRow = rows.map((row, r) => {
+      // A board the viewer can't open: the parent, then one locked cell spanning the columns.
+      if (!row.rollup.visible) {
+        stops.push({ r, c: 0, i: 0, key: `${gridKey}:${r}:0:0` }, { r, c: 1, i: 0, key: `${gridKey}:${r}:1:0` });
+        return { row, open: false, cells: [] as { col: typeof cols[number]; kids: ChildrenViewChild[]; planned: ChildrenViewChild[]; plannedShown: boolean }[] };
+      }
       const open = !large || (rowOpen.get(row.id) ?? (row.rollup.visible && row.rollup.blocked > 0));
       stops.push({ r, c: 0, i: 0, key: `${gridKey}:${r}:0:0` });
       // A one-line row's Open is its own stop under the title: Down reaches it (#2370 fix A4).
@@ -569,7 +577,12 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
       setActive((a) => ({ ...a, [gridKey]: next!.key }));
       e.currentTarget.querySelector<HTMLElement>(`[data-stop="${next.key}"]`)?.focus();
     };
-    const template = `minmax(14rem, 18rem) repeat(${maxCols}, 12rem)`; // fixed tracks: the header and body grids stay aligned
+    // Header and body share one template and one minimum width, so their columns stay aligned: fixed minimums with
+    // an equal 1fr, never content-sized tracks. The folded Done column is narrow (canvas 6a).
+    const wide = layout.maxCols - (layout.narrowDone ? 1 : 0);
+    const template = `17.5rem repeat(${wide}, minmax(11rem, 1fr))${layout.narrowDone ? " 9.5rem" : ""}`;
+    const minWidth = `${17.5 + wide * 11 + (layout.narrowDone ? 9.5 : 0) + layout.maxCols * 0.5}rem`;
+    const pads = (prefix: string) => Array.from({ length: padCount }, (_, i) => <div key={`${prefix}-${i}`} data-pad aria-hidden="true" />);
     // Whole-column counts and the limit meter are the child board's own (artboard 6a); the phone draws the shown column's.
     const columnHead = (col: CardChildrenColumn) => {
       const pct = columnMeterPct(col);
@@ -577,7 +590,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
       return (
         <>
           {/* Past the limit: warning tone and the word "over", never danger (the board's column-head rule). */}
-          <span className={columnOverLimit(col) ? "text-warning font-semibold" : "text-fg-secondary"}>{columnHeadCaption(col, shownHere, board.name, options.showDone)}</span>
+          <span className={columnOverLimit(col) ? "text-warning-on-tint font-semibold" : "text-fg-secondary"}>{columnHeadCaption(col, shownHere, board.name, options.showDone, padCount > 0)}</span>
           {pct != null && !col.is_done && (
             <span
               role="meter"
@@ -586,7 +599,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
               aria-valuemax={col.wip_limit ?? 0}
               aria-valuenow={Math.min(col.card_count, col.wip_limit ?? 0)}
               aria-valuetext={`${col.card_count} of limit ${col.wip_limit}${col.card_count > (col.wip_limit ?? 0) ? ", over limit" : ""}`}
-              className="mt-1 block h-1 w-full overflow-hidden rounded bg-surface-active"
+              className="mt-1 block h-[3px] w-full overflow-hidden rounded-full bg-surface-active"
             >
               <span className="block h-full bg-primary-emphasis" style={{ width: `${pct}%` }} />
             </span>
@@ -594,6 +607,16 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
         </>
       );
     };
+    // Tinted with the column color, as the board's column heads (text on the tint is fg / fg-secondary only).
+    const headPanel = (col: CardChildrenColumn) => (
+      <div key={col.id} className="rounded-lg border border-line bg-surface px-3 py-2 text-xs flex flex-col gap-0.5" style={columnTintStyle(col.color)} data-testid="children-column-head">
+        <span className="flex items-center gap-1.5 text-[13px] font-semibold text-fg min-w-0">
+          <span aria-hidden="true" className="w-2.5 h-2.5 shrink-0 rounded-full color-dot" style={{ backgroundColor: col.color }} />
+          <span className="min-w-0 break-words">{col.name}</span>
+        </span>
+        {columnHead(col)}
+      </div>
+    );
     // The phone board's column buttons (as the Children tab's narrow layout): a group of aria-pressed buttons, one
     // Tab stop, Left/Right moving the pressed column and wrapping.
     const showColumn = (id: number, focus: boolean) => {
@@ -607,11 +630,11 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
       showColumn(allCols[(i + (e.key === "ArrowRight" ? 1 : allCols.length - 1)) % allCols.length].id, true);
     };
     return (
-      <div key={board.id} className={phone ? "px-3 pt-2 flex flex-col gap-2" : "overflow-x-auto"}>
+      <div key={board.id} className={phone ? "pt-2 flex flex-col gap-2" : "overflow-x-auto ml-6 pt-2 px-0.5 pb-0.5"}>
         {phone ? (
           <div className="flex flex-col gap-1 text-xs">
             <span className="text-fg-secondary">Children on <a href={`/boards/${board.id}`} className={`${FOCUS} inline-flex items-center min-h-11 text-link hover:underline rounded`}>{board.name}</a></span>
-            <div role="group" aria-label={`Columns on ${board.name}`} data-testid="children-phone-columns" className="flex gap-1 overflow-x-auto px-0.5 py-1 -mx-0.5" onKeyDown={onColumnButtonsKeyDown}>
+            <div role="group" aria-label={`Columns on ${board.name}`} data-testid="children-phone-columns" className="flex gap-1.5 overflow-x-auto px-0.5 py-1 -mx-0.5" onKeyDown={onColumnButtonsKeyDown}>
               {allCols.map((c) => {
                 const on = c.id === phoneColumn?.id;
                 return (
@@ -622,9 +645,8 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
                     aria-pressed={on}
                     tabIndex={on ? 0 : -1}
                     onClick={() => showColumn(c.id, false)}
-                    className={`${FOCUS} shrink-0 inline-flex items-center gap-2 min-h-11 px-3 rounded border text-sm ${on ? "border-info bg-primary/20 text-fg font-semibold" : "border-line bg-surface text-fg-secondary hover:border-line-strong"}`}
+                    className={`${FOCUS} flex-1 shrink-0 inline-flex items-center justify-center gap-1 min-h-11 px-2 rounded-md border text-[13px] ${on ? "border-info bg-primary/20 text-fg font-semibold" : "border-line bg-surface text-fg-secondary hover:border-line-strong"}`}
                   >
-                    <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full color-dot" style={{ backgroundColor: c.color }} />
                     <span className="whitespace-nowrap">{c.name}</span>
                     <span>{phoneColumnCount(rows, c, options)}</span>
                   </button>
@@ -635,18 +657,14 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
             {phoneColumn && isBlockedColumnName(phoneColumn.name) && <span className="text-fg-secondary">{phoneBlockedColumnNote(board.name)}</span>}
           </div>
         ) : (
-        <div className="min-w-max" style={{ display: "grid", gridTemplateColumns: template }}>
-          <div className="px-2 py-1 text-xs text-fg-secondary flex flex-col justify-end">
-            <span className="block font-medium text-fg">Parent · column on {boardName}</span>
-            <span>Children on <a href={`/boards/${board.id}`} className={`${FOCUS} text-link hover:underline rounded`}>{board.name}</a></span>
+        <div className="gap-2 pb-2" style={{ display: "grid", gridTemplateColumns: template, minWidth }}>
+          <div className="pb-1 text-xs text-fg-secondary flex flex-col justify-end gap-0.5">
+            <span className="block font-semibold uppercase tracking-wide">Parent · column on {boardName}</span>
+            <span>Children on <a href={`/boards/${board.id}`} className={`${FOCUS} text-link underline rounded`}>{board.name}</a>{layout.first ? "" : ", its own columns"}</span>
           </div>
-          {cols.map((col) => (
-            <div key={col.id} className="px-2 py-1 text-xs border-l border-line" data-testid="children-column-head">
-              <span className="block font-medium text-fg">{col.name}</span>
-              {columnHead(col)}
-            </div>
-          ))}
-          {Array.from({ length: maxCols - cols.length }, (_, i) => <div key={`pad-${i}`} aria-hidden="true" />)}
+          {cols.slice(0, padAt).map((c) => headPanel(c))}
+          {pads("head-pad")}
+          {cols.slice(padAt).map((c) => headPanel(c))}
         </div>
         )}
         <div
@@ -658,7 +676,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
             const t = e.target as HTMLElement;
             const rowEl = t.closest<HTMLElement>("[data-row-id]");
             const card = t.closest<HTMLElement>("[data-child-card]") ?? (t.dataset.moveFor ? e.currentTarget.querySelector<HTMLElement>(`[data-stop="${t.dataset.moveFor}"]`) : null);
-            if (rowEl) gridFocus.current = { childId: card ? Number(card.dataset.childCard) : null, rowId: Number(rowEl.dataset.rowId), title: card?.querySelector("span")?.textContent ?? "" };
+            if (rowEl) gridFocus.current = { childId: card ? Number(card.dataset.childCard) : null, rowId: Number(rowEl.dataset.rowId), title: card?.querySelector("[data-child-title]")?.textContent ?? "" };
           }}
           onBlur={(e) => {
             // Focus leaving every grid for another control applies the held order; a removed node (null) does not,
@@ -666,53 +684,106 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
             const to = e.relatedTarget as HTMLElement | null;
             if (to && !to.closest("[data-children-grid]") && !to.hasAttribute("data-changes-pill")) { gridFocus.current = null; applyHeld(); }
           }}
-          className={phone ? "flex flex-col rounded border border-line" : "min-w-max"}
+          className="flex flex-col gap-2"
+          style={phone ? undefined : { minWidth }}
         >
           {cellsByRow.map(({ row, open, cells }, r) => {
-            const blocked = row.rollup.visible && row.rollup.blocked > 0;
+            const rollup = row.rollup.visible ? row.rollup : null;
+            const blocked = !!rollup && rollup.blocked > 0;
+            const locked = !rollup;
+            // A large lane's closed row is one line: parent, bar, count (canvas 8 § 5).
+            const compact = large && !open && !locked;
+            const toggles = large && !locked;
+            const accent = blocked ? "border-l-[3px] border-l-danger" : "";
             const title = (
-                  <button
-                    type="button"
-                    {...focusProps({ r, c: 0, i: 0, key: `${gridKey}:${r}:0:0` })}
-                    data-parent-row={row.id}
-                    onClick={() => (large ? setRowOpen((m) => new Map(m).set(row.id, !open)) : onOpenParent(row.id))}
-                    onKeyDown={(e) => { if (large && e.key === "Enter" && e.shiftKey) { e.preventDefault(); onOpenParent(row.id); } }}
-                    {...(large ? { "aria-expanded": open } : {})}
-                    className={`${FOCUS} ${tgt} min-w-0 break-words text-left text-sm font-medium text-link hover:underline rounded`}
-                  >
-                    {row.title}
-                  </button>
+              <button
+                type="button"
+                {...focusProps({ r, c: 0, i: 0, key: `${gridKey}:${r}:0:0` })}
+                data-parent-row={row.id}
+                onClick={() => (toggles ? setRowOpen((m) => new Map(m).set(row.id, !open)) : onOpenParent(row.id))}
+                onKeyDown={(e) => { if (toggles && e.key === "Enter" && e.shiftKey) { e.preventDefault(); onOpenParent(row.id); } }}
+                {...(toggles ? { "aria-expanded": open } : {})}
+                className={`${FOCUS} min-w-0 break-words text-left hover:underline rounded ${compact ? "flex-1 min-h-11 sm:[@media(pointer:fine)]:min-h-9" : tgt} ${phone && !compact ? "text-xs font-semibold uppercase tracking-wide text-fg-secondary" : "text-[13px] font-semibold text-fg"}`}
+              >
+                {row.title}
+              </button>
             );
+            // No visible Open at rest: it shows on row hover and its own focus, and on touch once the row is open.
+            const openControl = toggles && (
+              <button
+                type="button"
+                {...focusProps({ r, c: 0, i: 1, key: `${gridKey}:${r}:0:1` })}
+                aria-label={`Open ${row.title}`}
+                onClick={() => onOpenParent(row.id)}
+                className={`${FOCUS} ${tgt} shrink-0 self-center px-2 text-xs text-link rounded hover:bg-surface-hover opacity-0 group-hover/row:opacity-100 focus:opacity-100 ${open ? "[@media(hover:none)]:opacity-100" : "[@media(hover:none)]:pointer-events-none [@media(hover:none)]:focus:pointer-events-auto"}`}
+              >
+                Open
+              </button>
+            );
+            const meta = (
+              <span className="flex flex-wrap items-center gap-1.5 text-xs text-fg-secondary">
+                <span className="rounded-full bg-surface-hover px-2 py-0.5 font-semibold text-fg-secondary">{row.column_name}</span>
+                {row.assignee && <Avatar user={row.assignee} size="sm" />}
+                {/* Blocked is text too, never the left accent alone. */}
+                {blocked && <span className="text-danger font-semibold">{rollup.blocked} blocked</span>}
+              </span>
+            );
+            const bar = rollup && <ChildStateBar perChild counts={{ done: rollup.done, doing: rollup.doing, blocked: rollup.blocked, todo: rollup.todo, planned: row.planned ?? 0 }} className={compact ? "w-32 shrink-0" : "flex-1 min-w-10"} />;
             return (
               <div
                 role="row"
                 key={row.id}
                 data-row-id={row.id}
-                className={`${r > 0 || !phone ? "border-t border-line" : ""} ${blocked ? "border-l-[3px] border-l-danger" : "border-l-[3px] border-l-transparent"} ${phone ? "flex flex-col" : ""}`}
-                style={phone ? undefined : { display: "grid", gridTemplateColumns: template }}
+                className={`group/row ${phone ? "flex flex-col gap-1" : "gap-2"} ${compact ? `rounded-lg border border-line bg-surface ${accent}` : ""}`}
+                style={phone || compact ? undefined : { display: "grid", gridTemplateColumns: template }}
               >
-                <div role="rowheader" className="px-2 py-1.5 flex flex-col gap-1 min-w-0">
-                  {/* Phone: parent names are headings inside the shown column (canvas 6b). */}
-                  {phone ? <h4 className="m-0">{title}</h4> : title}
-                  {large && (
-                    // A one-line row's title expands it; opening the parent is its own visible control.
-                    <button type="button" {...focusProps({ r, c: 0, i: 1, key: `${gridKey}:${r}:0:1` })} aria-label={`Open ${row.title}`} onClick={() => onOpenParent(row.id)} className={`${FOCUS} ${tgt} self-start px-2 text-xs text-link rounded hover:bg-surface-hover`}>
-                      Open
-                    </button>
-                  )}
-                  <span className="flex items-center gap-1.5 text-xs text-fg-secondary">
-                    <span className="rounded border border-line px-1">{row.column_name}</span>
-                    {row.assignee && <Avatar user={row.assignee} size="sm" />}
-                    <span className={blocked && large ? "text-danger font-medium" : ""}>{large ? compactRowLabel(row) : rowDoneLabel(row)}</span>
-                    {/* Blocked is text too, never the left accent alone. */}
-                    {!large && row.rollup.visible && row.rollup.blocked > 0 && <span className="text-danger font-medium">{row.rollup.blocked} blocked</span>}
-                  </span>
-                </div>
-                {open && cells.map(({ col, kids, planned, plannedShown }, ci) => {
+                {compact ? (
+                  <div role="rowheader" className="flex items-center gap-2 px-3 min-w-0">
+                    {title}
+                    {openControl}
+                    {!phone && bar}
+                    {phone && blocked ? (
+                      <span className="shrink-0 text-xs font-semibold text-danger"><span aria-hidden="true">⊘ </span>{rollup.blocked}<span className="sr-only"> blocked</span></span>
+                    ) : (
+                      <span className={`shrink-0 text-xs ${blocked ? "text-danger font-semibold" : "text-fg-secondary"}`}>{compactRowLabel(row)}</span>
+                    )}
+                  </div>
+                ) : phone ? (
+                  // Phone: parent names are headings inside the shown column (canvas 6b).
+                  <div role="rowheader" className="flex items-center gap-2 min-w-0">
+                    <h4 className="m-0 flex-1 min-w-0 flex">{title}</h4>
+                    {openControl}
+                  </div>
+                ) : (
+                  <div role="rowheader" className={`flex flex-col gap-1.5 min-w-0 rounded-lg border border-line bg-surface px-3 py-2.5 ${accent}`}>
+                    {title}
+                    <span className="flex items-center justify-between gap-2">{meta}{openControl}</span>
+                    {rollup && (
+                      <span className="flex items-center gap-1.5 text-xs text-fg-secondary">
+                        {bar}
+                        <span className="shrink-0">{rowDoneLabel(row)}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+                {locked && (
+                  <div
+                    role="gridcell"
+                    {...focusProps({ r, c: 1, i: 0, key: `${gridKey}:${r}:1:0` })}
+                    data-testid="children-locked-cell"
+                    className={`${FOCUS} flex items-center gap-2 min-h-11 rounded-lg border border-dashed border-line-strong px-3 py-2 text-[13px] text-fg-secondary`}
+                    style={{ gridColumn: "2 / -1" }}
+                  >
+                    <LockIcon />
+                    <span>{lockedRowText(row.rollup.total)}</span>
+                  </div>
+                )}
+                {open && cells.flatMap(({ col, kids, planned, plannedShown }, ci) => {
                   const base = { r, c: ci + 1 };
                   const count = plannedShown ? kids.length : kids.length + planned.length;
-                  return (
-                    <div role="gridcell" key={col.id} data-cell={`${row.id}:${col.id}`} aria-label={cellName(row.title, col.name, count)} className={`px-2 flex flex-col gap-1 ${phone ? "pb-2" : "py-1.5 border-l border-line"}`}>
+                  const doneFolded = col.is_done && !options.showDone;
+                  const cell = (
+                    <div role="gridcell" key={col.id} data-cell={`${row.id}:${col.id}`} aria-label={cellName(row.title, col.name, count)} className={`flex flex-col gap-1.5 min-w-0 ${phone ? "" : "rounded-lg bg-canvas p-1.5"} ${doneFolded ? "items-center justify-center" : ""}`}>
                       {col.is_done && !options.showDone ? (
                         row.rollup.visible && row.rollup.done > 0 ? (
                           <button
@@ -720,12 +791,12 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
                             {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })}
                             aria-label={`${row.rollup.done} done. Show done cards`}
                             onClick={() => { cellFocus.current = { rowId: row.id, colId: col.id, seq: readSeq }; onOptionsChange({ ...options, showDone: true }); }}
-                            className={`${FOCUS} ${tgt} text-left text-xs text-fg-secondary hover:text-fg rounded`}
+                            className={`${FOCUS} ${tgt} w-full text-[13px] text-fg-secondary hover:text-fg rounded`}
                           >
-                            {row.rollup.done} done · <span className="text-link">Show</span>
+                            {row.rollup.done} done · <span className="text-link underline">Show</span>
                           </button>
                         ) : (
-                          <span {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })} className={`${FOCUS} text-xs text-fg-secondary rounded`}>0 done</span>
+                          <span {...focusProps({ ...base, i: 0, key: `${gridKey}:${r}:${ci + 1}:0` })} className={`${FOCUS} text-[13px] text-fg-secondary rounded`}>0 done</span>
                         )
                       ) : (
                         <>
@@ -758,6 +829,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
                       )}
                     </div>
                   );
+                  return !phone && ci === padAt ? [...pads(`pad-${row.id}`), cell] : [cell];
                 })}
               </div>
             );
@@ -769,10 +841,11 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
 
   return (
     <div ref={rootRef} data-testid="children-mode" className="flex-1 min-h-0 overflow-y-auto bg-surface-sunken">
-      <div className="flex items-center gap-3 px-4 py-2 text-sm text-fg-secondary">
-        <span data-testid="children-board-total"><span className="font-semibold text-fg">{shownInProgress(head.board_total)}</span> in progress</span>
-        <span role="status" aria-live="polite" className="sr-only">{copied}</span>
-      </div>
+      {(phone || !onBoardTotal) && (
+        <p data-testid="children-board-total" className="px-4 pt-2 text-xs text-fg-secondary">{boardTotal} in progress</p>
+      )}
+      <span role="status" aria-live="polite" className="sr-only">{copied}</span>
+      <div aria-hidden="true" className="h-3" />
       {moving && (
         <ChildMovePopover
           child={{ ...moving.child, due_date: null }}
@@ -804,7 +877,9 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
         const drawn = [...unfolded, ...(foldShown ? folded : [])]
           .filter((r) => !options.blockedOnly || (r.rollup.visible && r.rollup.blocked > 0));
         const sectionIds = [...new Set(drawn.map((r) => r.child_board_id).filter((id): id is number => id != null))];
-        const maxCols = Math.max(0, ...sectionIds.map((id) => boards.get(id)?.columns.length ?? 0));
+        const sectionColumns = sectionIds.map((id) => boards.get(id)?.columns ?? []);
+        const maxCols = Math.max(0, ...sectionColumns.map((c) => c.length));
+        const narrowDone = !options.showDone && sectionColumns.every((c) => c.length > 0 && c[c.length - 1].is_done);
         const remaining = lane.parents - rowsHere.length;
         // Every lane pages on its own, loaded or not: never only the lane holding the last loaded row (#2370 fix A5).
         const canLoadMore = remaining > 0 && (st == null || st.cursor != null);
@@ -814,6 +889,15 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
         // Phone: one child board per lane at a time; the others are "Onboarding · 2 children · Columns ›" switches.
         const phoneBoardId = phone ? (sectionIds.includes(phoneBoard[lane.id]) ? phoneBoard[lane.id] : sectionIds[0]) : undefined;
         const shownSectionIds = phoneBoardId != null ? [phoneBoardId] : sectionIds;
+        // Desktop: a locked row sits in the lane's first child-board section, in row order. The server never says
+        // which board it is, so it can't be placed by board. Phone, or a lane with no section, lists them below.
+        const lockedInGrid = !phone && sectionIds.length > 0;
+        const sectionRows = (id: number) => {
+          const own = rowsHere.filter((r) => drawn.includes(r) ? r.child_board_id === id : lockedInGrid && id === sectionIds[0] && !r.rollup.visible);
+          return own;
+        };
+        const total = laneTotalParts(lane);
+        const idle = isCollapsed ? laneIdleLabel(lane, stalenessDays) : null;
         const actions = (
           <>
             {/* Lane actions beside the name: Focus (everyone), Copy link (this mode only), the admin ⋮. */}
@@ -851,12 +935,12 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
           setCollapsed((s) => toggle(s, lane.id));
         };
         return (
-          <section key={lane.id} data-lane-section={lane.id} aria-label={`${lane.name} lane`} className="mx-3 mb-3 rounded-lg border border-line bg-surface">
+          <section key={lane.id} data-lane-section={lane.id} aria-label={`${lane.name} lane`} className="mx-3 mb-2">
             {phone ? (
               // Phone band (canvas 6b, as PhoneBoard's): tinted with the lane color; line one is the collapse button
               // with the name and total, line two the blocked count and "+N on a board you can't open", then the
               // lane actions row, styled as PhoneBoard's phone-lane-footer (#2498). Text on the tint is fg / fg-secondary / *-on-tint only.
-              <div role="group" aria-label={laneBandName(lane)} data-testid="children-phone-band" style={columnTintStyle(laneColors?.[lane.id])} className={`flex flex-col bg-surface-raised ${isCollapsed ? "rounded-lg" : "rounded-t-lg border-b border-line"}`}>
+              <div role="group" aria-label={laneBandName(lane)} data-testid="children-phone-band" style={columnTintStyle(laneColors?.[lane.id])} className="flex flex-col rounded-lg border border-line-strong bg-surface">
                 <h3 className="m-0">
                   <button
                     type="button"
@@ -867,19 +951,21 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
                     className={`${FOCUS} flex items-center gap-2 min-h-11 w-full text-left rounded px-3 pt-2.5 pb-1`}
                   >
                     <svg aria-hidden="true" className={`w-4 h-4 shrink-0 text-fg-secondary ${isCollapsed ? "-rotate-90" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
+                    {laneColors?.[lane.id] && <span aria-hidden="true" data-testid="children-lane-swatch" className="w-2.5 h-2.5 shrink-0 rounded-sm color-dot" style={{ backgroundColor: laneColors[lane.id] }} />}
                     <span className="text-[17px] font-semibold text-fg min-w-0 break-words">{lane.name}</span>{" "}
-                    <span className="ml-auto text-xs font-semibold text-fg whitespace-nowrap">{laneTotalLabel(lane)}</span>
+                    <span className="min-w-0 text-xs text-fg-secondary">{laneTotalLabel(lane)}</span>
                   </button>
                 </h3>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-9 pr-3 pb-2 text-xs">
                   <span className={lane.blocked > 0 ? "text-danger-on-tint font-semibold" : "text-fg-secondary"}>{laneBlockedLabel(lane)}</span>
-                  {lane.hidden > 0 && <span className="inline-flex items-center gap-1 text-fg-secondary"><LockIcon />+{lane.hidden} on a board you can&apos;t open</span>}
+                  {lane.hidden > 0 && <span className="inline-flex items-center gap-1 text-fg-secondary"><LockIcon />{phoneHiddenLabel(lane.hidden)}</span>}
+                  {idle && <span className="text-warning-on-tint font-semibold">{idle}</span>}
                 </div>
                 {/* Collapsed, the band is the canvas's two lines; the actions return with the lane. */}
                 {!isCollapsed && <div data-testid="children-lane-actions" className="flex flex-wrap items-center gap-2 border-t border-line-subtle px-3 pb-2.5 pt-2">{actions}</div>}
               </div>
             ) : (
-            <div role="group" aria-label={laneBandName(lane)} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 bg-surface-raised rounded-t-lg">
+            <div role="group" aria-label={laneBandName(lane)} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 min-h-11 pr-3 py-1 rounded-lg border border-line-strong bg-surface">
               <h3 className="m-0">
                 <button
                   type="button"
@@ -887,22 +973,27 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
                   aria-expanded={!isCollapsed}
                   aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${lane.name}`}
                   onClick={toggleLane}
-                  className={`${FOCUS} ${tgt} flex items-center gap-2 rounded text-[17px] font-semibold text-fg`}
+                  className={`${FOCUS} ${tgt} flex items-center gap-2 rounded pl-3 pr-1 text-[17px] font-semibold text-fg text-left`}
                 >
-                  <span aria-hidden="true">{isCollapsed ? "▸" : "▾"}</span>
+                  <svg aria-hidden="true" className={`w-3 h-3 shrink-0 text-fg-secondary ${isCollapsed ? "-rotate-90" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6l5 5 5-5" /></svg>
                   {lane.name}
                 </button>
               </h3>
-              {actions}
+              {/* A collapsed band is its name and totals only (canvas 6a); the actions return with the lane. */}
+              {!isCollapsed && actions}
               <span className="text-xs text-fg-secondary">{isCollapsed ? parentsLabel(lane.parents) : laneSubtitle(lane)}</span>
-              <span className="text-sm text-fg">{laneTotalLabel(lane)}</span>
-              <LaneBar lane={lane} />
-              <span className={`text-sm ${lane.blocked > 0 ? "text-danger font-medium" : "text-fg-secondary"}`}>{laneBlockedLabel(lane)}</span>
-              {lane.hidden > 0 && <span className="inline-flex items-center gap-1 text-sm text-fg-secondary"><LockIcon />+{lane.hidden} on a board you can&apos;t open</span>}
+              <ChildStateBar counts={lane} className="w-52" />
+              <span className="text-xs text-fg-secondary">
+                <b className="font-semibold text-fg">{total.active}</b>{total.rest}
+                {lane.blocked === 0 && <> · {laneBlockedLabel(lane)}</>}
+              </span>
+              {lane.blocked > 0 && <span className="text-xs text-danger font-semibold"><span aria-hidden="true">⊘</span> {laneBlockedLabel(lane)}</span>}
+              {idle && <span className="text-xs text-warning font-semibold">{idle}</span>}
+              {lane.hidden > 0 && <span className="inline-flex items-center gap-1 text-xs text-fg-secondary lg:ml-auto"><LockIcon />+{lane.hidden} on a board you can&apos;t open</span>}
             </div>
             )}
             {!isCollapsed && (
-              <div className="pb-2">
+              <div className="flex flex-col pb-1">
                 <ChangesPill
                   count={held?.[lane.id] ? pendingRowChanges(rowsHere, held[lane.id], lane.id) : 0}
                   laneName={lane.name}
@@ -911,7 +1002,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
                 />
                 {shownSectionIds.map((id) => {
                   const b = boards.get(id);
-                  return b ? renderSection(lane, b, drawn.filter((r) => r.child_board_id === id), maxCols, large) : null;
+                  return b ? renderSection(lane, b, sectionRows(id), { maxCols, narrowDone, first: id === sectionIds[0] }, large) : null;
                 })}
                 {phone && sectionIds.filter((id) => id !== phoneBoardId).map((id) => {
                   const b = boards.get(id);
@@ -927,18 +1018,18 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
                         // The switch unmounts under the tap: focus goes to that board's pressed column button.
                         queueMicrotask(() => rootRef.current?.querySelector<HTMLElement>(`[data-column-button^="${lane.id}-${id}:"][aria-pressed="true"]`)?.focus());
                       }}
-                      className={`${FOCUS} mx-3 mt-2 w-[calc(100%-1.5rem)] min-h-11 px-3 flex items-center justify-between gap-2 text-sm text-fg rounded border border-line-strong hover:bg-surface-hover`}
+                      className={`${FOCUS} mt-2 w-full min-h-11 px-3 flex items-center justify-between gap-2 text-sm text-fg rounded border border-line-strong hover:bg-surface-hover`}
                     >
                       <span className="min-w-0 break-words text-left">{childBoardSwitchLabel(b.name, drawn.filter((r) => r.child_board_id === id))}</span>
                       <span className="shrink-0 text-xs text-fg-secondary">Columns <span aria-hidden="true">›</span></span>
                     </button>
                   );
                 })}
-                {locked.map((row) => (
-                  <div key={row.id} className="mx-2 mt-2 flex items-center gap-2 rounded border border-dashed border-line-strong px-3 py-2 text-sm text-fg-secondary">
+                {!lockedInGrid && locked.map((row) => (
+                  <div key={row.id} data-testid="children-locked-row" className="mt-2 flex items-center gap-2 rounded border border-dashed border-line-strong px-3 py-2 text-sm text-fg-secondary">
                     <LockIcon />
-                    <span className="min-w-0 break-words font-medium text-fg">{row.title}</span>
-                    <span>{lockedRowText(row.rollup.total)}</span>
+                    {/* One run of text (canvas 2f g), never squeezed columns at phone width. */}
+                    <span className="min-w-0 break-words"><span className="font-medium text-fg">{row.title}</span> · {lockedRowText(row.rollup.total)}</span>
                   </div>
                 ))}
                 {folded.length > 0 && (
@@ -946,7 +1037,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
                     type="button"
                     aria-expanded={foldShown}
                     onClick={() => setFoldOpen((s) => toggle(s, lane.id))}
-                    className={`${FOCUS} ${tgt} mx-2 mt-2 px-3 text-sm text-fg-secondary rounded border border-line hover:bg-surface-hover`}
+                    className={`${FOCUS} ${tgt} mt-2 px-3 text-[13px] text-fg rounded-md border border-dashed border-line-strong bg-surface hover:bg-surface-hover ${phone ? "" : "ml-6 self-start"}`}
                   >
                     {foldLabel(foldedCount, plannedOnlyFolded)}
                   </button>
@@ -956,7 +1047,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
                     type="button"
                     disabled={loadingLane === lane.id}
                     onClick={() => void loadLane(lane.id)}
-                    className={`${FOCUS} ${tgt} mx-2 mt-2 px-3 text-sm text-link rounded hover:bg-surface-hover`}
+                    className={`${FOCUS} ${tgt} mt-2 px-3 text-sm text-link rounded hover:bg-surface-hover ${phone ? "" : "ml-6 self-start"}`}
                   >
                     {moreParentsLabel(remaining, phone)}
                   </button>

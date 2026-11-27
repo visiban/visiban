@@ -231,7 +231,8 @@ export default function BoardViewMenu(props: Props) {
     >
       <h2 className="text-sm font-semibold text-fg">View</h2>
 
-      {props.childrenOptions}
+      {/* Children mode: only the options it honors; the Cards-only controls are absent (#2370). */}
+      {props.childrenOptions ?? (<>
 
       <div>
         <span className={SECTION_LABEL}>Preset</span>
@@ -318,6 +319,7 @@ export default function BoardViewMenu(props: Props) {
           <kbd aria-hidden="true" className="text-xs text-fg-secondary">Y</kbd>
         </button>
       </div>
+      </>)}
     </div>
   ) : null;
 

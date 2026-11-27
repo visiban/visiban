@@ -1,3 +1,4 @@
+import { movementLine } from "../components/Card/childrenRollup";
 import type { ChildrenViewChild, ChildrenViewLane, ChildrenViewRow } from "../types";
 
 /**
@@ -105,9 +106,10 @@ export function allChildrenLinkText(laneName: string, inProgress: number | null)
  */
 export function columnHeadCaption(
   col: { is_done: boolean; card_count: number; wip_limit: number | null },
-  shownHere: number, boardName: string, showDone: boolean,
+  shownHere: number, boardName: string, showDone: boolean, padded = false,
 ): string {
-  if (col.is_done && !showDone) return "Count per row · Show opens them";
+  // A narrower child board's Done head only names itself: the first board's already explains the counts (canvas 6a).
+  if (col.is_done && !showDone) return padded ? "Done column" : "Count per row · Show opens them";
   return `${shownHere} of ${col.card_count} on ${boardName}${col.wip_limit != null ? ` · limit ${col.wip_limit}${columnOverLimit(col) ? " over" : ""}` : ""}`;
 }
 
@@ -183,6 +185,29 @@ export const parentsLabel = (n: number) => `${n} ${n === 1 ? "parent" : "parents
 export function laneSubtitle(lane: Pick<ChildrenViewLane, "parents" | "child_boards">): string {
   return `${parentsLabel(lane.parents)} · ${lane.child_boards} child ${lane.child_boards === 1 ? "board" : "boards"}`;
 }
+
+/** The band total split for drawing: the bold in-progress count, then " of 16" or " · 2 planned". */
+export function laneTotalParts(lane: Pick<ChildrenViewLane, "in_progress" | "planned" | "total">): { active: string; rest: string } {
+  const active = `${shownInProgress(lane)} in progress`;
+  return { active, rest: laneTotalLabel(lane).slice(active.length) };
+}
+
+/**
+ * A collapsed band's "Work idle 9d" (canvas 6a): the card rollup's own idle rule (`movementLine`) over the lane's
+ * server counts, so planned children never make a lane idle. Null when not idle.
+ */
+export function laneIdleLabel(
+  lane: Pick<ChildrenViewLane, "total" | "done" | "doing" | "todo" | "blocked" | "planned" | "last_moved_at">,
+  stalenessDays: number, now: number = Date.now(),
+): string | null {
+  const total = lane.total - lane.planned;
+  if (total <= 0) return null;
+  const m = movementLine({ visible: true, total, done: lane.done, doing: lane.doing, todo: lane.todo, blocked: lane.blocked, last_moved_at: lane.last_moved_at }, stalenessDays, now);
+  return m.idle ? m.text : null;
+}
+
+/** The phone band's hidden count (#2370 phone text): shorter than the desktop's "on a board you can't open". */
+export const phoneHiddenLabel = (n: number) => `+${n} you can't open`;
 
 /** The band group's accessible name (canvas 6a). */
 export function laneBandName(lane: ChildrenViewLane): string {

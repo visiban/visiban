@@ -186,7 +186,7 @@ describe('ChildrenModeView', () => {
     await screen.findByRole('region', { name: 'Acme Corp lane' })
     expect(getChildrenView).toHaveBeenCalledWith(4, { lane: null, done: false }, expect.anything())
     expect(screen.getByTestId('children-board-total')).toHaveTextContent('4 in progress')
-    expect(screen.getByText('4 in progress · 2 planned')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Acme Corp lane' })).toHaveTextContent('4 in progress · 2 planned')
     expect(screen.getByRole('grid', { name: 'Acme Corp children on Delivery, by parent' })).toBeInTheDocument()
     expect(screen.getByText("4 children on a board you can't open. Their columns and titles are not shown.")).toBeInTheDocument()
     // Planned child folds into the To do cell; the blocked card shows its accent line.
