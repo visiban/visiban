@@ -3942,7 +3942,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               limitFlags={board}
               members={board.members}
               onUpdated={(sl) => { handleLocalSwimlaneUpdated(sl); setChildrenEditLaneId(null); }}
-              onDeleted={(id) => { onSwimlaneDeleted(id); setChildrenEditLaneId(null); }}
+              onDeleted={(id) => { void onSwimlaneDeleted(id); setChildrenEditLaneId(null); }}
               onClose={() => setChildrenEditLaneId(null)}
               swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
               userDateFormat={userDateFormat}
