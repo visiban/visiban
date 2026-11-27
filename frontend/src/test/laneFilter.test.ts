@@ -9,6 +9,7 @@ import {
   normalizeText,
   opsForFieldType,
   ruleText,
+  ruleValueText,
   runsOf,
   textChain,
   ruleValues,
@@ -810,9 +811,32 @@ describe('laneFilter — checkbox and multi-select (#2438)', () => {
     const items = [rule(1, 21, 'is', { values: ['EMEA', 'APAC'] }), rule(2, 21, 'is_not', { values: ['web', 'APAC'] })]
     expect(laneFilterChipItems({ items }, fields, fmt).map((c) => c.label)).toEqual([
       'Pricing regions: EMEA, APAC',
-      'Pricing regions: not web, APAC',
+      'Pricing regions: none of web, APAC',
     ])
     expect(summarizeLaneFilter({ items: items.slice(0, 1) }, fields, fmt).readsAs).toBe('Reads as: Pricing regions: EMEA, APAC')
+  })
+
+  it('multi-select (#2708): the four wordings of ruleText', () => {
+    const text = (r: ReturnType<typeof rule>) => ruleText(r, 'multi_select', 'Pricing regions', (x) => x)
+    expect(text(rule(1, 21, 'is', { value: 'EMEA' }))).toBe('Pricing regions: EMEA')
+    expect(text(rule(1, 21, 'is', { values: ['EMEA', 'APAC'] }))).toBe('Pricing regions: EMEA, APAC')
+    expect(text(rule(1, 21, 'is_not', { value: 'EMEA' }))).toBe('Pricing regions: not EMEA')
+    expect(text(rule(1, 21, 'is_not', { values: ['EMEA', 'APAC'] }))).toBe('Pricing regions: none of EMEA, APAC')
+  })
+
+  it('ruleValueText (#2708) keeps non-is operators for the Filter panel row', () => {
+    const id = (x: string) => x
+    expect(ruleValueText(rule(1, 7, 'is_not', { value: 'gold' }), 'dropdown', id)).toBe('not gold')
+    expect(ruleValueText(rule(1, 7, 'is', { value: 'gold' }), 'dropdown', id)).toBe('gold')
+    expect(ruleValueText(rule(1, 8, 'not_contains', { value: ' x ' }), 'text', id)).toBe('does not contain x')
+    expect(ruleValueText(rule(1, 8, 'is', { value: 'x' }), 'text', id)).toBe('x')
+    expect(ruleValueText(rule(1, 8, 'is_not', { value: 'x' }), 'text', id)).toBe('not x')
+    const num = (min: string, max: string) => rule(1, 9, 'between', { min, max })
+    expect(ruleValueText(num('1', '5'), 'number', id)).toBe('1 to 5')
+    expect(ruleValueText(num('1', ''), 'number', id)).toBe('1 or more')
+    expect(ruleValueText(num('', '5'), 'number', id)).toBe('up to 5')
+    expect(ruleValueText(num('2026-01-01', ''), 'date', id)).toBe('on or after 2026-01-01')
+    expect(ruleValueText(num('', '2026-01-01'), 'date', id)).toBe('on or before 2026-01-01')
   })
 
   it('multi-select (#2659): a saved filter and a shared link round-trip several values', () => {

@@ -244,6 +244,37 @@ const TEXT_OP_WORDS: Partial<Record<FieldRuleOp, string>> = {
 };
 
 /**
+ * The value part of a multi-select or dropdown rule with its operator. "not EMEA, APAC" reads as "not EMEA, but
+ * APAC"; an is-not rule keeps lanes with none of the values, so several values say so (#2708). One value stays
+ * "not". `is` is only the values. Shared by `ruleText` and the Filter panel's lane row so they cannot drift.
+ */
+export function negatedValuesText(op: FieldRuleOp, values: string[]): string {
+  const shown = values.join(", ");
+  if (op !== "is_not") return shown;
+  return values.length >= 2 ? `none of ${shown}` : `not ${shown}`;
+}
+
+/**
+ * The Filter panel lane row's value text: the values with the operator whenever it is not a plain "is", so an
+ * is-not, does-not-contain or one-sided range never reads as its opposite (#2708). `show` renders a stored value.
+ */
+export function ruleValueText(rule: FieldRule<unknown>, t: RuleFieldType, show: (raw: string) => string): string {
+  if (isTextRuleType(t)) {
+    const word = TEXT_OP_WORDS[rule.op];
+    const v = show((rule.value ?? "").trim());
+    return word && rule.op !== "is" && rule.op !== "is_not" ? `${word} ${v}` : negatedValuesText(rule.op, v ? [v] : []);
+  }
+  if (rule.op === "between") {
+    const lo = normalizeFor(t, rule.min) !== null ? show(String(rule.min).trim()) : null;
+    const hi = normalizeFor(t, rule.max) !== null ? show(String(rule.max).trim()) : null;
+    if (lo !== null && hi !== null) return `${lo} to ${hi}`;
+    if (lo !== null) return t === "date" ? `on or after ${lo}` : `${lo} or more`;
+    return hi === null ? "" : t === "date" ? `on or before ${hi}` : `up to ${hi}`;
+  }
+  return negatedValuesText(rule.op, ruleValues(rule).map((x) => show(x)));
+}
+
+/**
  * Plain-language text for one complete rule. `fmt` renders a stored value for
  * display (number grouping, the user's date format).
  */
@@ -254,8 +285,7 @@ export function ruleText(rule: FieldRule<unknown>, t: RuleFieldType, label: stri
   // #2659), like the card chips: several values are joined with ", ".
   if (t === "checkbox") return `${label}: ${rule.value === "true" ? "Yes" : "No"}`;
   if (t === "multi_select") {
-    const shown = ruleValues(rule).join(", ");
-    return rule.op === "is_not" ? `${label}: not ${shown}` : `${label}: ${shown}`;
+    return `${label}: ${negatedValuesText(rule.op, ruleValues(rule))}`;
   }
   if (t === "dropdown") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${rule.value ?? ""}`;
   if (isTextRuleType(t)) {
