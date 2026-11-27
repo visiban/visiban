@@ -93,7 +93,9 @@ for "entry requirements" to jump there.
    allows it, can move it anyway with a reason) or **Hard** (no override).
 4. Select **Save requirements**. The "Applies to" line under the conditions
    shows which swimlanes they cover; it follows the field sets, so it is not
-   chosen here.
+   chosen here. When it names swimlanes, a note below says "Set by the field
+   set's lanes. Change them in Field sets.", and **Field sets** opens that
+   section of Board settings.
 
 Turning **Requirements on** off keeps the saved conditions but stops checking
 them. A column with **Requirements on** and no conditions saves as off, and

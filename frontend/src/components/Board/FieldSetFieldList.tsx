@@ -82,6 +82,8 @@ export default function FieldSetFieldList({ definitions, fieldIds, setName, othe
           return d ? insertByPosition(next, d.id, definitions) : next;
         }, ids))}
       />
+      {/* #2672: a field belongs to one set, so adding it here takes it out of the other. */}
+      <p className="text-xs text-fg-tertiary">Fields from another set move out of it.</p>
     </div>
   );
 }

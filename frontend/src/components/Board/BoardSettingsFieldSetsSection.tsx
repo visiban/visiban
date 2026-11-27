@@ -352,7 +352,9 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
                     <input className={INPUT} maxLength={100} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-fg-muted">Description (optional)
-                    <input className={INPUT} maxLength={120} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+                    <input className={INPUT} maxLength={120} aria-describedby="field-set-description-help" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+                    {/* #2672: design helper; the server refuses over 120 too. */}
+                    <span id="field-set-description-help" className="text-xs text-fg-tertiary">Shown under the set name on cards. Up to 120 characters.</span>
                   </label>
                   <fieldset className="flex flex-col gap-1">
                     <legend className="text-xs text-fg-muted mb-1">Default size</legend>
@@ -382,6 +384,8 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
                           onChange={(swimlanes) => setDraft({ ...draft, swimlanes })}
                           escapePriority={FIELD_SET_MENU_ESCAPE_PRIORITY}
                         />
+                        {/* #2672: the out-of-lane rule (utils/fieldSets.ts outOfLane). */}
+                        <p className="mt-1 text-xs text-fg-tertiary">A card in another lane that already has a value in one of these fields still shows the set, collapsed.</p>
                       </div>
                     )}
                   </fieldset>

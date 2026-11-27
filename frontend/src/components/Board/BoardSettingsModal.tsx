@@ -2010,6 +2010,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 swimlanes={board.swimlanes}
                 isAdmin={isAdmin}
                 initialColumnId={initialEntryColumnId}
+                onOpenFieldSets={() => selectTab("field-sets")}
                 onSave={async (columnId, body) => {
                   const updated = await saveEntryRequirements(board.id, columnId, body);
                   onColumnUpdated?.(updated);

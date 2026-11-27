@@ -368,9 +368,11 @@ count toward the 30-field limit, and do not block a card from moving.
 
 Board admins create, rename, reorder and delete sets; other roles see the list read-only. Each
 set has a **name**, an optional **description** (up to 120 characters, shown under the name on
-the card), a **default size** (Collapsed, Summary or All fields), **Shows on** (every card, or
-only cards in chosen swimlanes), and its **fields**. A field is in at most one set; adding a
-field that is in another set moves it. Pick fields in the **+ Add field** menu (listed as **Not in
+the card; the editor says so under the box, and a longer one is refused), a **default size** (Collapsed, Summary or All fields), **Shows on** (every card, or
+only cards in chosen swimlanes), and its **fields**. With chosen swimlanes, the editor notes that
+a card in another lane that already has a value in one of the set's fields still shows the set,
+collapsed. A field is in at most one set; adding a field that is in another set moves it, and the
+editor says so under the field list ("Fields from another set move out of it."). Pick fields in the **+ Add field** menu (listed as **Not in
 a set** or **In another set**) and click **Done**; choose swimlanes in the **Swimlanes** menu. Drag
 the handle to reorder sets, or the fields inside a set (on a phone, use the arrow buttons). Set order
 saves at once; field order saves with **Save field set**, and is the board's field order, so the
@@ -396,7 +398,8 @@ and dimension fields are not counted, so "missing" never means "No") and a size 
 - **Collapsed** shows the header only.
 - **Summary** shows one line of chips, missing fields first, then "+N" for the rest.
 - **All fields** shows every field.
-- **Maximize** fills the card sheet with one set. Previous / Next step through the sets;
+- **Maximize** fills the card sheet with one set. Its header shows the progress and the set's
+  place, for example "4 of 6 filled · 1 of 4 sets". Previous / Next step through the sets;
   **Restore** or Escape returns you to where you were.
 
 Your sizes are saved per card in this browser and are yours alone. **Collapse all** and

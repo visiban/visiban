@@ -79,6 +79,20 @@ describe('BoardSettingsEntryRequirementsSection', () => {
     expect(screen.getByText(/Applies in swimlanes where MEDDIC shows: Enterprise, Mid-market\. Cards created directly in Proposal are checked too\./)).toBeInTheDocument()
   })
 
+  it('says where a derived lane scope is changed, with a link to Field sets (#2672)', () => {
+    const onOpenFieldSets = vi.fn()
+    setup({ initialColumnId: 2, onOpenFieldSets })
+    expect(screen.getByTestId('entry-lanes-help')).toHaveTextContent("Set by the field set's lanes. Change them in Field sets.")
+    screen.getByRole('button', { name: 'Field sets' }).click()
+    expect(onOpenFieldSets).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the lane-scope note as plain text without a Field sets handler (#2672)', () => {
+    setup({ initialColumnId: 2 })
+    expect(screen.getByTestId('entry-lanes-help')).toHaveTextContent('Change them in Field sets.')
+    expect(screen.queryByRole('button', { name: 'Field sets' })).toBeNull()
+  })
+
   it('moves with the arrow keys (roving tabindex) and Home/End', async () => {
     setup()
     const first = screen.getByRole('radio', { name: /Entering Discovery/ })
