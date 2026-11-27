@@ -28,13 +28,13 @@ if re.search(r"backend/.*/models\.py$", file_path):
     messages.append("⚠️  models.py modified — use the migration-check agent to verify migration safety")
 
 if re.search(r"backend/.*/views\.py$", file_path):
-    messages.append("⚠️  views.py modified — use the rbac-check and security-review agents")
+    messages.append("⚠️  views.py modified — use the rbac-check, security-review and api-docs agents")
 
 if re.search(r"backend/.*/serializers\.py$", file_path):
-    messages.append("⚠️  serializers.py modified — use the security-review agent")
+    messages.append("⚠️  serializers.py modified — use the security-review and api-docs agents")
 
 if re.search(r"backend/.*/permissions\.py$", file_path):
-    messages.append("⚠️  permissions.py modified — use the rbac-check and security-review agents")
+    messages.append("⚠️  permissions.py modified — use the rbac-check, security-review and api-docs agents")
 
 # Same-commit test reminder: backend production source edited (not tests/migrations/management)
 if (re.search(r"backend/", file_path)

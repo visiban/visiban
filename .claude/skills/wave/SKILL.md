@@ -309,7 +309,7 @@ Spend sits in a few long agents, and until #2157 the only stop was the agent fin
 (ported from Blueprint's `/wave`, macrodream/blueprint#247). Every agent gets a budget in
 its brief, counted in tool calls and wall-clock minutes. An agent with `Bash` (the
 implementer, `completeness-check`, `regression-check`, `security-review`, `perf-check`,
-`migration-check`) reads `date` at the start and every few calls. An agent without `Bash`
+`migration-check`, `api-docs`) reads `date` at the start and every few calls. An agent without `Bash`
 (`rbac-check`, `broadcast-check`, `ux-review`) has **only the tool-call cap**: its wall-clock
 limit is not enforced (short read-only passes; having the orchestrator watch a clock for them
 costs more than it saves). Tool calls are not the ledger's `turns:` unit; keep the two apart.
@@ -359,8 +359,8 @@ plain `N findings` line.** Record it as `gate: <name> — <N> findings (<model>;
 (`budget-stopped` is its own `;` field), or re-run the gate under the expanded budget and record
 that run. Never present a stopped gate's `0 findings` as a clean result.
 
-**What the harness enforces, and what it does not.** The read-only gate agent files and
-`completeness-check` set `maxTurns` in their frontmatter (39 and 61: the expanded budget plus
+**What the harness enforces, and what it does not.** The read-only gate agent files,
+`api-docs` (a writer, so not read-only) and `completeness-check` set `maxTurns` in their frontmatter (39 and 61: the expanded budget plus
 one). `ux-review` and `ux-design` set none: their budget is the brief's alone. The ceiling is per run, not per agent (a resume restarts the count), and it counts turns,
 not tool calls, so an agent that batches can pass its call budget first. An agent still calling
 tools at the ceiling gets no last turn: a harness stop arrives as a `completed` result carrying
@@ -485,7 +485,7 @@ named. Include:
 - The completion contract from Step 5.
 - **Its budget** from the table in *Per-agent budget*: tool calls and wall-clock minutes for its
   role, labeled provisional, and the instruction to stop and report at the limit. The
-  implementer's brief also carries the read-only-gate row (25 tool calls, 15 min, provisional)
+  implementer's brief also carries the read-only-gate row and the `api-docs` row (25 tool calls, 15 min, provisional)
   for each pre-MR batch agent it spawns, with the same stop-and-report instruction, to pass in
   each gate's prompt. It also says that a run cut off at a limit gets no last turn, so it
   commits each coherent step once its tests pass.
