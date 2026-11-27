@@ -4544,7 +4544,7 @@
 <p>A user with a role in a parent group automatically has that same role on all sub-groups and boards within it.</p>
 <p><strong>Why it matters:</strong> Add someone to a parent group once, and they get the right access everywhere below it, with no per-board setup.</p>
 <p><strong>The big picture:</strong> group roles are inherited through the group ancestry chain.</p>
-<p>All four non-admin roles — <code>admin</code>, <code>member</code>, <code>collaborator</code>, and <code>viewer</code> — are valid at both the group and board level. An explicit <code>BoardMembership</code> record can override the inherited role for a specific board.</p>
+<p>All four non-admin roles — <code>admin</code>, <code>member</code>, <code>collaborator</code>, and <code>viewer</code> — are valid at both the group and board level. An explicit <code>BoardMembership</code> record can override the inherited role for a specific board (see <a href="#overrides">Overrides</a>).</p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <p>When resolving a user's effective role on a board, Visiban checks in this order:</p>
 <ol>
@@ -4563,9 +4563,9 @@
 </code></pre></div>
 <p>Alice is an <code>admin</code> on "Sprint 12" because she is an admin of "Acme Corp" and no more specific membership overrides it.</p>
 <h2 id="overrides">Overrides<a class="headerlink" href="#overrides" title="Permanent link">&para;</a></h2>
-<p>An explicit <code>BoardMembership</code> always takes precedence over inherited group membership. This lets you grant a user a narrower role on a specific board — for example, a group <code>admin</code> explicitly set as a <code>viewer</code> on one sensitive board.</p>
+<p>An explicit <code>BoardMembership</code> takes precedence over inherited group membership. It can raise a user's role on a specific board or narrow it — for example, a group <code>member</code> set as a <code>viewer</code> on one sensitive board. <em>(1.3+)</em> The exception is a user who is an <code>admin</code> through the group (or a parent group): their direct role on the group's boards can't be set below <code>admin</code>. Remove their direct membership to return them to the group role, or change their group role.</p>
 <h2 id="collaborator-and-viewer">Collaborator and viewer<a class="headerlink" href="#collaborator-and-viewer" title="Permanent link">&para;</a></h2>
-<p><code>collaborator</code> and <code>viewer</code> are valid at both the group and board level. As a group membership role, they're inherited by all boards within the group exactly like <code>admin</code> and <code>member</code>. An explicit <code>BoardMembership</code> always overrides the inherited value for that specific board.</p>
+<p><code>collaborator</code> and <code>viewer</code> are valid at both the group and board level. As a group membership role, they're inherited by all boards within the group exactly like <code>admin</code> and <code>member</code>. An explicit <code>BoardMembership</code> overrides the inherited value for that specific board, except that it can't be set below <code>admin</code> for someone who is an admin through the group (see <a href="#overrides">Overrides</a>).</p>
 <h2 id="visibility-of-descendant-groups">Visibility of descendant groups<a class="headerlink" href="#visibility-of-descendant-groups" title="Permanent link">&para;</a></h2>
 <p>Parent-group membership implies visibility into all descendant sub-groups and their boards. A user added to a parent group can:</p>
 <ul>

@@ -5258,6 +5258,11 @@ without re-typing or silently discarding the password.</p>
 </tr>
 <tr>
 <td><code>400</code></td>
+<td><code>{"host": ["This mail host is not allowed…"]}</code></td>
+<td>The submitted host is, or resolves to, a loopback, link-local or metadata address. The same check runs when mail is sent from the stored configuration, where it reports <code>config_unusable</code>. See <code>SMTP_ALLOW_PRIVATE_HOSTS</code></td>
+</tr>
+<tr>
+<td><code>400</code></td>
 <td><code>{"from_email": ["Enter your real sending address…"]}</code></td>
 <td>Sender is still an <code>example.com</code> placeholder</td>
 </tr>
