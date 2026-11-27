@@ -152,5 +152,8 @@ describe('SavedFilterTabs', () => {
     expect(within(screen.getByRole('button', { name: filterA.name })).getByTestId('active-mark')).toBeInTheDocument()
     expect(within(screen.getByRole('button', { name: filterB.name })).queryByTestId('active-mark')).not.toBeInTheDocument()
     expect(within(screen.getByRole('button', { name: 'All' })).queryByTestId('active-mark')).not.toBeInTheDocument()
+    // Idle pills hold the check's room as symmetric padding, not an empty slot (#2673).
+    expect(screen.getByRole('button', { name: 'All' }).className).toContain('px-[1.125rem]')
+    expect(screen.getByRole('button', { name: filterA.name }).className).toContain('px-2.5')
   })
 })

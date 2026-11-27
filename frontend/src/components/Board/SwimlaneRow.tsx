@@ -23,7 +23,7 @@ import type { LimitFlags, TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import { laneRollup } from "../../utils/laneRollup";
 import { splitCellBySubColumn, stageSubColumns } from "../../utils/stages";
-import { DEFAULT_LANE_DETAILS_CAP, INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, laneTierFields, type LaneBandField } from "../../utils/laneBand";
+import { BAND_DEFAULT_COUNT, DEFAULT_LANE_DETAILS_CAP, laneBandFields, laneBandLimit, laneGridFields, laneTierFields, type LaneBandField } from "../../utils/laneBand";
 import LaneFieldGrid, { LaneTierDetails } from "./LaneFieldGrid";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import ActiveUnderline from "../Common/ActiveUnderline";
@@ -39,6 +39,8 @@ interface Props {
   isAdmin: boolean;
   /** #2439 — `Board.lane_details_cap`, for `resolveLaneTiers`. */
   laneDetailsCap?: number;
+  /** #2663 — Band fields this screen shows (`useBoardViewWidthVar`). Omitted: the default two. */
+  bandSlots?: number;
   canEdit: boolean;
   closeEditorOnEnter: boolean;
   collapsedColumnIds: Set<number>;
@@ -173,7 +175,7 @@ function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
   return autoEnabled && !!lane.health_computed_at;
 }
 
-export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, childrenAction, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onManageSwimlaneFields, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, members, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
+export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, bandSlots = BAND_DEFAULT_COUNT, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, childrenAction, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onManageSwimlaneFields, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, members, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -198,17 +200,20 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   // #2439: on a board with tiers the band shows its Band fields, and "Show N more" opens the
   // Details grid plus Hidden on band (N = details + hidden the viewer may see). Null is a
   // legacy board, which keeps the band above exactly until an admin sets a tier.
-  const tiers = laneTierFields(swimlane, swimlaneFieldDefinitions, isAdmin, laneDetailsCap);
+  const tiers = laneTierFields(swimlane, swimlaneFieldDefinitions, isAdmin, laneDetailsCap, bandSlots);
   // #2211: the lane's default team is the first row behind "+N"; it is not on the band itself.
   const laneDefault = useMemo(() => laneDefaultAssignee(swimlane, members), [swimlane, members]);
   const teamNames = useMemo(() => teamRowNames(swimlane, members), [swimlane, members]);
   const teamRows = teamNames.length > 0 ? 1 : 0;
   const moreCount = (tiers ? tiers.details.length + tiers.hidden.length : gridFields.length) + teamRows;
   // Per board, so every lane shows the toggle or none does; a lane with a team also shows it.
-  const showFieldToggle = (tiers ? moreCount - teamRows > 0 : gridFields.length > INLINE_FIELD_COUNT) || teamRows > 0;
+  const showFieldToggle = (tiers ? moreCount - teamRows > 0 : gridFields.length > BAND_DEFAULT_COUNT) || teamRows > 0;
   // A legacy board whose toggle exists only for the team reads "Show 1 more", never "0 fields".
-  const moreLabel = tiers != null || gridFields.length <= INLINE_FIELD_COUNT;
+  const moreLabel = tiers != null || gridFields.length <= BAND_DEFAULT_COUNT;
   const bandFields = tiers ? tiers.band : inlineFields;
+  // #2663: only more than the default two share one clipping line (and cap the name to make room).
+  // Two or fewer keep the wrapping band, so a narrow screen shows them in full.
+  const oneLine = tiers !== null && bandFields.length > BAND_DEFAULT_COUNT;
 
   // Status counts for the band's trailing stats and the collapsed strip's squares.
   const doneColumnIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));
@@ -336,6 +341,8 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
       adminOnly={def.is_admin_only}
       hideName={hideRowChipFieldNames}
       userDateFormat={userDateFormat}
+      // #2663: a one-line band does not wrap a multi-select.
+      singleLine={oneLine}
     />
   );
 
@@ -417,7 +424,9 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             />
           ) : (
             <span
-              className="min-w-0 max-w-full truncate text-[17px] font-semibold text-fg"
+              // #2663: on a one-line band the name stops at 24rem so a long one cannot push the
+              // fields and stats to a second line.
+              className={`min-w-0 truncate text-[17px] font-semibold text-fg ${oneLine ? "max-w-[min(100%,24rem)]" : "max-w-full"}`}
               title={isAdmin ? undefined : swimlane.name}
               data-testid="swimlane-name"
             >
@@ -554,12 +563,21 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${tiers ? (fieldsOpen ? "rotate-180" : "") : fieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
             </button>
           )}
-          {/* The first two lane fields as "Label value". They stay in the band when the lane
+          {/* The lane fields as "Label value". They stay in the band when the lane
               is collapsed (the band is the collapsed lane's header). */}
-          {/* Legacy: open hides the inline pair (the grid repeats it). Tiered: Band fields stay. */}
-          {(tiers || !(showFieldToggle && fieldsOpen)) && bandFields.map((bandField) => renderField(bandField))}
+          {/* Legacy: the first two; open hides them (the grid repeats them). */}
+          {!tiers && !(showFieldToggle && fieldsOpen) && bandFields.map((bandField) => renderField(bandField))}
 
-          <div className="flex-1 min-w-0" />
+          {/* Tiered: Band fields stay while open. More than two (#2663) share one group that takes
+              the free space and truncates, so they never push the stats to a second line; the p-0.5
+              keeps a link's focus ring inside the clip. Two or fewer: `contents`, no box, so they
+              wrap with the band like any other item. */}
+          {tiers && bandFields.length > 0 && (
+            <div className={oneLine ? "flex flex-1 basis-0 min-w-48 items-center gap-x-3 overflow-hidden p-0.5 -m-0.5" : "contents"} data-testid="swimlane-band-fields">
+              {bandFields.map((bandField) => renderField(bandField))}
+            </div>
+          )}
+          {!oneLine && <div className="flex-1 min-w-0" />}
 
           {/* Trailing stats (tiers: frontend/CLAUDE.md § Swimlane bands, #2335): overdue and
               stale (secondary, omitted at zero), the limit line (#1150; tertiary: a calm one
@@ -569,7 +587,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           {noMatch && <span className="text-sm text-fg-tertiary whitespace-nowrap" data-testid="swimlane-no-match">No matching cards</span>}
           {/* board-states.png: the no-match band is the name and "No matching cards" only, so the stats go. */}
           {!noMatch && (
-          <div className="flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold" data-testid="swimlane-band-stats">
+          <div className={`flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold ${oneLine ? "shrink-0 max-w-full" : ""}`} data-testid="swimlane-band-stats">
             {overdueCount > 0 && <span className="text-danger-on-tint whitespace-nowrap" data-testid="swimlane-overdue-count">{overdueCount} {STATUS_LABEL.overdue}</span>}
             {staleCount > 0 && <span className="text-warning-on-tint whitespace-nowrap" data-testid="swimlane-stale-count">{staleCount} {STATUS_LABEL.stale}</span>}
             {limit !== null && (

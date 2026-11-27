@@ -111,6 +111,21 @@ export function pruneStaleFilters(
 }
 
 /**
+ * The client-side search predicate: title, description, assignee name and label
+ * names, used by `filterCards`. The Filter panel's "Title contains" count does
+ * not use it: it counts title and description, like the server search.
+ */
+export function cardMatchesSearch(card: Card, search: string): boolean {
+  const q = search.toLowerCase();
+  return (
+    card.title.toLowerCase().includes(q) ||
+    card.description.toLowerCase().includes(q) ||
+    (card.assignee !== null && userDisplayName(card.assignee).toLowerCase().includes(q)) ||
+    card.labels.some((l) => l.name.toLowerCase().includes(q))
+  );
+}
+
+/**
  * Pure client-side card filter. Applies assignee, label, priority, due-date,
  * and optional full-text search filters to a list of cards.
  *
@@ -155,13 +170,7 @@ export function filterCards(
 
       // Client-side full-text search (only when no server search is active)
       if (searchResultSet === null && filters.search) {
-        const q = filters.search.toLowerCase();
-        const matches =
-          card.title.toLowerCase().includes(q) ||
-          card.description.toLowerCase().includes(q) ||
-          (card.assignee !== null && userDisplayName(card.assignee).toLowerCase().includes(q)) ||
-          card.labels.some((l) => l.name.toLowerCase().includes(q));
-        if (!matches) return false;
+        if (!cardMatchesSearch(card, filters.search)) return false;
       }
 
       if (filters.assigneeIds.length > 0) {

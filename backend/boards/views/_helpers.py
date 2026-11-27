@@ -44,6 +44,7 @@ from ..permissions import (
     get_board_role,
 )
 from ..serializers import CardSerializer, _card_queryset, annotate_has_values
+from ..serializers import entry_requirements_prefetch as _entry_requirements_prefetch
 from ..services import cards as _card_services
 from ..services.errors import ContainerChanged
 from ..utils import _get_effective_member_ids, _get_assignable_member_ids
@@ -514,6 +515,8 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
                 "columns__stage_tracks",
                 queryset=StageTrack.objects.select_related("field_definition"),
             ),
+            # #1923: ColumnSerializer's entry_requirements, one query.
+            _entry_requirements_prefetch("columns__"),
         )
         queryset = queryset.annotate(
             _archived_card_count=Coalesce(

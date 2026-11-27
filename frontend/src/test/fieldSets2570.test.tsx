@@ -8,6 +8,7 @@ import {
 } from "../utils/fieldSets";
 import { fieldSetSizeKey, loadSizes, MAX_ENTRIES } from "../hooks/useFieldSetSizePref";
 import { pruneSetFields, pruneSetLane } from "../utils/fieldSets";
+import { widenedRequirementsSentence } from "../utils/fieldSetSettings";
 import { withCardDefinitions } from "../hooks/useBoard";
 import CustomFieldValueInput from "../components/Card/CustomFieldValueInput";
 
@@ -32,6 +33,8 @@ vi.mock("../components/Card/CustomFieldEditRow", async (importOriginal) => {
 vi.mock("../api/boards", () => ({
   createFieldSet: vi.fn(), updateFieldSet: vi.fn(), deleteFieldSet: vi.fn(), listFieldSets: vi.fn(),
   reorderFieldSets: vi.fn(), reorderCustomFields: vi.fn(), copyFieldSet: vi.fn(), listAllBoards: vi.fn(), listCustomFieldDefinitions: vi.fn(),
+  // #1923 dry runs: nothing widens unless a test says so.
+  previewDeleteFieldSet: vi.fn().mockResolvedValue([]), previewUpdateFieldSet: vi.fn().mockResolvedValue([]),
 }));
 import * as api from "../api/boards";
 import FieldSetBlocks, { MAXIMIZE_ESCAPE_PRIORITY } from "../components/Card/FieldSetBlocks";
@@ -676,5 +679,40 @@ describe("field set editor controls (#2570, ux-design section 4)", () => {
     await screen.findByRole("alert");
     expect((onSets.mock.calls[0][0] as CustomFieldSet[]).map((s) => s.id)).toEqual([2, 1]);
     expect((onSets.mock.calls[1][0] as CustomFieldSet[]).map((s) => s.id)).toEqual([1, 2]);
+  });
+});
+
+describe("Field sets: entry requirements a change widens (#1923, owner Q3)", () => {
+  it("names a set_complete row by its set, not a field", () => {
+    expect(widenedRequirementsSentence([
+      { column_name: "Proposal", field_name: null, field_set_name: "MEDDIC" },
+      { column_name: "Won", field_name: null },
+    ])).toEqual(["2 entry requirements will then apply in every swimlane (Proposal: MEDDIC complete; Won: Field set complete)."]);
+  });
+
+  const affected = [{ requirement_uid: "r1", column_uid: "c2", column_name: "Proposal", operator: "filled" as const, field_uid: "f1", field_name: "Amount" }];
+  const mount = () => render(<BoardSettingsFieldSetsSection board={board} isAdmin onFieldSetsUpdated={vi.fn()} onFieldsUpdated={vi.fn()} />);
+
+  it("the delete confirm lists them from the dry run", async () => {
+    vi.mocked(api.previewDeleteFieldSet).mockResolvedValueOnce(affected);
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: /^MEDDIC/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete set" }));
+    expect(await screen.findByText(/1 entry requirement will then apply in every swimlane \(Proposal: Amount\)\./)).toBeInTheDocument();
+    expect(api.previewDeleteFieldSet).toHaveBeenCalledWith(1, board.custom_field_sets![0].id);
+  });
+
+  it("a save that widens them confirms first, then saves", async () => {
+    vi.mocked(api.previewUpdateFieldSet).mockResolvedValueOnce(affected);
+    vi.mocked(api.updateFieldSet).mockResolvedValue(board.custom_field_sets![0] as never);
+    vi.mocked(api.listFieldSets).mockResolvedValue(board.custom_field_sets as never);
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: /^MEDDIC/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Name/ }), { target: { value: "MEDDIC 2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save field set" }));
+    expect(await screen.findByText(/Save MEDDIC 2\? 1 entry requirement will then apply in every swimlane/)).toBeInTheDocument();
+    expect(api.updateFieldSet).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save set" }));
+    await waitFor(() => expect(api.updateFieldSet).toHaveBeenCalled());
   });
 });

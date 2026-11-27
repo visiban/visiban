@@ -30,6 +30,7 @@ import {
   opsForFieldType,
   ruleText,
   textChain,
+  withRuleValues,
   type FieldRule,
   type FieldRuleJoin,
   type FieldRuleOp,
@@ -92,6 +93,11 @@ export const LANE_FILTER_MAX_ITEMS = 20;
 export const LANE_FILTER_MAX_RULES = 50;
 export const LANE_FILTER_MAX_STRING = 500;
 export const LANE_FILTER_MAX_ID = 2 ** 31 - 1;
+/**
+ * #2659 — most values one multi-select rule may hold (SavedFilterSerializer._LANE_MAX_VALUES):
+ * the most choices a multi-select field may have, so ticking every choice always saves.
+ */
+export const LANE_FILTER_MAX_VALUES = 100;
 
 // An op this client does not know (a newer client's, say) drops the whole
 // rule in parseRule, so it can never filter with semantics it cannot apply.
@@ -254,12 +260,36 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
     const choices = isLaneBuiltinField(field) ? LANE_BUILTIN_FIELDS.find((b) => b.key === field)?.choices : undefined;
     if (isPresenceOp(op) && !choices) return null;
     if (choices && !isPresenceOp(op) && typeof o.value === "string" && o.value !== "" && !choices.includes(o.value)) return null;
+    // #2659 — several values belong to a multi-select is / is not rule on a
+    // custom field only, bounded like the server, with no range bounds. Any
+    // other `values` is a shape this client cannot apply: drop the rule.
+    let values: string[] | undefined;
+    if (o.values !== undefined) {
+      const ok =
+        Array.isArray(o.values) &&
+        o.values.length > 0 &&
+        o.values.length <= LANE_FILTER_MAX_VALUES &&
+        o.values.every((v) => str(v) !== undefined && v !== "") &&
+        (op === "is" || op === "is_not") &&
+        validId(field) &&
+        o.min === undefined &&
+        o.max === undefined;
+      if (!ok) return null;
+      values = o.values as string[];
+    }
     ruleBudget--;
     const rule: LaneRule = { kind: "rule", id: takeId(o.id), join: o.join === "or" ? "or" : "and", field, op };
     const value = str(o.value);
     const min = str(o.min);
     const max = str(o.max);
     if (isPresenceOp(op)) return rule; // is set / is empty carry no operand
+    if (values) {
+      // One value reads back as `value`, the shape every client knows.
+      const operand = withRuleValues(values);
+      if (operand.values) rule.values = operand.values;
+      else rule.value = operand.value;
+      return rule;
+    }
     if (op === "contains" || op === "not_contains" || op === "wildcard") {
       // The server accepts these only with a string value and no range
       // bounds. The compact URL form drops an empty value, so restore it.
@@ -296,13 +326,15 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
 
 // URL form: `f_lanes=1.<compact JSON>`. The leading version lets a later
 // shape change keep reading old links. Compact keys keep shared links short.
-interface CompactRule { j?: "o"; f: LaneFieldKey | null; o: FieldRuleOp; v?: string; a?: string; b?: string }
+// `vs` (#2659) carries a multi-select rule's several values; an older client ignores it.
+interface CompactRule { j?: "o"; f: LaneFieldKey | null; o: FieldRuleOp; v?: string; vs?: string[]; a?: string; b?: string }
 interface CompactGroup { j?: "o"; g: CompactRule[] }
 
 function toCompactRule(r: LaneRule): CompactRule {
   const c: CompactRule = { f: r.field, o: r.op };
   if (r.join === "or") c.j = "o";
   if (r.value) c.v = r.value;
+  if (r.values && r.values.length > 0) c.vs = r.values;
   if (r.min) c.a = r.min;
   if (r.max) c.b = r.max;
   return c;
@@ -311,7 +343,7 @@ function toCompactRule(r: LaneRule): CompactRule {
 function fromCompactRule(c: unknown): unknown {
   if (typeof c !== "object" || c === null) return null;
   const o = c as Record<string, unknown>;
-  return { kind: "rule", join: o.j === "o" ? "or" : "and", field: o.f, op: o.o, value: o.v, min: o.a, max: o.b };
+  return { kind: "rule", join: o.j === "o" ? "or" : "and", field: o.f, op: o.o, value: o.v, values: o.vs, min: o.a, max: o.b };
 }
 
 export function serializeLaneFilterParam(f: LaneFilter | undefined): string | null {
@@ -357,6 +389,8 @@ function pruneRule(r: LaneRule, types: Map<LaneFieldKey, RuleFieldType>): LaneRu
   // that narrows the result rather than widening it; the stored state is
   // left as is, so an admin's own filter comes back if they regain the role.
   if (!t || !opsForFieldType(t).includes(r.op)) return null;
+  // #2659 — several values on a field that is no longer a multi-select (its type changed).
+  if (r.values !== undefined && t !== "multi_select") return null;
   if (t === "dropdown" || t === "enum" || t === "checkbox" || t === "multi_select" || isTextRuleType(t)) return r;
   const norm = t === "number" ? normalizeNumber : normalizeDate;
   const badMin = !!r.min && norm(r.min) === null;
@@ -428,7 +462,8 @@ export function ignoredRulesText(n: number): string {
 export function isLaneFilterActive(f: LaneFilter | undefined): boolean {
   if (!f) return false;
   const done = (r: LaneRule) =>
-    r.field !== null && (isPresenceOp(r.op) ? true : r.op === "between" ? !!(r.min || r.max) : !!r.value?.trim());
+    r.field !== null &&
+    (isPresenceOp(r.op) ? true : r.op === "between" ? !!(r.min || r.max) : !!r.value?.trim() || (r.values?.length ?? 0) > 0);
   return f.items.some((it) => (it.kind === "rule" ? done(it) : it.rules.some((element) => done(element))));
 }
 

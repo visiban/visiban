@@ -1047,11 +1047,15 @@ class CardViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         card_services.require_mutation_role(actor=request.user, board=board, role=role)
         self._create_override = None
+        self._create_entry_unmet = None
         response = super().create(request, *args, **kwargs)
         if self._create_override:
             # Additive (#1923), as the move and restore bodies carry it:
             # present only when a limit was overridden.
             response.data["override"] = self._create_override
+        if self._create_entry_unmet:
+            # Additive (#1923 MR B): only when a Warn requirement was unmet.
+            response.data["entry_unmet"] = self._create_entry_unmet
         return response
 
     def perform_create(self, serializer):
@@ -1087,6 +1091,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # park the empty list rather than let the 201 body query the manager.
         setattr(serializer.instance, _PARKED_DIMENSION_PLANS, [])
         self._create_override = result.payload.get("override")
+        self._create_entry_unmet = result.payload.get("entry_unmet")
 
     def perform_destroy(self, instance):
         board, role = self._board_and_role()

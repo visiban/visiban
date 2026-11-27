@@ -1656,9 +1656,10 @@ describe('BoardSettingsSwimlaneFieldsTab tiers (#2439)', () => {
   it('shows derived tiers and counters on a legacy board, with the filters and help lines and the preview', () => {
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(legacy())} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />)
     expect(screen.getByText('Choose where each field appears on the lane band. Drag to reorder.')).toBeInTheDocument()
-    expect(screen.getByTestId('swimlane-band-counter')).toHaveTextContent('2 / 2')
+    expect(screen.getByTestId('swimlane-band-counter')).toHaveTextContent('2 / 6')
+    expect(screen.getByText('Beside the lane name · up to 6')).toBeInTheDocument()
     expect(screen.getByTestId('swimlane-details-counter')).toHaveTextContent('2 / 6')
-    expect(within(screen.getByRole('radiogroup', { name: 'Show F2' })).getByRole('radio', { name: 'Band' })).toHaveAttribute('aria-disabled', 'true')
+    expect(within(screen.getByRole('radiogroup', { name: 'Show F2' })).getByRole('radio', { name: 'Band' })).not.toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByText(/Every field can be searched and used in filters/)).toBeInTheDocument()
     expect(screen.getByTestId('swimlane-tier-preview')).toHaveTextContent('Show 2 more')
   })
@@ -1692,12 +1693,16 @@ describe('BoardSettingsSwimlaneFieldsTab tiers (#2439)', () => {
   })
 
   it('a blocked option does nothing; a server 400 reverts and shows the reason', async () => {
-    const defs = [makeDef({ id: 1, name: 'A', position: 0, band_visibility: 'band' }), makeDef({ id: 2, name: 'B', position: 1, band_visibility: 'band' }), makeDef({ id: 3, name: 'C', position: 2, band_visibility: 'details' })]
+    const defs = [
+      makeDef({ id: 1, name: 'A', position: 0, band_visibility: 'band' }),
+      ...[2, 4, 5, 6, 7].map((id) => makeDef({ id, name: `B${id}`, position: id + 1, band_visibility: 'band' })),
+      makeDef({ id: 3, name: 'C', position: 2, band_visibility: 'details' }),
+    ]
     mockApi.updateSwimlaneCustomFieldDefinition.mockReset()
     mockApi.updateSwimlaneCustomFieldDefinition.mockRejectedValue({ response: { data: { band_visibility: ['Lane details hold 6 fields. Move one to Hidden first, or raise the limit.'] } } })
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />)
     const band = within(screen.getByRole('radiogroup', { name: 'Show C' })).getByRole('radio', { name: 'Band' })
-    expect(band).toHaveAttribute('title', 'The band holds 2 fields. Move one to Details first.')
+    expect(band).toHaveAttribute('title', 'The band holds 6 fields. Move one to Details first.')
     await userEvent.click(band)
     expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
     await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Show A' })).getByRole('radio', { name: 'Details' }))
@@ -1705,11 +1710,28 @@ describe('BoardSettingsSwimlaneFieldsTab tiers (#2439)', () => {
     expect(within(screen.getByRole('radiogroup', { name: 'Show A' })).getByRole('radio', { name: 'Band' })).toHaveAttribute('aria-checked', 'true')
   })
 
+  it('says how many band fields fit only when this screen shows fewer, and never when unknown (#2663)', () => {
+    const defs = [0, 1, 2, 3].map((i) => makeDef({ id: i + 1, name: `F${i}`, position: i, band_visibility: 'band' }))
+    const helper = 'Narrower screens show the first fields and move the rest behind “Show N more”.'
+    const tab = (bandSlots?: number) => <BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} bandSlots={bandSlots} />
+    const { rerender } = render(tab(3))
+    expect(screen.getByTestId('swimlane-band-counter')).toHaveTextContent('4 / 6 · 3 fit on this screen')
+    expect(screen.getByText(helper)).toBeInTheDocument()
+    // The preview moves the same fields into "Show N more" as the lane does.
+    expect(screen.getByTestId('swimlane-tier-preview')).toHaveTextContent('Show 1 more')
+    expect(screen.getByTestId('swimlane-tier-preview')).toHaveTextContent('Details: F3')
+    for (const slots of [4, undefined]) {
+      rerender(tab(slots))
+      expect(screen.getByTestId('swimlane-band-counter')).toHaveTextContent(/^4 \/ 6$/)
+      expect(screen.queryByText(helper)).toBeNull()
+    }
+  })
+
   it('the cap select PATCHes the board and disables caps below the details count; Find narrows the list', async () => {
     const onUpdateBoardSettings = vi.fn()
     const defs = Array.from({ length: 7 }, (_, i) => makeDef({ id: i + 1, name: `Field ${i}`, position: i, band_visibility: i < 2 ? 'band' : 'details' }))
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={onUpdateBoardSettings} />)
-    const select = screen.getByLabelText('up to')
+    const select = screen.getByRole('combobox', { name: 'In lane details up to' })
     expect(within(select).getByRole('option', { name: /^4 \(below the \d+ in Details\)$/ })).toBeDisabled()
     await userEvent.selectOptions(select, '9')
     expect(onUpdateBoardSettings).toHaveBeenCalledWith({ lane_details_cap: 9 })

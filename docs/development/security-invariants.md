@@ -850,7 +850,14 @@ re-read at decision time), the card's assignee with role `member` passes it with
 an `override_reason` and did not assign the card to themselves (`assigned_by` set
 and not the caller; #1923); a hard WIP limit refuses every role and ignores `force`. When
 several limits trip, the strictest one is reported (hard before block; the
-column first when equal), and one `force` covers every soft limit tripped. A
+column first when equal; an entry-requirements refusal is reported ahead of any
+soft WIP or weight limit and carries them in `also`), and one `force` covers every soft limit tripped. Since 1.3 (#1923) a column's **entry requirements** are one more constraint
+on a forward move across columns, a create and a restore (never a backward
+move, a lane-only move, a sub-column move or a weight update): `warn` never
+refuses and records the unmet list on the `CardMovement`; `block` refuses with
+`409 entry_requirements_unmet` unless an eligible actor forces it **with an
+`override_reason`** (required whenever an entry requirement is overridden);
+`hard` refuses every role. A
 swimlane limit applies only when the write adds to the swimlane's counted total
 (a move between two counted columns of one swimlane never trips it; a move
 into a counted column from an uncounted column of the same swimlane is checked). Archived
@@ -890,6 +897,8 @@ check.
 | `assigned_by` freshness (#1923): known limitation | every assignee write path in this release; `boards/models.py` `clear_assigned_by_of_deleted_assignee` (user deletion) | `Card.assigned_by` is only maintained by 1.3 code. An older instance (during a rolling deploy, or after a rollback) changes `assignee` without it, leaving an earlier assigner that can make a self-assignment look like someone else's. Not enforced in code: operators turn `allow_assignee_override` on only once every instance runs 1.3, and after a rollback and roll-forward turn it off and reassign the affected cards first (`docs/administration/upgrade.md`). A new assignee write path must set or clear `assigned_by` |
 | MCP stays force-less (#1923) | `mcp_server/tools.py` `move_card`, `create_card`, `update_card` | No `force` or `override_reason` argument: a Block limit acts as Hard over MCP for every role. Adding one later must go through `_require_force`, never a copy in `tools.py` |
 | Eligibility predicate fails closed (#1923) | `boards/services/cards.py` `_require_force` | One shared function; a missing or unresolved role, actor, card, board, assignee or `assigned_by`, a viewer or collaborator role, an ex-member (role `None`), or the switch off raises `ForceNotPermitted` (403 `code: force_not_permitted`; `reason: self_assigned` only when the switch is on and the assignee assigned the card to themselves). Absent-input tests: `boards/tests/test_assignee_override_1923.py` `RequireForcePredicateTests`; the PostgreSQL race test there proves the read waits on the card lock |
+| Entry requirements (#1923 MR B) | `boards/services/cards.py` `enforce_column_limits(..., check_entry=True)` from `move_card` (forward only), `create_card`, `unarchive_card`, and `boards/admin.py` `CardAdminForm.clean` | `EntryRequirementsConstraint` evaluated first by `_evaluate_constraints`: its refusal is reported ahead of any soft WIP or weight limit and carries them in `also` (only a hard limit outranks it); values read by `boards/services/entry_requirements.py` `unmet_requirements` while the caller holds the card row lock. Warn never raises; Block needs `force` + reason through `_require_force`; Hard refuses all. MCP sends no `force`, so Block acts as Hard there. The admin form has no override (`LIMIT_ERRORS`). Import and seed are exempt, as above. Coverage: `boards/tests/test_entry_requirements_1923.py` |
+| Entry requirement writes (#1923 MR B) | `boards/views/columns.py` `ColumnViewSet.entry_requirements` (`PUT .../columns/{id}/entry-requirements/`) | Board admin or site admin only; board then column row lock; every field and set uid resolved on this board (a foreign uid is a 400); at most 10 per column; `PublicColumnSerializer` excludes `entry_enforcement` and `entry_requirements` by name |
 
 Coverage: `boards/tests/test_swimlane_limits.py` (every path above except MCP,
 modes and inheritance, strictest-wins, counted columns, archived cards, the

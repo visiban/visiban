@@ -222,6 +222,7 @@ let capturedSettingsProps: {
   currentUserIsSiteAdmin?: boolean; currentUserId?: number | null; onDeleteForbidden?: () => void; initialTab?: string; focusFirstStoppedWebhook?: boolean
   onShareChanged?: (patch: { share_link_active: boolean | null; share_token_expires_at: string | null }) => void
   onColumnUpdated?: (column: unknown) => void
+  bandSlots?: number
 } = {}
 vi.mock('../components/Board/BoardSettingsModal', () => ({
   default: (props: { currentUserIsSiteAdmin?: boolean; initialTab?: string; focusFirstStoppedWebhook?: boolean; onClose?: () => void; onManageLens?: () => void; onShowChildCards?: () => void }) => {
@@ -884,6 +885,14 @@ describe('BoardView', () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(settingsBtn())
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
+  })
+
+  it('hands the settings modal the band slots this screen shows (#2663)', async () => {
+    mockBoardContextValue = defaultContext({ board: makeBoard() })
+    render(<BoardView {...defaultProps()} />)
+    await userEvent.setup().click(settingsBtn())
+    // jsdom has no width, so the screen shows the default two; a dropped prop is undefined.
+    expect(capturedSettingsProps.bandSlots).toBe(2)
   })
 
   it('hands the settings modal the signed-in user id and a role-refetching onDeleteForbidden (#2034)', async () => {

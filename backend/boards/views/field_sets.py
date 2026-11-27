@@ -31,8 +31,9 @@ from visiban.permissions import (
 from visiban.request_shape import coerce_int_id, require_json_object
 
 from .. import broadcast as _broadcast
-from ..models import BoardMembership, CustomFieldDefinition, CustomFieldSet
+from ..models import BoardMembership, Column, ColumnEntryRequirement, CustomFieldDefinition, CustomFieldSet
 from ..permissions import SITE_ADMIN
+from ..serializers import entry_requirements_prefetch
 from ..serializers import (
     HAS_VALUES_ANNOTATION,
     CustomFieldDefinitionSerializer,
@@ -88,6 +89,49 @@ def plan_field_set_copy(source_set, target_board):
         taken.add(name)
         plan.append(("create", src, name))
     return plan
+
+
+
+def _is_dry_run(request):
+    return str(request.query_params.get("dry_run", "")).lower() in ("1", "true")
+
+
+def _widened_by_membership(board, instance, field_ids):
+    """Requirements a set membership write would re-scope (#1923, owner Q3):
+    on fields leaving this set, and on fields joining it from another set.
+    Only a lane-scoped set narrows anything (``affected_requirements``)."""
+    from ..services.entry_requirements import affected_requirements_for_fields
+
+    if field_ids is None:
+        return []
+    new_ids = set(field_ids)
+    # One query per direction, not per field.
+    leaving = [f for f in instance.fields.select_related("field_set") if f.pk not in new_ids]
+    joining = (
+        CustomFieldDefinition.objects.filter(board_id=board.pk, pk__in=new_ids)
+        .exclude(field_set=instance).exclude(field_set__isnull=True).select_related("field_set")
+    )
+    return affected_requirements_for_fields(leaving) + affected_requirements_for_fields(list(joining))
+
+
+def broadcast_requirement_columns(board_id, column_ids, actor_id):
+    """``column.updated`` for columns whose entry requirements a cascade
+    removed (#1923), the frame a stage save sends. Call inside the write's
+    transaction; ``record_board_event`` defers the send to on_commit."""
+    if not column_ids:
+        return
+    from ..serializers import ColumnSerializer
+
+    columns = (
+        Column.objects.filter(pk__in=column_ids, board_id=board_id)
+        .prefetch_related("sub_columns", "stage_tracks__field_definition", entry_requirements_prefetch())
+        .order_by("position", "pk")
+    )
+    for column in columns:
+        _broadcast.record_board_event(
+            board_id, _broadcast.EVT_COLUMN_UPDATED,
+            {**ColumnSerializer(column).data, "remapped": []}, actor_id=actor_id,
+        )
 
 
 class CustomFieldSetViewSet(viewsets.ModelViewSet):
@@ -162,7 +206,40 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
             self._broadcast_affected(board.id, getattr(serializer, "affected_set_ids", ()))
 
     def update(self, request, *args, **kwargs):
-        self._require_admin()
+        board = self._require_admin()
+        if _is_dry_run(request):
+            # #1923 (owner Q3): which entry requirements a membership change
+            # would widen to every lane, for the editor's inline confirm.
+            # Validates exactly as a save would, writes nothing.
+            instance = self.get_object()
+            serializer = self.get_serializer(
+                instance, data=request.data, partial=kwargs.get("partial", False),
+            )
+            serializer.is_valid(raise_exception=True)
+            affected = _widened_by_membership(
+                board, instance, serializer.validated_data.get("field_ids"),
+            )
+            # Switching a lane-scoped set to "all" widens every requirement on
+            # its fields to every lane, exactly as a membership move does.
+            if (
+                serializer.validated_data.get("scope") == CustomFieldSet.Scope.ALL
+                and instance.scope == CustomFieldSet.Scope.SWIMLANES
+            ):
+                from ..services.entry_requirements import (
+                    affected_requirements, affected_set_complete_requirements,
+                )
+
+                seen = {a["requirement_uid"] for a in affected}
+                # The set survives a scope change, so its own set_complete
+                # rows widen too (a delete removes them, so it omits them).
+                affected = affected + [
+                    a for a in (
+                        affected_requirements(field_set=instance)
+                        + affected_set_complete_requirements(instance)
+                    )
+                    if a["requirement_uid"] not in seen and not seen.add(a["requirement_uid"])
+                ]
+            return Response({"affected_requirements": affected})
         return super().update(request, *args, **kwargs)
 
     def perform_update(self, serializer):
@@ -182,6 +259,13 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         self._require_admin()
+        if _is_dry_run(request):
+            # #1923 (owner Q3): the requirements on this set's fields whose
+            # lane scope widens to every lane once the set is gone. Nothing
+            # is deleted.
+            from ..services.entry_requirements import affected_requirements
+
+            return Response({"affected_requirements": affected_requirements(field_set=self.get_object())})
         return super().destroy(request, *args, **kwargs)
 
     def perform_destroy(self, instance):
@@ -189,6 +273,12 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             lock_board_and_row_or_404(board, CustomFieldSet, instance.pk)
             set_uid = instance.uid
+            # Read before the CASCADE (#1923): the columns whose set-complete
+            # requirements go with the set get their own column.updated frame.
+            requirement_column_ids = sorted(set(
+                ColumnEntryRequirement.objects.filter(field_set=instance)
+                .values_list("column_id", flat=True)
+            ))
             # SET_NULL ungroups the fields; their values are untouched.
             instance.delete()
             _broadcast.record_board_event(
@@ -196,6 +286,7 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
                 {"field_set_uid": set_uid},
                 actor_id=self.request.user.id,
             )
+            broadcast_requirement_columns(board.id, requirement_column_ids, self.request.user.id)
 
     @extend_schema(
         summary="Reorder field sets",

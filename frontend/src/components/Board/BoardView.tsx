@@ -130,7 +130,7 @@ import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
 import { firstNotDoneColumn, wouldBecomeIntakeColumn } from "../../utils/intakeColumn";
 import { parseParentFilterParam, parseParentLaneFilterParam } from "../../utils/parentFilter";
-import { countUnusableLaneRules, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam, withHideUnmatched, withLaneItems } from "../../utils/laneFilter";
+import { type LaneFieldKey, countUnusableLaneRules, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam, withHideUnmatched, withLaneItems } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 import ChildrenModeView from "./ChildrenModeView";
 import { ToggleField } from "../Common/Toggle";
@@ -1586,11 +1586,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // (#2439); every other opener
   // leaves it undefined so Board settings opens on Members as before.
   const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | "field-sets" | "rules" | undefined>(undefined);
+  // #1923: the column ⋮ "Entry requirements…" item opens Rules & limits with that column selected.
+  const [settingsEntryColumnId, setSettingsEntryColumnId] = useState<number | undefined>(undefined);
+  const openEntryRequirements = useCallback((columnId: number) => {
+    setSettingsInitialTab("rules");
+    setSettingsEntryColumnId(columnId);
+    setShowSettings(true);
+  }, []);
   // #863: set only by the ?settings=webhooks deep link from a webhook_disabled notification.
   const [webhookDeepLink, setWebhookDeepLink] = useState(false);
   const closeSettings = useCallback(() => {
     setShowSettings(false);
     setSettingsInitialTab(undefined);
+    setSettingsEntryColumnId(undefined);
     setWebhookDeepLink(false);
   }, []);
   // #2388 — the View menu's "On the card: ... Change" opens Board settings on Card fields.
@@ -2588,9 +2596,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     markLaneLocalEdit(s.id);
     onSwimlaneUpdated(s);
   }, [markLaneLocalEdit, onSwimlaneUpdated]);
-  const openLaneFilters = useCallback(() => {
+  // #2660 — a swimlane field row in the Filter panel opens the Lanes popover on that field's rule.
+  const [lanePreselect, setLanePreselect] = useState<LaneFieldKey | null>(null);
+  const openLaneFilters = useCallback((fieldId?: LaneFieldKey) => {
+    setLanePreselect(typeof fieldId === "number" || typeof fieldId === "string" ? fieldId : null);
     setShowFilters(true);
-    setTimeout(() => lanesTriggerRef.current?.click(), 0);
+    setTimeout(() => {
+      // The request is cleared by the popover's onPreselectConsumed once it has opened. It must not be
+      // cleared here: that update would batch with the click's open and the popover would mount without
+      // it. Only a missing trigger (nothing will consume it) clears it now.
+      if (lanesTriggerRef.current) lanesTriggerRef.current.click();
+      else setLanePreselect(null);
+    }, 0);
   }, []);
 
   effectiveFiltersRef.current = effectiveFilters;
@@ -2943,7 +2960,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Each column track's floor, read by a separator drag (measureTrackLeftOf) to
   // keep the resized edge under the pointer when the min width holds the grid open.
   const gridTrackFloors = useMemo(() => gridTracks.map((gridTrack) => trackFloor(gridTrack)).join(" "), [gridTracks]);
-  useBoardViewWidthVar(scrollEl);
+  const bandSlots = useBoardViewWidthVar(scrollEl);
 
   // Custom collision detection: restrict candidates by the type of item being dragged
   // so that cell droppables don't steal hits from col: or swim: sortable targets.
@@ -3786,6 +3803,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               cardFilterActive={filteredCardIds !== null}
               ignoredLaneRuleCount={ignoredLaneRuleCount}
               lanesTriggerRef={lanesTriggerRef}
+              lanePreselectField={lanePreselect}
+              onLanePreselectConsumed={() => setLanePreselect(null)}
               scope={scope}
               onScopeChange={setScope}
               userDateFormat={userDateFormat}
@@ -3809,7 +3828,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {laneNotice && (
         <div className="flex items-center gap-2 px-3 py-1 text-xs text-fg-secondary bg-surface border-b border-line shrink-0">
           <span aria-hidden="true" className="min-w-0">{laneNotice}</span>
-          <button type="button" onClick={openLaneFilters} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button type="button" onClick={() => openLaneFilters()} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Edit lane filters
           </button>
           <button type="button" aria-label="Dismiss notice" onClick={dismissLaneNotice} className="w-6 h-6 max-sm:w-11 max-sm:h-11 rounded hover:bg-surface-hover text-fg-tertiary hover:text-fg flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
@@ -4063,6 +4082,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     customFieldDefinitions={board.custom_field_definitions}
                     isAdmin={isAdmin}
                     onColumnUpdated={handleColumnUpdated}
+                    onOpenEntryRequirements={isAdmin && !demoMode ? openEntryRequirements : undefined}
                     onRequestDelete={(col) => setConfirmDeleteColumn(col)}
                     collapsed={collapsedColumnIds.has(col.id)}
                     hidden={hiddenColumnIds.has(col.id)}
@@ -4185,6 +4205,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       customFieldDefinitions={board.custom_field_definitions}
                       swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
               laneDetailsCap={board.lane_details_cap}
+                      bandSlots={bandSlots}
                       hideRowChipFieldNames={board.show_row_chip_field_names === false}
                       onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
                       onManageSwimlaneFields={isAdmin ? openSwimlaneFieldOrder : undefined}
@@ -4468,9 +4489,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <BoardSettingsModal
           board={board}
           isAdmin={isAdmin}
+          bandSlots={bandSlots}
           onFieldSetsUpdated={onFieldSetsApplied}
           onClose={closeSettings}
           initialTab={settingsInitialTab}
+          initialEntryColumnId={settingsEntryColumnId}
           focusFirstStoppedWebhook={webhookDeepLink}
           webhookChange={webhookChange}
           webhookReconnectSignal={socketReconnectSeq}

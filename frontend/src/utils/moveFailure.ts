@@ -8,6 +8,8 @@ export const SWIMLANE_LIMIT_CODES = new Set([
 /** Server `code` values that mean a column or swimlane limit refused the move. */
 export const LIMIT_CODES = new Set([
   "wip_limit_exceeded", "wip_hard_blocked", "weight_limit_exceeded", ...SWIMLANE_LIMIT_CODES,
+  // #1923: a column's entry requirements (Block or Hard mode) refused the card.
+  "entry_requirements_unmet",
 ]);
 
 /** True when the server's `code` says a column or swimlane limit refused the request. */
@@ -24,6 +26,7 @@ export function failureReason(err: unknown, forbidden = "you do not have permiss
   if (!axios.isAxiosError(err) || !err.response) return "a network error occurred";
   const data = err.response.data as { code?: unknown } | undefined;
   if (typeof data?.code === "string" && SWIMLANE_LIMIT_CODES.has(data.code)) return "a swimlane limit was reached";
+  if (data?.code === "entry_requirements_unmet") return "it does not meet the column's entry requirements";
   if (typeof data?.code === "string" && LIMIT_CODES.has(data.code)) return "a column limit was reached";
   if (data?.code === "maintenance_mode") return "maintenance mode is active";
   // #1923: the assignee override's own refusals.
