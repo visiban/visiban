@@ -470,7 +470,7 @@ A full replace: an omitted key is cleared. Sending all three empty (`{}`) remove
 | `next_action` | string | no | Up to 200 characters, trimmed. Default `""` |
 | `target_date` | string / null | no | `YYYY-MM-DD`. Default `null`. An open dimension past its target date counts toward the card's "need attention" count |
 
-**Response** — `200 OK`, the full card, with the plan in `dimension_plans`.
+**Response** — `200 OK`, the full card, with the plan in `dimension_plans`. Each changed part of the plan is recorded in the card's history (since 1.3, #2703): see [dimension plan edits](#card-activity-dimension-plan-edits-since-13).
 
 | Status | When |
 |---|---|

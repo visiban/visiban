@@ -233,7 +233,7 @@ Board and group `board.*` event payloads never carry the share-link fields (`sha
 ### Custom field events (since 1.2)
 
 Schema changes only. A change to a card's **values** arrives as `card.updated`, whose
-payload carries the card's `custom_field_values`.
+payload carries the card's `custom_field_values`. Since 1.3 (#2651) it also carries `dimension_states` (when each dimension's value last changed), like every card payload.
 
 | Event | Trigger | `data` shape |
 |---|---|---|

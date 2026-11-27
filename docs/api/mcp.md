@@ -692,7 +692,7 @@ The same "raise, don't return" rule applies to a throttled resource read — see
 
 The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is **not** experimental.
 
-- **Tool names** (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`, and since 1.3 `block_card`, `unblock_card`, `board_flow_metrics`, `aging_cards`) and **resource URIs** (`board://{board_id}`, `card://{card_id}`) are never removed or renamed in a minor or patch release.
+- **Tool names** (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `create_card`, `move_card`, `update_card`, `archive_card`, and since 1.3 `block_card`, `unblock_card`, `set_dimension_plan`, `board_flow_metrics`, `aging_cards`) and **resource URIs** (`board://{board_id}`, `card://{card_id}`) are never removed or renamed in a minor or patch release.
 - **Argument schemas** change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.
 - **Results and error payloads** only gain fields; existing fields keep their name and type. The error `code` values listed under [Tool errors](#tool-errors) are never removed.
 - A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.
