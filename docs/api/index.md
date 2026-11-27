@@ -252,7 +252,7 @@ keeps retrying until the cache answers; it does not fall back to the sign-in pag
 which signed the web app user out until they signed in again (#2143). The browser pages under
 `/accounts/` and `/admin/` answer the same JSON `503`.
 
-### Analytics refusals (`analytics_busy`, `analytics_too_large`)
+### Analytics refusals (`analytics_busy`, `analytics_timeout`, `analytics_too_large`)
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
@@ -283,7 +283,22 @@ does not help the `date` drill-down, which reads every card of the board whateve
 the range (only the few rows that decide where each card rests that day, counted
 against the same fixed ceiling as the settled pass). The rows are
 counted as they are read, so this refusal can take as long as reading up to the
-limit. Both bodies are always exactly
+limit, except on `analytics` with `days` over 90 and no `swimlane_id` or `label_id`: there the movements dated
+inside the range are counted first, and when they alone are over the limit the
+request is refused before its history is read.
+
+When an admitted request runs longer than the server allows (`ANALYTICS_MAX_SECONDS`,
+45 seconds by default, counted from when it got its slot):
+
+```json
+{ "code": "analytics_timeout", "detail": "This analysis took longer than this server allows for one request. Try a shorter range, or ask your administrator to raise the server's analytics time limit." }
+```
+
+with `503 Service Unavailable` and no `Retry-After`: the same request would most
+likely take as long again. A shorter `days` range, a filter, or an administrator
+raising `ANALYTICS_MAX_SECONDS` helps. *Added in 1.3.*
+
+All three bodies are always exactly
 these: they never include counts, limits or queue positions. Match on `code`,
 not on the status alone. A board you cannot access is still `404`, and a bad
 parameter still `400`, whatever the limits.

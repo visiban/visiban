@@ -1290,6 +1290,37 @@ def movements_on_board(board, *filters, **lookups):
     )
 
 
+def refuse_if_range_exceeds_budget(board, flow_range, *, swimlane_id=None, label_id=None):
+    """Raise ``AnalyticsTooLarge`` before a long-window load that the size limit would refuse anyway.
+
+    Every movement of the board's cards dated inside ``flow_range`` is a row
+    ``load_recent_dwell`` holds: a card with such a movement is in its
+    loaded set by construction (the ``moved`` term), and the load reads each
+    loaded card's whole history. So the count of those movements is a lower
+    bound on the held rows, and once it is past the request's budget the
+    load could only end in the same ``analytics_too_large``, later and after
+    reading every row up to the limit. This answers that refusal first, from
+    one index-only count of ``movement_board_moved_card_idx``
+    (``board, moved_at, card``), stopped one row past the budget. Rows whose
+    ``board`` is still NULL (written before migration 0080) are left out of
+    the count, which keeps it a lower bound; the streamed count in
+    ``_movement_rows`` stays the real limit. A swimlane or label filter
+    skips the check: the count would then join ``cards`` and read the heap
+    per row, and a selective filter would walk the whole range for an early
+    exit that rarely fires; the streamed count still applies.
+    """
+    if swimlane_id is not None or label_id is not None:
+        return
+    counter = analytics_admission.row_counter()
+    room = max(0, counter.budget - counter.movements)
+    in_range = CardMovement.objects.order_by().filter(
+        board=board, card__isnull=False, moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
+    )
+    # card_id, a key column of the index: an index-only read on its face.
+    if in_range.values("card_id")[: room + 1].count() > room:
+        raise analytics_admission.AnalyticsTooLarge()
+
+
 def load_recent_dwell(
     board, flow_range, *, columns, swimlane_id=None, label_id=None, also_matching=None, on_card_rows=None,
 ):

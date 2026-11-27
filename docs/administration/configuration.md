@@ -444,7 +444,7 @@ the instance by uploading in a loop.
 
 Every Analytics request (the Summary tab, the dwell time heatmap, each `metrics/*`
 chart and the MCP flow tools) replays the board's card history in the server
-process. Two settings bound that work. Both are per server process, so with
+process. Three settings bound that work. All are per server process, so with
 several pods or worker processes the instance-wide figure is that many times
 larger. These codes and settings follow the 1.0+ compatibility rules.
 
@@ -452,8 +452,9 @@ larger. These codes and settings follow the 1.0+ compatibility rules.
 |---|---|---|
 | `ANALYTICS_MAX_CONCURRENT` | Analytics requests one server process computes at once. A request that finds every slot taken waits up to 8 seconds for one (REST) or is refused at once (MCP) with `503` `analytics_busy` and `Retry-After: 10`. Helm: `backend.settings.analyticsMaxConcurrent`. | `1` |
 | `ANALYTICS_MAX_MOVEMENTS` | Card movement rows one Analytics request may hold in memory. A pass that reads rows one card at a time and drops them (the cumulative flow diagram's cards that rest outside the range, and its day drill-down) has a fixed ceiling of four times this instead. A request that needs more is refused with `422` `analytics_too_large`; it is never answered from part of the history. Helm: `backend.settings.analyticsMaxMovements`. | `150000` |
+| `ANALYTICS_MAX_SECONDS` | Wall-clock seconds one admitted Analytics request may run, counted from when it gets its slot. Each query the request starts checks the time left first and, on PostgreSQL, runs under a `statement_timeout` of that time (never looser than one you set yourself), and the row loops check it as they read. A request that runs past it is stopped and refused with `503` `analytics_timeout` (no `Retry-After`), and its slot is freed for the next request. Keep the slot wait (8 seconds) plus this under your proxy's read timeout, so a slow request gets this refusal rather than a proxy `504`: the default gives 53 seconds, under both bundled proxies (the Compose stack's nginx allows 90 seconds for `/api/`; the Helm chart's frontend nginx sets no read timeout for `/api/`, so nginx's own 60-second default applies, and a value above 51 there lets a slow request reach the proxy limit first). A client that disconnects does not stop its request at once (the server notices a disconnect only when it writes the response), so this bound is also how long an abandoned request can keep its slot. The `statement_timeout` is a per-session setting, so behind a connection pooler use session pooling (PgBouncer `pool_mode = session`), not transaction pooling; the deadline checks between queries and row reads apply either way. Helm: `backend.settings.analyticsMaxSeconds`. *Added in 1.3.* | `45` |
 
-Both must be a whole number of at least 1; blank keeps the default. Unlike the
+Each must be a whole number of at least 1; blank keeps the default. Unlike the
 attachment and comment quotas, `0` does **not** mean "no limit": there is no
 off switch, and `0`, a negative number or a non-integer stops the server at
 startup with a configuration error.

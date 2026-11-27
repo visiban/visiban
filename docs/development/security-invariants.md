@@ -1069,17 +1069,23 @@ deleted) carry no actor.
 transport, and counts its movement rows against one budget: held rows against `ANALYTICS_MAX_MOVEMENTS`, rows a pass folds and drops against a fixed ceiling of `STREAMED_ROWS_MULTIPLE` times it. The order is fixed: authorize
 the board (Rule 7's `404`), validate parameters (`400`), then take the slot, so
 a refusal never answers for a board the caller cannot see. The slot is keyed on
-the user (`user.pk`, never the token), is released in `try`/`finally`, is
+the user (`user.pk`, never the token), is released in `try`/`finally` (also when putting the session setting back raises), is
 counted in-process and never in the cache, and an absent or anonymous user is
-never admitted. No caller is exempt, site admins included. The refusal bodies
-(`analytics_busy` `503`, `analytics_too_large` `422`) and `Retry-After` are
+never admitted. No caller is exempt, site admins included. An admitted
+request runs at most `ANALYTICS_MAX_SECONDS`: every query it starts inside the
+slot checks the deadline first and, on PostgreSQL, runs under a
+`statement_timeout` of the time left (never looser than the session's own), and
+`Ticket.count_rows` reads the clock every `DEADLINE_CHECK_ROWS` rows; past it
+the request ends with `AnalyticsTimedOut` and the same `finally` frees the slot.
+A direct caller's fresh counter has a deadline too. The refusal bodies
+(`analytics_busy` `503`, `analytics_timeout` `503`, `analytics_too_large` `422`) and `Retry-After` are
 constant: no counts, limits or queue positions.
 
 | Surface | Entry point | Enforcement |
 |---|---|---|
 | REST | `boards/views/analytics.py` `BoardAnalyticsMixin`: `summary`, `analytics`, `metrics_cycle_time`, `metrics_swimlanes`, `metrics_throughput`, `metrics_cumulative_flow` (with and without `date`), `metrics_wip_age`, `metrics_dwell`, `metrics_blocked`, `metrics_attention`, `metrics_overview` | `_analytics_slot(request, board, "<action>")` after `get_board_for_user` and parameter validation; waits a bounded time, then `503` |
 | MCP | `mcp_server/tools.py` `board_flow_metrics`, `aging_cards` | `analytics_slot(..., wait=False)` after `_resolve_board` and argument validation, inside the tool body; refusals through `_error_payload` |
-| Direct service callers (enterprise, management commands) | `boards/services/flow_metrics.py` `_movement_rows`, `analytics_admission.row_counter` | with no active slot, each read (`_movement_rows`, `_deciding_rows`, `_attach_wait`, the block-row reads) gets its own fresh counter at `settings.ANALYTICS_MAX_MOVEMENTS` (and its streamed ceiling) and raises `AnalyticsTooLarge`, never unlimited, so a call with no slot can hold about twice the budget across its reads; a direct caller should take `analytics_slot` so the reads share one ticket; every loop over movement or gate-transition rows (`_movement_rows`, `_deciding_rows`, `_attach_wait`) calls `row_counter().count_rows(n, held=...)`, and so must any new loop over card history rows |
+| Direct service callers (enterprise, management commands) | `boards/services/flow_metrics.py` `_movement_rows`, `analytics_admission.row_counter` | with no active slot, each read (`_movement_rows`, `_deciding_rows`, `_attach_wait`, the block-row reads) gets its own fresh counter at `settings.ANALYTICS_MAX_MOVEMENTS` (and its streamed ceiling) and a deadline of `settings.ANALYTICS_MAX_SECONDS`, and raises `AnalyticsTooLarge` or `AnalyticsTimedOut`, never unlimited, so a call with no slot can hold about twice the budget across its reads; a direct caller should take `analytics_slot` so the reads share one ticket; every loop over movement or gate-transition rows (`_movement_rows`, `_deciding_rows`, `_attach_wait`) calls `row_counter().count_rows(n, held=...)`, and so must any new loop over card history rows |
 
 Tests: `boards/tests/test_analytics_admission_2428.py` (`CoveragePinTests`
 fails when a REST analytics action that calls `flow_metrics.load_*` is not

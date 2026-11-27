@@ -162,6 +162,11 @@
               "minimum": 1,
               "description": "ANALYTICS_MAX_MOVEMENTS: movement rows one analytics request may hold in memory before it is refused; rows read and dropped card by card have a fixed ceiling of 4x this (#2428)."
             },
+            "analyticsMaxSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "ANALYTICS_MAX_SECONDS: wall-clock seconds one admitted analytics request may run before it is stopped with analytics_timeout and its slot freed."
+            },
             "attachmentMaxPerCard": {
               "description": "ATTACHMENT_MAX_PER_CARD — most attachments one card may hold (#2007). 0 = no limit.",
               "type": "integer",
