@@ -330,6 +330,19 @@ class GrowCapToFitTests(_Base):
         sent = [(c.args[1], c.args[2]) for c in self.broadcast.call_args_list]
         self.assertTrue(any(e == "board.updated" and p.get("lane_details_cap") == 12 for e, p in sent), sent)
 
+    def test_board_updated_is_recorded_before_the_row_events(self):
+        # Another client applies each frame as it arrives: the grown cap has to be there
+        # before the first row leaves the unset state, or fields past the old cap read Hidden.
+        defs = [_defn(self.board, f"F{i}", i) for i in range(12)]
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self._patch(defs[0], band_visibility="band")
+        self.assertEqual(r.status_code, 200, r.data)
+        names = [c.args[1] for c in self.broadcast.call_args_list]
+        self.assertIn("board.updated", names)
+        first_row = next(i for i, n in enumerate(names) if n == "swimlane_custom_field.updated")
+        self.assertEqual(names.index("board.updated"), first_row - 1, names)
+        self.assertEqual(names.count("board.updated"), 1)
+
     def test_a_create_on_an_unset_board_grows_the_cap_and_broadcasts_on_commit(self):
         for i in range(11):
             _defn(self.board, f"F{i}", i)

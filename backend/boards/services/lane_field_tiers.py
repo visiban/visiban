@@ -140,7 +140,8 @@ def materialize(board, *, cap: int | None = None, actor_id=None) -> list:
     "Grow cap to fit" (#2658): on an unset board the tiers are resolved with
     :func:`effective_cap`, and when that is above the stored cap this writes it
     to ``Board.lane_details_cap`` and sends ``board.updated`` on commit, so the
-    cap the board read with is the cap it keeps. With *cap* given (a cap change,
+    cap the board read with is the cap it keeps. ``board.updated`` is recorded
+    before the row events, so other clients never apply a row with the old cap. With *cap* given (a cap change,
     whose caller saves *cap* itself) the cap is not written here: either it
     already fits, or the caller's Details-count recheck refuses it.
     """
@@ -158,6 +159,20 @@ def materialize(board, *, cap: int | None = None, actor_id=None) -> list:
     tiers = resolve_tiers(defs, stored if cap is None else cap)
     # Read before the rows get their tiers: grows only on an unset board.
     grown = effective_cap(defs, stored) if cap is None else stored
+    if grown > stored:
+        # Before the row events: a client applies each frame as it arrives, so the
+        # grown cap must already be there when the first row leaves the unset state,
+        # or the rows past the stored cap would show as Hidden in between.
+        from .board_events import record_board_updated, system_board_payload
+
+        # A queryset update: no save() side effects, and the instance follows
+        # so a later check (assert_band_tiers) counts against the grown cap.
+        Board.objects.filter(pk=board.pk).update(lane_details_cap=grown)
+        board.lane_details_cap = grown
+        record_board_updated(
+            board.pk, system_board_payload(board.pk),
+            old_group_id=board.group_id, new_group_id=board.group_id, actor_id=actor_id,
+        )
     changed = []
     for d in defs:
         if d.band_visibility is None:
@@ -170,17 +185,6 @@ def materialize(board, *, cap: int | None = None, actor_id=None) -> list:
             _broadcast.EVT_SWIMLANE_CUSTOM_FIELD_UPDATED,
             SwimlaneCustomFieldDefinitionSerializer(d).data,
             actor_id=actor_id,
-        )
-    if grown > stored:
-        from .board_events import record_board_updated, system_board_payload
-
-        # A queryset update: no save() side effects, and the instance follows
-        # so a later check (assert_band_tiers) counts against the grown cap.
-        Board.objects.filter(pk=board.pk).update(lane_details_cap=grown)
-        board.lane_details_cap = grown
-        record_board_updated(
-            board.pk, system_board_payload(board.pk),
-            old_group_id=board.group_id, new_group_id=board.group_id, actor_id=actor_id,
         )
     return changed
 
@@ -235,7 +239,9 @@ def default_tier_for_create(board) -> str:
     ``BAND_DEFAULT`` fields and all of them Band (an empty board's first two
     fields, which position would make Band); otherwise Details while there is
     room, else Hidden: never a 400, so an older client that does not know the
-    field can still add one, and never the band once an admin has shaped it.
+    field can still add one. The rule is the board's current shape only: a board
+    with fewer than ``BAND_DEFAULT`` fields that are all Band gets Band, even if
+    an admin made it so; it cannot tell that from the default shape.
     """
     from boards.models import SwimlaneCustomFieldDefinition
 

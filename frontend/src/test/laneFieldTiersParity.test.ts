@@ -99,4 +99,22 @@ describe('laneTierFields band slots (#2663)', () => {
     expect(ids(out.details)).toEqual([5])
     expect(out.hidden).toEqual([])
   })
+
+  it('applying the grown cap and then each row event never shows a final Band or Details field as Hidden (#2658)', () => {
+    // The server's first tier write on a 12-field unset board: board.updated (cap 12) first, then one row event per field.
+    const unset = Array.from({ length: 12 }, (_, i) => def(i + 1, i, null))
+    const final = unset.map((d, i) => def(d.id, d.position, i < 2 ? 'band' : 'details'))
+    let rows = unset
+    const cap = 12
+    const check = (label: string) => {
+      const t = resolveLaneTiers(rows, cap)
+      for (const f of final) expect(t.get(f.id) === 'hidden', `${label}: field ${f.id}`).toBe(false)
+    }
+    check('after board.updated')
+    final.forEach((u) => {
+      rows = rows.map((r) => (r.id === u.id ? u : r))
+      check(`after row ${u.id}`)
+    })
+    expect([...resolveLaneTiers(rows, cap).values()]).toEqual(final.map((f) => f.band_visibility))
+  })
 })
