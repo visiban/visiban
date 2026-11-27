@@ -587,24 +587,31 @@ describe('PhoneBoard lane band second line (#2329)', () => {
     expect(toggle.className).toContain('min-h-11')
   })
 
-  it('puts the full field list behind a 44px "N fields" toggle that opens a single-column grid', async () => {
+  // #2658: these defs carry no tier, so the first two by position are Band and the rest Details.
+  it('puts the Details behind a 44px "Show N more" toggle that opens a single-column grid', async () => {
     const user = userEvent.setup()
     setup({ swimlanes: [fielded(1, 'North', [[1, 'Avery'], [2, '600'], [3, 'West']])], swimlaneFieldDefinitions: defs })
-    const more = screen.getByRole('button', { name: /^4 fields: show all field values for North/ })
+    const more = screen.getByRole('button', { name: /^Show 2 more fields for North/ })
+    expect(more).toHaveTextContent('Show 2 more')
     expect(more).toHaveAttribute('aria-expanded', 'false')
     expect(more.className).toContain('min-h-11')
     expect(screen.queryByTestId('swimlane-field-grid')).toBeNull()
     await user.click(more)
     expect(more).toHaveAttribute('aria-expanded', 'true')
     expect(more).toHaveFocus()
-    const grid = screen.getByTestId('swimlane-field-grid')
-    expect(more).toHaveAttribute('aria-controls', grid.id)
+    expect(more).toHaveTextContent('Hide details')
+    const details = screen.getByTestId('swimlane-lane-details')
+    expect(more).toHaveAttribute('aria-controls', details.id)
+    const grid = within(details).getByTestId('swimlane-field-grid')
     // 18rem tracks: one column at 390px.
     expect(grid.className).toContain('minmax(18rem,1fr)')
-    expect(Array.from(grid.querySelectorAll('dt')).map((e) => e.textContent)).toEqual(['Owner', 'Quota', 'Region', 'Site'])
+    expect(Array.from(grid.querySelectorAll('dt')).map((e) => e.textContent)).toEqual(['Region', 'Site'])
     expect(within(grid).getByText('West')).toBeInTheDocument()
     // The unset URL field is a dash with sr-only "Not set".
     expect(within(grid).getByText('Not set')).toHaveClass('sr-only')
+    // The Band fields stay while open.
+    expect(within(band('North')).getByText('Avery')).toBeInTheDocument()
+    expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('2 in details')
     await user.click(more)
     expect(screen.queryByTestId('swimlane-field-grid')).toBeNull()
   })
@@ -613,23 +620,24 @@ describe('PhoneBoard lane band second line (#2329)', () => {
     const user = userEvent.setup()
     const withAdminOnly = [fdef(1, 'Owner'), fdef(2, 'Quota'), fdef(3, 'Region'), { ...fdef(4, 'ARR'), is_admin_only: true } as SwimlaneCustomFieldDefinition]
     setup({ swimlanes: [fielded(1, 'North', [[1, 'Avery']])], swimlaneFieldDefinitions: withAdminOnly, isAdmin: false })
-    await user.click(screen.getByRole('button', { name: /^3 fields: show all field values for North/ }))
+    await user.click(screen.getByRole('button', { name: /^Show 1 more fields for North/ }))
     const grid = screen.getByTestId('swimlane-field-grid')
     expect(within(grid).queryByText('ARR')).toBeNull()
-    expect(grid.querySelectorAll('dt')).toHaveLength(3)
+    expect(grid.querySelectorAll('dt')).toHaveLength(1)
   })
 
   it('shows the toggle consistently across lanes regardless of how many values are set', () => {
     const lanes = [fielded(1, 'North', []), fielded(2, 'South', [[1, 'a']]), fielded(3, 'East', [[1, 'a'], [2, 'b']])]
     setup({ swimlanes: lanes, swimlaneFieldDefinitions: [fdef(1, 'Owner'), fdef(2, 'Quota')] })
-    expect(screen.queryAllByRole('button', { name: /fields: show all/ })).toHaveLength(0)
+    expect(screen.queryAllByTestId('phone-lane-fields-toggle')).toHaveLength(0)
     cleanup()
     setup({ swimlanes: lanes, swimlaneFieldDefinitions: defs.slice(0, 3) })
-    expect(screen.getAllByRole('button', { name: /^3 fields: show all/ })).toHaveLength(3)
+    expect(screen.getAllByRole('button', { name: /^Show 1 more fields for/ })).toHaveLength(3)
   })
 
   it('keeps a URL field link out of the button and lifts it to 44px', () => {
-    setup({ swimlanes: [fielded(1, 'North', [[4, 'https://example.com']])], swimlaneFieldDefinitions: defs })
+    // The URL field first by position, so it is on the band of a board with no tiers set (#2658).
+    setup({ swimlanes: [fielded(1, 'North', [[4, 'https://example.com']])], swimlaneFieldDefinitions: [{ ...defs[3], position: -1 }, ...defs.slice(0, 3)] })
     const details = screen.getByTestId('phone-lane-band-details')
     expect(within(details).getByRole('link')).toBeInTheDocument()
     expect(details.className).toContain('[&_a]:min-h-11')
@@ -682,21 +690,30 @@ describe('PhoneBoard lane band second line (#2329)', () => {
     expect(screen.getByTestId('swimlane-limit-stat')).toHaveTextContent(/^WIP 2 \/ 9$/)
   })
 
-  it('offers admins "Change field order" after the open field grid, 44px, and hides it otherwise', async () => {
+  it('offers admins Manage swimlane fields after the open details, never a Change field order link (#2658)', async () => {
     const user = userEvent.setup()
-    const onEditFieldOrder = vi.fn()
-    const props = { swimlanes: [fielded(1, 'North', [[1, 'Avery'], [2, '600'], [3, 'West']])], swimlaneFieldDefinitions: defs, onEditFieldOrder }
+    const onManageSwimlaneFields = vi.fn()
+    const props = { swimlanes: [fielded(1, 'North', [[1, 'Avery'], [2, '600'], [3, 'West']])], swimlaneFieldDefinitions: defs, onEditFieldOrder: vi.fn(), onManageSwimlaneFields }
     setup({ ...props, isAdmin: true })
+    expect(screen.queryByRole('button', { name: 'Manage swimlane fields' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: /^Show 2 more fields for North/ }))
     expect(screen.queryByRole('button', { name: 'Change field order' })).toBeNull()
-    await user.click(screen.getByRole('button', { name: /^4 fields:/ }))
-    const link = screen.getByRole('button', { name: 'Change field order' })
-    expect(link.className).toContain('min-h-11')
-    await user.click(link)
-    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('button', { name: 'Manage swimlane fields' }))
+    expect(onManageSwimlaneFields).toHaveBeenCalledTimes(1)
     cleanup()
     setup({ ...props, isAdmin: false })
-    await user.click(screen.getByRole('button', { name: /^4 fields:/ }))
+    await user.click(screen.getByRole('button', { name: /^Show 2 more fields for North/ }))
+    expect(screen.queryByRole('button', { name: 'Manage swimlane fields' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Change field order' })).toBeNull()
+  })
+
+  it('a board with no tiers set grows the cap to fit and lists fields past 2 + 16 as Hidden on band (#2658)', async () => {
+    const user = userEvent.setup()
+    const many = Array.from({ length: 20 }, (_, i) => ({ ...fdef(100 + i, `M${i}`), position: i }) as SwimlaneCustomFieldDefinition)
+    setup({ swimlanes: [fielded(1, 'North', [[119, 'last']])], swimlaneFieldDefinitions: many, isAdmin: true, onManageSwimlaneFields: vi.fn() })
+    await user.click(screen.getByRole('button', { name: /^Show 18 more fields for North/ }))
+    expect(within(screen.getByTestId('swimlane-hidden-group')).getByText('last')).toBeInTheDocument()
+    expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('16 in details · 2 hidden on band')
   })
 
   it('shows the number rollup over the lane\'s open cards, and orders stats as the grid band', () => {

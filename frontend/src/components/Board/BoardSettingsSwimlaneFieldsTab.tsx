@@ -3,7 +3,7 @@ import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { BoardFull, CustomFieldType, LaneTier, SwimlaneCustomFieldDefinition } from "../../types";
-import { BAND_DEFAULT_COUNT, BAND_MAX_COUNT, DEFAULT_LANE_DETAILS_CAP, LANE_DETAILS_CAP_OPTIONS, isLegacyTiers, resolveLaneTiers } from "../../utils/laneBand";
+import { BAND_MAX_COUNT, DEFAULT_LANE_DETAILS_CAP, LANE_DETAILS_CAP_OPTIONS, effectiveLaneDetailsCap, isLegacyTiers, resolveLaneTiers } from "../../utils/laneBand";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
@@ -104,19 +104,14 @@ const detailsFullReason = (cap: number) => `Lane details hold ${cap} fields. Mov
 
 /**
  * The local mirror of the server's materialization (#2439, `lane_field_tiers.materialize`):
- * the first tier write on a legacy board gives every row an explicit tier (first two Band,
- * next `cap` Details, the rest Hidden). Applied before the write so this tab shows what the
- * server will hold without waiting for the per-row `swimlane_custom_field.updated` events.
+ * the first tier write gives every null row the tier it already resolves to (on a board with
+ * no tiers set, first two Band, the rest Details with the cap grown to fit, #2658). Applied
+ * before the write so this tab shows what the server will hold without waiting for the per-row
+ * `swimlane_custom_field.updated` events.
  */
 function materializeLocal(fields: SwimlaneCustomFieldDefinition[], cap: number): SwimlaneCustomFieldDefinition[] {
-  if (!isLegacyTiers(fields)) {
-    const tiers = resolveLaneTiers(fields, cap);
-    return fields.map((f) => (f.band_visibility == null ? { ...f, band_visibility: tiers.get(f.id) } : f));
-  }
-  return fields.map((f, i) => ({
-    ...f,
-    band_visibility: i < BAND_DEFAULT_COUNT ? "band" : i < BAND_DEFAULT_COUNT + cap ? "details" : "hidden",
-  }));
+  const tiers = resolveLaneTiers(fields, cap);
+  return fields.map((f) => (f.band_visibility == null ? { ...f, band_visibility: tiers.get(f.id) } : f));
 }
 
 function hasChoices(t: CustomFieldType): boolean {
@@ -183,12 +178,17 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [tierError, setTierError] = useState<string | null>(null);
-  const cap = board.lane_details_cap ?? DEFAULT_LANE_DETAILS_CAP;
+  // #2658 "Grow cap to fit": a board with no tiers set reads with its cap grown to hold every
+  // Details field, and its first tier write stores that cap (sent as `board.updated`). Until that
+  // event lands, `grownCap` keeps the grown value so the counts never read the stale stored cap.
+  const [grownCap, setGrownCap] = useState(0);
+  useEffect(() => { setGrownCap(0); }, [board.lane_details_cap]);
+  const cap = Math.max(effectiveLaneDetailsCap(fields, board.lane_details_cap ?? DEFAULT_LANE_DETAILS_CAP), grownCap);
   const tiers = resolveLaneTiers(fields, cap);
   const tierOf = (f: SwimlaneCustomFieldDefinition): LaneTier => tiers.get(f.id) ?? "details";
   const bandCount = fields.filter((f) => tierOf(f) === "band").length;
   const detailsCount = fields.filter((f) => tierOf(f) === "details").length;
-  const legacy = isLegacyTiers(fields);
+  const unset = isLegacyTiers(fields);
   const q = query.trim().toLowerCase();
   const visibleFields = q ? fields.filter((f) => f.name.toLowerCase().includes(q)) : fields;
   /** Why `tier` cannot be chosen for `def`, or null when it can (the server enforces the same rule). */
@@ -203,12 +203,14 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
     if (tierBlockedReason(def, tier)) return;
     const prev = fields;
     setTierError(null);
+    if (unset && cap > (board.lane_details_cap ?? DEFAULT_LANE_DETAILS_CAP)) setGrownCap(cap);
     commit(materializeLocal(fields, cap).map((f) => (f.id === def.id ? { ...f, band_visibility: tier } : f)));
     try {
       const updated = await updateSwimlaneCustomFieldDefinition(board.id, def.id, { band_visibility: tier });
       commit(materializeLocal(prev, cap).map((f) => (f.id === def.id ? updated : f)));
     } catch (err: unknown) {
       commit(prev);
+      setGrownCap(0);
       const detail = (err as { response?: { data?: { band_visibility?: unknown } } })?.response?.data?.band_visibility;
       setTierError(Array.isArray(detail) ? String(detail[0]) : typeof detail === "string" ? detail : "Couldn't change where this field shows. Try again.");
     }
@@ -216,8 +218,8 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const setCap = (next: number) => {
     if (!onUpdateBoardSettings || next === cap) return;
     setTierError(null);
-    // A cap change materializes a legacy board on the server too, so mirror it here.
-    if (legacy) commit(materializeLocal(fields, next));
+    // A cap change materializes a board with no tiers set on the server too, so mirror it here.
+    if (unset) commit(materializeLocal(fields, next));
     onUpdateBoardSettings({ lane_details_cap: next });
   };
   // Keeps DndContext's default keyboard reordering; adds touch press-and-hold (#1287).
@@ -490,8 +492,8 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
                 className="bg-surface border border-line rounded px-2 py-1 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 {LANE_DETAILS_CAP_OPTIONS.map((n) => (
-                  // A cap below the Details count would 400; a legacy board materializes into the new cap instead.
-                  <option key={n} value={n} disabled={!legacy && n < detailsCount}>{!legacy && n < detailsCount ? `${n} (below the ${detailsCount} in Details)` : n}</option>
+                  // A cap below the Details count would 400, on a board with no tiers set too (#2658: its cap grew to fit).
+                  <option key={n} value={n} disabled={n < detailsCount}>{n < detailsCount ? `${n} (below the ${detailsCount} in Details)` : n}</option>
                 ))}
               </select>
               <span className={`text-xs font-semibold ${detailsCount > cap ? "text-warning" : "text-fg"}`} data-testid="swimlane-details-counter">{detailsCount} / {cap}</span>

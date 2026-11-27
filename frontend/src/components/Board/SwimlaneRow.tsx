@@ -23,8 +23,8 @@ import type { LimitFlags, TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import { laneRollup } from "../../utils/laneRollup";
 import { splitCellBySubColumn, stageSubColumns } from "../../utils/stages";
-import { BAND_DEFAULT_COUNT, DEFAULT_LANE_DETAILS_CAP, laneBandFields, laneBandLimit, laneGridFields, laneTierFields, type LaneBandField } from "../../utils/laneBand";
-import LaneFieldGrid, { LaneTierDetails } from "./LaneFieldGrid";
+import { BAND_DEFAULT_COUNT, DEFAULT_LANE_DETAILS_CAP, laneBandLimit, laneTierFields, type LaneBandField } from "../../utils/laneBand";
+import { LaneTierDetails } from "./LaneFieldGrid";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import ActiveUnderline from "../Common/ActiveUnderline";
 import { BAND_MAX_WIDTH, boardGridTemplate, clampColumnWidth, measureTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
@@ -187,33 +187,26 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   const focusTriggerRef = useRef(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const heightResizeState = useRef<{ startY: number; startHeight: number } | null>(null);
-  // The "N fields" toggle opens the aligned field grid (#2354).
+  // The "Show N more" toggle opens the lane details (#2354, #2439).
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const extraFieldsId = useId();
 
-  // The band shows the first two fields inline; the full grid sits behind "N fields" (#2271, #2354,
-  // on-demand tier #2335). Pinning no longer decides what shows: position does.
-  // Guards and order: `laneBandFields`, shared with the phone band (#2329).
-  const { inline: inlineFields } = laneBandFields(swimlane, swimlaneFieldDefinitions);
-  const gridFields = laneGridFields(swimlane, swimlaneFieldDefinitions, isAdmin);
-  // Until the band slots (#2356) land, K is the inline fields shown today.
-  // #2439: on a board with tiers the band shows its Band fields, and "Show N more" opens the
-  // Details grid plus Hidden on band (N = details + hidden the viewer may see). Null is a
-  // legacy board, which keeps the band above exactly until an admin sets a tier.
+  // #2439 / #2658: every board renders through the tiers. The band shows its Band fields (as many
+  // as `bandSlots` fit, #2663), and "Show N more" opens the Details grid plus Hidden on band
+  // (N = details + hidden the viewer may see). A board with no tiers set resolves them by
+  // position (`resolveLaneTiers`), so it no longer keeps the pre-#2439 "N fields" grid.
   const tiers = laneTierFields(swimlane, swimlaneFieldDefinitions, isAdmin, laneDetailsCap, bandSlots);
   // #2211: the lane's default team is the first row behind "+N"; it is not on the band itself.
   const laneDefault = useMemo(() => laneDefaultAssignee(swimlane, members), [swimlane, members]);
   const teamNames = useMemo(() => teamRowNames(swimlane, members), [swimlane, members]);
   const teamRows = teamNames.length > 0 ? 1 : 0;
-  const moreCount = (tiers ? tiers.details.length + tiers.hidden.length : gridFields.length) + teamRows;
+  const moreCount = tiers.details.length + tiers.hidden.length + teamRows;
   // Per board, so every lane shows the toggle or none does; a lane with a team also shows it.
-  const showFieldToggle = (tiers ? moreCount - teamRows > 0 : gridFields.length > BAND_DEFAULT_COUNT) || teamRows > 0;
-  // A legacy board whose toggle exists only for the team reads "Show 1 more", never "0 fields".
-  const moreLabel = tiers != null || gridFields.length <= BAND_DEFAULT_COUNT;
-  const bandFields = tiers ? tiers.band : inlineFields;
+  const showFieldToggle = moreCount > 0;
+  const bandFields = tiers.band;
   // #2663: only more than the default two share one clipping line (and cap the name to make room).
   // Two or fewer keep the wrapping band, so a narrow screen shows them in full.
-  const oneLine = tiers !== null && bandFields.length > BAND_DEFAULT_COUNT;
+  const oneLine = bandFields.length > BAND_DEFAULT_COUNT;
 
   // Status counts for the band's trailing stats and the collapsed strip's squares.
   const doneColumnIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));
@@ -374,7 +367,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           data-tour-step="swimlane"
           data-testid="swimlane-band"
           data-no-pan
-          // A double-click on a control inside the band (rename input, chevron, N fields, icons) is
+          // A double-click on a control inside the band (rename input, chevron, Show N more, icons) is
           // that control's own gesture, never "open Edit Swimlane".
           onDoubleClick={isAdmin ? (e) => { if (!(e.target as HTMLElement).closest("button, input, a, [role=button]")) setEditing(true); } : undefined}
         >
@@ -546,8 +539,8 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           <span role="status" aria-live="polite" className="sr-only">{healthAnnouncement}</span>
           {renameError && <span className="text-xs text-danger-on-tint" role="alert">{renameError}</span>}
 
-          {/* The "N fields" toggle sits before the two inline fields, so opening and closing
-              never moves it; open, the inline fields hide because the grid shows everything. */}
+          {/* The "Show N more" toggle sits before the Band fields, so opening and closing never
+              moves it; the Band fields stay while the details are open. */}
           {showFieldToggle && (
             <button
               type="button"
@@ -555,24 +548,21 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               aria-expanded={fieldsOpen}
               aria-controls={fieldsOpen ? extraFieldsId : undefined}
               // Visible text leads the accessible name (WCAG 2.5.3 label-in-name).
-              aria-label={moreLabel ? (fieldsOpen ? `Hide details for ${swimlane.name}` : `Show ${moreCount} more fields for ${swimlane.name}`) : `${gridFields.length} fields: show all field values for ${swimlane.name}`}
+              aria-label={fieldsOpen ? `Hide details for ${swimlane.name}` : `Show ${moreCount} more fields for ${swimlane.name}`}
               data-testid="swimlane-fields-toggle"
               className={`inline-flex items-center gap-1 min-h-6 text-xs px-2 py-0.5 rounded-full border shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${fieldsOpen ? "bg-info/10 text-info-on-tint border-info/40" : "border-line-strong text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
             >
-              {moreLabel ? (fieldsOpen ? "Hide details" : `Show ${moreCount} more`) : `${gridFields.length} fields`}
-              <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${tiers ? (fieldsOpen ? "rotate-180" : "") : fieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
+              {fieldsOpen ? "Hide details" : `Show ${moreCount} more`}
+              <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${fieldsOpen ? "rotate-180" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
             </button>
           )}
           {/* The lane fields as "Label value". They stay in the band when the lane
               is collapsed (the band is the collapsed lane's header). */}
-          {/* Legacy: the first two; open hides them (the grid repeats them). */}
-          {!tiers && !(showFieldToggle && fieldsOpen) && bandFields.map((bandField) => renderField(bandField))}
-
-          {/* Tiered: Band fields stay while open. More than two (#2663) share one group that takes
+          {/* Band fields stay while open. More than two (#2663) share one group that takes
               the free space and truncates, so they never push the stats to a second line; the p-0.5
               keeps a link's focus ring inside the clip. Two or fewer: `contents`, no box, so they
               wrap with the band like any other item. */}
-          {tiers && bandFields.length > 0 && (
+          {bandFields.length > 0 && (
             <div className={oneLine ? "flex flex-1 basis-0 min-w-48 items-center gap-x-3 overflow-hidden p-0.5 -m-0.5" : "contents"} data-testid="swimlane-band-fields">
               {bandFields.map((bandField) => renderField(bandField))}
             </div>
@@ -611,22 +601,8 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             </p>
           )}
           {/* The aligned field grid: last in the band, on its own line (#2354). */}
-          {showFieldToggle && fieldsOpen && tiers && (
+          {showFieldToggle && fieldsOpen && (
             <LaneTierDetails id={extraFieldsId} laneColor={color} tiers={tiers} userDateFormat={userDateFormat} onManage={isAdmin ? onManageSwimlaneFields : undefined} />
-          )}
-          {showFieldToggle && fieldsOpen && !tiers && (
-            <>
-              <LaneFieldGrid id={extraFieldsId} laneName={swimlane.name} laneColor={color} fields={gridFields} userDateFormat={userDateFormat} />
-              {isAdmin && onEditFieldOrder && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onEditFieldOrder(); }}
-                  className="inline-flex items-center min-h-6 text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Change field order
-                </button>
-              )}
-            </>
           )}
         </div>
 

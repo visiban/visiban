@@ -135,7 +135,9 @@ function renderRow(
   )
 }
 
-describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
+// #2658: every board renders through the tiers; these defs carry no tier (a board with none set),
+// so the first two by position are Band and the rest Details.
+describe('SwimlaneRow — lane fields in the band (#1140, #2271, #2658)', () => {
   const trio = () => ({
     defs: [
       makeDef({ id: 1, name: 'Owner', position: 0 }),
@@ -182,14 +184,14 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     expect(screen.queryByText('orphan')).not.toBeInTheDocument()
   })
 
-  it('shows the first two fields inline, in position order, and the rest behind the N fields toggle', () => {
+  it('shows the first two fields on the band, in position order, and the rest behind "Show N more"', () => {
     const { defs, lane } = trio()
     renderRow(lane, defs)
     expect(screen.getByText('Owner')).toBeInTheDocument()
     expect(screen.getByText('Region')).toBeInTheDocument()
     expect(screen.queryByText('Tier')).not.toBeInTheDocument()
     expect(screen.queryByText('Quota')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^4 fields:/ })).toHaveTextContent('4 fields')
+    expect(screen.getByRole('button', { name: /^Show 2 more fields for/ })).toHaveTextContent('Show 2 more')
   })
 
   it('shows no toggle when every eligible field is already inline', () => {
@@ -200,39 +202,40 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
   it('counts every eligible field, set or not, so the toggle shows when only empty fields remain', () => {
     const { defs } = trio()
     renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] }), defs)
-    expect(screen.getByRole('button', { name: /^4 fields:/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Show 2 more fields for/ })).toBeInTheDocument()
   })
 
-  it('opens an aligned grid of every field in order, keeps aria-expanded, focus and position on the toggle', async () => {
+  it('opens the details grid in order, keeps aria-expanded, focus and position on the toggle, and the Band fields stay', async () => {
     const user = userEvent.setup()
     const { defs, lane } = trio()
     renderRow(lane, defs)
     const band = screen.getByTestId('swimlane-band')
-    const toggle = screen.getByRole('button', { name: /^4 fields:/ })
+    const toggle = screen.getByRole('button', { name: /^Show 2 more fields for/ })
     const posBefore = Array.from(band.querySelectorAll('*')).indexOf(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(toggle).not.toHaveAttribute('aria-controls')
     await user.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(toggle).toHaveFocus()
-    expect(toggle).toHaveTextContent('4 fields')
+    expect(toggle).toHaveTextContent('Hide details')
     expect(toggle).toHaveClass('text-info-on-tint')
-    const grid = screen.getByTestId('swimlane-field-grid')
-    expect(toggle).toHaveAttribute('aria-controls', grid.id)
-    expect(grid).not.toHaveAttribute('aria-label')
+    const details = screen.getByTestId('swimlane-lane-details')
+    expect(toggle).toHaveAttribute('aria-controls', details.id)
+    const grid = within(details).getByTestId('swimlane-field-grid')
     expect(grid.className).toContain('grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]')
-    expect(Array.from(grid.querySelectorAll('dt')).map((e) => e.textContent)).toEqual(['Owner', 'Region', 'Tier', 'Quota'])
+    expect(Array.from(grid.querySelectorAll('dt')).map((e) => e.textContent)).toEqual(['Tier', 'Quota'])
     expect(within(grid).getByText('600')).toBeInTheDocument()
     expect(grid.querySelector('dt')).toHaveClass('w-36')
-    // The toggle did not move, the inline fields hid, and the grid is last in the band.
+    // The toggle did not move, the Band fields stayed, and the details are last in the band.
     expect(Array.from(band.querySelectorAll('*')).indexOf(toggle)).toBe(posBefore)
-    expect(within(band).queryByText('Owner', { selector: 'span' })).not.toBeInTheDocument()
-    expect(band.lastElementChild).toBe(grid)
+    expect(within(screen.getByTestId('swimlane-band-fields')).getByText('Owner')).toBeInTheDocument()
+    expect(band.lastElementChild).toBe(details)
+    expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('2 in details')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     await user.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(toggle).toHaveFocus()
-    expect(screen.queryByTestId('swimlane-field-grid')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('swimlane-lane-details')).not.toBeInTheDocument()
     expect(screen.getByText('Owner')).toBeInTheDocument()
   })
 
@@ -240,10 +243,10 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     const user = userEvent.setup()
     const { defs } = trio()
     renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }, { field_definition: 3, value: '' }] }), defs)
-    await user.click(screen.getByRole('button', { name: /^4 fields:/ }))
+    await user.click(screen.getByRole('button', { name: /^Show 2 more fields for/ }))
     const rows = within(screen.getByTestId('swimlane-field-grid')).getAllByRole('term')
-    expect(rows).toHaveLength(4)
-    const region = rows[1].nextElementSibling as HTMLElement
+    expect(rows).toHaveLength(2)
+    const region = rows[0].nextElementSibling as HTMLElement
     expect(region).toHaveTextContent('—')
     expect(within(region).getByText('Not set')).toHaveClass('sr-only')
     expect(region.querySelector('[aria-hidden="true"]')).toHaveTextContent('—')
@@ -253,7 +256,7 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     const user = userEvent.setup()
     const defs = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }), makeDef({ id: 3, uid: 'sfuid0000003', name: 'ARR', position: 2, is_admin_only: true })]
     renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 3, value: '480000' }] }), defs)
-    await user.click(screen.getByRole('button', { name: /^3 fields:/ }))
+    await user.click(screen.getByRole('button', { name: /^Show 1 more fields for/ }))
     const dt = within(screen.getByTestId('swimlane-field-grid')).getByText('ARR').closest('dt') as HTMLElement
     expect(within(dt).getByLabelText('Admin-only field')).toBeInTheDocument()
   })
@@ -262,17 +265,18 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     const user = userEvent.setup()
     const defs = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }), makeDef({ id: 3, uid: 'sfuid0000003', name: 'Site', position: 2 }), makeDef({ id: 4, uid: 'sfuid0000004', name: 'ARR', position: 3, is_admin_only: true })]
     renderRow(makeSwimlane(), defs, false, { isAdmin: false })
-    await user.click(screen.getByRole('button', { name: /^3 fields:/ }))
+    await user.click(screen.getByRole('button', { name: /^Show 1 more fields for/ }))
     const grid = screen.getByTestId('swimlane-field-grid')
     expect(within(grid).queryByText('ARR')).toBeNull()
-    expect(within(grid).getAllByRole('term')).toHaveLength(3)
+    expect(within(grid).getAllByRole('term')).toHaveLength(1)
+    expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('1 in details')
   })
 
   it('shows the same toggle on every lane of a two-field board, whatever values are set', () => {
     const two = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 })]
     for (const values of [[], [{ field_definition: 1, value: 'a' }], [{ field_definition: 1, value: 'a' }, { field_definition: 2, value: 'b' }]]) {
       const { unmount } = renderRow(makeSwimlane({ custom_field_values: values }), two)
-      expect(screen.queryByRole('button', { name: /fields:/ })).toBeNull()
+      expect(screen.queryByTestId('swimlane-fields-toggle')).toBeNull()
       unmount()
     }
   })
@@ -281,7 +285,7 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     const three = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }), makeDef({ id: 3, uid: 'sfuid0000003', name: 'Site', position: 2 })]
     for (const values of [[], [{ field_definition: 1, value: 'a' }], [{ field_definition: 1, value: 'a' }, { field_definition: 2, value: 'b' }, { field_definition: 3, value: 'c' }]]) {
       const { unmount } = renderRow(makeSwimlane({ custom_field_values: values }), three)
-      expect(screen.getByRole('button', { name: /^3 fields:/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Show 1 more fields for/ })).toBeInTheDocument()
       unmount()
     }
   })
@@ -290,7 +294,7 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     const user = userEvent.setup()
     const { defs, lane } = trio()
     renderRow(lane, defs)
-    const toggle = screen.getByRole('button', { name: /^4 fields:/ })
+    const toggle = screen.getByRole('button', { name: /^Show 2 more fields for/ })
     toggle.focus()
     await user.keyboard('{Enter}')
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
@@ -302,51 +306,54 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     const { defs, lane } = trio()
     renderRow(lane, defs, true)
     expect(screen.getByText('Owner')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^4 fields:/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Show 2 more fields for/ })).toBeInTheDocument()
   })
 
-  it('orders the band: name, then health, then the N fields toggle, then fields, then the stats (#871 ordering)', () => {
+  it('orders the band: name, then health, then the Show N more toggle, then fields, then the stats (#871 ordering)', () => {
     const { defs, lane } = trio()
     renderRow({ ...lane, health_status: 'at_risk' } as Swimlane, defs, false, { cards: [makeCardFor(1, { is_stale: true })] })
     const band = screen.getByTestId('swimlane-band')
     const pos = (el: Element) => Array.from(band.querySelectorAll('*')).indexOf(el)
     const name = pos(screen.getByTestId('swimlane-name'))
     const health = pos(screen.getByRole('button', { name: /health/i }))
-    const more = pos(screen.getByRole('button', { name: /^4 fields:/ }))
+    const more = pos(screen.getByRole('button', { name: /^Show 2 more fields for/ }))
     const field = pos(screen.getByText('Owner'))
     const stats = pos(screen.getByTestId('swimlane-band-stats'))
     expect([name, health, more, field, stats]).toEqual([...[name, health, more, field, stats]].sort((a, b) => a - b))
     expect(new Set([name, health, more, field, stats]).size).toBe(5)
   })
 
-  it('tab order: a SET health pill precedes Focus, and the lane menu precedes the N fields toggle (#2353)', () => {
+  it('tab order: a SET health pill precedes Focus, and the lane menu precedes the Show N more toggle (#2353)', () => {
     const { defs, lane } = trio()
     renderRow({ ...lane, health_status: 'at_risk' } as Swimlane, defs)
     const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
     const pill = screen.getByRole('button', { name: /health status/i })
     const focus = screen.getByRole('button', { name: /^Focus on / })
     const menu = screen.getByRole('button', { name: /^Actions for swimlane/ })
-    const more = screen.getByRole('button', { name: /^4 fields:/ })
+    const more = screen.getByRole('button', { name: /^Show 2 more fields for/ })
     expect(before(pill, focus)).toBe(true)
     expect(before(menu, more)).toBe(true)
   })
 
-  it('admins get a "Change field order" shortcut after the open grid', async () => {
+  // #2658: the pre-#2439 "Change field order" link is gone; the details offer Manage swimlane fields.
+  it('admins get Manage swimlane fields after the open details, and no Change field order link', async () => {
     const user = userEvent.setup()
-    const onEditFieldOrder = vi.fn()
+    const onManageSwimlaneFields = vi.fn()
     const { defs, lane } = trio()
-    renderRow(lane, defs, false, { onEditFieldOrder })
+    renderRow(lane, defs, false, { onManageSwimlaneFields, onEditFieldOrder: vi.fn() })
+    expect(screen.queryByRole('button', { name: 'Manage swimlane fields' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Show 2 more fields for/ }))
     expect(screen.queryByRole('button', { name: 'Change field order' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /^4 fields:/ }))
-    await user.click(screen.getByRole('button', { name: 'Change field order' }))
-    expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('button', { name: 'Manage swimlane fields' }))
+    expect(onManageSwimlaneFields).toHaveBeenCalledTimes(1)
   })
 
-  it('withholds "Change field order" from a non-admin even when the callback is passed', async () => {
+  it('withholds Manage swimlane fields from a non-admin even when the callback is passed', async () => {
     const user = userEvent.setup()
     const { defs, lane } = trio()
-    renderRow(lane, defs, false, { isAdmin: false, onEditFieldOrder: vi.fn() })
-    await user.click(screen.getByRole('button', { name: /^4 fields:/ }))
+    renderRow(lane, defs, false, { isAdmin: false, onManageSwimlaneFields: vi.fn(), onEditFieldOrder: vi.fn() })
+    await user.click(screen.getByRole('button', { name: /^Show 2 more fields for/ }))
+    expect(screen.queryByRole('button', { name: 'Manage swimlane fields' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Change field order' })).not.toBeInTheDocument()
   })
 })
@@ -386,7 +393,7 @@ describe('SwimlaneRow — hidden field names (#1418)', () => {
     renderRow(makeSwimlane({ custom_field_values: [
       { field_definition: 1, value: 'a' }, { field_definition: 2, value: 'b' }, { field_definition: 3, value: 'c' },
     ] }), defs, false, { hideRowChipFieldNames: true })
-    await user.click(screen.getByRole('button', { name: /^3 fields:/ }))
+    await user.click(screen.getByRole('button', { name: /^Show 1 more fields for/ }))
     expect(within(screen.getByTestId('swimlane-field-grid')).getByText('Tier')).toBeInTheDocument()
     expect(screen.queryByText('Tier:')).not.toBeInTheDocument()
   })
@@ -1422,7 +1429,7 @@ describe('Swimlane URL fields (#1390)', () => {
       { field_definition: 2, value: 'EMEA' },
       { field_definition: 3, value: 'https://crm.example.com/acct/42' },
     ] }), defs)
-    await user.click(screen.getByRole('button', { name: /^3 fields:/ }))
+    await user.click(screen.getByRole('button', { name: /^Show 1 more fields for/ }))
     expect(within(screen.getByTestId('swimlane-field-grid')).getByRole('link')).toHaveAttribute('href', 'https://crm.example.com/acct/42')
   })
 
@@ -1643,10 +1650,54 @@ describe('lane field tiers (#2439)', () => {
     expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('1 in details · 1 hidden on band')
   })
 
-  it('a legacy board (every tier null) keeps the pre-#2439 band', () => {
-    const defs = [0, 1, 2].map((i) => makeDef({ id: i + 1, name: `F${i}`, position: i, band_visibility: null }))
-    renderRow(makeSwimlane(), defs)
-    expect(screen.getByTestId('swimlane-fields-toggle')).toHaveTextContent('3 fields')
+  // #2658 "Yes, switch now": a board with every tier null renders the tiers by position.
+  describe('a board with no tiers set (#2658)', () => {
+    const unset = (n: number, extra: (i: number) => Partial<SwimlaneCustomFieldDefinition> = () => ({})) =>
+      Array.from({ length: n }, (_, i) => makeDef({ id: i + 1, uid: `sfuid${String(i + 1).padStart(7, '0')}`, name: `F${i}`, position: i, band_visibility: null, ...extra(i) }))
+    const valued = (n: number) => makeSwimlane({ custom_field_values: Array.from({ length: n }, (_, i) => ({ field_definition: i + 1, value: `v${i}` })) })
+
+    it('shows the first two on the band, "Show N more", the footer and Manage swimlane fields for an admin', async () => {
+      const onManageSwimlaneFields = vi.fn()
+      renderRow(valued(3), unset(3), false, { onManageSwimlaneFields })
+      expect(within(screen.getByTestId('swimlane-band-fields')).getByText('v0')).toBeInTheDocument()
+      const toggle = screen.getByTestId('swimlane-fields-toggle')
+      expect(toggle).toHaveTextContent('Show 1 more')
+      await userEvent.click(toggle)
+      expect(screen.queryByTestId('swimlane-hidden-group')).not.toBeInTheDocument()
+      expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('1 in details')
+      await userEvent.click(screen.getByRole('button', { name: 'Manage swimlane fields' }))
+      expect(onManageSwimlaneFields).toHaveBeenCalled()
+      expect(screen.queryByRole('button', { name: 'Change field order' })).not.toBeInTheDocument()
+    })
+
+    it('grows the cap to fit: 12 fields keep all 10 past the band in details, none hidden', async () => {
+      renderRow(valued(12), unset(12))
+      const toggle = screen.getByTestId('swimlane-fields-toggle')
+      expect(toggle).toHaveTextContent('Show 10 more')
+      await userEvent.click(toggle)
+      expect(screen.queryByTestId('swimlane-hidden-group')).not.toBeInTheDocument()
+      expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('10 in details')
+    })
+
+    it('past 2 + 16 fields the rest are Hidden on band, readable by a non-admin, with no manage link', async () => {
+      renderRow(valued(20), unset(20), false, { isAdmin: false, onManageSwimlaneFields: vi.fn() })
+      const toggle = screen.getByTestId('swimlane-fields-toggle')
+      expect(toggle).toHaveTextContent('Show 18 more')
+      await userEvent.click(toggle)
+      const group = screen.getByTestId('swimlane-hidden-group')
+      expect(within(group).getByText('v19')).toBeInTheDocument()
+      expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('16 in details · 2 hidden on band')
+      expect(screen.queryByRole('button', { name: 'Manage swimlane fields' })).not.toBeInTheDocument()
+    })
+
+    it('a non-admin never counts or sees an admin-only field', async () => {
+      renderRow(valued(4), unset(4, (i) => ({ is_admin_only: i === 3 })), false, { isAdmin: false })
+      const toggle = screen.getByTestId('swimlane-fields-toggle')
+      expect(toggle).toHaveTextContent('Show 1 more')
+      await userEvent.click(toggle)
+      expect(screen.queryByText('F3')).not.toBeInTheDocument()
+      expect(screen.queryByText('v3')).not.toBeInTheDocument()
+    })
   })
 })
 
@@ -1737,5 +1788,43 @@ describe('BoardSettingsSwimlaneFieldsTab tiers (#2439)', () => {
     expect(onUpdateBoardSettings).toHaveBeenCalledWith({ lane_details_cap: 9 })
     await userEvent.type(screen.getByPlaceholderText('Find a field'), 'Field 3')
     expect(screen.getAllByRole('radiogroup')).toHaveLength(1)
+  })
+
+  describe('a board with no tiers set grows its cap to fit (#2658)', () => {
+    const unset = (n: number) => Array.from({ length: n }, (_, i) => makeDef({ id: i + 1, name: `Field ${i}`, position: i, band_visibility: null }))
+
+    it('reads 12 fields as 10 in details at a cap of 12, with the lower caps disabled', () => {
+      render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(unset(12))} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />)
+      expect(screen.getByTestId('swimlane-details-counter')).toHaveTextContent('10 / 12')
+      const select = screen.getByRole('combobox', { name: 'In lane details up to' }) as HTMLSelectElement
+      expect(select.value).toBe('12')
+      expect(within(select).getByRole('option', { name: '9 (below the 10 in Details)' })).toBeDisabled()
+      expect(within(select).getByRole('option', { name: '16' })).not.toBeDisabled()
+    })
+
+    it('keeps an admin cap above what the fields need', () => {
+      render(<BoardSettingsSwimlaneFieldsTab board={{ ...makeBoard(unset(3)), lane_details_cap: 16 }} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />)
+      expect(screen.getByTestId('swimlane-details-counter')).toHaveTextContent('1 / 16')
+    })
+
+    it('a first tier write keeps the grown cap until the board.updated lands, and reverts it on failure', async () => {
+      const onFieldsUpdated = vi.fn()
+      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValueOnce(makeDef({ id: 3, name: 'Field 2', position: 2, band_visibility: 'hidden' }))
+      const board = makeBoard(unset(9))
+      const { rerender } = render(<BoardSettingsSwimlaneFieldsTab board={board} isAdmin onFieldsUpdated={onFieldsUpdated} onUpdateBoardSettings={vi.fn()} />)
+      expect(screen.getByTestId('swimlane-details-counter')).toHaveTextContent('7 / 9')
+      await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Show Field 2' })).getByRole('radio', { name: 'Hidden' }))
+      // The stored cap is still 6 here, but the materialized board reads at the grown 9.
+      expect(screen.getByTestId('swimlane-details-counter')).toHaveTextContent('6 / 9')
+      const last = onFieldsUpdated.mock.calls.at(-1)![0] as SwimlaneCustomFieldDefinition[]
+      rerender(<BoardSettingsSwimlaneFieldsTab board={{ ...board, swimlane_custom_field_definitions: last, lane_details_cap: 9 }} isAdmin onFieldsUpdated={onFieldsUpdated} onUpdateBoardSettings={vi.fn()} />)
+      expect(screen.getByTestId('swimlane-details-counter')).toHaveTextContent('6 / 9')
+
+      mockApi.updateSwimlaneCustomFieldDefinition.mockRejectedValueOnce({ response: { data: { band_visibility: ['nope'] } } })
+      rerender(<BoardSettingsSwimlaneFieldsTab board={makeBoard(unset(9))} isAdmin onFieldsUpdated={onFieldsUpdated} onUpdateBoardSettings={vi.fn()} />)
+      await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Show Field 3' })).getByRole('radio', { name: 'Hidden' }))
+      expect(await screen.findByText('nope')).toBeInTheDocument()
+      expect(screen.getByTestId('swimlane-details-counter')).toHaveTextContent('7 / 9')
+    })
   })
 })

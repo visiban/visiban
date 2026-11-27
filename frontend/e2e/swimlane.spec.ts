@@ -93,17 +93,21 @@ test.describe('swimlane field order shortcut', () => {
     })) as typeof BOARD_FULL.swimlanes,
   }
 
-  test('admin opens Swimlane fields from the open field grid; Ctrl+, still opens Members', async ({ page }) => {
+  test('admin opens Swimlane fields from the open lane details; Ctrl+, still opens Members', async ({ page }) => {
     await routeAuth(page)
     await routeBoard(page, board)
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
-    const more = page.getByRole('button', { name: /^\d+ fields:/ })
+    // #2658: a board with no tiers set renders the tiers too, so the details offer Manage swimlane fields.
+    // The accessible name turns into "Hide details for …" once open, so hold it by test id.
+    const more = page.getByTestId('swimlane-fields-toggle')
+    await expect(more).toHaveAccessibleName(/^Show 1 more fields for/)
     await more.click()
     await expect(more).toHaveAttribute('aria-expanded', 'true')
     await expect(page.getByText('Tier')).toBeVisible()
-    await page.getByRole('button', { name: 'Change field order' }).click()
+    await expect(page.getByRole('button', { name: 'Change field order' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Manage swimlane fields' }).click()
 
     const tab = page.getByRole('tab', { name: /^Swimlane fields/ })
     await expect(tab).toBeFocused()

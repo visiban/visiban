@@ -147,17 +147,19 @@ class SwimlaneCustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             )["m"]
             next_position = 0 if _max is None else _max + 1
             extra = {}
+            # A create is a tier write (#2439, #2658): materialize an unset
+            # board first (growing its cap to fit), so the new row is never
+            # the only explicit one, which would demote the derived band.
+            lane_field_tiers.materialize(board, actor_id=self.request.user.id)
             if "band_visibility" in serializer.validated_data:
-                # An explicit tier on create materializes the board first
-                # (#2439), then is checked against the locked rows.
-                lane_field_tiers.materialize(board, actor_id=self.request.user.id)
+                # An explicit tier is checked against the locked rows.
                 lane_field_tiers.assert_band_tiers(
                     board, instance=None,
                     band_visibility=serializer.validated_data["band_visibility"],
                 )
             else:
-                # No tier sent: NULL on a legacy board, Details-if-room else
-                # Hidden on a materialized one. Never a 400 for an old client.
+                # No tier sent: an explicit default, never NULL and never a
+                # 400 for an old client.
                 extra["band_visibility"] = lane_field_tiers.default_tier_for_create(board)
             definition = serializer.save(board=board, position=next_position, **extra)
             payload = SwimlaneCustomFieldDefinitionSerializer(definition).data

@@ -308,7 +308,7 @@ describe('BoardView — board presets (#1146)', () => {
     })
 
     // #2271: the swimlane band shows the first two lane fields at every density and
-    // folds the rest behind the N fields toggle, for every preset (the redesign replaces the grid for every
+    // folds the rest behind "Show N more" (#2658: a board with no tiers set derives them), for every preset (the redesign replaces the grid for every
     // preset, so the old #1417 density-following chip cap no longer exists).
     describe('swimlane band fields (#2271)', () => {
       const defs = Array.from({ length: 6 }, (_, i) => ({
@@ -324,10 +324,10 @@ describe('BoardView — board presets (#1146)', () => {
           swimlanes: [{ ...base.swimlanes[0], custom_field_values: defs.map((d) => ({ field_definition: d.id, value: `val${d.id}` })) }],
         })
       }
-      it.each(['comfortable', 'standard', 'dense'] as const)('Classic %s shows 2 of 6 fields and a 6 fields toggle', (card_density) => {
+      it.each(['comfortable', 'standard', 'dense'] as const)('Classic %s shows 2 of 6 fields and a Show 4 more toggle', (card_density) => {
         renderBoard(pinnedBoard(card_density), 'preset=classic')
         expect(screen.queryAllByText(/^val\d$/)).toHaveLength(2)
-        expect(screen.getByRole('button', { name: '6 fields: show all field values for Customer A' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Show 4 more fields for Customer A' })).toBeInTheDocument()
       })
     })
 

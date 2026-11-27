@@ -9,8 +9,8 @@ import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, t
  */
 
 /**
- * Band fields with no admin choice: the two shown inline on a legacy board (#2271), what
- * materializing one writes, and the fewest slots a screen offers; `BAND_DEFAULT` on the server.
+ * Band fields with no admin choice: what a board with no tiers set derives by position (#2271,
+ * #2658) and what materializing one writes, and the fewest slots a screen offers; `BAND_DEFAULT` on the server.
  */
 export const BAND_DEFAULT_COUNT = 2;
 /** The most fields an admin may mark Band (#2663); `BAND_MAX` on the server. */
@@ -19,27 +19,6 @@ export const BAND_MAX_COUNT = 6;
 export interface LaneBandField {
   def: SwimlaneCustomFieldDefinition;
   value: string;
-}
-
-/**
- * The lane's field values in Swimlane fields tab order, split into the first
- * two (inline) and the rest. `extra` is retained for compatibility and is no
- * longer rendered by any band: the aligned `LaneFieldGrid` replaced the +N
- * expansion (#2354). Three guards, all deliberate: an
- * empty-string value renders nothing (dashed already means "unset" on the card
- * face, and Edit Swimlane lists every field, so an empty value is never
- * stranded); a value whose definition is missing is dropped silently (a WS race
- * between a definition delete and this render); and the inline slice is capped
- * client-side, so a server-side cap violation cannot blow out the band.
- */
-export function laneBandFields(lane: Swimlane, definitions: SwimlaneCustomFieldDefinition[] | undefined): { inline: LaneBandField[]; extra: LaneBandField[] } {
-  const byId = new Map((definitions ?? []).map((d) => [d.id, d]));
-  const entries = (lane.custom_field_values ?? [])
-    .filter((v) => v.value !== "")
-    .map((v) => ({ def: byId.get(v.field_definition), value: v.value }))
-    .filter((x): x is LaneBandField => !!x.def)
-    .sort((a, b) => a.def.position - b.def.position);
-  return { inline: entries.slice(0, BAND_DEFAULT_COUNT), extra: entries.slice(BAND_DEFAULT_COUNT) };
 }
 
 /**
@@ -64,16 +43,40 @@ export const DEFAULT_LANE_DETAILS_CAP = 6;
 
 type TierDef = Pick<SwimlaneCustomFieldDefinition, "id" | "position" | "band_visibility">;
 
-/** True when no definition carries an explicit tier: a pre-#2439 board, which keeps today's band. */
+/**
+ * True when no definition carries an explicit tier: a board with no tiers set (every pre-#2439
+ * board until its first tier write). It renders the tiers by position (#2658), not a separate band.
+ */
 export function isLegacyTiers(definitions: TierDef[] | undefined): boolean {
   return (definitions ?? []).every((d) => d.band_visibility == null);
+}
+
+/**
+ * The smallest cap option that holds `detailsCount`, never below `cap` (#2658, owner decision
+ * "Grow cap to fit"); past the largest option, the largest. `cap_to_fit` on the server.
+ */
+export function laneDetailsCapToFit(detailsCount: number, cap: number): number {
+  const fit = LANE_DETAILS_CAP_OPTIONS.find((o) => o >= detailsCount) ?? LANE_DETAILS_CAP_OPTIONS[LANE_DETAILS_CAP_OPTIONS.length - 1];
+  return Math.max(cap, fit);
+}
+
+/**
+ * The cap `definitions` resolve with: on a board with no tiers set, grown to hold every field
+ * past the first two (the server writes the same cap on the first tier write); otherwise `cap`.
+ * Counts every definition, admin-only or not, so every viewer resolves the same tiers.
+ * `effective_cap` on the server.
+ */
+export function effectiveLaneDetailsCap(definitions: TierDef[] | undefined, cap: number): number {
+  const defs = definitions ?? [];
+  return isLegacyTiers(defs) ? laneDetailsCapToFit(Math.max(0, defs.length - BAND_DEFAULT_COUNT), cap) : cap;
 }
 
 /**
  * Each definition's tier (#2439), the mirror of `resolve_tiers` in
  * `backend/boards/services/lane_field_tiers.py`; the shared fixture
  * `backend/boards/tests/fixtures/lane_field_tiers.json` pins the two together.
- * Legacy (every row null): the first two by position are Band, the rest Details, uncapped.
+ * No tiers set (every row null, #2658): the first two by position are Band, the next
+ * `effectiveLaneDetailsCap` Details, the rest Hidden, which is what the server's first tier write stores.
  * Otherwise explicit tiers win, and a null row (an older server's create during a rolling
  * deploy) is never Band: it fills Details in position order up to `cap`, then Hidden, so it
  * never lands on the band without an admin choosing it.
@@ -82,7 +85,8 @@ export function resolveLaneTiers(definitions: TierDef[] | undefined, cap: number
   const ordered = [...(definitions ?? [])].sort((a, b) => a.position - b.position || a.id - b.id);
   const out = new Map<number, LaneTier>();
   if (isLegacyTiers(ordered)) {
-    ordered.forEach((d, i) => out.set(d.id, i < BAND_DEFAULT_COUNT ? "band" : "details"));
+    const grown = effectiveLaneDetailsCap(ordered, cap);
+    ordered.forEach((d, i) => out.set(d.id, i < BAND_DEFAULT_COUNT ? "band" : i < BAND_DEFAULT_COUNT + grown ? "details" : "hidden"));
     return out;
   }
   let detailsUsed = ordered.filter((d) => d.band_visibility === "details").length;
@@ -96,7 +100,7 @@ export function resolveLaneTiers(definitions: TierDef[] | undefined, cap: number
 export interface LaneTierFields {
   /**
    * Non-empty values among the first `slots` Band fields (an empty Band value is dropped, as the
-   * legacy band does, and its slot is not refilled).
+   * pre-1.3 band did, and its slot is not refilled).
    */
   band: LaneBandField[];
   /**
@@ -109,17 +113,16 @@ export interface LaneTierFields {
 }
 
 /**
- * The lane's fields split by tier (#2439), or null on a legacy board, whose band keeps
- * `laneBandFields` / `laneGridFields` so it renders identically until an admin sets a tier.
- * Built on `laneGridFields`, so every tier (and so every count) leaves out admin-only fields
+ * The lane's fields split by tier (#2439). Every board renders through this (#2658): one with no
+ * tiers set resolves by position (`resolveLaneTiers`), so it has "Show N more", Hidden on band and
+ * the manage link like any other. Built on `laneGridFields`, so every tier (and so every count) leaves out admin-only fields
  * for a non-admin; a caller that cannot tell the viewer's role passes `false`.
  *
  * `slots` (#2663) is how many Band fields this screen shows (`bandSlotsFor`); absent means the
  * default two. Slots are counted over the viewer's Band *definitions*, not the non-empty values,
  * so every lane has the same slots and the same "Show N more" count. Overflow is display-only.
  */
-export function laneTierFields(lane: Swimlane, definitions: SwimlaneCustomFieldDefinition[] | undefined, isAdmin: boolean, cap: number, slots: number = BAND_DEFAULT_COUNT): LaneTierFields | null {
-  if (isLegacyTiers(definitions)) return null;
+export function laneTierFields(lane: Swimlane, definitions: SwimlaneCustomFieldDefinition[] | undefined, isAdmin: boolean, cap: number, slots: number = BAND_DEFAULT_COUNT): LaneTierFields {
   const tiers = resolveLaneTiers(definitions, cap);
   const grid = laneGridFields(lane, definitions, isAdmin);
   const onBand = grid.filter((f) => tiers.get(f.def.id) === "band");
