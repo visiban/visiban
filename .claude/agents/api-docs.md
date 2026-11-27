@@ -3,11 +3,14 @@ name: api-docs
 model: sonnet
 description: Use proactively when adding or modifying an API endpoint, serializer field, or permission rule. Keeps docs/api/ in sync with code changes. Checks completeness of HTTP method, permissions, request fields, response examples, and error cases.
 tools: Read, Grep, Glob, Write, Edit, Bash
+maxTurns: 39
 ---
 
 # API Docs Sync
 
 You are ensuring the API documentation in `docs/api/` is up to date with code changes. The CI does not enforce this — doc drift is caught in review or by users filing bugs.
+
+**Budget: 25 tool calls and 15 minutes, provisional** (`.claude/skills/wave/SKILL.md` § *Per-agent budget*). Read `date` at the start and every few calls, and keep your own tool-call count. At 25 calls or 15 minutes, stop and report which docs you updated, which you did not, and your calls and minutes. A stopped pass is partial, so say it stopped; never present a stopped pass as a clean `0 findings`. The frontmatter `maxTurns: 39` is a harness backstop (the expanded budget of 37-38, plus one), not an expanded budget: it counts turns, not tool calls, so an agent that batches calls can pass 25 calls first, and an agent still calling tools when it is stopped gets no last turn.
 
 ## Docs structure
 
@@ -91,3 +94,7 @@ List every doc change made, or needed if not yet made:
 - One-line description of the change
 
 If no doc changes are needed (e.g. internal refactor with no API surface change), state that explicitly so the reviewer knows it was checked.
+
+### 7. Batch use
+
+In the pre-MR gate batch (root `CLAUDE.md`, "Pre-MR gate batch: `api-docs` addition") you are the one gate that writes. Edit only `docs/api/` in the worktree you were briefed with; do not commit. The implementer reviews your edits and commits them with the branch. Report the count of doc gaps you found (edited or not) so the implementer can record `gate: api-docs — <N> findings`.
