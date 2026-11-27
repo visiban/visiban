@@ -21,7 +21,7 @@ A board or group admin can mark a board or a group **On track**, **At risk** or 
 | **On track** | filled circle | Work is going as planned. |
 | **At risk** | triangle | Something could slip without action. |
 | **Off track** | diamond | The plan is not being met. |
-| **No status** | hollow circle | Nothing is set here or in any group above. Only admins see it, on the board or group page, as the place to set one. |
+| **No status** | hollow circle | Nothing is set here or in any group above. Admins can click it, on the board or group page, to set one; the board header shows the pill to every other viewer too, as a static label. |
 
 Every state has its own shape and word as well as its color, so it reads the same without color.
 

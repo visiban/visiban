@@ -81,8 +81,8 @@ export function BoardEmptyState({ firstColumnName, onAddCard, importHref }: Empt
 /** #2324 — below the lanes (each shrunk to its band) when nothing matches. */
 export function BoardNoMatchState({ line, onShowAll }: { line: string; onShowAll: () => void }) {
   return (
-    <div role="status" className="sticky left-4 mx-4 my-3 rounded-lg bg-canvas px-5 py-5 text-center" style={{ maxWidth: BAND_MAX_WIDTH }} data-testid="board-no-match">
-      <p className="text-sm font-semibold text-fg break-words">{line}</p>
+    <div role="status" className="sticky left-4 mx-4 my-3 rounded-lg bg-canvas px-5 py-4 text-center" style={{ maxWidth: BAND_MAX_WIDTH }} data-testid="board-no-match">
+      <p className="text-sm font-bold text-fg break-words">{line}</p>
       <button type="button" onClick={onShowAll} className={`mt-3 ${SECONDARY_BTN} text-fg`}>
         Show all cards
       </button>
@@ -120,7 +120,7 @@ export function BoardLoadError({ onRetry }: { onRetry: () => void }) {
   return (
     <div role="alert" className="m-4 flex items-center justify-between gap-4 rounded-lg border border-danger-emphasis/50 bg-surface px-4 py-3" data-testid="board-load-error">
       <p className="min-w-0 text-sm text-fg-secondary">
-        <strong className="font-semibold text-fg">The board didn't load.</strong> Check your connection and try again.
+        <strong className="font-bold text-fg">The board didn't load.</strong> Check your connection and try again.
       </p>
       <button
         type="button"
@@ -144,7 +144,7 @@ export function ViewOnlyNotice() {
         <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
         <circle cx="8" cy="8" r="2" />
       </svg>
-      <span><strong className="font-semibold text-fg">View only.</strong> You can open cards and filter, but not move or edit them.</span>
+      <span><strong className="font-bold text-fg">View only.</strong> You can open cards and filter, but not move or edit them.</span>
     </div>
   );
 }

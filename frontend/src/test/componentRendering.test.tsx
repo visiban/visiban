@@ -651,12 +651,14 @@ describe('ColumnHeader', () => {
     expect(screen.getByTestId('column-count')).toHaveTextContent('2 / 2')
   })
 
-  it('tints the panel with the column color and lets the name wrap', () => {
+  it('tints the panel with the column color and truncates the name on one line (#2389)', () => {
     const { container } = renderHeader({ color: '#3B82F6', name: 'A very long column name that must wrap' }, [])
     const panel = container.querySelector('.group\\/col') as HTMLElement
     expect(panel.getAttribute('style')).toContain('color-mix')
     expect(panel).toHaveClass('rounded-lg')
-    expect(screen.getByText('A very long column name that must wrap')).not.toHaveClass('truncate')
+    const name = screen.getByText('A very long column name that must wrap')
+    expect(name).toHaveClass('truncate')
+    expect(name).not.toHaveClass('break-words')
   })
 
   it('add-card button: accessible name names the column and it calls onAddCard', async () => {

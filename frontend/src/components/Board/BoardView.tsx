@@ -3113,8 +3113,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const overflowItems: OverflowItem[] = useMemo(() => {
     const items: OverflowItem[] = [];
 
-    // Keyboard shortcuts only (#2435): Export and Settings are toolbar buttons
-    // beside it, so the overflow menu no longer carries them.
+    // Export and Board settings repeat the toolbar buttons (#2450): the reference menu lists them
+    // beside Keyboard shortcuts, and the toolbar buttons stay for one-click reach (#2435). Each
+    // carries the same gate as its button (canExport, isAdmin).
+    if (canExport) {
+      items.push({
+        id: "export",
+        label: "Export board",
+        icon: ExportIcon,
+        onSelect: () => setShowExport(true),
+      });
+    }
+    if (isAdmin) {
+      items.push({
+        id: "board-settings",
+        label: "Board settings",
+        icon: SettingsIcon,
+        onSelect: () => setShowSettings(true),
+      });
+    }
     items.push({
       id: "shortcuts",
       label: "Keyboard shortcuts",
@@ -3126,7 +3143,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     });
 
     return items;
-  }, []);
+  }, [canExport, isAdmin]);
 
   // Screen-reader-only announcement for card-action results that change the
   // board in view (#2059); every other result is a toast (#2107). Rendered by

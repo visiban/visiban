@@ -426,7 +426,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
       onClick={handleStarToggle}
       disabled={!demoMode && starLoading}
       aria-disabled={demoMode ? true : undefined}
-      className={`text-sm max-sm:inline-flex max-sm:items-center max-sm:justify-center max-sm:min-h-11 max-sm:min-w-11 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+      className={`text-sm ${isAdmin ? "" : "ml-1.5"} max-sm:inline-flex max-sm:items-center max-sm:justify-center max-sm:min-h-11 max-sm:min-w-11 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         demoMode
           ? "text-fg-muted opacity-40 cursor-not-allowed"
           : isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"
@@ -486,6 +486,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
                 <HealthStatusControl
                   className="ml-2 max-sm:ml-0 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:justify-center"
                   collapseLabel
+                  showUnsetToReaders
                   entityKind="board"
                   entityName={board.name}
                   parentName={board.group_name}

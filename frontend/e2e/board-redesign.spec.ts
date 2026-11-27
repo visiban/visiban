@@ -163,11 +163,70 @@ test.describe('board redesign baseline', () => {
     // Menus (#2394): the Filter panel and the ... menu, the two reference menus the View menu shot
     // does not cover. Opened one at a time (the reference draws all three side by side).
     test('filter menu', async ({ page }) => {
-      await openBoard(page, 'dark')
+      // The reference opens the panel over two active filters (Label: Renewal and a second row), so
+      // the capture carries the count badge, the highlighted rows and the chip row (#2450). The
+      // second filter is Overdue rather than the reference's APAC lane rule: a lane rule travels
+      // as a compact JSON URL param, and the panel's selected-row treatment is the same.
+      const renewal = REDESIGN_BOARD.labels.find((l) => l.name === 'Renewal')!
+      await openBoard(page, 'dark', `?f_labels=${renewal.id}&f_due=overdue`)
       await page.getByRole('button', { name: /^Filter/ }).first().click()
       await expect(page.getByRole('dialog', { name: 'Filter' })).toBeVisible()
       await page.mouse.move(0, 0)
       await expectShot(page, 'board-menu-filter.png', SHOT)
+    })
+
+    // Column header reveals (#2450, #2389): the chevron and kebab appear on hover and focus without moving
+    // anything. The structural assertions run on every platform; the captures only on Linux.
+    function firstHeader(page: Page) {
+      return page.getByTestId('column-add-card').first().locator('xpath=ancestor::div[contains(@class,"group/col")][1]')
+    }
+
+    test('column header hover reveals the kebab without moving "+"', async ({ page }) => {
+      await openBoard(page, 'dark')
+      const header = firstHeader(page)
+      const add = header.getByTestId('column-add-card')
+      const name = header.locator('button.truncate').first()
+      await expect(add).toBeVisible()
+      await page.mouse.move(0, 0)
+      const kebab = header.getByRole('button', { name: /^Actions for column/ })
+      await expect(kebab).toHaveCount(1)
+      const before = await add.boundingBox()
+      const nameBefore = await name.boundingBox()
+      expect(Number(await kebab.evaluate((el) => getComputedStyle(el.closest('div.absolute') as HTMLElement).opacity))).toBe(0)
+      await header.hover()
+      await expect.poll(async () => Number(await kebab.evaluate((el) => getComputedStyle(el.closest('div.absolute') as HTMLElement).opacity))).toBe(1)
+      expect((await add.boundingBox())!.x).toBe(before!.x)
+      expect((await name.boundingBox())!.width).toBe(nameBefore!.width)
+    })
+
+    test('column header count line shares the name x', async ({ page }) => {
+      await openBoard(page, 'dark')
+      const header = firstHeader(page)
+      const nameBox = await header.locator('button.truncate, span.truncate').first().boundingBox()
+      const countBox = await header.getByTestId('column-count').boundingBox()
+      expect(countBox!.x).toBe(nameBox!.x)
+    })
+
+    test('column header hover', async ({ page }) => {
+      await openBoard(page, 'dark')
+      await firstHeader(page).hover()
+      await expect(firstHeader(page).getByRole('button', { name: 'Collapse column' })).toBeVisible()
+      await expectShot(page, 'board-header-hover.png', SHOT)
+    })
+
+    test('column header keyboard focus shows the chevron', async ({ page }) => {
+      await openBoard(page, 'dark')
+      await page.mouse.move(0, 0)
+      const header = firstHeader(page)
+      const chevron = header.getByRole('button', { name: 'Collapse column' })
+      // The name button is the next tab stop after the chevron; focusing it is focus-within the header.
+      await header.locator('button.truncate').first().focus()
+      await expect.poll(async () => Number(await chevron.evaluate((el) => getComputedStyle(el).opacity))).toBe(1)
+      // The chevron must not overlap the color dot (#2450).
+      const c = (await chevron.boundingBox())!
+      const d = (await header.locator('.color-dot').boundingBox())!
+      expect(c.x + c.width).toBeLessThanOrEqual(d.x)
+      await expectShot(page, 'board-header-chevron-focus.png', SHOT)
     })
 
     test('overflow menu', async ({ page }) => {
@@ -185,10 +244,13 @@ test.describe('board redesign baseline', () => {
   // stages-settings.png are not captured here because they are a component sheet and a settings panel,
   // not board states. The Stage settings visual match to stages-settings.png stays open under #2278;
   // components.png has no capture yet.
-  // These baselines pin renderings known to diverge from the reference. Column-header mid-word
-  // wrapping and the collapse chevron are #2389; the other divergences (`...` menu contents, view-only
-  // star and status pill, offline banner color, non-bold lead-ins, Filter panel active filters, no-match
-  // panel) are #2450. A baseline update after those land is expected, not a regression.
+  // Known remaining divergence from the reference (#2450, #2389 landed): the offline banner stays amber
+  // while reconnecting on purpose (#2342, danger only once failed), and the Filter panel's second active
+  // filter is Overdue, not the reference's APAC lane rule. Column names truncate on one line with the
+  // collapse chevron shown on hover or focus, as the reference draws them. Known baseline limit: bold lead-ins
+  // ("View only.", "The board didn't load.", the no-match line) and font-semibold column names render at regular
+  // weight, because the CI image's `system-ui` resolves to WenQuanYi Zen Hei, which has no bold face
+  // (`fc-match 'system-ui:bold'`). Bold is asserted by unit tests; the baselines cannot show it.
   test.describe('desktop 1440 board states', () => {
     test.use({ viewport: { width: 1440, height: 900 } })
 

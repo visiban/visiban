@@ -158,6 +158,58 @@ describe('ColumnHeader — kebab touch reveal (#2343)', () => {
     expect(cls).toContain('group-hover/col:opacity-100')
     expect(cls).toContain('focus-within:opacity-100')
     expect(cls).toContain('[@media(hover:none)]:opacity-100')
+    expect(cls).toContain('absolute') // out of the flex row: hover reflows nothing (#2450)
+    expect(cls).toContain('w-7') // fixed width, opacity-only reveal
+    expect(cls).not.toMatch(/(^|\s)w-0(\s|$)|group-hover\/col:w-/)
+    expect(cls).toContain('has-[[aria-expanded=true]]:opacity-100') // stays while its portal menu is open
+  })
+})
+
+// #2389 — the collapse chevron is hidden at rest like the reference, but stays reachable
+describe('ColumnHeader — collapse chevron reveal and name truncation (#2389)', () => {
+  it('the chevron is opacity-hidden at rest, not display:none, and revealed by hover, focus and no-hover', () => {
+    renderHeader()
+    const chevron = screen.getByRole('button', { name: 'Collapse column' })
+    const cls = chevron.className
+    expect(cls).toContain('opacity-0')
+    expect(cls).toContain('group-hover/col:opacity-100')
+    expect(cls).toContain('focus:opacity-100')
+    expect(cls).toContain('group-focus-within/col:opacity-100') // focus anywhere in the header (#2450)
+    expect(cls).toContain('[@media(hover:none)]:opacity-100')
+    expect(cls).not.toMatch(/\bhidden\b|invisible/)
+    expect(cls).toContain('absolute') // out of the flex row: reserves no width (#2450)
+  })
+
+  it('the count line shares the name x: both start 18px in, past the dot (#2450)', () => {
+    renderHeader()
+    expect(screen.getByTestId('column-count').parentElement?.className).toContain('pl-[18px]')
+    expect(screen.getByTestId('column-count').parentElement?.className).not.toContain('26px')
+  })
+
+  it('Tab reaches the chevron and Enter collapses', async () => {
+    const user = userEvent.setup()
+    const props = renderHeader()
+    const chevron = screen.getByRole('button', { name: 'Collapse column' })
+    chevron.focus()
+    expect(chevron).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(props.onToggleCollapse).toHaveBeenCalledTimes(1)
+  })
+
+  it('the name stays on one line and never breaks mid-word; the full name is the accessible name and the title', () => {
+    const long = { ...column, name: 'Prospecting and qualification' }
+    renderHeader({ column: long })
+    const nameBtn = screen.getByRole('button', { name: 'Prospecting and qualification' })
+    expect(nameBtn.className).toContain('truncate')
+    expect(nameBtn.className).not.toContain('break-words')
+    expect(nameBtn).toHaveAttribute('title', 'Prospecting and qualification (click to rename)')
+  })
+
+  it('a non-admin name truncates too and carries the full name as its title', () => {
+    renderHeader({ isAdmin: false })
+    const name = screen.getByText('Backlog')
+    expect(name.className).toContain('truncate')
+    expect(name).toHaveAttribute('title', 'Backlog')
   })
 })
 

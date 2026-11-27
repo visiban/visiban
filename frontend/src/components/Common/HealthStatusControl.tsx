@@ -21,6 +21,8 @@ interface Props extends HealthFields, Partial<HealthAttribution> {
   collapseLabel?: boolean;
   /** Group header: a visible "Inherited from {Group}" caption beside the pill. */
   showCaption?: boolean;
+  /** Non-admins see the hollow "No status" pill instead of nothing. Only the board header sets it (#2450). */
+  showUnsetToReaders?: boolean;
   /**
    * Persist `next` (null = inherit / clear) and merge the server's response
    * into the parent's state. Reject to keep the popover open with a message.
@@ -100,7 +102,7 @@ function UnsetHealthIcon() {
  * opens.
  */
 export default function HealthStatusControl({
-  entityKind, entityName, parentName, canEdit, collapseLabel, showCaption, onSave, className = "",
+  entityKind, entityName, parentName, canEdit, collapseLabel, showCaption, showUnsetToReaders, onSave, className = "",
   mode: requestedMode = "detailed", onConfirm, fetchHistory, datePrefs,
   trigger = "pill", scope, shapeOnly, autoFocus, onAutoFocused, onAnnounce, onOpenChange,
   health_status, effective_health_status, health_status_source,
@@ -231,8 +233,12 @@ export default function HealthStatusControl({
   if (!canEdit) {
     // #2245: an auto entity that has been computed shows its pill even with
     // no value ("No open cards"), so a non-admin can read why.
-    if (display.value === "none" && !(auto && auto.computedAt)) return liveRegion;
-    if ((detailed && fetchHistory) || auto) {
+    // The board header opts in (#2450): the reference shows the "No status" pill to every viewer there.
+    if (display.value === "none" && !(auto && auto.computedAt) && !showUnsetToReaders) return liveRegion;
+    // An unset value with no auto facts has nothing to read, so a reader's "No status" pill (#2450) stays a static
+    // display rather than a trigger for a near-empty popover.
+    const nothingToRead = display.value === "none" && !(auto && auto.computedAt);
+    if (!nothingToRead && ((detailed && fetchHistory) || auto)) {
       // Non-admins get a trigger that opens a read-only popover with the
       // history (#2242), never a greyed-out control.
       return (
