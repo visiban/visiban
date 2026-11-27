@@ -4659,8 +4659,9 @@
 <ul>
 <li>Each run folds in only MRs merged after the file's <code>(last_merged_at, last_iid)</code> watermark, so re-running against an unchanged file never double counts.</li>
 <li>The job uses the file as its baseline and uploads the updated state as an artifact. Commit it in a chore MR to advance the baseline.</li>
-<li>If nobody does, the next run re-derives the same result.</li>
+<li>If nobody does, the baseline stays stale (see the caveat below before committing it).</li>
 </ul>
+<p><strong>Role of the committed copy (settled in #2686).</strong> It is live <em>baseline</em>, not a seed: <code>kaizen_yield_watch.py</code> reads it by default (<code>--state</code>, <code>DEFAULT_STATE</code>), as does <code>kaizen_fastpath_proposal.py</code>, and <code>scripts/tests/kaizen_yield_watch.test.sh</code> validates its shape, so it must not be deleted. It goes stale whenever nobody commits the artifact (its watermark was !925, 2026-09-26, while the schedule job kept passing). To refresh it, download the <code>kaizen-yield-state.json</code> artifact from the latest scheduled <code>kaizen-yield-watch</code> job, copy it over <code>.claude/kaizen-yield-state.json</code>, and commit it in a chore MR. <strong>Caveat:</strong> the script fetches merged MRs newest-first, 100 per page, up to <code>--max-pages</code> (default 5), and the CI job passes no <code>--max-pages</code>. Roughly 1,200 MRs have merged since the committed watermark, so every run hits the cap, logs <code>hit the 5-page cap; MRs may be missing</code>, and drops the oldest MRs after the watermark; committing that artifact would advance the watermark past them permanently. Only commit the artifact when the job log does NOT contain that page-cap warning. The cap and the catch-up are tracked in #2688. Only the artifact reflects current state; do not read the committed copy for current streaks.</p>
 <h2 id="argument-validation">Argument validation<a class="headerlink" href="#argument-validation" title="Permanent link">&para;</a></h2>
 <p>The kaizen scripts reject malformed arguments up front (#1377):</p>
 <ul>
