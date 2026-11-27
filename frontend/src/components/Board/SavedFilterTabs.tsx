@@ -16,7 +16,7 @@ interface Props {
 
 const focusClass = "focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
 const activeClass = `inline-flex items-center gap-1 bg-primary text-on-primary font-medium px-2.5 py-1 rounded ${focusClass}`;
-const inactiveClass = `inline-flex items-center gap-1 text-fg-tertiary hover:text-fg px-2.5 py-1 rounded hover:bg-surface-hover transition ${focusClass}`;
+const inactiveClass = `inline-flex items-center gap-1 text-fg-tertiary hover:text-fg px-[1.125rem] py-1 rounded hover:bg-surface-hover transition ${focusClass}`;
 
 /**
  * A compact row of tab pills that gives one-click access to saved filter presets,
@@ -61,7 +61,7 @@ export default function SavedFilterTabs({
         onClick={onClearAll}
         className={allIsActive ? activeClass : inactiveClass}
       >
-        <ActiveMark active={allIsActive} />
+        {allIsActive && <ActiveMark active />}
         All
       </button>
 
@@ -77,7 +77,7 @@ export default function SavedFilterTabs({
             title={f.name}
             className={`${isActive ? activeClass : inactiveClass} max-w-[10rem]`}
           >
-            <ActiveMark active={isActive} />
+            {isActive && <ActiveMark active />}
             <span className="truncate">{f.name}</span>
           </button>
         );

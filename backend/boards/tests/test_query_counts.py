@@ -221,7 +221,7 @@ class BoardFullQueryCountTests(TestCase):
     # second time anywhere in this serialization. The budget here cannot
     # detect a regression of that prefetch being removed; BoardForUserPrefetchTests
     # below asserts the prefetch cache directly for that reason.
-    BUDGET = 24  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    BUDGET = 25  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup); +1 #1923: columns__entry_requirements prefetch (constant)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u2", password="x")
@@ -331,7 +331,7 @@ class BoardFullQueryCountTests(TestCase):
     # measured count, not 2x: the regression it guards is one constant extra
     # query, get_members() re-reading the all-content user list that
     # get_cards() already loaded.
-    SITE_ADMIN_READER_QUERIES = 24  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    SITE_ADMIN_READER_QUERIES = 25  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup); +1 #1923: columns__entry_requirements prefetch (constant)
 
     def test_full_site_admin_reader_reuses_all_content_list(self):
         reader = User.objects.create_user(
@@ -519,7 +519,7 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
     # 21 measured with one board-level + one swimlane-level custom field
     # definition in the fixture (#1334); 23 is generous headroom for
     # middleware and the group-inherited membership walk.
-    BUDGET = 27  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    BUDGET = 28  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup); +1 #1923: columns__entry_requirements prefetch (constant)
 
     def setUp(self):
         from groups.models import Group, GroupMembership
@@ -865,7 +865,7 @@ class ParkedPrefetchQueryCountTests(TestCase):
     query, raise it deliberately with a note.
     """
 
-    FULL_QUERIES = 24  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    FULL_QUERIES = 25  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup); +1 #1923: columns__entry_requirements prefetch (constant)
 
     def setUp(self):
         from boards.models import CustomFieldDefinition
@@ -1250,7 +1250,7 @@ class IsStaleAnnotationQueryCountTests(TestCase):
     the full/ query count does not grow when is_stale-affecting cards are added.
     """
 
-    BUDGET = 24  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
+    BUDGET = 25  # +1 #1922: dimension_plans prefetch (constant); +1 #2570: custom_field_sets prefetch (constant; +2 more when a set exists); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup); +1 #1923: columns__entry_requirements prefetch (constant)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u_stale", password="x")

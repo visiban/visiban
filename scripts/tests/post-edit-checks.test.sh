@@ -40,6 +40,7 @@ run '{"tool_name":"Edit","tool_input":{"file_path":"/r/backend/boards/models.py"
 expect_msg "models.py Edit -> migration-check reminder" "migration-check"
 run '{"tool_name":"Write","tool_input":{"file_path":"/r/backend/boards/views.py"}}'
 expect_msg "views.py Write -> rbac-check reminder" "rbac-check"
+expect_msg "views.py Write -> api-docs reminder" "api-docs"
 run '{"tool_name":"Edit","tool_input":{"file_path":"/r/backend/boards/serializers.py"}}'
 expect_msg "serializers.py -> security-review reminder" "security-review"
 run '{"tool_name":"Edit","tool_input":{"file_path":"/r/backend/boards/permissions.py"}}'

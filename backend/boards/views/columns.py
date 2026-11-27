@@ -19,7 +19,7 @@ from visiban.request_shape import require_json_object
 from .. import broadcast as _broadcast
 from ..models import Board, BoardMembership, Card, Column
 from ..permissions import SITE_ADMIN
-from ..serializers import ColumnSerializer
+from ..serializers import ColumnSerializer, entry_requirements_prefetch as _entry_requirements_prefetch
 from ..services.card_links import (
     announce_cards_removal, announce_column_rollup_changed, column_rollup_state,
 )
@@ -68,7 +68,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # sub_columns / tracks (#1102, #1921) are nested on ColumnSerializer.
         return Column.objects.filter(board=self._board()).prefetch_related(
-            "sub_columns", "stage_tracks__field_definition",
+            "sub_columns", "stage_tracks__field_definition", _entry_requirements_prefetch(),
         )
 
     def get_serializer_context(self):
@@ -106,7 +106,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 _max = board.columns.aggregate(m=Max("position"))["m"]
                 max_pos = 0 if _max is None else _max + 1
                 column = serializer.save(board=board, position=max_pos)
-                prefetch_related_objects([column], "sub_columns", "stage_tracks__field_definition")
+                prefetch_related_objects([column], "sub_columns", "stage_tracks__field_definition", _entry_requirements_prefetch())
                 column_data = ColumnSerializer(column).data
                 board_id = board.id
                 _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_CREATED, column_data, actor_id=self.request.user.id)
@@ -164,7 +164,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
                     announce_parent_container_renamed(
                         board, column_id=column.pk, actor_id=self.request.user.id,
                     )
-                prefetch_related_objects([column], "sub_columns", "stage_tracks__field_definition")
+                prefetch_related_objects([column], "sub_columns", "stage_tracks__field_definition", _entry_requirements_prefetch())
                 column_data = ColumnSerializer(column).data
                 board_id = column.board_id
                 _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_UPDATED, column_data, actor_id=self.request.user.id)
@@ -299,9 +299,75 @@ class ColumnViewSet(viewsets.ModelViewSet):
         except CardServiceError as exc:
             return Response(exc.body(), status=exc.status)
         fresh = Column.objects.prefetch_related(
-            "sub_columns", "stage_tracks__field_definition",
+            "sub_columns", "stage_tracks__field_definition", _entry_requirements_prefetch(),
         ).get(pk=column.pk)
         return Response({"column": ColumnSerializer(fresh).data, "remapped": remapped})
+
+    @extend_schema(
+        summary="Replace a column's entry requirements",
+        description=(
+            "Board admins only (#1923). Replace-all: the body's `requirements` "
+            "list becomes the column's whole list (at most 10), in order. "
+            "`entry_enforcement` (`warn`, `block`, `hard` or null) is optional: "
+            "a column's first requirements start in `warn`, and null keeps the "
+            "rows but stops evaluating them. Emits `column.updated`."
+        ),
+        request=inline_serializer(
+            name="ColumnEntryRequirementsWrite",
+            fields={
+                "entry_enforcement": serializers.ChoiceField(
+                    choices=["warn", "block", "hard"], allow_null=True, required=False,
+                ),
+                "requirements": serializers.ListField(child=inline_serializer(
+                    name="ColumnEntryRequirementWrite",
+                    fields={
+                        "field_uid": serializers.CharField(required=False),
+                        "field_set_uid": serializers.CharField(required=False),
+                        "operator": serializers.ChoiceField(choices=[
+                            "filled", "min_count", "gt", "gte", "satisfied", "set_complete",
+                        ]),
+                        "operand": serializers.CharField(required=False, allow_null=True),
+                    },
+                )),
+            },
+        ),
+        responses={200: ColumnSerializer},
+    )
+    @action(
+        detail=True, methods=["put"], url_path="entry-requirements", pagination_class=None,
+    )
+    def entry_requirements(self, request, board_pk=None, pk=None):
+        """Replace a column's entry requirements and mode (#1923).
+
+        A dedicated action, like ``stage``, so a column PATCH keeps its 1.x
+        shape and the settings editor has its own save. Board, then column
+        lock (``lock_board_and_row_or_404``): the 10-row cap is a count over
+        the column's rows, and a move evaluating them locks the same column.
+        """
+        from ..services import entry_requirements as entry_services
+
+        board, role = self._board_and_role()
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        data = require_json_object(request)
+        with transaction.atomic():
+            lock_board_and_row_or_404(board, Column, pk)
+            column = Column.objects.get(pk=pk, board=board)
+            try:
+                entry_services.save_requirements(board=board, column=column, data=data)
+            except entry_services.EntryRequirementsInvalid as exc:
+                raise ValidationError(exc.errors) from None
+            fresh = Column.objects.prefetch_related(
+                "sub_columns", "stage_tracks__field_definition", _entry_requirements_prefetch(),
+            ).get(pk=column.pk)
+            column_data = ColumnSerializer(fresh).data
+            # Same frame as a stage save, so the socket handler needs no new
+            # branch; record_board_event defers the send to on_commit.
+            _broadcast.record_board_event(
+                board.id, _broadcast.EVT_COLUMN_UPDATED, {**column_data, "remapped": []},
+                actor_id=request.user.id,
+            )
+        return Response(column_data)
 
     @extend_schema(
         summary="Count the cards in each sub-column of a stage",
@@ -430,7 +496,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
                     id_to_col[col_id].position = pos
             Column.objects.bulk_update([id_to_col[cid] for cid in order_ints if cid in id_to_col], ["position"])
             cols_data = ColumnSerializer(
-                board.columns.order_by("position").prefetch_related("sub_columns", "stage_tracks__field_definition"),
+                board.columns.order_by("position").prefetch_related("sub_columns", "stage_tracks__field_definition", _entry_requirements_prefetch()),
                 many=True,
             ).data
             board_id = board.id

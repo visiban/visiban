@@ -68,17 +68,17 @@ CARD_LIST_BUDGET = 15  # +1 #1922 dimension_plans prefetch; 9 measured here on P
 # The main fixture has no card parent links, so FULL_BUDGET describes the
 # no-link case; the with-links case costs 2 more queries and is pinned by
 # CardParentQueryCountTests. The linked fixture (#2424) has its own budgets below.
-FULL_BUDGET = 24  # +1 #1922 dimension_plans prefetch; +1 #2570 custom_field_sets prefetch; 17 measured on Postgres (#1341); +1 #1104 card-parent link lookup; +1 #2211 swimlanes__team_members; +1 #2446 leftover-parent ids lookup on a flag-off board
+FULL_BUDGET = 25  # +1 #1922 dimension_plans prefetch; +1 #2570 custom_field_sets prefetch; 17 measured on Postgres (#1341); +1 #1104 card-parent link lookup; +1 #2211 swimlanes__team_members; +1 #2446 leftover-parent ids lookup on a flag-off board; +1 #1923 columns__entry_requirements prefetch
 # #2424: the 500-card child board, every card linked to a parent on one of 5 parent
 # boards. Kept apart from the no-link budgets above so those, and the flat
 # query-count tests they are shared with, are untouched. Both are driven through
 # the endpoint, so the card list count is not comparable with CARD_LIST_BUDGET
 # (which serializes the queryset directly).
-FULL_LINKED_BUDGET = 27  # +1 #1922 dimension_plans prefetch; +1 #2570 custom_field_sets prefetch; 22 measured on Postgres (2026-11-20, #2424): 20 + the 2 role-batch queries; 23 on 2026-11-21 after #2211's +1; 24 on 2026-11-22 after #2443's sibling count; +1 headroom
+FULL_LINKED_BUDGET = 28  # +1 #1923 entry_requirements prefetch (28 measured on Postgres 2026-11-26, no headroom); +1 #1922 dimension_plans prefetch; +1 #2570 custom_field_sets prefetch; 22 measured on Postgres (2026-11-20, #2424): 20 + the 2 role-batch queries; 23 on 2026-11-21 after #2211's +1; 24 on 2026-11-22 after #2443's sibling count
 CARD_LIST_LINKED_BUDGET = 19  # +1 #1922 dimension_plans prefetch; 16 measured on Postgres (2026-11-20, #2424); 17 on 2026-11-22 after #2443's sibling count; +1 headroom
 # #2210: the parent-tier board of that fixture (5 parent cards, each with 20 children),
 # whose reads also resolve ``children_rollup`` (``card_links.rollups_for_viewer``).
-FULL_ROLLUP_BUDGET = 29  # +1 #1922 dimension_plans prefetch; +1 #2570 custom_field_sets prefetch; 25 measured on Postgres (2026-11-21, #2210): the linked board's 23 + 2 rollup queries; +2 headroom
+FULL_ROLLUP_BUDGET = 29  # +1 #1922 dimension_plans prefetch; +1 #2570 custom_field_sets prefetch; 25 measured on Postgres (2026-11-21, #2210): the linked board's 23 + 2 rollup queries; 28 measured on Postgres 2026-11-26 after #1923's entry_requirements prefetch (+1 headroom)
 CARD_LIST_ROLLUP_BUDGET = 20  # +1 #1922 dimension_plans prefetch; 17 measured on Postgres (2026-11-21, #2210); +2 headroom
 SUMMARY_BUDGET = 10  # 4 measured on Postgres (#1341)
 

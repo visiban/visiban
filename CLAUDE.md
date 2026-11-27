@@ -67,6 +67,17 @@ When asked to create a release, invoke `/release`. The skill handles version str
 
 ---
 
+## Pre-MR gate batch: `api-docs` addition
+
+This repo **adds one gate** to the pre-MR gate batch defined in the user-level `~/.claude/CLAUDE.md` (`regression-check`, `security-review`, `rbac-check`, `perf-check`, `broadcast-check`, `migration-check`). The global list is unchanged; this is an addition, not a contradiction.
+
+- **Trigger:** run `api-docs` in the same parallel batch whenever the diff changes a view, viewset, serializer, or permission file (the same trigger as `rbac-check` + `security-review`).
+- **It is the one writer in the batch.** It edits `docs/api/` in the implementer's worktree. The implementer reviews those edits and commits them with the branch; the gate does not commit.
+- Record it in the MR's `## Gates` section as `gate: api-docs — <N> findings`, like any other gate. `n/a` when no view, serializer, or permission file changed.
+- Reverse if fewer than 30% of the next 40 `api-docs` runs from this trigger have a finding (#2684).
+
+---
+
 ## Cost discipline — always on
 
 Claude Code sessions on this repo run at roughly 110 M tokens per active day; the prompt cache makes that affordable only while it stays warm. Apply these by default:
