@@ -117,6 +117,10 @@ SKIPPED_RE = re.compile(r"^skipped\b", re.IGNORECASE)
 # A gate stopped at its per-agent budget (#2157) reports a PARTIAL count, e.g.
 # `0 findings (sonnet; budget-stopped)`. It is an unfinished pass, not a clean run.
 BUDGET_STOPPED_RE = re.compile(r"[(;,]\s*budget-stopped\s*[;,)]", re.IGNORECASE)
+# Severity (#2680): `blocking <k>` in the parenthetical = how many of the findings the gate
+# itself put in its blocking tier. Optional so the ledgers that predate it still parse.
+BLOCKING_FIELD_RE = re.compile(r"[(;,]\s*blocking\b(?P<rest>[^;,)]*)", re.IGNORECASE)
+BLOCKING_VALUE_RE = re.compile(r"\s+(?P<k>\d+)\s*$")
 
 # Gates whose mandated output is a deliverable (a fragment file, a doc build)
 # rather than a finding count — CLAUDE.md and the mr skill both say `0
@@ -391,6 +395,16 @@ class GateStats:
     skipped: int = 0         # gate applied but was deliberately not run
     unscored: list = field(default_factory=list)  # non-numeric outcomes (raw text)
     malformed: int = 0       # line matched "gate:" but outcome was empty/junk
+    blocking_runs: int = 0   # numeric runs that carried a valid `blocking <k>` (#2680)
+    blocking_hits: int = 0   # of those, runs with k > 0
+    blocking_total: int = 0  # sum of k across those runs
+    blocking_bad: list = field(default_factory=list)  # (iid, text): `blocking x` or k > findings
+
+    @property
+    def blocking_rate(self):
+        if self.blocking_runs == 0:
+            return None
+        return round(100.0 * self.blocking_hits / self.blocking_runs, 1)
 
     @property
     def runs(self) -> int:
@@ -447,6 +461,26 @@ def parse_outcome(outcome: str):
     if SKIPPED_RE.match(outcome):
         return ("skipped", None)
     return ("other", outcome.strip())
+
+
+def parse_blocking(outcome: str, findings: int):
+    """Read the optional `blocking <k>` field of a numeric outcome (#2680).
+
+    Returns ("absent", None) when the line carries no field, ("ok", k) for a valid one,
+    ("malformed", text) for a non-integer value, and ("exceeds", k) when k > findings.
+    The last two are flagged and kept out of the blocking rate: a count the gate could not
+    have produced is a data-quality problem, not a severity reading.
+    """
+    m = BLOCKING_FIELD_RE.search(outcome)
+    if not m:
+        return ("absent", None)
+    v = BLOCKING_VALUE_RE.match(m.group("rest"))
+    if not v:
+        return ("malformed", m.group(0).strip(" (;,"))
+    k = int(v.group("k"))
+    if k > findings:
+        return ("exceeds", k)
+    return ("ok", k)
 
 
 def find_gates_section_present(description: str) -> bool:
@@ -569,6 +603,14 @@ def analyze(mrs):
                 else:
                     gs.positive += 1
                     gs.positive_total += value
+                bstate, bval = parse_blocking(outcome_text, value)
+                if bstate == "ok":
+                    gs.blocking_runs += 1
+                    gs.blocking_total += bval
+                    if bval > 0:
+                        gs.blocking_hits += 1
+                elif bstate != "absent":
+                    gs.blocking_bad.append((iid, outcome_text))
             elif kind == "na":
                 gs.na += 1
             elif kind == "skipped":
@@ -667,6 +709,26 @@ def load_mrs(args) -> list:
     return data[: args.window] if args.input else data
 
 
+def render_blocking(gates) -> list:
+    """Per-gate blocking-hit rate over the runs that carry `blocking <k>` (#2680)."""
+    carried = sum(gs.blocking_runs for gs in gates.values())
+    numeric = sum(gs.runs for gs in gates.values())
+    out = ["", f"Blocking severity (`blocking <k>` field): {carried} of {numeric} numeric runs carried it. "
+               "Runs without it are excluded from the rate, not counted as 0."]
+    if carried:
+        out.append(f"{'gate':<24} {'runs':>5} {'blocking>0':>11} {'rate':>7} {'blocking total':>15}")
+        for name, gs in sorted(gates.items()):
+            if gs.blocking_runs:
+                out.append(f"{name:<24} {gs.blocking_runs:>5} {gs.blocking_hits:>11} "
+                           f"{str(gs.blocking_rate) + '%':>7} {gs.blocking_total:>15}")
+    bad = [(iid, name, t) for name, gs in gates.items() for iid, t in gs.blocking_bad]
+    if bad:
+        out.append(f"Flagged `blocking` fields (non-integer, or more than the findings count): {len(bad)}")
+        for iid, name, t in bad[:10]:
+            out.append(f"  !{iid}: gate: {name} — {t!r}")
+    return out
+
+
 def render_text(result) -> str:
     lines = []
     total = result["window"]
@@ -699,6 +761,7 @@ def render_text(result) -> str:
         for iid, name, text in result["malformed"][:10]:
             lines.append(f"  !{iid}: gate: {name} — {text!r}")
 
+    lines.extend(render_blocking(result["gates"]))
     lines.append("")
     lines.extend(render_cost(result["cost"]))
     lines.append("")
@@ -799,6 +862,11 @@ def to_jsonable(result):
             "unscored_samples": gs.unscored[:5],
             "malformed": gs.malformed,
             "yield_pct": gs.yield_pct,
+            "blocking_runs": gs.blocking_runs,
+            "blocking_hits": gs.blocking_hits,
+            "blocking_total": gs.blocking_total,
+            "blocking_rate_pct": gs.blocking_rate,
+            "blocking_flagged": len(gs.blocking_bad),
             "verdict": gs.verdict,
         }
     return {
@@ -863,6 +931,22 @@ def _attach_check(em, ct, note, rec, t) -> bool:
             and math.isclose(c["by_class"]["feat"]["mean_est_cost_usd"], 2.5)
             and c["excluded"] == {"no_record": [51], "notes_unreadable": [52]}
             and cost_buckets_total(c) == c["mrs"])
+
+
+def _blocking_check(mr) -> bool:
+    em = "\u2014"
+    r = analyze([
+        mr(1, "feat/1", f"- gate: security-review {em} 3 findings (sonnet; blocking 1)"),
+        mr(2, "feat/2", f"- gate: security-review {em} 0 findings (sonnet; blocking 0)"),
+        mr(3, "feat/3", f"- gate: security-review {em} 2 findings (sonnet)"),
+        mr(4, "feat/4", f"- gate: security-review {em} 1 findings (sonnet; blocking x)"),
+        mr(5, "feat/5", f"- gate: security-review {em} 1 findings (sonnet; blocking 4)"),
+    ])
+    gs = r["gates"]["security-review"]
+    text = "\n".join(render_blocking(r["gates"]))
+    return (gs.runs == 5 and gs.blocking_runs == 2 and gs.blocking_hits == 1 and gs.blocking_rate == 50.0
+            and len(gs.blocking_bad) == 2 and "2 of 5 numeric runs carried it" in text
+            and to_jsonable(r)["gates"]["security-review"]["blocking_flagged"] == 2)
 
 
 def _rescue_check(em) -> bool:
@@ -1028,6 +1112,16 @@ def self_test() -> int:
          parse_outcome("0 findings (sonnet; budget-stopped)")[0] == "other"
          and parse_outcome("2 findings (opus; budget-stopped)")[0] == "other"
          and parse_outcome("0 findings (sonnet)") == ("findings", 0)),
+        ("blocking field: valid, absent, malformed and k > findings (#2680)",
+         parse_blocking("3 findings (model: sonnet; blocking 1)", 3) == ("ok", 1)
+         and parse_blocking("0 findings (sonnet; blocking 0)", 0) == ("ok", 0)
+         and parse_blocking("3 findings (sonnet)", 3) == ("absent", None)
+         and parse_blocking("3 findings (sonnet; blocking x)", 3)[0] == "malformed"
+         and parse_blocking("3 findings (sonnet; blocking)", 3)[0] == "malformed"
+         and parse_blocking("2 findings (sonnet; blocking 3)", 2) == ("exceeds", 3)
+         and parse_outcome("3 findings (sonnet; blocking 1)") == ("findings", 3)),
+        ("blocking rate counts only runs carrying the field; bad ones are flagged, not scored (#2680)",
+         _blocking_check(mr)),
         ("rescue lines are counted by choice and outcome, zeros included (#2304)", _rescue_check(em)),
         ("text and JSON render", "## Cost" in render_text(r) and json.dumps(to_jsonable(r))),
     ]
