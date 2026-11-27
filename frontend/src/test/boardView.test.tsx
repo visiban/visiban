@@ -1195,7 +1195,7 @@ describe('BoardView', () => {
       expect(screen.getByRole('button', { name: 'Board' })).toHaveAttribute('aria-keyshortcuts', 'B')
       expect(screen.getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-keyshortcuts', 'S')
       expect(screen.getByRole('button', { name: 'History' })).toHaveAttribute('aria-keyshortcuts', 'H')
-      // Analytics button carries an inner Beta pill — match on accessible name starting with "Analytics".
+      // Match on accessible name starting with "Analytics".
       expect(screen.getByRole('button', { name: /^Analytics/ })).toHaveAttribute('aria-keyshortcuts', 'A')
     })
 
@@ -2890,7 +2890,7 @@ describe('BoardView', () => {
     })
   })
 
-  describe('ViewToggle Beta badge', () => {
+  describe('ViewToggle has no Beta badge (#2647)', () => {
     beforeEach(() => {
       vi.clearAllMocks()
       mockedGetCardStatus.mockResolvedValue(null)
@@ -2899,15 +2899,15 @@ describe('BoardView', () => {
       mockBoardContextValue = defaultContext()
     })
 
-    it('renders a "Beta" badge inside the Analytics tab button', () => {
+    it('the Analytics tab has no "Beta" chip and its name is exactly "Analytics"', () => {
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByText('Beta')).toBeInTheDocument()
+      expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+      const analyticsBtn = screen.getByRole('button', { name: 'Analytics' })
+      expect(analyticsBtn.textContent).toBe('Analytics')
     })
 
     it('Board tab does not render a "Beta" badge', () => {
       render(<BoardView {...defaultProps()} />)
-      // There is exactly one "Beta" badge — it belongs to the Analytics button only.
-      expect(screen.getAllByText('Beta')).toHaveLength(1)
       // Verify the Board button itself contains no "Beta" text.
       const boardBtn = screen.getByRole('button', { name: 'Board' })
       expect(boardBtn.textContent).not.toContain('Beta')
@@ -2974,19 +2974,6 @@ describe('BoardView', () => {
       } finally {
         vi.unstubAllGlobals()
       }
-    })
-
-    // #2236: one opaque chip in every tab state, so the badge never takes its contrast from
-    // the tab underneath (the old active bg-warning/30 on bg-primary was 1.17:1 in light mode).
-    it.each([
-      ['inactive', ''],
-      ['active', 'view=analytics'],
-    ])('badge is the same opaque bg-surface chip with warning-on-tint text when %s', (_s, qs) => {
-      mockSearchParams = new URLSearchParams(qs)
-      render(<BoardView {...defaultProps()} />)
-      const badge = screen.getByText('Beta')
-      expect(badge).toHaveClass('bg-surface', 'text-warning-on-tint')
-      expect(badge.className).not.toMatch(/\bbg-warning\//)
     })
   })
 

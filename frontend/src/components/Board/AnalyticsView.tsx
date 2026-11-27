@@ -48,7 +48,7 @@ function periodText({ days }: FlowFilters, timeZone: string) {
   return `${formatDate(end - days * DAY_MS, timeZone)} – ${formatDate(end, timeZone)}`;
 }
 
-/** Region 1 (#2261): the page title, the Beta badge, the board and the period. */
+/** Region 1 (#2261): the page title, the board and the period. */
 function AnalyticsTitleRow({ boardName, filters, headingRef, timeZone }: {
   boardName?: string; filters: FlowFilters; headingRef: RefObject<HTMLHeadingElement | null>; timeZone: string;
 }) {
@@ -58,9 +58,6 @@ function AnalyticsTitleRow({ boardName, filters, headingRef, timeZone }: {
         <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-fg focus:outline-none">Analytics</h2>
         <HelpLink topic="analytics.definitions" />
       </div>
-      <span className="text-xs font-medium rounded px-1.5 py-0.5 bg-surface text-warning-on-tint ring-1 ring-inset ring-warning/40">
-        Beta
-      </span>
       <p className="text-sm text-fg-tertiary min-w-0 break-words">
         {boardName && (
           <>
@@ -178,8 +175,8 @@ export default function AnalyticsView({
         )}
         <p className="text-xs text-fg-tertiary">
           Calendar days in {zone === "UTC" ? "UTC" : zone.replace(/_/g, " ")}, from each card&apos;s movement history. Filters use each card&apos;s current swimlane
-          and labels. Analytics is in beta: data may be incomplete in some configurations, so results are best used as
-          directional guidance.
+          and labels. On boards with years of history some views are refused to protect the server.{" "}
+          <HelpLink topic="analytics.known-limits" variant="text" />
         </p>
       </div>
     </div>

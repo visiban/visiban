@@ -14,6 +14,7 @@
  * Area -> topic -> docs section (#2593). Surfaces: the heading that carries the link.
  *
  *   Analytics        analytics.definitions    features/analytics#flow-metric-definitions  (page title)
+ *                    analytics.known-limits   features/analytics#known-limits-on-old-boards (page footnote)
  *                    analytics.bottleneck     features/analytics#bottleneck               (Bottleneck panel)
  *                    analytics.cycle-time/.throughput/.cumulative-flow/.wip-age  features/analytics#flow-metrics (one per chart; analytics.flow-metrics kept)
  *                    analytics.how-work-flows features/analytics#how-work-flows           ("How work flows" panel heading)
@@ -66,6 +67,13 @@ export const HELP_TOPICS = {
     anchor: "flow-metric-definitions",
     subject: "flow metric definitions",
     summary: "What lead time, cycle time, dwell, age and throughput mean.",
+  },
+  "analytics.known-limits": {
+    path: "features/analytics/",
+    anchor: "known-limits-on-old-boards",
+    subject: "analytics on old boards",
+    summary: "Which views are refused on boards with years of history.",
+    linkText: "Known limits",
   },
   "analytics.cycle-time": {
     path: "features/analytics/",

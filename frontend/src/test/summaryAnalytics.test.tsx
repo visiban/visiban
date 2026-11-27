@@ -983,11 +983,12 @@ describe('AnalyticsView keeps the Overview mounted (#448, #2261)', () => {
     expect(screen.getByTestId('flow-wip-age')).toBeInTheDocument()
   })
 
-  it('shows the Beta badge in the title row and the guidance in the footnote', async () => {
+  it('has no Beta badge in the title row and links the known limits in the footnote (#2647)', async () => {
     mockGetBoardAnalytics.mockReturnValue(new Promise(() => {}))
     renderTable(<AnalyticsView boardId={1} currentUserRole="member" boardName="Roadmap" />)
-    expect(screen.getByText('Beta')).toBeInTheDocument()
-    expect(screen.getByText(/data may be incomplete in some configurations/)).toBeInTheDocument()
+    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+    expect(screen.queryByText(/data may be incomplete/)).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^Known limits/ })).toBeInTheDocument()
   })
 })
 

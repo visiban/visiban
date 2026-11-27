@@ -6,11 +6,11 @@
 
 **See how work flows. Know what needs attention.**
 
-Visiban is a Kanban board with a swimlane for every customer, project or workstream. We call this entity-centric Kanban: every row is an entity, the thing the work is about. Every card movement is permanently recorded, and that history becomes cycle time, throughput, aging work in progress, bottlenecks, and blocked work (Analytics is in beta). It is open source, self-hosted, and Apache 2.0. Any AI agent you already run can query and update the board through your own API token.
+Visiban is a Kanban board with a swimlane for every customer, project or workstream. We call this entity-centric Kanban: every row is an entity, the thing the work is about. Every card movement is permanently recorded, and that history becomes cycle time, throughput, aging work in progress, bottlenecks, and blocked work. It is open source, self-hosted, and Apache 2.0. Any AI agent you already run can query and update the board through your own API token.
 
 **Why it matters:** Picking the wrong tool is expensive for a team. So this page names the four things that set it apart, and says plainly where other tools are better.
 
-**In short:** See how work actually moves, on a board whose rows are your customers or projects, where every move is on the record. Analytics is in beta.
+**In short:** See how work actually moves, on a board whose rows are your customers or projects, where every move is on the record.
 
 **For your manager:** *"It's the board, but each row is one client, it shows where work is slow or stuck from a full audit trail of what moved when, and it runs on our own infrastructure with our own SSO."*
 
@@ -37,11 +37,11 @@ Visiban does many things, but other tools do those too. These four are what set 
 
 ### 2. Flow intelligence is built on the movement history
 
-**How it works:** Visiban records every card movement as structured data: from column, to column, from swimlane, to swimlane, actor, and timestamp. It keeps the records permanently. [Analytics](../features/analytics.md) *(beta)* turns them into cycle time, throughput, WIP age, bottlenecks, and blocked time, grouped around four questions: what is happening, how fast work moves, where it is stuck, and why. Its [Swimlanes view](../features/analytics.md#swimlanes-view) compares lanes by cycle time and blocked time.
+**How it works:** Visiban records every card movement as structured data: from column, to column, from swimlane, to swimlane, actor, and timestamp. It keeps the records permanently. [Analytics](../features/analytics.md) turns them into cycle time, throughput, WIP age, bottlenecks, and blocked time, grouped around four questions: what is happening, how fast work moves, where it is stuck, and why. Its [Swimlanes view](../features/analytics.md#swimlanes-view) compares lanes by cycle time and blocked time.
 
 **Why it matters:** In an incident retrospective you can ask *"how long did this actually sit in Review, and how does that compare to the last thirty cards?"* You get an answer, not a scroll-back.
 
-**Yes, but:** Analytics is a beta feature, and its numbers are best read as directional guidance. Visiban describes how work has flowed. It does not forecast delivery dates or recommend actions.
+**Yes, but:** Analytics numbers are best read as directional guidance. Visiban describes how work has flowed. It does not forecast delivery dates or recommend actions.
 
 **Go deeper:** [Card History](../features/card-history.md) and [Analytics](../features/analytics.md)
 

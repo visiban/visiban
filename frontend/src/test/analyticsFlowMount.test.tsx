@@ -88,14 +88,25 @@ async function choose(trigger: RegExp, option: string) {
 }
 
 describe('AnalyticsView title row (#2012, #2261)', () => {
-  it('shows the title, Beta badge and board name, and hides the decorative "·" divider from assistive tech', () => {
+  it('shows the title and board name with no Beta badge, and hides the decorative "·" divider from assistive tech', () => {
     render(<AnalyticsView {...props} />)
     // An h2: the header's last breadcrumb is the page's only h1 (#2473).
     expect(screen.getByRole('heading', { name: 'Analytics', level: 2 })).toBeInTheDocument()
-    expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
     expect(screen.getByText(/Platform roadmap/)).toBeInTheDocument()
     expect(screen.getByText('·')).toHaveAttribute('aria-hidden', 'true')
-    expect(screen.getByText(/results are best used as directional guidance/)).toBeInTheDocument()
+    expect(screen.queryByText(/Analytics is in beta/)).not.toBeInTheDocument()
+  })
+
+  it('footnote links the known limits on old boards (#2647)', () => {
+    render(<AnalyticsView {...props} />)
+    expect(screen.getByText(/On boards with years of history some views are refused to protect the server\./)).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'Known limits about analytics on old boards, opens docs' })
+    expect(link).toHaveAttribute('href', docsUrl('analytics.known-limits'))
+    expect(link.getAttribute('href')).toMatch(/\/features\/analytics\/#known-limits-on-old-boards$/)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(link).toHaveTextContent(/^Known limits/)
   })
 
   it('links the flow metric definitions beside the title (#2593)', () => {

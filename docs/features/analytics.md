@@ -2,7 +2,7 @@
 
 <a id="analytics-summary-beta"></a>
 
-Switch the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where cards stall and how fast work finishes. **Beta.**
+Switch the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where cards stall and how fast work finishes.
 
 **Why it matters:** The two views turn your board's movement history into bottleneck and flow data, for anyone checking pipeline health rather than moving cards.
 
@@ -75,7 +75,7 @@ Each panel declares the lowest board role that may see it. A member below that r
 
 Time-in-stage and flow data derived from `CardMovement` records, on one scrolling page. From the top:
 
-1. **Title row:** "Analytics", a **Beta** badge, the board name and the period shown.
+1. **Title row:** "Analytics", the board name and the period shown.
 2. **Filter bar:** one **Date range**, **Swimlane** and **Label** selection for the whole page (see [Filters](#filters)), and **Export CSV** for admins.
 3. Four sections, one per question:
     - **What is happening?** The **Bottleneck** panel and four [headline tiles](#headline-tiles).
@@ -86,7 +86,7 @@ Time-in-stage and flow data derived from `CardMovement` records, on one scrollin
 
 From 1024px wide the paired panels sit side by side; below that every panel takes the full width, and the page never scrolls sideways. When the board has no flow history, or no card matches the filters, one message replaces the four sections (see [Page states](#page-states)).
 
-<span class="vb-version" title="Changed in 1.3">1.3+</span> Analytics is in beta: data may be incomplete in some configurations, so use the results as directional guidance.
+<span class="vb-version" title="Changed in 1.3">1.3+</span> On boards with years of history some views are refused to protect the server. See [Known limits on old boards](#known-limits-on-old-boards).
 
 ### Swimlanes view
 

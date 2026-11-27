@@ -12,7 +12,7 @@
 
 **See how work flows. Know what needs attention.**
 
-Visiban is a Kanban board with a swimlane for every customer, project or workstream, so the whole board shows where everything stands at a glance. Because every card move is recorded, Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work, without a plugin or a spreadsheet. You can see which cards are blocked or stalled, and compare swimlanes by how long work takes and how long it sits blocked. Blocked state, the flow charts (cycle time, throughput, cumulative flow, WIP age), the bottleneck panel and the Swimlanes view are new in 1.3; 1.2 does not have them. Analytics is in beta.
+Visiban is a Kanban board with a swimlane for every customer, project or workstream, so the whole board shows where everything stands at a glance. Because every card move is recorded, Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work, without a plugin or a spreadsheet. You can see which cards are blocked or stalled, and compare swimlanes by how long work takes and how long it sits blocked. Blocked state, the flow charts (cycle time, throughput, cumulative flow, WIP age), the bottleneck panel and the Swimlanes view are new in 1.3; 1.2 does not have them.
 
 - **Every move is on the record.** Each move is written down automatically: who moved it, when, and from where. You always know where something is _and_ how it got there.
 - **Rows carry data.** Swimlane rows have typed fields of their own, so the data teams usually keep in a side-spreadsheet lives on the board instead.
@@ -69,7 +69,7 @@ All connected users see changes in **real time** over a WebSocket connection. Dr
 |---|---|
 | **Swimlane board** | Grid of columns × swimlane rows. Collapse, resize, and reorder with drag-and-drop. [→ Board guide](https://docs.visiban.com/next/features/board/) |
 | **Movement audit trail** | Every card move is timestamped and attributed. View per-card history or search the board-level History tab. [→ Card history](https://docs.visiban.com/next/features/card-history/) |
-| **Analytics** *(beta)* | Cycle time, throughput, cumulative flow and WIP age charts *(new in 1.3)*, dwell-time heatmap per stage, stalled-card detection, 7/30-day throughput velocity, CSV export. [→ Analytics](https://docs.visiban.com/next/features/analytics/) |
+| **Analytics** | Cycle time, throughput, cumulative flow and WIP age charts *(new in 1.3)*, dwell-time heatmap per stage, stalled-card detection, 7/30-day throughput velocity, CSV export. [→ Analytics](https://docs.visiban.com/next/features/analytics/) |
 | **Real-time sync** | WebSocket-powered — card moves, edits, and structural changes appear instantly for all connected users. [→ Real-time](https://docs.visiban.com/next/features/realtime/) |
 | **Groups & RBAC** | Boards live inside nested groups (access is inherited through up to 6 levels; creating a subgroup or moving a group past that depth is refused). Four roles — admin, member, collaborator, viewer — plus a moderator entitlement, with automatic group inheritance. [→ Groups](https://docs.visiban.com/next/features/groups/) |
 | **Card detail** | Rich-text description, priority, assignee, labels, due date, weight, checklist, file attachments, and threaded comments with @mentions. [→ Board guide](https://docs.visiban.com/next/features/board/#cards) |
