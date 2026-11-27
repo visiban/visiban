@@ -156,7 +156,10 @@ class ReorderVsParentMoveRaceTests(TransactionTestCase):
                     self.parent.column = self.proposal
                     planned_children.release_on_move(self.parent, to_column=self.proposal, actor=self.owner)
                     # Won is ahead of the parent: the move must not release.
-                    assert CardParentLink.objects.get(pk=self.link.pk).planned_released_at is None
+                    # An explicit raise, not `assert`: this body is wrapped in a
+                    # catch-all (python:S5779) and must survive `python -O`.
+                    if CardParentLink.objects.get(pk=self.link.pk).planned_released_at is not None:
+                        raise RuntimeError("move released the link while Won is ahead")
                     holding.set()
                     if not release.wait(WAIT):
                         raise RuntimeError("never released")

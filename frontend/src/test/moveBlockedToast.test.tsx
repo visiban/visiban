@@ -116,6 +116,16 @@ describe('MoveBlockedToast', () => {
     expect(toast().getByText(/would reach 13 of 10/)).toBeInTheDocument()
   })
 
+  it('announces an entry refusal as a count, leaving the Needs list to the visible body (#1923)', async () => {
+    const unmet = [{ requirement_uid: 'r1', operator: 'filled', operand: null, field_uid: 'f1', field_name: 'Amount', field_set_uid: null, field_set_name: null }]
+    const err = { code: 'entry_requirements_unmet', detail: 'd', column_name: 'Proposal', mode: 'block', unmet: [...unmet, { ...unmet[0], requirement_uid: 'r2' }], also: [] } as unknown as MoveBlockedError
+    renderToast(<MoveBlockedToast error={err} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />)
+    const announced = screen.getByTestId('toast-announcer-assertive')
+    await waitFor(() => expect(announced).toHaveTextContent("Can't move to Proposal. 2 entry requirements unmet."))
+    expect(announced).not.toHaveTextContent('Needs')
+    expect(toast().getByText(/Needs/)).toBeInTheDocument()
+  })
+
   it('is announced assertively through the shared alert region, and persists', async () => {
     vi.useFakeTimers()
     try {

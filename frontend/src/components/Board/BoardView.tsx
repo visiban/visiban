@@ -1586,11 +1586,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // (#2439); every other opener
   // leaves it undefined so Board settings opens on Members as before.
   const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | "field-sets" | "rules" | undefined>(undefined);
+  // #1923: the column ⋮ "Entry requirements…" item opens Rules & limits with that column selected.
+  const [settingsEntryColumnId, setSettingsEntryColumnId] = useState<number | undefined>(undefined);
+  const openEntryRequirements = useCallback((columnId: number) => {
+    setSettingsInitialTab("rules");
+    setSettingsEntryColumnId(columnId);
+    setShowSettings(true);
+  }, []);
   // #863: set only by the ?settings=webhooks deep link from a webhook_disabled notification.
   const [webhookDeepLink, setWebhookDeepLink] = useState(false);
   const closeSettings = useCallback(() => {
     setShowSettings(false);
     setSettingsInitialTab(undefined);
+    setSettingsEntryColumnId(undefined);
     setWebhookDeepLink(false);
   }, []);
   // #2388 — the View menu's "On the card: ... Change" opens Board settings on Card fields.
@@ -4074,6 +4082,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     customFieldDefinitions={board.custom_field_definitions}
                     isAdmin={isAdmin}
                     onColumnUpdated={handleColumnUpdated}
+                    onOpenEntryRequirements={isAdmin && !demoMode ? openEntryRequirements : undefined}
                     onRequestDelete={(col) => setConfirmDeleteColumn(col)}
                     collapsed={collapsedColumnIds.has(col.id)}
                     hidden={hiddenColumnIds.has(col.id)}
@@ -4484,6 +4493,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onFieldSetsUpdated={onFieldSetsApplied}
           onClose={closeSettings}
           initialTab={settingsInitialTab}
+          initialEntryColumnId={settingsEntryColumnId}
           focusFirstStoppedWebhook={webhookDeepLink}
           webhookChange={webhookChange}
           webhookReconnectSignal={socketReconnectSeq}

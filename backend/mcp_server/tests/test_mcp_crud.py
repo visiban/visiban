@@ -27,6 +27,7 @@ from accounts.models import (
 )
 from boards.models import (
     Board, BoardEvent, BoardMembership, Card, CardActivity, CardMovement, CardRelation,
+    ColumnEntryRequirement, CustomFieldDefinition,
 )
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
@@ -96,12 +97,32 @@ class ListColumnsTests(CrudToolsTestCase):
         backlog = result[0]
         self.assertEqual(
             set(backlog),
-            {"id", "uid", "name", "position", "color", "wip_limit", "policy", "card_count", "sub_columns"},
+            {"id", "uid", "name", "position", "color", "wip_limit", "policy", "card_count", "sub_columns",
+             "entry_enforcement", "entry_requirements"},  # the last two: #1923
         )
+        self.assertIsNone(backlog["entry_enforcement"])  # no requirements: not evaluated
+        self.assertEqual(backlog["entry_requirements"], [])
         self.assertEqual(backlog["card_count"], 1)  # archived card excluded
         self.assertEqual(backlog["id"], self.column.id)
         self.assertEqual(backlog["uid"], self.column.uid)  # #1974
         self.assertIsNone(backlog["policy"])
+
+    def test_returns_entry_requirements_in_the_rest_shape(self):
+        field = CustomFieldDefinition.objects.create(
+            board=self.board, name="Amount", field_type="number", position=0,
+        )
+        ColumnEntryRequirement.objects.create(
+            column=self.column, field_definition=field, operator="gt", operand="50000",
+        )
+        self.column.entry_enforcement = "block"
+        self.column.save(update_fields=["entry_enforcement"])
+        result = self._call("list_columns", self.raw_token, board_id=self.board.id)
+        row = next(r for r in result if r["id"] == self.column.id)
+        self.assertEqual(row["entry_enforcement"], "block")
+        (req,) = row["entry_requirements"]
+        self.assertEqual(
+            (req["operator"], req["operand"], req["field_uid"]), ("gt", "50000", field.uid),
+        )
 
     def test_returns_the_column_policy(self):
         # #1101: an agent that moves cards can read the written policy.
@@ -965,6 +986,26 @@ class CreateCardAtomicReorderTests(CrudToolsTestCase):
 
 
 class MoveCardTests(CrudToolsTestCase):
+    def test_block_acts_as_hard_over_mcp_and_cannot_be_overridden(self):
+        # #1923: MCP has no force option, so a Block column's unmet
+        # requirement refuses the move and the card stays put.
+        field = CustomFieldDefinition.objects.create(
+            board=self.board, name="Amount", field_type="number", position=0,
+        )
+        ColumnEntryRequirement.objects.create(
+            column=self.other_column, field_definition=field, operator="gt", operand="50000",
+        )
+        self.other_column.entry_enforcement = "block"
+        self.other_column.save(update_fields=["entry_enforcement"])
+        card = _make_card(self.column, self.swimlane, title="Gated")
+        result = self._call(
+            "move_card", self.write_token, card_id=card.id, to_column_id=self.other_column.id,
+            force=True, override_reason="please",  # undeclared arguments are ignored
+        )
+        self.assertEqual(result["error"]["code"], "entry_requirements_unmet")
+        card.refresh_from_db()
+        self.assertEqual(card.column_id, self.column.id)
+
     def test_move_to_new_column_creates_movement(self):
         card = _make_card(self.column, self.swimlane, title="Movable")
         result = self._call(

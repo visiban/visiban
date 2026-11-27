@@ -350,6 +350,55 @@ export interface Column {
   sub_columns?: SubColumn[];
   /** Dimension fields shown as tracks on this stage (#1921), in order. */
   tracks?: StageTrack[];
+  /** Entry requirements mode (#1923): `null` = not evaluated (no requirements, or
+   *  turned off with the rows kept). Always sent by the server since 1.3; optional
+   *  here, like `sub_columns`, so pre-1.3 fixtures and cached payloads type-check.
+   *  Written only by `PUT .../columns/{id}/entry-requirements/`. */
+  entry_enforcement?: EntryEnforcement | null;
+  /** The column's entry requirements, AND-ed, in order (#1923). */
+  entry_requirements?: ColumnEntryRequirement[];
+}
+
+/** How a column treats a card that does not meet its entry requirements (#1923). */
+export type EntryEnforcement = "warn" | "block" | "hard";
+
+/** Entry requirement operators (#1923). `set_complete` takes a field set; the rest a field. */
+export type EntryRequirementOperator = "filled" | "min_count" | "gt" | "gte" | "satisfied" | "set_complete";
+
+/** One entry requirement, as `ColumnSerializer` sends it (#1923). Exactly one of
+ *  `field_uid` / `field_set_uid` is set. `operand` is a decimal string for
+ *  `gt`, `gte` and `min_count`, else `null`. */
+export interface ColumnEntryRequirement {
+  uid: string;
+  field_uid: string | null;
+  field_set_uid: string | null;
+  operator: EntryRequirementOperator;
+  operand: string | null;
+  position: number;
+}
+
+/** One unmet requirement, in a 409 `unmet` list and a Warn write's `entry_unmet` (#1923).
+ *  Names and ids only, never a card's field value. */
+export interface EntryUnmetItem {
+  requirement_uid: string;
+  operator: EntryRequirementOperator;
+  operand: string | null;
+  field_uid: string | null;
+  field_name: string | null;
+  field_set_uid: string | null;
+  field_set_name: string | null;
+}
+
+/** A requirement whose lane scope a field-set delete or field move would widen (#1923, owner Q3). */
+export interface AffectedEntryRequirement {
+  requirement_uid: string;
+  column_uid: string;
+  column_name: string;
+  operator: EntryRequirementOperator;
+  /** Null on a set_complete row, which has no field; `field_set_name` names its set. */
+  field_uid: string | null;
+  field_name: string | null;
+  field_set_name?: string | null;
 }
 
 /** One sub-column of a gated stage (#1102). */

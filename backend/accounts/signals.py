@@ -12,11 +12,17 @@ def _connect_user_signals():
 
     Called from AccountsConfig.ready() so the import is deferred until Django
     is fully initialized and AUTH_USER_MODEL is resolved.
+
+    Every receiver here is a function local to this one, so ``weak=False`` is
+    required: Django holds receivers by weak reference by default, and nothing
+    else references these closures, so a garbage-collection pass during a long
+    process silently disconnects them. The superuser-flag sync then stops
+    firing, which a test run shows as a superuser with no board access.
     """
     from django.contrib.auth import get_user_model
     User = get_user_model()
 
-    @receiver(pre_delete, sender=User, dispatch_uid="accounts.revoke_deleted_creator_site_invites")
+    @receiver(pre_delete, sender=User, dispatch_uid="accounts.revoke_deleted_creator_site_invites", weak=False)
     def revoke_site_invites_of_deleted_creator(sender, instance, **kwargs):
         """Revoke a user's pending site invite links before the user row goes (#1578).
 
@@ -28,7 +34,7 @@ def _connect_user_signals():
 
         revoke_site_invite_links(instance)
 
-    @receiver(pre_save, sender=User, dispatch_uid="accounts.capture_prior_superuser_state")
+    @receiver(pre_save, sender=User, dispatch_uid="accounts.capture_prior_superuser_state", weak=False)
     def capture_prior_superuser_state(sender, instance, update_fields=None, **kwargs):
         """Remember the stored access flags so post_save can detect a real demotion.
 
@@ -72,7 +78,7 @@ def _connect_user_signals():
                 "can_access_all_content",
             } <= set(update_fields)
 
-    @receiver(post_save, sender=User, dispatch_uid="accounts.ensure_superuser_is_site_admin")
+    @receiver(post_save, sender=User, dispatch_uid="accounts.ensure_superuser_is_site_admin", weak=False)
     def ensure_superuser_is_site_admin(sender, instance, **kwargs):
         """Keep is_site_admin and can_access_all_content in sync with is_superuser.
 
@@ -131,7 +137,7 @@ def _connect_user_signals():
                 instance.is_site_admin = True
                 instance.can_access_all_content = True
 
-    @receiver(pre_save, sender=User, dispatch_uid="accounts.capture_prior_email")
+    @receiver(pre_save, sender=User, dispatch_uid="accounts.capture_prior_email", weak=False)
     def capture_prior_email(sender, instance, update_fields=None, **kwargs):
         """Remember the stored email so post_save can tell the old address it changed.
 
@@ -153,7 +159,7 @@ def _connect_user_signals():
             sender.objects.filter(pk=instance.pk).values_list("email", flat=True).first()
         )
 
-    @receiver(post_save, sender=User, dispatch_uid="accounts.notify_previous_email")
+    @receiver(post_save, sender=User, dispatch_uid="accounts.notify_previous_email", weak=False)
     def notify_previous_email(sender, instance, created=False, raw=False, **kwargs):
         """Send the previous address a notice once an email change commits.
 

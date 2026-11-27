@@ -1,6 +1,6 @@
 import client from "./client";
 import { safeJoinToken, safeShareToken } from "./joinToken";
-import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldSet, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary, ChildrenSettingBlockers, BoardDeleteImpact, DefaultChildBoardOptions, SwimlaneDefaultTeamAccess } from "../types";
+import type { AffectedEntryRequirement, EntryEnforcement, EntryRequirementOperator, Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldSet, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary, ChildrenSettingBlockers, BoardDeleteImpact, DefaultChildBoardOptions, SwimlaneDefaultTeamAccess } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -179,6 +179,20 @@ export const updateColumn = (boardId: number, colId: number, data: Partial<Colum
 export const patchColumn = (boardId: number, colId: number, data: Partial<Column>) =>
   client.patch<Column>(`/api/v1/boards/${boardId}/columns/${colId}/`, data).then((r) => r.data);
 
+/** One row of an entry-requirements save (#1923): exactly one of `field_uid` / `field_set_uid`. */
+export interface EntryRequirementWrite {
+  field_uid?: string;
+  field_set_uid?: string;
+  operator: EntryRequirementOperator;
+  operand?: string | null;
+}
+
+/** Replace a column's entry requirements and mode (#1923). Board admins only; returns the column. */
+export const saveEntryRequirements = (
+  boardId: number, colId: number,
+  data: { entry_enforcement: EntryEnforcement | null; requirements: EntryRequirementWrite[] },
+) => client.put<Column>(`/api/v1/boards/${boardId}/columns/${colId}/entry-requirements/`, data).then((r) => r.data);
+
 export const deleteColumn = (boardId: number, colId: number) =>
   client.delete(`/api/v1/boards/${boardId}/columns/${colId}/`);
 
@@ -283,6 +297,13 @@ export const updateFieldSet = (boardId: number, setId: number, data: FieldSetWri
   client.patch<CustomFieldSet>(`/api/v1/boards/${boardId}/field-sets/${setId}/`, data).then((r) => r.data);
 export const deleteFieldSet = (boardId: number, setId: number) =>
   client.delete(`/api/v1/boards/${boardId}/field-sets/${setId}/`);
+/** Dry runs (#1923, owner Q3): the entry requirements a delete or an edit of a set would widen to every lane. Nothing is written. */
+export const previewDeleteFieldSet = (boardId: number, setId: number) =>
+  client.delete<{ affected_requirements?: AffectedEntryRequirement[] }>(`/api/v1/boards/${boardId}/field-sets/${setId}/?dry_run=true`)
+    .then((r) => r.data?.affected_requirements ?? []);
+export const previewUpdateFieldSet = (boardId: number, setId: number, data: FieldSetWrite) =>
+  client.patch<{ affected_requirements?: AffectedEntryRequirement[] }>(`/api/v1/boards/${boardId}/field-sets/${setId}/?dry_run=true`, data)
+    .then((r) => r.data?.affected_requirements ?? []);
 export const reorderFieldSets = (boardId: number, order: number[]) =>
   client.post<CustomFieldSet[]>(`/api/v1/boards/${boardId}/field-sets/reorder/`, { order }).then((r) => r.data);
 export const copyFieldSet = (boardId: number, data: { source_board: number; source_set: number; name?: string }) =>

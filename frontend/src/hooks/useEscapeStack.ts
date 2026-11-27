@@ -46,6 +46,7 @@ function dispatch(e: KeyboardEvent): void {
  *   40.9 — Board Settings "Let a card's assignee move it anyway" turn-on confirm (#1923): cancels it, else false
  *   40.8 — field-set editor delete / discard confirms and the nested "Copy a field set" modal (BoardSettingsFieldSetsSection, #2570)
  *   40.7 — a choice-row keyboard drag in a Board Settings field editor (SortableChoiceList and, via useSortableFieldDrag, the card-field and swimlane-field lists, #2190): consumed only mid-drag, else false; both share the level because only one drag is active at a time
+ *   40.65 — Board Settings entry-requirements discard prompt (BoardSettingsEntryRequirementsSection, #1923): cancels the prompt, else false
  *   40.6 — Board Settings column-policy discard prompt (BoardSettingsPoliciesSection, #2156): cancels the prompt, else false
  *   40.5 — Board Settings Danger Zone delete confirmation (BoardSettingsModal, #2034): swallowed while the request runs, clears a typed name, else false
  *   40 — modals and overlays

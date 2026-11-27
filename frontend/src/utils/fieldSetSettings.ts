@@ -45,6 +45,20 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
 }
 
 /** "Delete {name}? Its {n} fields move to Other fields. No field values are deleted." Extended by #1923. */
+/**
+ * The sentence the delete and save confirms append for the entry requirements
+ * a change would widen to every swimlane (#1923, owner Q3), from the server's
+ * dry run. Empty when nothing widens.
+ */
+export function widenedRequirementsSentence(
+  affected: { column_name: string; field_name: string | null; field_set_name?: string | null }[],
+): string[] {
+  if (affected.length === 0) return [];
+  const n = affected.length;
+  const list = affected.map((a) => `${a.column_name}: ${a.field_name ?? `${a.field_set_name ?? "Field set"} complete`}`).join("; ");
+  return [`${n} entry requirement${n === 1 ? "" : "s"} will then apply in every swimlane (${list}).`];
+}
+
 export function deleteSetPrompt(set: CustomFieldSet, extra: string[] = []): string {
   const n = set.field_ids.length;
   return [`Delete ${set.name}? Its ${n} field${n === 1 ? "" : "s"} move${n === 1 ? "s" : ""} to Other fields. No field values are deleted.`, ...extra].join(" ");
