@@ -454,7 +454,7 @@ export default function ActivityTabPanel({
                   <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-line-subtle shadow ${dot}`} />
                   <div className="bg-surface border border-line rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-fg-secondary truncate" title={description}>
+                      <span className="text-sm text-fg-secondary truncate" title={movementEntryNote(m) ? `${description} · ${movementEntryNote(m)}` : description}>
                         {description}
                         {m.from_swimlane_name && m.to_swimlane_name && m.from_swimlane_name !== m.to_swimlane_name && (
                           <span className="text-xs text-fg-tertiary ml-1">

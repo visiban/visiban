@@ -58,12 +58,12 @@ function Progress({ filled, total, id, position }: { filled: number; total: numb
   return (
     <span className="flex items-center gap-1.5 shrink-0">
       {total > 0 && (
-        <span className="w-[72px] h-1.5 rounded-full bg-sunken overflow-hidden" aria-hidden="true">
+        <span className={`w-[72px] h-1.5 rounded-full bg-sunken overflow-hidden ${position ? "hidden sm:block" : ""}`} aria-hidden="true">
           <span className={`block h-full ${filled === total ? "bg-success" : "bg-primary-emphasis"}`} style={{ width: `${pct}%` }} />
         </span>
       )}
       {position ? (
-        <span id={id} className="text-xs text-fg-muted" data-testid="field-set-max-position">
+        <span id={id} className="text-xs text-fg-muted whitespace-nowrap" data-testid="field-set-max-position">
           {total > 0 ? `${filled} of ${total} filled · ${position}` : position}
         </span>
       ) : (

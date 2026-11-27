@@ -102,3 +102,25 @@ class WarnRecordTransportTests(_Fixture):
         with patch(PATCH_BROADCAST):
             resp = self._move(self.member, card=other)
         self.assertEqual(resp.json()["movement"]["entry_unmet"], self.expected)
+
+
+class WarnRecordRoleBoundaryTests(WarnRecordTransportTests):
+    """A viewer reads the same record; a non-member is refused (rbac-check, #2655)."""
+
+    def test_viewer_reads_entry_unmet(self):
+        resp = self._client(self.viewer).get(f"/api/v1/boards/{self.board.pk}/movements/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["results"][0]["entry_unmet"], self.expected)
+        self.assertNotIn("12345", resp.content.decode())
+
+    def test_non_member_is_refused(self):
+        from django.contrib.auth import get_user_model
+        outsider = get_user_model().objects.create_user(username="er_out_2655", password="pass")
+        for url in (
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/movements/",
+            f"/api/v1/boards/{self.board.pk}/movements/",
+        ):
+            with self.subTest(url=url):
+                resp = self._client(outsider).get(url)
+                self.assertIn(resp.status_code, (403, 404))
+                self.assertNotIn("entry_unmet", resp.content.decode())
