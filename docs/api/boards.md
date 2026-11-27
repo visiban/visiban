@@ -2743,7 +2743,7 @@ model docstring for the reasoning; do not assume they track each other.
 
 `band_visibility` says where a swimlane field shows on each lane band (#2439):
 
-- `"band"`: always visible on the band. **At most 2** per board.
+- `"band"`: on the band. **At most 6** per board (2 before #2663). A client may show fewer when the screen is narrow; that never changes the stored value. The web app shows 2 to 6 by board width, and 2 on a phone.
 - `"details"`: behind the band's **Show N more** toggle. At most the board's [`lane_details_cap`](#get-apiv1boardsid) (4, 6, 9, 12 or 16; default 6).
 - `"hidden"`: off the band and out of the details count; listed last in the lane details under **Hidden on band**. Still filterable and exported.
 - `null`: derived from position. Every field created before 1.3 is `null`, and a board whose fields are all `null` renders as before 1.3: the first two non-empty values on the band. PATCHing `band_visibility: null` is allowed, including on a board that already has tiers: it means "derive from position", and on such a board the resolver treats a `null` field as `"details"` while there is room, else `"hidden"`, never `"band"`. Send an explicit tier to put a field on the band.
@@ -2752,7 +2752,9 @@ model docstring for the reasoning; do not assume they track each other.
 
 A create that sends no `band_visibility` stays `null` on a board without tiers, and gets `"details"` (or `"hidden"` when the details are full) on a board with tiers, so an older client never gets a `400` for leaving it out.
 
-**Errors** (`400`, keyed `band_visibility`): `"The band holds 2 fields. Move one to Details first."` for a third band field, and `"Lane details hold N fields. Move one to Hidden first, or raise the limit."` past the cap.
+**Errors** (`400`, keyed `band_visibility`): `"The band holds 6 fields. Move one to Details first."` for a seventh band field, and `"Lane details hold N fields. Move one to Hidden first, or raise the limit."` past the cap.
+
+**Mixed versions:** a server without #2663 rejects a JSON import with 3 or more `"band"` fields, and during a rolling deploy its pods answer `400` to a tier PATCH on a board that already has 3 or more. A browser tab loaded before the upgrade shows two Band fields until it is reloaded.
 
 **Stability:** `band_visibility` and `lane_details_cap` follow the 1.0 API rules: the values are only ever added to, `null` stays a valid value, and the field is never required on write.
 

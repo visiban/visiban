@@ -49,3 +49,38 @@ describe('laneTierFields (#2439)', () => {
     expect(laneTierFields(lane, defs, true, 6)!.hidden.map((f) => f.def.id)).toEqual([2, 3])
   })
 })
+
+describe('laneTierFields band slots (#2663)', () => {
+  const defs = [1, 2, 3, 4, 5, 6].map((id) => def(id, id, 'band')).concat(def(7, 7, 'details'))
+  const lane = { id: 1, name: 'North', custom_field_values: [1, 3, 4, 5, 6, 7].map((id) => ({ field_definition: id, value: `v${id}` })) } as unknown as Swimlane
+  const ids = (list: { def: { id: number } }[]) => list.map((f) => f.def.id)
+
+  it('shows two when no slot count is given', () => {
+    const out = laneTierFields(lane, defs, true, 6)!
+    expect(ids(out.band)).toEqual([1])
+    expect(ids(out.details)).toEqual([3, 4, 5, 6, 7])
+  })
+
+  it('counts slots over definitions, drops an empty one inline, and puts the rest first in details', () => {
+    const out = laneTierFields(lane, defs, true, 6, 4)!
+    expect(ids(out.band)).toEqual([1, 3, 4])
+    expect(ids(out.details)).toEqual([5, 6, 7])
+    // An empty value past the slots stays listed, so every lane counts the same N.
+    expect(ids(laneTierFields(lane, defs, true, 6, 1)!.details)).toEqual([2, 3, 4, 5, 6, 7])
+  })
+
+  it('never exceeds six, and a field over the limit still shows in details', () => {
+    const seven = [1, 2, 3, 4, 5, 6, 7].map((id) => def(id, id, 'band'))
+    const out = laneTierFields(lane, seven, true, 6, 99)!
+    expect(ids(out.band)).toEqual([1, 3, 4, 5, 6])
+    expect(ids(out.details)).toEqual([7])
+  })
+
+  it('gives an admin-only band field no slot and no count for a non-admin (#1075)', () => {
+    const mixed = [def(1, 1, 'band', { is_admin_only: true }), def(3, 3, 'band'), def(4, 4, 'band'), def(5, 5, 'band')]
+    const out = laneTierFields(lane, mixed, false, 6, 2)!
+    expect(ids(out.band)).toEqual([3, 4])
+    expect(ids(out.details)).toEqual([5])
+    expect(out.hidden).toEqual([])
+  })
+})

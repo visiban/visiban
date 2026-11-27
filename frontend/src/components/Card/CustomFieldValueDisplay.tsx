@@ -38,6 +38,8 @@ interface Props {
   hideName?: boolean;
   userDateFormat?: string;
   className?: string;
+  /** `band` only (#2663): keep multi-select chips on one line. */
+  singleLine?: boolean;
 }
 
 /**
@@ -56,7 +58,7 @@ interface Props {
  *      decides what "nothing" means for its context (omit vs. a ghost
  *      placeholder chip); this component never invents a placeholder.
  */
-export default function CustomFieldValueDisplay({ definition, value, variant, adminOnly, hideName, userDateFormat = "MM/DD/YYYY", className }: Props) {
+export default function CustomFieldValueDisplay({ definition, value, variant, adminOnly, hideName, userDateFormat = "MM/DD/YYYY", className, singleLine }: Props) {
   if (variant === "grid-value") return <GridValue definition={definition} value={value} userDateFormat={userDateFormat} className={className} />;
   if (value === undefined) return null;
 
@@ -131,7 +133,7 @@ export default function CustomFieldValueDisplay({ definition, value, variant, ad
           <CustomFieldLink value={value} variant="host" maxHostChars={20} stopPropagation />
         ) : multiEntries ? (
           // Up to three, wrapping: the row header is a narrow vertical column.
-          <MultiSelectChips entries={multiEntries} definition={definition} max={3} wrap />
+          <MultiSelectChips entries={multiEntries} definition={definition} max={3} wrap={!singleLine} />
         ) : colorKey ? (
           <ChoiceBadge colorKey={colorKey}>{chipValueText(definition, displayText, 20)}</ChoiceBadge>
         ) : (

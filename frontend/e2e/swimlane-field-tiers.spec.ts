@@ -37,3 +37,51 @@ for (const role of ['admin', 'member'] as const) {
     await expect(hidden.getByText('B-42')).toBeVisible()
   })
 }
+
+// #2663 — up to six Band fields, as many as the width fits, on one line.
+const SIX = ['Account owner', 'Region', 'Annual value', 'Renewal date', 'Support tier', 'Industry']
+const VALUES = ['Ada Lovelace', 'Europe and Africa', '1,250,000', 'December 2026', 'Premium support', 'Manufacturing']
+
+for (const [width, fit] of [[1440, 2], [1920, 5], [2560, 6]] as const) {
+  test(`the band shows ${fit} of 6 Band fields on one line at ${width}px (#2663)`, async ({ page }) => {
+    const board = {
+      ...BOARD_FULL,
+      current_user_role: 'admin',
+      lane_details_cap: 6,
+      enforce_wip_limits: true,
+      swimlane_custom_field_definitions: SIX.map((name, i) => def(81 + i, name, i, 'band')),
+      swimlanes: [{
+        ...SWIMLANE,
+        name: 'Northern Hemisphere Strategic Enterprise Accounts and Partnerships',
+        health_status: 'at_risk', effective_health_status: 'at_risk', wip_limit: 1,
+        custom_field_values: VALUES.map((value, i) => ({ field_definition: 81 + i, value })),
+      }],
+    }
+    await page.setViewportSize({ width, height: 900 })
+    await routeAuth(page)
+    await routeBoard(page, board as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+
+    const band = page.getByTestId('swimlane-band')
+    const fields = band.getByTestId('swimlane-band-fields').locator(':scope > span')
+    await expect(fields).toHaveCount(fit)
+    if (fit < 6) await expect(band.getByRole('button', { name: new RegExp(`^Show ${6 - fit} more fields`) })).toBeVisible()
+    else await expect(band.getByTestId('swimlane-fields-toggle')).toHaveCount(0)
+
+    const stats = band.getByTestId('swimlane-band-stats')
+    await expect(stats).toBeVisible()
+    await expect(band.getByRole('button', { name: /health/i }).first()).toBeVisible()
+    const bandBox = (await band.boundingBox())!
+    const statsBox = (await stats.boundingBox())!
+    const nameBox = (await band.getByTestId('swimlane-name').boundingBox())!
+    // One line: a wrapped band is at least two rows (over 60px) tall.
+    expect(bandBox.height).toBeLessThan(56)
+    expect(Math.abs(statsBox.y + statsBox.height / 2 - (nameBox.y + nameBox.height / 2))).toBeLessThan(8)
+    expect(statsBox.x + statsBox.width).toBeLessThanOrEqual(bandBox.x + bandBox.width)
+    // Each field keeps enough room to read, which is what the slot formula promises.
+    const widths: number[] = []
+    for (let i = 0; i < fit; i++) widths.push(Math.round((await fields.nth(i).boundingBox())!.width))
+    for (const w of widths) expect(w).toBeGreaterThan(90)
+  })
+}

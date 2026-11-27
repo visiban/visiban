@@ -3,7 +3,7 @@ import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { BoardFull, CustomFieldType, LaneTier, SwimlaneCustomFieldDefinition } from "../../types";
-import { DEFAULT_LANE_DETAILS_CAP, INLINE_FIELD_COUNT, LANE_DETAILS_CAP_OPTIONS, isLegacyTiers, resolveLaneTiers } from "../../utils/laneBand";
+import { BAND_DEFAULT_COUNT, BAND_MAX_COUNT, DEFAULT_LANE_DETAILS_CAP, LANE_DETAILS_CAP_OPTIONS, isLegacyTiers, resolveLaneTiers } from "../../utils/laneBand";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
@@ -35,6 +35,8 @@ interface Props {
    * renders as a read-only line.
    */
   onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
+  /** #2663 — Band fields this screen shows. Omitted (unknown): no "fit on this screen" line. */
+  bandSlots?: number;
 }
 
 const ROW_CHIP_NAMES_HELP =
@@ -97,7 +99,7 @@ const TYPE_GLYPH: Record<CustomFieldType, string> = {
 
 /** Types whose definition carries a `choices` list (#1391: dropdown, multi-select). */
 const TIER_LABEL: Record<LaneTier, string> = { band: "Band", details: "Details", hidden: "Hidden" };
-const BAND_FULL_REASON = "The band holds 2 fields. Move one to Details first.";
+const BAND_FULL_REASON = `The band holds ${BAND_MAX_COUNT} fields. Move one to Details first.`;
 const detailsFullReason = (cap: number) => `Lane details hold ${cap} fields. Move one to Hidden first.`;
 
 /**
@@ -113,7 +115,7 @@ function materializeLocal(fields: SwimlaneCustomFieldDefinition[], cap: number):
   }
   return fields.map((f, i) => ({
     ...f,
-    band_visibility: i < INLINE_FIELD_COUNT ? "band" : i < INLINE_FIELD_COUNT + cap ? "details" : "hidden",
+    band_visibility: i < BAND_DEFAULT_COUNT ? "band" : i < BAND_DEFAULT_COUNT + cap ? "details" : "hidden",
   }));
 }
 
@@ -167,7 +169,7 @@ function formFromDefinition(d: SwimlaneCustomFieldDefinition): FormState {
  * control, a *hard* type lock instead of a soft warning, and different caps.
  * A shared component would carry every one of those as a conditional.
  */
-export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onFieldsUpdated, onUpdateBoardSettings }: Props) {
+export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onFieldsUpdated, onUpdateBoardSettings, bandSlots }: Props) {
   const [fields, setFields] = useState<SwimlaneCustomFieldDefinition[]>(
     () => [...board.swimlane_custom_field_definitions].sort((a, b) => a.position - b.position)
   );
@@ -192,7 +194,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   /** Why `tier` cannot be chosen for `def`, or null when it can (the server enforces the same rule). */
   const tierBlockedReason = (def: SwimlaneCustomFieldDefinition, tier: LaneTier): string | null => {
     if (tierOf(def) === tier) return null;
-    if (tier === "band" && bandCount >= INLINE_FIELD_COUNT) return BAND_FULL_REASON;
+    if (tier === "band" && bandCount >= BAND_MAX_COUNT) return BAND_FULL_REASON;
     if (tier === "details" && detailsCount >= cap) return detailsFullReason(cap);
     return null;
   };
@@ -466,14 +468,20 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] items-end mb-3 p-3 rounded-lg border border-line bg-sunken" data-testid="swimlane-tier-summary">
           <div className="min-w-0">
             <p className="text-sm font-medium text-fg">On the band</p>
-            <p className="text-xs text-fg-muted">Always visible · max {INLINE_FIELD_COUNT}</p>
-            <p className="text-xs font-semibold text-fg mt-1" data-testid="swimlane-band-counter">{bandCount} / {INLINE_FIELD_COUNT}</p>
+            <p className="text-xs text-fg-muted">Beside the lane name · up to {BAND_MAX_COUNT}</p>
+            <p className="text-xs font-semibold text-fg mt-1" data-testid="swimlane-band-counter">
+              {bandCount} / {BAND_MAX_COUNT}
+              {bandSlots !== undefined && bandCount > bandSlots && <span className="font-normal text-fg-muted"> · {bandSlots} fit on this screen</span>}
+            </p>
+            {bandSlots !== undefined && bandCount > bandSlots && (
+              <p className="text-xs text-fg-muted mt-1">Narrower screens show the first fields and move the rest behind “Show N more”.</p>
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium text-fg">In lane details</p>
             <p className="text-xs text-fg-muted">Behind “Show N more”</p>
             <div className="flex items-center gap-2 mt-1">
-              <label htmlFor="lane-details-cap" className="text-xs text-fg-muted">up to</label>
+              <label htmlFor="lane-details-cap" className="text-xs text-fg-muted"><span className="sr-only">In lane details </span>up to</label>
               <select
                 id="lane-details-cap"
                 value={cap}
