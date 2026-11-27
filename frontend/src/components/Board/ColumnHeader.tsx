@@ -284,11 +284,12 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
             // in the a11y tree. Hover, focus and a no-hover device reveal it (frontend/CLAUDE.md § Column headers).
             // Absolute, in the header's left padding (#2450): it reserves no width, so the name keeps the room the
             // reference gives it and hover does not reflow the row.
-            className="absolute left-px top-2.5 text-[10px] leading-none text-fg-secondary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded opacity-0 group-hover/col:opacity-100 group-focus-within/col:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
+            className="absolute left-0 top-[13px] flex text-fg-secondary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded opacity-0 group-hover/col:opacity-100 group-focus-within/col:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
             title="Collapse column"
             aria-label="Collapse column"
           >
-            ◀
+            {/* An SVG, not the ◀ glyph: the glyph's width depends on the font that resolves it and overlapped the dot. 7x8px, clear of the dot at 0 + 7px, 3px short of the 10px padding. */}
+            <svg aria-hidden="true" width="7" height="8" viewBox="0 0 7 8" fill="currentColor"><path d="M7 0 0 4l7 4z" /></svg>
           </button>
           <span
             className={`color-dot w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}

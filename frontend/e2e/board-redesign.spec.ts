@@ -192,9 +192,9 @@ test.describe('board redesign baseline', () => {
       await expect(kebab).toHaveCount(1)
       const before = await add.boundingBox()
       const nameBefore = await name.boundingBox()
-      expect(Number(await kebab.evaluate((el) => getComputedStyle(el.parentElement as HTMLElement).opacity))).toBe(0)
+      expect(Number(await kebab.evaluate((el) => getComputedStyle(el.closest('div.absolute') as HTMLElement).opacity))).toBe(0)
       await header.hover()
-      await expect.poll(async () => Number(await kebab.evaluate((el) => getComputedStyle(el.parentElement as HTMLElement).opacity))).toBe(1)
+      await expect.poll(async () => Number(await kebab.evaluate((el) => getComputedStyle(el.closest('div.absolute') as HTMLElement).opacity))).toBe(1)
       expect((await add.boundingBox())!.x).toBe(before!.x)
       expect((await name.boundingBox())!.width).toBe(nameBefore!.width)
     })
@@ -222,6 +222,10 @@ test.describe('board redesign baseline', () => {
       // The name button is the next tab stop after the chevron; focusing it is focus-within the header.
       await header.locator('button.truncate').first().focus()
       await expect.poll(async () => Number(await chevron.evaluate((el) => getComputedStyle(el).opacity))).toBe(1)
+      // The chevron must not overlap the color dot (#2450).
+      const c = (await chevron.boundingBox())!
+      const d = (await header.locator('.color-dot').boundingBox())!
+      expect(c.x + c.width).toBeLessThanOrEqual(d.x)
       await expectShot(page, 'board-header-chevron-focus.png', SHOT)
     })
 
