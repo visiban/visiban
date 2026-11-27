@@ -51,6 +51,8 @@ For each package:
 - ⚠️ **Add with awareness** — flag the specific concern (weak copyleft, large bundle, maintenance risk)
 - 🔴 **Do not add** — GPL license or unresolved high CVE; suggest an alternative if one exists
 
+**Ledger:** this agent is a helper, so it gets no `## Gates` line by default. If a line is written, report `blocking <k>`, where `<k>` is the number of 🔴 **Do not add** packages (a GPL/AGPL/SSPL/BUSL or unidentified license, or an unresolved high CVE) among the findings counted in `<N>`; ⚠️ is not blocking.
+
 If the package is approved, state the correct way to add it:
 ```bash
 # Python

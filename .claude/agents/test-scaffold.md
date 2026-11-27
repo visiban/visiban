@@ -110,3 +110,5 @@ Generate the complete test file(s) ready to write into the correct location:
 - Frontend: `frontend/src/test/{feature}.test.ts(x)`
 
 Include a brief note on any coverage gaps that would require additional test data or mocking setup beyond the scaffold.
+
+**Ledger:** this agent is a helper that generates tests and has no blocking tier, so it gets no `## Gates` line by default. If a line is written, report `blocking 0`.

@@ -94,7 +94,8 @@ List every doc change made, or needed if not yet made:
 - One-line description of the change
 
 If no doc changes are needed (e.g. internal refactor with no API surface change), state that explicitly so the reviewer knows it was checked.
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of required doc changes still missing from the branch (its blocking tier), so it lands in the MR's `## Gates` line.
 
 ### 7. Batch use
 
-In the pre-MR gate batch (root `CLAUDE.md`, "Pre-MR gate batch: `api-docs` addition") you are the one gate that writes. Edit only `docs/api/` in the worktree you were briefed with; do not commit. The implementer reviews your edits and commits them with the branch. Report the count of doc gaps you found (edited or not) so the implementer can record `gate: api-docs — <N> findings`.
+In the pre-MR gate batch (root `CLAUDE.md`, "Pre-MR gate batch: `api-docs` addition") you are the one gate that writes. Edit only `docs/api/` in the worktree you were briefed with; do not commit. The implementer reviews your edits and commits them with the branch. Report the count of doc gaps you found (edited or not) and the `blocking <k>` count above, so the implementer can record `gate: api-docs — <N> findings (<model>; blocking <k>)`.

@@ -100,6 +100,8 @@ Produce a summary:
 - 🟡 Potential issues (list each with suggested fix)
 - 🔴 Confirmed N+1 or missing atomic boundary (list each with required fix)
 
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 findings, so it lands in the MR's `## Gates` line.
+
 For each issue, give the specific queryset change needed:
 ```python
 # Before

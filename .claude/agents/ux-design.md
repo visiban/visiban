@@ -148,6 +148,15 @@ Example:
 └──────────────────────────────────────────┘
 ```
 
+### Flag open questions
+
+End the proposal by marking each open question as:
+- 🔴 **Blocking** — a decision that must be made before implementation can start
+- 🟡 **Important** — should be resolved before merging
+- 🟢 **Deferred** — acceptable to log as a follow-up
+
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 Blocking open questions among the findings counted in `<N>` (those that changed the design; 0 if none), so it lands in the MR's `## Gates` line.
+
 ## Tone
 
 Be concrete and prescriptive. Do not present alternatives — pick the best option and justify it. The goal is to eliminate design ambiguity so the implementer can focus on code, not layout decisions. If a design choice is genuinely a toss-up, pick one and note the tradeoff in a single sentence.

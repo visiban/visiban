@@ -45,6 +45,8 @@ After all personas, produce a summary section:
 **Recommendation:** [Proceed / Proceed with adjustments / Revisit design — one sentence justification]
 ```
 
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 blockers among the findings counted in `<N>` (those that changed the design), so it lands in the MR's `## Gates` line.
+
 ## Rules
 
 - Score 1–10: 1 = actively harmful, 5 = neutral/acceptable, 10 = delightful

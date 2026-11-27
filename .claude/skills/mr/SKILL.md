@@ -103,8 +103,8 @@ description`. Derive from the most significant commit or the branch name.
 
 ## Gates
 <!-- machine-readable; one line per gate. Format: `gate: <name> — <outcome>` -->
-- gate: <name> — <N> findings
-- gate: <name> — 0 findings
+- gate: <name> — <N> findings (<model>; blocking <k>)
+- gate: <name> — 0 findings (<model>; blocking 0)
 - gate: <name> — n/a (<why this gate does not apply to this diff>)
 - gate: <name> — skipped (<user's reason>)
 
@@ -170,11 +170,31 @@ Rules:
   line per gate".** When its round-2 full audit ran (see
   `.claude/agents/completeness-check.md` § Round 2), round 2 gets its own line under the
   same gate name with `round 2` first in the parenthetical:
-  `- gate: completeness-check — 2 findings (round 2; opus; causes: class-missed 2; overlap 1/3)`.
-  Round 1's line carries `causes: <tally>` too. Do not invent a `completeness-check-r2`
+  `- gate: completeness-check — 2 findings (round 2; opus; blocking 1; causes: class-missed 2; overlap 1/3)`.
+  Round 1's line carries `blocking <k>` and `causes: <tally>` too. Do not invent a `completeness-check-r2`
   name — it resolves to no agent and would be a phantom gate; the ledger parser
   (`scripts/kaizen_gate_ledger.py`) splits the two rounds by the marker and reports round 2
   as `completeness-check:r2`. Round 2 replaces fix-diff, so the fix-diff line is `n/a`.
+- **Record severity: `blocking <k>` (#2680).** A numeric outcome carries `blocking <k>` as
+  a `;`-separated item in its parenthetical, e.g.
+  `- gate: security-review — 3 findings (model: sonnet; blocking 1)`. `<k>` counts the
+  findings **among those counted in `<N>`** that the gate itself put in its blocking tier,
+  so `<k>` never exceeds `<N>` (for a design-stage gate, a 🔴 question that did not change
+  the design is in neither). Each registered gate's file names its tier and tells you to
+  report the count: 🔴 for `perf-check`, `rbac-check`, `security-review`, `broadcast-check`,
+  `migration-check`, `architect`, `ux-design` and `voc` (its 🔴 blockers); 🔴 audit findings
+  plus 🔴 Blocking questions for `ux-review`; BLOCKER for `completeness-check` (each round
+  and `/fix-diff`); ❌ for `regression-check`; a required doc change still missing for
+  `api-docs`; a classification that conflicts with the plan for `enterprise-check`; 🔴 Do
+  not add for `dependency`; and `test-scaffold` has none (`blocking 0`). `dependency` and
+  `test-scaffold` are helpers that get no line by default. `changelog` and `docs-writer` are
+  deliverable helpers with no tier: when a line is written for one, it carries no
+  `blocking` field. It is required on other new lines with a numeric outcome.
+  `blocking 0` is a real value: record it, never omit it because nothing
+  was blocking. `<k>` is an integer no greater than `<N>`; `scripts/kaizen_gate_ledger.py`
+  flags `blocking x` and `blocking` above the findings count and keeps them out of the
+  rate. `n/a`, `skipped` and `budget-stopped` lines carry no field. Ledgers written before
+  this rule carry none and still parse; the kaizen report states how many runs carried it.
 - **Design-stage gates belong on the ledger too.** `architect`, `ux-design`, and
   `voc` already run before any code exists. Their `<N>` is the count of findings
   that **changed the design** — a gap closed before coding, a risk mitigated or
