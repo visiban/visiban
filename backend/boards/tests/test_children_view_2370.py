@@ -472,12 +472,17 @@ class ChildrenViewAccessTests(_ViewFixture, TestCase):
     def test_absent_viewer_fails_closed(self):
         from django.contrib.auth.models import AnonymousUser
 
+        # A planned child must not reach an absent viewer either (#1075, #2550).
+        CardParentLink.objects.filter(child=self.todo).update(needed_at_column=self.parent.column)
         for absent in (None, AnonymousUser()):
             body = children_view_for_viewer(self.pboard, absent, include_done=True)
             self.assertEqual(body["child_boards"], [])
             self.assertTrue(all(r["rollup"] == {"visible": False, "total": r["rollup"]["total"]} for r in body["rows"]))
             self.assertTrue(all(r["children"] == [] and r["child_board_id"] is None for r in body["rows"]))
             self.assertEqual(body["board_total"]["total"], 0)
+            self.assertTrue(all(r["planned"] is None and r["planned_only"] is False for r in body["rows"]))
+            self.assertTrue(all(lane["planned"] == 0 and lane["planned_only"] == 0 for lane in body["lanes"]))
+            self.assertEqual(body["board_total"]["planned"], 0)
 
     def test_share_links_get_nothing(self):
         # PublicBoardSerializer gains no field for Children mode (Rule 11).
@@ -636,3 +641,6 @@ class ChildrenViewPlannedTests(_ViewFixture, TestCase):
         locked = next(r for r in after["rows"] if r["id"] == self.locked_parent.pk)
         self.assertEqual((locked["planned"], locked["planned_only"]), (None, False))
         self.assertEqual(before["rows"], after["rows"])
+        # Positive control: the planning did land, and a reader who can open the hidden board sees it.
+        owner_row = next(r for r in self._view(self.owner)["rows"] if r["id"] == self.locked_parent.pk)
+        self.assertEqual(owner_row["planned"], len(self.hidden_children))
