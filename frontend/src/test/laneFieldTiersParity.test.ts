@@ -69,6 +69,11 @@ describe('laneTierFields band slots (#2663)', () => {
     expect(ids(laneTierFields(lane, defs, true, 6, 1)!.details)).toEqual([2, 3, 4, 5, 6, 7])
   })
 
+  it('lists Band overflow before a Details field that is earlier by position', () => {
+    const early = [def(7, 0, 'details'), def(1, 1, 'band'), def(3, 2, 'band'), def(4, 3, 'band')]
+    expect(ids(laneTierFields(lane, early, true, 6, 2)!.details)).toEqual([4, 7])
+  })
+
   it('never exceeds six, and a field over the limit still shows in details', () => {
     const seven = [1, 2, 3, 4, 5, 6, 7].map((id) => def(id, id, 'band'))
     const out = laneTierFields(lane, seven, true, 6, 99)!

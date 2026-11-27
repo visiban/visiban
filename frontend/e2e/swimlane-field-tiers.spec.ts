@@ -38,12 +38,13 @@ for (const role of ['admin', 'member'] as const) {
   })
 }
 
-// #2663 — up to six Band fields, as many as the width fits, on one line.
+// #2663 — six Band fields marked, as many shown as the width fits. Past two shown the band uses the
+// one-line layout; the 1440px case shows two, so it uses the wrapping layout and this fixture fits.
 const SIX = ['Account owner', 'Region', 'Annual value', 'Renewal date', 'Support tier', 'Industry']
 const VALUES = ['Ada Lovelace', 'Europe and Africa', '1,250,000', 'December 2026', 'Premium support', 'Manufacturing']
 
 for (const [width, fit] of [[1440, 2], [1920, 5], [2560, 6]] as const) {
-  test(`the band shows ${fit} of 6 Band fields on one line at ${width}px (#2663)`, async ({ page }) => {
+  test(`a lane with 6 Band fields shows ${fit} of them on one line at ${width}px (#2663)`, async ({ page }) => {
     const board = {
       ...BOARD_FULL,
       current_user_role: 'admin',
