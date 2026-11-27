@@ -1481,7 +1481,14 @@ class CardViewSet(viewsets.ModelViewSet):
             name="CardMove",
             fields={
                 "column_id": serializers.IntegerField(),
-                "swimlane_id": serializers.IntegerField(),
+                "swimlane_id": serializers.IntegerField(
+                    required=False, allow_null=True,
+                    help_text=(
+                        "Since 1.3 (#2370): omitted or null keeps the card's current swimlane, "
+                        "read under the move's lock, so a column-only move never sends back a "
+                        "stale lane."
+                    ),
+                ),
                 "position": serializers.IntegerField(
                     required=False, default=0,
                     help_text=(

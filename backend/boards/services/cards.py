@@ -2248,6 +2248,14 @@ def _move_card_attempt(
         gates_passed = _coerce_gates_passed(gates_passed)
 
         target_column = _board_scoped(Column, target_column_id, board, ColumnNotFound)
+        if target_swimlane_id is None:
+            # Omitted (since 1.3, #2370): the card stays in its lane. Taken
+            # from this read, not the caller's copy, so a column-only move
+            # (Children mode) cannot put back a lane another user just
+            # changed; a lane change between this read and the lock below is
+            # caught by the ``_move_relevant_state`` comparison, which starts
+            # over on the new lane.
+            target_swimlane_id = card.swimlane_id
         target_swimlane = _board_scoped(Swimlane, target_swimlane_id, board, SwimlaneNotFound)
         # After the role, assignment and lookup checks (#1923).
         override_reason = clean_override_reason(override_reason)

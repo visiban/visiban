@@ -401,6 +401,16 @@ def set_needed(card, *, user, child_role, value):
         _broadcast.record_board_event(
             card.board_id, _broadcast.EVT_CARD_PARENT_CHANGED, {"card_ids": [card.pk]}, actor_id=user.id,
         )
+        # The parent's board shows this child's planned flag and counts it in
+        # its Children mode lane (#2370), so it is pinged too, ids only, as
+        # every other child-side state write does. Not through
+        # ``announce_children_changed``: Needed moves no sibling count, so its
+        # siblings frame would only make every sibling re-read for nothing.
+        # Published on commit by ``record_board_event``; a rollback sends nothing.
+        _broadcast.record_board_event(
+            link.parent.board_id, _broadcast.EVT_CARD_CHILDREN_CHANGED, {"parent_id": link.parent_id},
+            actor_id=user.id,
+        )
     return link
 
 
