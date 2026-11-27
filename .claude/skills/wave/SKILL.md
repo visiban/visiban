@@ -230,8 +230,10 @@ with `AskUserQuestion`, Fable first and marked recommended:
 
 **Spawn shape.** A fresh `wave-harness-worker` in the same worktree
 (`Agent(subagent_type: "wave-harness-worker", model: "fable", effort: "high")`), brief as in *The
-brief*. macrodream/blueprint#399 proposed `general-purpose`; the typed worker keeps the `maxTurns` ceiling and
-the lifetime tool-call hook in force, and the hook counts a Fable implementer like any other. Its budget is the implementer row (80 calls / 45 min). It is **exempt from strike-one
+brief*. macrodream/blueprint#399 proposed `general-purpose`; the typed worker keeps the
+`maxTurns` ceiling and the lifetime tool-call hook in force, and the hook counts a Fable
+implementer like any other. Its budget is the implementer row (80 calls / 45 min). It is
+**exempt from strike-one
 expansion**, like `completeness-check`: a stopped Fable pass is dropped (one rescue per issue),
 never resumed or expanded. Its brief is *The brief* plus the failed run's findings: what was
 ruled out, which files and lines, what is committed, so it does not re-read what Opus already
@@ -784,8 +786,10 @@ state plainly:
   whose last attempt failed never reaches an MR ledger). `/kaizen` labels those counts and they are
   not a measurement (macrodream/blueprint#416).
 - Per role, the tool calls and minutes each agent spent against its budget (implementer, gate,
-  `completeness-check`), which agents reached a budget and whether you expanded it, and each
-  branch's `budget-exceeded:` line. This is the recalibration data for the provisional budgets.
+  `completeness-check`), which agents reached a budget and whether you expanded it (strike one),
+  stopped it (strike two) or the harness stopped it, at `maxTurns` or by the lifetime hook (its
+  tool calls and minutes then read `n/a`: it gave no report), whether a fresh agent took over,
+  with the reason, and each branch's `budget-exceeded:` line. This is the recalibration data for the provisional budgets.
 - For each fix round, whether it went to a **fresh** agent or **resumed** the implementer, and
   why (context past 150k, fewer than 5 findings, or design-level rework).
 - Each branch's measured `subagent-tokens:` and its `est-cost-usd:` (from `scripts/post-mr-cost.py --measure`), beside the table; `n/a`
