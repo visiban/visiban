@@ -78,6 +78,8 @@ const ROLE_OPTIONS = ROLES.map((r) => ({
 interface Props {
   board: BoardFull;
   isAdmin: boolean;
+  /** #2663 — Band fields this screen shows, passed to the Swimlane fields tab. */
+  bandSlots?: number;
   onClose: () => void;
   initialTab?: SettingsInitialSection;
   /** #863 — opened from a `webhook_disabled` notification: the Webhooks tab focuses the first webhook that was turned off automatically. */
@@ -253,7 +255,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onShowChildCards, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onFieldSetsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onShowChildCards, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onFieldSetsUpdated, onSwimlaneFieldsUpdated, bandSlots, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated }: Props) {
   // The Child cards switch (#1104): the server refuses a flip while card links
   // depend on the flag (400). Say why, instead of the silent revert the
   // sibling switches do.
@@ -1400,6 +1402,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               isAdmin={isAdmin}
               onFieldsUpdated={(definitions) => onSwimlaneFieldsUpdated?.(definitions)}
               onUpdateBoardSettings={onUpdateBoardSettings}
+              bandSlots={bandSlots}
             />
             </DemoInert>
           )}

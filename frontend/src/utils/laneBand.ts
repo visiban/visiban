@@ -8,8 +8,13 @@ import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, t
  * § Swimlane bands (#2335).
  */
 
-/** Lane fields shown inline beside the "N fields" toggle (#2271). The rest are on demand (#2335). */
-export const INLINE_FIELD_COUNT = 2;
+/**
+ * Band fields with no admin choice: the two shown inline on a legacy board (#2271), what
+ * materializing one writes, and the fewest slots a screen offers; `BAND_DEFAULT` on the server.
+ */
+export const BAND_DEFAULT_COUNT = 2;
+/** The most fields an admin may mark Band (#2663); `BAND_MAX` on the server. */
+export const BAND_MAX_COUNT = 6;
 
 export interface LaneBandField {
   def: SwimlaneCustomFieldDefinition;
@@ -34,7 +39,7 @@ export function laneBandFields(lane: Swimlane, definitions: SwimlaneCustomFieldD
     .map((v) => ({ def: byId.get(v.field_definition), value: v.value }))
     .filter((x): x is LaneBandField => !!x.def)
     .sort((a, b) => a.def.position - b.def.position);
-  return { inline: entries.slice(0, INLINE_FIELD_COUNT), extra: entries.slice(INLINE_FIELD_COUNT) };
+  return { inline: entries.slice(0, BAND_DEFAULT_COUNT), extra: entries.slice(BAND_DEFAULT_COUNT) };
 }
 
 /**
@@ -71,13 +76,13 @@ export function isLegacyTiers(definitions: TierDef[] | undefined): boolean {
  * Legacy (every row null): the first two by position are Band, the rest Details, uncapped.
  * Otherwise explicit tiers win, and a null row (an older server's create during a rolling
  * deploy) is never Band: it fills Details in position order up to `cap`, then Hidden, so it
- * can never push the band past two.
+ * never lands on the band without an admin choosing it.
  */
 export function resolveLaneTiers(definitions: TierDef[] | undefined, cap: number): Map<number, LaneTier> {
   const ordered = [...(definitions ?? [])].sort((a, b) => a.position - b.position || a.id - b.id);
   const out = new Map<number, LaneTier>();
   if (isLegacyTiers(ordered)) {
-    ordered.forEach((d, i) => out.set(d.id, i < INLINE_FIELD_COUNT ? "band" : "details"));
+    ordered.forEach((d, i) => out.set(d.id, i < BAND_DEFAULT_COUNT ? "band" : "details"));
     return out;
   }
   let detailsUsed = ordered.filter((d) => d.band_visibility === "details").length;
@@ -89,9 +94,15 @@ export function resolveLaneTiers(definitions: TierDef[] | undefined, cap: number
 }
 
 export interface LaneTierFields {
-  /** Non-empty Band values, at most two (an empty Band value is dropped, as the legacy band does). */
+  /**
+   * Non-empty values among the first `slots` Band fields (an empty Band value is dropped, as the
+   * legacy band does, and its slot is not refilled).
+   */
   band: LaneBandField[];
-  /** Details, empty values included (the grid shows "—"), in Swimlane fields order. */
+  /**
+   * Band fields that did not fit this screen (#2663) first, then Details; both in Swimlane
+   * fields order, empty values included (the grid shows "—").
+   */
   details: LaneBandField[];
   /** Hidden on band, listed last in the lane details so a non-admin can still read them. */
   hidden: LaneBandField[];
@@ -102,14 +113,20 @@ export interface LaneTierFields {
  * `laneBandFields` / `laneGridFields` so it renders identically until an admin sets a tier.
  * Built on `laneGridFields`, so every tier (and so every count) leaves out admin-only fields
  * for a non-admin; a caller that cannot tell the viewer's role passes `false`.
+ *
+ * `slots` (#2663) is how many Band fields this screen shows (`bandSlotsFor`); absent means the
+ * default two. Slots are counted over the viewer's Band *definitions*, not the non-empty values,
+ * so every lane has the same slots and the same "Show N more" count. Overflow is display-only.
  */
-export function laneTierFields(lane: Swimlane, definitions: SwimlaneCustomFieldDefinition[] | undefined, isAdmin: boolean, cap: number): LaneTierFields | null {
+export function laneTierFields(lane: Swimlane, definitions: SwimlaneCustomFieldDefinition[] | undefined, isAdmin: boolean, cap: number, slots: number = BAND_DEFAULT_COUNT): LaneTierFields | null {
   if (isLegacyTiers(definitions)) return null;
   const tiers = resolveLaneTiers(definitions, cap);
   const grid = laneGridFields(lane, definitions, isAdmin);
+  const onBand = grid.filter((f) => tiers.get(f.def.id) === "band");
+  const fit = Math.min(slots, BAND_MAX_COUNT);
   return {
-    band: grid.filter((f) => tiers.get(f.def.id) === "band" && f.value !== "").slice(0, INLINE_FIELD_COUNT),
-    details: grid.filter((f) => tiers.get(f.def.id) === "details"),
+    band: onBand.slice(0, fit).filter((f) => f.value !== ""),
+    details: [...onBand.slice(fit), ...grid.filter((f) => tiers.get(f.def.id) === "details")],
     hidden: grid.filter((f) => tiers.get(f.def.id) === "hidden"),
   };
 }

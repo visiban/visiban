@@ -1,4 +1,5 @@
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useState } from "react";
+import { BAND_DEFAULT_COUNT, BAND_MAX_COUNT } from "../../utils/laneBand";
 
 /**
  * The board's one column grid (#2300, spec: docs/development/board-redesign.md
@@ -292,22 +293,45 @@ export function resizedColumnWidth(startWidth: number, m: TrackResizeMeasure | n
 /** CSS variable on the board scroll box: its visible (client) width in px. */
 export const BOARD_VIEW_WIDTH_VAR = "--board-view-w";
 
+/** View width at which a third Band field first fits, less one step (#2663). */
+const BAND_SLOTS_BASE_WIDTH = 1320;
+/** Extra view width each further Band field needs. */
+const BAND_SLOT_STEP = 160;
+
+/**
+ * How many Band fields (#2663) fit on one band line at a board view `width` in px:
+ * 2 up to 1479, then one more per 160px, 6 from 1960. An unknown width (0, absent)
+ * is the default two. One answer per board, so every lane shows the same slots.
+ */
+export function bandSlotsFor(width: number | undefined): number {
+  if (!width || width <= 0) return BAND_DEFAULT_COUNT;
+  const slots = BAND_DEFAULT_COUNT + Math.floor((width - BAND_SLOTS_BASE_WIDTH) / BAND_SLOT_STEP);
+  return Math.min(BAND_MAX_COUNT, Math.max(BAND_DEFAULT_COUNT, slots));
+}
+
 /**
  * Publishes the scroll box's visible width as `--board-view-w` so a swimlane band
  * can cap itself to the visible part of a wider grid and stay pinned to the left
- * edge while the grid scrolls sideways (#2305). A CSS variable rather than React
- * state: the width changes on every window resize and nothing needs to re-render.
+ * edge while the grid scrolls sideways (#2305). The width itself is a CSS variable
+ * rather than React state, since it changes on every window resize; only the
+ * returned band slot count (#2663, `bandSlotsFor`) is state, so the board
+ * re-renders only when that count changes.
  */
-export function useBoardViewWidthVar(el: HTMLElement | null): void {
+export function useBoardViewWidthVar(el: HTMLElement | null): number {
+  const [bandSlots, setBandSlots] = useState(BAND_DEFAULT_COUNT);
   useLayoutEffect(() => {
     if (!el) return;
-    const publish = () => el.style.setProperty(BOARD_VIEW_WIDTH_VAR, `${el.clientWidth}px`);
+    const publish = () => {
+      el.style.setProperty(BOARD_VIEW_WIDTH_VAR, `${el.clientWidth}px`);
+      setBandSlots(bandSlotsFor(el.clientWidth));
+    };
     publish();
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(publish);
     ro.observe(el);
     return () => ro.disconnect();
   }, [el]);
+  return bandSlots;
 }
 
 /**

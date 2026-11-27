@@ -156,7 +156,7 @@ A **field set** is a named block that groups some of a board's card fields in th
 
 <a id="concept-field-visibility"></a>
 
-**Band**, **Details** and **Hidden** are the three places a swimlane field can show. **Band** is always visible on the lane band (2 fields). **Details** is behind the band's **Show N more** toggle. **Hidden** keeps the field off the band, though it can still be read, searched and filtered.
+**Band**, **Details** and **Hidden** are the three places a swimlane field can show. **Band** is on the lane band itself: you can mark up to 6 fields (2 by default), each screen shows as many as fit (2 on a phone), and the rest move behind **Show N more**. **Details** is behind the band's **Show N more** toggle. **Hidden** keeps the field off the band, though it can still be read, searched and filtered.
 
 - **Belongs to:** the swimlane field, set per board.
 - **Where do I find it?** **Board settings → Swimlane fields**, the **Show** control on each row.

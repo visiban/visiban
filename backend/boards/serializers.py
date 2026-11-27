@@ -2767,7 +2767,7 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
         required=False,
         help_text=(
             "Where the field shows on a lane band: 'band' (always visible, at "
-            "most 2), 'details' (behind Show N more, at most the board's "
+            "most 6), 'details' (behind Show N more, at most the board's "
             "lane_details_cap) or 'hidden' (listed last in lane details). "
             "null = derived from position; the first write that sets a tier "
             "materializes every null row on the board."

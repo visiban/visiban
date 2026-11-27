@@ -2890,7 +2890,8 @@ class SwimlaneCustomFieldDefinition(models.Model):
     # Where the field shows on a lane band (#2439). NULL means "derived from
     # position" and is what every pre-#2439 row holds: a board whose rows are
     # all NULL renders exactly as before (the first two non-empty values on the
-    # band). The first tier-affecting write materializes every NULL row under
+    # band; an admin may mark up to six, #2663). The first tier-affecting write materializes
+    # every NULL row under
     # the board lock (``boards.services.lane_field_tiers``), so after that a
     # reorder never moves a field between tiers. Nullable rather than a
     # ``db_default`` because the legacy tier depends on position, which a
