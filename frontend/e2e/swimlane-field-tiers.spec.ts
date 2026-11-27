@@ -85,3 +85,48 @@ for (const [width, fit] of [[1440, 2], [1920, 5], [2560, 6]] as const) {
     for (const w of widths) expect(w).toBeGreaterThan(90)
   })
 }
+
+// #2663 audit — two shown Band fields wrap with the band; they are never squeezed into a clipped line.
+test('two Band fields are shown in full at 1280px beside a long lane name (#2663)', async ({ page }) => {
+  // Long enough that the pair cannot share the first line with the capped name and the stats.
+  const names = ['Primary account owner', 'Sales operating region']
+  const values = ['Alexandra Lovelace', 'Europe and Africa']
+  const board = {
+    ...BOARD_FULL,
+    current_user_role: 'admin',
+    lane_details_cap: 6,
+    enforce_wip_limits: true,
+    swimlane_custom_field_definitions: names.map((name, i) => def(81 + i, name, i, 'band')),
+    swimlanes: [{
+      ...SWIMLANE,
+      name: 'Northern Hemisphere Strategic Enterprise Accounts and Partnerships',
+      health_status: 'at_risk', effective_health_status: 'at_risk', wip_limit: 1,
+      custom_field_values: values.map((value, i) => ({ field_definition: 81 + i, value })),
+    }],
+  }
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await routeAuth(page)
+  await routeBoard(page, board as unknown as typeof BOARD_FULL)
+  await page.goto(`/boards/${BOARD_FULL.id}`)
+  await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+
+  const band = page.getByTestId('swimlane-band')
+  for (const text of [...names, ...values]) {
+    const el = band.getByText(text, { exact: true })
+    await expect(el).toBeVisible()
+    // Not ellipsized, and not cut off by a clipping ancestor inside the band.
+    expect(await el.evaluate((node) => {
+      const box = node.getBoundingClientRect()
+      if (node.scrollWidth > node.clientWidth) return false
+      for (let up = node.parentElement; up; up = up.parentElement) {
+        const style = getComputedStyle(up)
+        if (style.display !== 'contents' && style.overflowX !== 'visible') {
+          const clip = up.getBoundingClientRect()
+          if (box.left < clip.left - 0.5 || box.right > clip.right + 0.5) return false
+        }
+        if (up.getAttribute('data-testid') === 'swimlane-band') break
+      }
+      return true
+    }), `${text} is clipped`).toBe(true)
+  }
+})

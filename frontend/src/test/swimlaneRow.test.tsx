@@ -929,8 +929,33 @@ describe('SwimlaneRow band slots (#2663)', () => {
     expect(screen.getByTestId('swimlane-lane-details')).toHaveTextContent('2 in details · 0 hidden on band')
     // The Band fields stay on the band while open, on one line (no chip wrapping).
     expect(group()).toHaveTextContent('Field 1')
+  })
+
+  it('keeps the wrapping band for two shown fields, and clips to one line only past two', () => {
+    const { rerender } = render(<SwimlaneRow {...defaultProps()} swimlane={lane} swimlaneFieldDefinitions={defs} />)
+    const name = () => screen.getByTestId('swimlane-name')
+    const stats = () => screen.getByTestId('swimlane-band-stats')
+    const spacer = () => group().nextElementSibling
+    // Two shown: no box of its own, so nothing clips; name and stats are as on an untiered band.
+    expect(group().className).toBe('contents')
+    expect(spacer()?.className).toBe('flex-1 min-w-0')
+    expect(name().className).toContain('max-w-full')
+    expect(name().className).not.toContain('24rem')
+    expect(stats().className).not.toContain('shrink-0')
+    expect(group().querySelector('.flex-wrap')).not.toBeNull()
+
+    rerender(<SwimlaneRow {...defaultProps()} swimlane={lane} swimlaneFieldDefinitions={defs} bandSlots={3} />)
+    expect(group().className).toContain('overflow-hidden')
+    expect(spacer()).toBe(stats())
+    expect(name().className).toContain('24rem')
+    expect(stats().className).toContain('shrink-0')
     expect(group().querySelector('.flex-wrap')).toBeNull()
-    expect(screen.getByTestId('swimlane-band-stats').className).toContain('shrink-0')
+
+    // Three slots but only two values: what is shown decides, not the slot count.
+    const sparse = { ...lane, custom_field_values: lane.custom_field_values.slice(0, 2) }
+    rerender(<SwimlaneRow {...defaultProps()} swimlane={sparse} swimlaneFieldDefinitions={defs} bandSlots={3} />)
+    expect(group().className).toBe('contents')
+    expect(name().className).not.toContain('24rem')
   })
 
   it('shows the slot count it is given, with no toggle when everything fits', () => {

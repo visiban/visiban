@@ -211,6 +211,9 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   // A legacy board whose toggle exists only for the team reads "Show 1 more", never "0 fields".
   const moreLabel = tiers != null || gridFields.length <= BAND_DEFAULT_COUNT;
   const bandFields = tiers ? tiers.band : inlineFields;
+  // #2663: only more than the default two share one clipping line (and cap the name to make room).
+  // Two or fewer keep the wrapping band, so a narrow screen shows them in full.
+  const oneLine = tiers !== null && bandFields.length > BAND_DEFAULT_COUNT;
 
   // Status counts for the band's trailing stats and the collapsed strip's squares.
   const doneColumnIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));
@@ -338,8 +341,8 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
       adminOnly={def.is_admin_only}
       hideName={hideRowChipFieldNames}
       userDateFormat={userDateFormat}
-      // #2663: a tiered band is one line, so a multi-select does not wrap there.
-      singleLine={tiers !== null}
+      // #2663: a one-line band does not wrap a multi-select.
+      singleLine={oneLine}
     />
   );
 
@@ -421,9 +424,9 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             />
           ) : (
             <span
-              // #2663: on a tiered board the name stops at 24rem so a long one cannot push the
+              // #2663: on a one-line band the name stops at 24rem so a long one cannot push the
               // fields and stats to a second line.
-              className={`min-w-0 truncate text-[17px] font-semibold text-fg ${tiers ? "max-w-[min(100%,24rem)]" : "max-w-full"}`}
+              className={`min-w-0 truncate text-[17px] font-semibold text-fg ${oneLine ? "max-w-[min(100%,24rem)]" : "max-w-full"}`}
               title={isAdmin ? undefined : swimlane.name}
               data-testid="swimlane-name"
             >
@@ -565,16 +568,16 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           {/* Legacy: the first two; open hides them (the grid repeats them). */}
           {!tiers && !(showFieldToggle && fieldsOpen) && bandFields.map((bandField) => renderField(bandField))}
 
-          {/* Tiered: Band fields stay while open. Up to six (#2663) share one group that takes the
-              free space and truncates, so they never push the stats to a second line. The p-0.5
-              keeps a link's focus ring inside the clip. */}
-          {tiers && bandFields.length > 0 ? (
-            <div className="flex flex-1 basis-0 min-w-48 items-center gap-x-3 overflow-hidden p-0.5 -m-0.5" data-testid="swimlane-band-fields">
+          {/* Tiered: Band fields stay while open. More than two (#2663) share one group that takes
+              the free space and truncates, so they never push the stats to a second line; the p-0.5
+              keeps a link's focus ring inside the clip. Two or fewer: `contents`, no box, so they
+              wrap with the band like any other item. */}
+          {tiers && bandFields.length > 0 && (
+            <div className={oneLine ? "flex flex-1 basis-0 min-w-48 items-center gap-x-3 overflow-hidden p-0.5 -m-0.5" : "contents"} data-testid="swimlane-band-fields">
               {bandFields.map((bandField) => renderField(bandField))}
             </div>
-          ) : (
-            <div className="flex-1 min-w-0" />
           )}
+          {!oneLine && <div className="flex-1 min-w-0" />}
 
           {/* Trailing stats (tiers: frontend/CLAUDE.md § Swimlane bands, #2335): overdue and
               stale (secondary, omitted at zero), the limit line (#1150; tertiary: a calm one
@@ -584,7 +587,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           {noMatch && <span className="text-sm text-fg-tertiary whitespace-nowrap" data-testid="swimlane-no-match">No matching cards</span>}
           {/* board-states.png: the no-match band is the name and "No matching cards" only, so the stats go. */}
           {!noMatch && (
-          <div className={`flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold ${tiers ? "shrink-0 max-w-full" : ""}`} data-testid="swimlane-band-stats">
+          <div className={`flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold ${oneLine ? "shrink-0 max-w-full" : ""}`} data-testid="swimlane-band-stats">
             {overdueCount > 0 && <span className="text-danger-on-tint whitespace-nowrap" data-testid="swimlane-overdue-count">{overdueCount} {STATUS_LABEL.overdue}</span>}
             {staleCount > 0 && <span className="text-warning-on-tint whitespace-nowrap" data-testid="swimlane-stale-count">{staleCount} {STATUS_LABEL.stale}</span>}
             {limit !== null && (
