@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-li
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
 import { EscapeLowerHandlers } from './escapeSelectionProbe'
-import type { Card, Column, CustomFieldDefinition, Swimlane } from '../types'
+import type { Card, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from '../types'
 import { cellKey } from '../gridOverlays/types'
 import { encodeOverlayLevel } from '../gridOverlays/scale'
 
@@ -912,3 +912,62 @@ describe('SwimlaneRow: the Children lane action (#2370 way in 1)', () => {
   })
 })
 
+describe('SwimlaneRow band slots (#2663)', () => {
+  const defs = [1, 2, 3, 4].map((id) => ({
+    id, uid: `sf${id}`, name: `Field ${id}`, field_type: 'multi_select', choices: ['a', 'b'], choice_colors: {}, position: id,
+    show_on_row: false, is_admin_only: id === 1, band_visibility: 'band',
+  })) as unknown as SwimlaneCustomFieldDefinition[]
+  const lane = { ...swimlane, custom_field_values: defs.map((d) => ({ field_definition: d.id, value: '["a","b"]' })) }
+  const group = () => screen.getByTestId('swimlane-band-fields')
+
+  it('shows two Band fields without a slot count, and the rest behind "Show N more"', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} swimlane={lane} swimlaneFieldDefinitions={defs} />)
+    expect(group()).toHaveTextContent('Field 2')
+    expect(group()).not.toHaveTextContent('Field 3')
+    await user.click(screen.getByRole('button', { name: 'Show 2 more fields for Customer A' }))
+    expect(screen.getByTestId('swimlane-lane-details')).toHaveTextContent('2 in details · 0 hidden on band')
+    // The Band fields stay on the band while open, on one line (no chip wrapping).
+    expect(group()).toHaveTextContent('Field 1')
+  })
+
+  it('keeps the wrapping band for two shown fields, and clips to one line only past two', () => {
+    const { rerender } = render(<SwimlaneRow {...defaultProps()} swimlane={lane} swimlaneFieldDefinitions={defs} />)
+    const name = () => screen.getByTestId('swimlane-name')
+    const stats = () => screen.getByTestId('swimlane-band-stats')
+    const spacer = () => group().nextElementSibling
+    // Two shown: no box of its own, so nothing clips; name and stats are as on an untiered band.
+    expect(group().className).toBe('contents')
+    expect(spacer()?.className).toBe('flex-1 min-w-0')
+    expect(name().className).toContain('max-w-full')
+    expect(name().className).not.toContain('24rem')
+    expect(stats().className).not.toContain('shrink-0')
+    expect(group().querySelector('.flex-wrap')).not.toBeNull()
+
+    rerender(<SwimlaneRow {...defaultProps()} swimlane={lane} swimlaneFieldDefinitions={defs} bandSlots={3} />)
+    expect(group().className).toContain('overflow-hidden')
+    expect(spacer()).toBe(stats())
+    expect(name().className).toContain('24rem')
+    expect(stats().className).toContain('shrink-0')
+    expect(group().querySelector('.flex-wrap')).toBeNull()
+
+    // Three slots but only two values: what is shown decides, not the slot count.
+    const sparse = { ...lane, custom_field_values: lane.custom_field_values.slice(0, 2) }
+    rerender(<SwimlaneRow {...defaultProps()} swimlane={sparse} swimlaneFieldDefinitions={defs} bandSlots={3} />)
+    expect(group().className).toBe('contents')
+    expect(name().className).not.toContain('24rem')
+  })
+
+  it('shows the slot count it is given, with no toggle when everything fits', () => {
+    render(<SwimlaneRow {...defaultProps()} swimlane={lane} swimlaneFieldDefinitions={defs} bandSlots={6} />)
+    expect(group()).toHaveTextContent('Field 4')
+    expect(screen.queryByTestId('swimlane-fields-toggle')).toBeNull()
+  })
+
+  it('gives a non-admin no slot or count for an admin-only field (#1075)', () => {
+    render(<SwimlaneRow {...defaultProps()} isAdmin={false} swimlane={lane} swimlaneFieldDefinitions={defs} />)
+    expect(group()).not.toHaveTextContent('Field 1')
+    expect(group()).toHaveTextContent('Field 3')
+    expect(screen.getByRole('button', { name: 'Show 1 more fields for Customer A' })).toBeInTheDocument()
+  })
+})

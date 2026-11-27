@@ -860,7 +860,7 @@ def _validate_import_parent_settings(data):
 def _validate_import_lane_tiers(swimlane_field_defs, raw_cap):
     """Return ``(lane_details_cap, error_detail)`` for a JSON import (#2439).
 
-    The batch-wide half of ``assert_band_tiers``: at most two Band and at most
+    The batch-wide half of ``assert_band_tiers``: at most ``BAND_MAX`` Band and at most
     the cap in Details, over the whole list in file order (its position). An
     export from before #2439 carries neither key, so every row imports NULL
     (a legacy board) and the cap is the default.

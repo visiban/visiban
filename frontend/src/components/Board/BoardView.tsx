@@ -2952,7 +2952,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Each column track's floor, read by a separator drag (measureTrackLeftOf) to
   // keep the resized edge under the pointer when the min width holds the grid open.
   const gridTrackFloors = useMemo(() => gridTracks.map((gridTrack) => trackFloor(gridTrack)).join(" "), [gridTracks]);
-  useBoardViewWidthVar(scrollEl);
+  const bandSlots = useBoardViewWidthVar(scrollEl);
 
   // Custom collision detection: restrict candidates by the type of item being dragged
   // so that cell droppables don't steal hits from col: or swim: sortable targets.
@@ -4196,6 +4196,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       customFieldDefinitions={board.custom_field_definitions}
                       swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
               laneDetailsCap={board.lane_details_cap}
+                      bandSlots={bandSlots}
                       hideRowChipFieldNames={board.show_row_chip_field_names === false}
                       onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
                       onManageSwimlaneFields={isAdmin ? openSwimlaneFieldOrder : undefined}
@@ -4479,6 +4480,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <BoardSettingsModal
           board={board}
           isAdmin={isAdmin}
+          bandSlots={bandSlots}
           onFieldSetsUpdated={onFieldSetsApplied}
           onClose={closeSettings}
           initialTab={settingsInitialTab}

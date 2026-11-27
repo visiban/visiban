@@ -106,10 +106,12 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { section: "webhooks", label: "Add webhook", keywords: "integration endpoint new create", target: "Add webhook" },
   { section: "lens", label: "Issue board lens", keywords: "github gitlab repository issues read-only", target: "Issue board lens" },
   { section: "lens", label: "Connect a repository", keywords: "github gitlab repository issues lens", target: "Connect a repository" },
-  { section: "export", label: "Export board", keywords: "download json csv backup", target: "Export" },
+  { section: "export", label: "Export board", keywords: "download json csv backup", target: "Export board" },
+  { section: "export", label: "Export format", keywords: "json csv download type", target: "Export format" },
+  { section: "export", label: "Who can export", keywords: "permission role threshold", target: "Who can export" },
   { section: "export", label: "Export permission", keywords: "who can export role", target: "Export permission" },
   { section: "export", label: "Export history", keywords: "past exports audit who downloaded", target: "Export history" },
-  { section: "danger", label: "Delete board", keywords: "remove permanently danger", target: "Danger Zone" },
+  { section: "danger", label: "Delete board", keywords: "remove permanently danger", target: "Danger zone" },
 ];
 
 /** The React key and identity of a result: one per section and label. */
@@ -139,7 +141,11 @@ export function findSettings(query: string, available: ReadonlySet<SettingsSecti
 /** Finds the control a search result points at. */
 export function locateSettingTarget(root: HTMLElement, target: string | undefined): HTMLElement | null {
   if (!target) return null;
-  const byLabel = Array.from(root.querySelectorAll<HTMLElement>("[aria-label]")).find((el) => el.getAttribute("aria-label") === target);
+  const byLabel = Array.from(root.querySelectorAll<HTMLElement>("[aria-label]")).find((el) => {
+    const name = el.getAttribute("aria-label");
+    // A select's trigger is named "<label>: <selected value>", so the label alone is a prefix match.
+    return name === target || (name !== null && name.startsWith(`${target}: `));
+  });
   if (byLabel) return byLabel;
   const lower = target.toLowerCase();
   // Buttons and h4s are searched too, so an action ("Recompute now") or a sub-heading ("Invite by email") can be a target.
