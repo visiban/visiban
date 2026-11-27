@@ -15,7 +15,7 @@ Visiban is a Kanban board with a swimlane for every customer, project or workstr
 
 **Why it matters:** Picking the wrong tool is expensive for a team. So this page names the four things only Visiban does, and says plainly where other tools are better.
 
-**In short:** See how work actually moves, on a board whose rows are your customers or projects, where every move is on the record. Analytics is in beta.
+**In short:** See how work actually moves, on a board whose rows are your customers or projects, where every move is on the record.
 
 **For your manager:** *"It's the board, but each row is one client, it keeps a full audit trail of what moved when, and it runs on our own infrastructure with our own SSO."*
 

@@ -41,7 +41,7 @@ Visiban does many things, but other tools do those too. These four are what set 
 
 **Why it matters:** In an incident retrospective you can ask *"how long did this actually sit in Review, and how does that compare to the last thirty cards?"* You get an answer, not a scroll-back.
 
-**Yes, but:** Analytics numbers are best read as directional guidance. Visiban describes how work has flowed. It does not forecast delivery dates or recommend actions.
+**Yes, but:** Visiban describes how work has flowed. It does not forecast delivery dates or recommend actions.
 
 **Go deeper:** [Card History](../features/card-history.md) and [Analytics](../features/analytics.md)
 

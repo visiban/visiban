@@ -21,7 +21,7 @@ This site is the #1271 Astro + Starlight spike. Only this page and **Getting Sta
 **1.2.0** is the current stable release. See the [release notes](https://gitlab.com/visiban/visiban/-/releases/v1.2.0) for what's new, and the [installation guide](/getting-started/installation/) to get started.
 :::
 
-Visiban is a Kanban board with a swimlane for every customer, project or workstream. Every card move is recorded with who made it and when, and Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work (Analytics is in beta). It is open source, self-hosted, and Apache 2.0.
+Visiban is a Kanban board with a swimlane for every customer, project or workstream. Every card move is recorded with who made it and when, and Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work. It is open source, self-hosted, and Apache 2.0.
 
 Blocked state, the flow charts (cycle time, throughput, cumulative flow, WIP age), the bottleneck panel and the Swimlanes view are new in 1.3; 1.2 does not have them.
 
@@ -29,7 +29,7 @@ Blocked state, the flow charts (cycle time, throughput, cumulative flow, WIP age
 
 **The big picture:**
 
-- **Flow intelligence.** [Analytics](https://docs.visiban.com/latest/features/analytics/) *(beta)* answers four questions from your movement history: what is happening, how fast work moves, where it is stuck, and why. It also compares swimlanes by how long work takes and how long it sits blocked.
+- **Flow intelligence.** [Analytics](https://docs.visiban.com/latest/features/analytics/) answers four questions from your movement history: what is happening, how fast work moves, where it is stuck, and why. It also compares swimlanes by how long work takes and how long it sits blocked.
 - **Rows are entities.** Each swimlane is a customer, account, or project, with typed fields of its own, WIP limits, and card aging.
 - **Every move is on the record.** Visiban keeps a permanent audit trail of every card movement.
 - **Open source, self-hosted, bring your own AI.** An API and a first-class [MCP server](https://docs.visiban.com/latest/features/mcp-server/) let you connect your own tools. Any AI agent you already run can query and update the board through a token you issue. Visiban ships the interface, not a model, so nothing leaves your install.
@@ -52,7 +52,7 @@ Blocked state, the flow charts (cycle time, throughput, cumulative flow, WIP age
 **The record:**
 
 - **Movement history.** Every drag logs from/to column, from/to swimlane, who moved it, and when. A board-level History tab has search and filters.
-- **Analytics** *(beta)*. A summary view (card counts, velocity, average cycle time) and an analytics view (per-lane dwell-time heatmap, stalled cards, and flow charts for cycle time, throughput, cumulative flow and WIP age).
+- **Analytics.** A summary view (card counts, velocity, average cycle time) and an analytics view (per-lane dwell-time heatmap, stalled cards, and flow charts for cycle time, throughput, cumulative flow and WIP age).
 
 **The team:**
 

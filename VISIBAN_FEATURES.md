@@ -370,7 +370,7 @@ Visiban exposes a Model Context Protocol server (`/mcp`) so an MCP-compatible AI
 
 ---
 
-## Analytics *(beta)*
+## Analytics
 
 - **Dwell-time heatmap** — how long cards spend in each column; coloring is threshold-based: green (well under threshold), yellow (within the warning band), red (at or above threshold)
 - `staleness_threshold_days` board setting — configurable stale threshold; used by both the heatmap and stall detection
