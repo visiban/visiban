@@ -6,9 +6,9 @@ import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchor
 import { isCardBlocked } from "../../utils/blockedState";
 import { parentFilterAvailable, parentFilterLabel, parentFilterOptions, parentLaneFilterLabel, parentLaneFilterOptions, type ParentFilter } from "../../utils/parentFilter";
 import { plannedFilterAvailable, plannedFilterLabel, type PlannedFilter } from "../../utils/plannedFilter";
-import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
+import { choiceColor, explicitChoiceColor, formatCustomFieldValue, CUSTOM_FIELD_TYPE_LABEL } from "../../utils/customFieldValue";
 import { choiceColorBase } from "../../constants/choiceColors";
-import { isLaneBuiltinField, isLaneFilterActive, laneFilterAvailable, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
+import { isLaneBuiltinField, laneValueLabel, type LaneFieldKey, isLaneFilterActive, laneFilterAvailable, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
 import Tooltip from "../Common/Tooltip";
 import ActiveMark from "../Common/ActiveMark";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
@@ -20,6 +20,7 @@ import { DEFAULT_LANE_DETAILS_CAP } from "../../utils/laneBand";
 import { applyValueHit, matchRange, searchFields, type SearchScope, type ValueHit, type NameHit } from "../../utils/filterFieldSearch";
 import { isImeComposing } from "../../utils/imeComposition";
 import { removeLaneItem, laneFilterChipItems } from "../../utils/laneFilter";
+import { isRuleComplete, type RuleFieldType } from "../../utils/fieldRules";
 import FilterChip from "./FilterChip";
 import NumberFilterEditor from "./NumberFilterEditor";
 import { numberFilterDisplay } from "../../utils/numberFilter";
@@ -42,7 +43,8 @@ interface Props {
   filterBarShown: boolean;
   onToggleFilterBar: () => void;
   /** Opens the filter bar and then the Lanes popover (#2205). */
-  onOpenLaneFilters: () => void;
+  /** Opens the Lanes popover; with a field id, preselects that field's rule (#2660). */
+  onOpenLaneFilters: (fieldId?: LaneFieldKey) => void;
   /** The same save handler the filter bar's Saved dropdown uses; resolves with an error message on failure. */
   onSaveFilter?: (name: string) => Promise<{ error?: string }>;
   userDateFormat?: string;
@@ -355,6 +357,7 @@ export default function FilterPanel({
     }
   };
 
+  const fieldTypeLabel = (t: string): string => (CUSTOM_FIELD_TYPE_LABEL as Record<string, string>)[t] ?? t;
   const needle = query.trim().toLowerCase();
   const tiers = useMemo(
     () => resolveLaneTiers(board.swimlane_custom_field_definitions ?? [], board.lane_details_cap ?? DEFAULT_LANE_DETAILS_CAP),
@@ -385,11 +388,25 @@ export default function FilterPanel({
     : rows;
   const laneNameHits = needle && showNames ? result.names.filter((h) => h.scope === "lane" && !isLaneBuiltinField(h.fieldId)) : [];
   const valueHits = result.values;
+  const laneValueFmt = useMemo(
+    () => makeLaneValueFormatter(board.swimlane_custom_field_definitions, userDateFormat),
+    [board.swimlane_custom_field_definitions, userDateFormat],
+  );
   const laneHitValue = (h: NameHit): string | null => {
-    const vals = (filters.laneFilter?.items ?? []).flatMap((it) => (it.kind === "rule" ? [it] : it.rules)).filter((r) => r.field === h.fieldId)
-      .map((r) => (r.op === "between" ? [r.min, r.max].filter(Boolean).join(" to ") : r.value ?? ""));
+    const def = laneFields.find((f) => f.id === h.fieldId);
+    if (!def) return null;
+    const show = (raw: string) => (h.fieldType === "checkbox" ? (raw === "true" ? "Yes" : raw === "false" ? "No" : raw) : laneValueLabel(def, raw, laneValueFmt));
+    // An incomplete rule (an auto-added one with no value yet) filters nothing, so the row reads "Any".
+    const vals = (filters.laneFilter?.items ?? []).flatMap((it) => (it.kind === "rule" ? [it] : it.rules))
+      .filter((r) => r.field === h.fieldId && isRuleComplete(r, h.fieldType as RuleFieldType))
+      .map((r) => (r.op === "between" ? [r.min, r.max].filter(Boolean).map((x) => show(x as string)).join(" to ") : show(r.value ?? "")));
     return vals.length ? vals.join(", ") : null;
   };
+  const titleCount = useMemo(() => {
+    // Counts what the search matches server-side: card title or description (not assignee or labels).
+    const q = (result.titleQuery ?? "").toLowerCase();
+    return q ? board.cards.filter((c) => c.title.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)).length : 0;
+  }, [result.titleQuery, board.cards]);
   const addTitle = () => onChange({ ...filters, search: query.trim() });
   const addValue = (h: ValueHit) => { onChange(applyValueHit(filters, h)); };
   const resultButtons = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>("[data-fp-result]") ?? []);
@@ -405,7 +422,7 @@ export default function FilterPanel({
       else if (visibleRows[0]) {
         if (visibleRows[0].id === "lanes") { close(); onOpenLaneFilters(); }
         else setExpanded(visibleRows[0].id);
-      } else if (laneNameHits[0]) { close(); onOpenLaneFilters(); }
+      } else if (laneNameHits[0]) { close(); onOpenLaneFilters(laneNameHits[0].fieldId); }
       else if (result.titleQuery) addTitle();
     }
   };
@@ -649,7 +666,7 @@ export default function FilterPanel({
         />
         <kbd aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-fg-secondary border border-line-strong rounded px-1 leading-4 max-sm:hidden">Esc</kbd>
       </div>
-      <div role="group" aria-label="Search scope" className="flex items-center gap-1.5">
+      <div role="group" aria-label="Search in" className="flex items-center gap-1.5">
         {([["all", "All fields"], ["card", "Card fields"], ["lane", "Swimlane fields"]] as const).map(([v, label]) => (
           <button
             key={v}
@@ -771,7 +788,7 @@ export default function FilterPanel({
                   <ActiveMark active={active} testId="filter-row-mark" />
                   {needle && <ScopeTag scope={rowScope(row)} />}
                   <span className={needle ? "truncate" : "shrink-0"}>{needle ? hl(row.label, nameNeedle) : row.label}</span>
-                  {needle && row.id.startsWith("cf:") && <span className="shrink-0 text-xs font-normal text-fg-secondary">{customDefs.find((d) => `cf:${d.id}` === row.id)?.field_type.replace("_", "-")}</span>}
+                  {needle && row.id.startsWith("cf:") && <span className="shrink-0 text-xs font-normal text-fg-secondary">{customDefs.find((d) => `cf:${d.id}` === row.id)?.field_type ? fieldTypeLabel(customDefs.find((d) => `cf:${d.id}` === row.id)!.field_type) : null}</span>}
                 </span>
                 <span className={`truncate text-right ${active ? "" : "text-fg-secondary font-normal"}`}>{row.value ?? "Any"}</span>
               </button>
@@ -785,7 +802,7 @@ export default function FilterPanel({
             <li key={`lane-field:${h.fieldId}`}>
               <button
                 type="button"
-                onClick={() => { close(); onOpenLaneFilters(); }}
+                onClick={() => { close(); onOpenLaneFilters(h.fieldId); }}
                 onKeyDown={onResultKeyDown}
                 data-fp-result=""
                 aria-haspopup="dialog"
@@ -795,7 +812,7 @@ export default function FilterPanel({
                   <ActiveMark active={!!cur} testId="filter-row-mark" />
                   <ScopeTag scope="lane" />
                   <span className="truncate">{hl(h.name, nameNeedle)}</span>
-                  <span className="shrink-0 text-xs font-normal text-fg-secondary">{h.fieldType.replace("_", "-")}</span>
+                  <span className="shrink-0 text-xs font-normal text-fg-secondary">{fieldTypeLabel(h.fieldType)}</span>
                   {h.hiddenOnBand && <span className="shrink-0 text-xs font-normal text-fg-secondary">(hidden on band)</span>}
                 </span>
                 <span className={`truncate text-right ${cur ? "" : "text-fg-secondary font-normal"}`}>{cur ?? "Any"}</span>
@@ -838,7 +855,8 @@ export default function FilterPanel({
                   className={`w-full flex items-center gap-1.5 px-2 py-2 rounded text-sm text-left text-fg hover:bg-surface-hover transition ${MENU_ITEM_FOCUS_RING}`}
                 >
                   <ScopeTag scope="card" />
-                  <span className="truncate">Title contains &lsquo;{result.titleQuery}&rsquo;</span>
+                  <span className="truncate">Title contains &ldquo;{result.titleQuery}&rdquo;</span>
+                  <span className="shrink-0 ml-auto text-xs text-fg-secondary">{titleCount} {titleCount === 1 ? "card" : "cards"}</span>
                 </button>
               </li>
             )}
@@ -872,7 +890,7 @@ export default function FilterPanel({
       </div>
 
       <div className="border-t border-line pt-2">
-        <p className="px-2 pb-1 text-xs text-fg-secondary">&uarr;&darr; to move &middot; Enter to add or open &middot; field:value to jump</p>
+        <p className="px-2 pb-1 text-xs text-fg-secondary">&uarr;&darr; to move &middot; Enter to add &middot; field:value to jump</p>
         <button
           type="button"
           onClick={() => { close(); onToggleFilterBar(); }}
