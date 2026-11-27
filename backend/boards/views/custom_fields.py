@@ -35,10 +35,11 @@ from visiban.request_shape import id_in_db_range, require_json_object
 from ..services.swimlane_team import team_prefetch
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardMembership, CardDimensionPlan, Column, CustomFieldDefinition, StageTrack,
+    Board, BoardMembership, CardDimensionPlan, Column, ColumnEntryRequirement, CustomFieldDefinition, StageTrack,
     Swimlane, SwimlaneTrackException,
 )
 from ..permissions import SITE_ADMIN
+from ..serializers import entry_requirements_prefetch as _entry_requirements_prefetch
 from ..serializers import (
     CustomFieldDefinitionSerializer,
     annotate_has_values,
@@ -228,6 +229,11 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             # the lane exception until they reload.
             track_column_ids = sorted(set(
                 StageTrack.objects.filter(field_definition=instance).values_list("column_id", flat=True)
+            ) | set(
+                # #1923: the CASCADE also removes the entry requirements that
+                # name this field; those columns get the same frame.
+                ColumnEntryRequirement.objects.filter(field_definition=instance)
+                .values_list("column_id", flat=True)
             ))
             exception_lane_ids = sorted(set(
                 SwimlaneTrackException.objects.filter(field_definition=instance)
@@ -267,7 +273,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
         actor_id = self.request.user.id
         columns = (
             Column.objects.filter(pk__in=column_ids, board_id=board_id)
-            .prefetch_related("sub_columns", "stage_tracks__field_definition")
+            .prefetch_related("sub_columns", "stage_tracks__field_definition", _entry_requirements_prefetch())
             .order_by("position", "pk")
         )
         for column in columns:

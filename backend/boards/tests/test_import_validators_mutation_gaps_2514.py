@@ -78,14 +78,17 @@ class LaneTierTests(SimpleTestCase):
         self.assertEqual(ie._validate_import_lane_tiers([], 9), (9, None))
         self.assertEqual(ie._validate_import_lane_tiers([], None), (6, None))
 
-    def test_three_band_fields_are_refused_with_the_field_prefix(self):
-        defs = [{"band_visibility": "band"}] * 3
+    def test_six_band_fields_are_accepted(self):
+        self.assertEqual(ie._validate_import_lane_tiers([{"band_visibility": "band"}] * 6, 4), (4, None))
+
+    def test_seven_band_fields_are_refused_with_the_field_prefix(self):
+        defs = [{"band_visibility": "band"}] * 7
         cap, err = ie._validate_import_lane_tiers(defs, None)
         self.assertIsNone(cap)
         self.assertEqual(
             err,
             "'swimlane_custom_fields': 'band_visibility': "
-            "The band holds 2 fields. Move one to Details first.",
+            "The band holds 6 fields. Move one to Details first.",
         )
 
     def test_legacy_and_valid_lists_keep_the_cap(self):

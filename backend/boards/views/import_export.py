@@ -41,10 +41,13 @@ from visiban.colors import normalize_hex_color
 from visiban.parsers import LimitedMultiPartParser
 
 
+from ..services.entry_requirements import (
+    EntryRequirementsInvalid, _clean_operand, format_operand, operators_for,
+)
 from ..models import (
     Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
     CardActivity, CardBlock, CardChecklist, CardComment, CardExternalRef, CardGateTransition,
-    CardMovement, CardRelation, Column, CustomFieldDefinition, CustomFieldSet, CustomFieldValue, Label, StageTrack,
+    CardMovement, CardRelation, Column, ColumnEntryRequirement, CustomFieldDefinition, CustomFieldSet, CustomFieldValue, Label, StageTrack,
     SubColumn,
     Swimlane, SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue, SwimlaneTrackException,
 )
@@ -53,6 +56,7 @@ from ..column_policy import PolicyError, normalize_policy
 from ..custom_field_types import parse_multi_select
 from ..services.date_shift import shift_board_dates
 from ..permissions import SITE_ADMIN
+from ..serializers import entry_requirements_prefetch as _entry_requirements_prefetch
 from ..serializers import (
     BoardExportLogSerializer, BoardSerializer, CSVImportOptionsSerializer,
     CustomFieldDefinitionSerializer, ExternalRefSerializer, ImportDateAnchorSerializer, ImportOptionsSerializer,
@@ -854,13 +858,76 @@ def _validate_import_parent_settings(data):
         if not isinstance(data["cards_can_have_children"], bool):
             return None, "'cards_can_have_children' must be true or false."
         out["cards_can_have_children"] = data["cards_can_have_children"]
+    # #1923: the "let the assignee move it anyway" switch rides along. The
+    # importer becomes the new board's admin, so restoring it widens nobody's
+    # access; an export from before #1923 omits it and the column default (off) stays.
+    if data.get("allow_assignee_override") is not None:
+        if not isinstance(data["allow_assignee_override"], bool):
+            return None, "'allow_assignee_override' must be true or false."
+        out["allow_assignee_override"] = data["allow_assignee_override"]
     return out, None
+
+
+def _import_entry_requirements(col_data, column_map, field_map, field_set_map):
+    """Create each imported column's entry requirements (#1923); return warnings.
+
+    Names are resolved against this file's own fields and field sets. A
+    requirement whose name matches nothing is skipped with a warning rather than
+    failing the import, like an unknown assignee. A column that ends with no
+    requirement imports with enforcement off, since a mode with nothing to check
+    is not a state the replace-all write can produce. Imports are exempt from
+    enforcement (Rule 14), and no ``CardOverride`` is imported: the override log
+    is a record of who moved what on the source board, not board structure.
+    """
+    rows, warnings = [], []
+    for col in col_data:
+        column = column_map[col["name"]]
+        kept = 0
+        for req in col.get("entry_requirements") or ():
+            field = field_map.get(req["field"]) if req.get("field") else None
+            field_set = field_set_map.get(req["field_set"]) if req.get("field_set") else None
+            if field is None and field_set is None:
+                target = req.get("field") or req.get("field_set")
+                warnings.append(
+                    f"Skipped an entry requirement on column {_bounded_repr(col['name'])}: "
+                    f"{_bounded_repr(target)} is not a field or field set in this file."
+                )
+                continue
+            # Same checks as the PUT, so a file can't plant a row the API would
+            # refuse (an operator the field type can't take, a min_count of 0).
+            operator = req["operator"]
+            reason = None
+            if field is not None and operator not in operators_for(
+                field.field_type, is_dimension=field.is_dimension,
+            ):
+                reason = f"{operator} is not valid for a {field.field_type} field"
+            else:
+                try:
+                    operand = _clean_operand(operator, req.get("operand"), 0)
+                except EntryRequirementsInvalid:
+                    reason = "its operand is not valid for that operator"
+            if reason:
+                warnings.append(
+                    f"Skipped an entry requirement on column {_bounded_repr(col['name'])}: {reason}."
+                )
+                continue
+            rows.append(ColumnEntryRequirement(
+                column=column, field_definition=field, field_set=field_set, operator=operator,
+                operand=operand, position=kept,
+            ))
+            kept += 1
+        mode = col.get("entry_enforcement")
+        if kept and mode:
+            column.entry_enforcement = mode
+            column.save(update_fields=["entry_enforcement"])
+    ColumnEntryRequirement.objects.bulk_create(rows)
+    return warnings
 
 
 def _validate_import_lane_tiers(swimlane_field_defs, raw_cap):
     """Return ``(lane_details_cap, error_detail)`` for a JSON import (#2439).
 
-    The batch-wide half of ``assert_band_tiers``: at most two Band and at most
+    The batch-wide half of ``assert_band_tiers``: at most ``BAND_MAX`` Band and at most
     the cap in Details, over the whole list in file order (its position). An
     export from before #2439 carries neither key, so every row imports NULL
     (a legacy board) and the cap is the default.
@@ -1552,6 +1619,56 @@ def _name_list_error(value):
     return None
 
 
+def _entry_enforcement_error(value):
+    """A column's ``entry_enforcement`` (#1923): null, "warn", "block" or "hard"."""
+    if value is None or (isinstance(value, str) and value in Column.EntryEnforcement.values):
+        return None
+    return 'must be null, "warn", "block" or "hard"'
+
+
+def _entry_requirements_error(value):
+    """A column's ``entry_requirements`` (#1923), by field and field set name.
+
+    Structure only: a name that matches nothing in the file is not an error
+    (the importer skips it with a warning), but a row that could never be
+    stored, like one with both targets or an operand its operator ignores, is
+    refused, because the database constraints would otherwise fail the import.
+    """
+    if value is None:
+        return None
+    cap = ColumnEntryRequirement.MAX_PER_COLUMN
+    if not isinstance(value, list) or len(value) > cap:
+        return f"must be a list of at most {cap} requirements"
+    operators = set(ColumnEntryRequirement.Operator.values)
+    needs_operand = {str(op) for op in ColumnEntryRequirement.OPERAND_OPERATORS}
+    for i, req in enumerate(value):
+        where = f"entry {i}"
+        if not isinstance(req, dict):
+            return f"{where} must be an object"
+        field, field_set, operator = req.get("field"), req.get("field_set"), req.get("operator")
+        if not isinstance(operator, str) or operator not in operators:
+            return f"{where}: unknown 'operator' {_bounded_repr(operator)}"
+        for key, name in (("field", field), ("field_set", field_set)):
+            if name is not None and (not isinstance(name, str) or not name.strip()):
+                return f"{where}: '{key}' must be a non-empty name or null"
+        if operator == "set_complete":
+            if field_set is None or field is not None:
+                return f"{where}: 'set_complete' names a 'field_set' and no 'field'"
+        elif field is None or field_set is not None:
+            return f"{where}: '{operator}' names a 'field' and no 'field_set'"
+        operand = req.get("operand")
+        if operator in needs_operand:
+            try:
+                parsed = decimal.Decimal(str(operand))
+            except (decimal.InvalidOperation, ValueError):
+                return f"{where}: 'operand' must be a number"
+            if isinstance(operand, bool) or not parsed.is_finite() or abs(parsed) >= 10**14:
+                return f"{where}: 'operand' must be a number"
+        elif operand is not None:
+            return f"{where}: '{operator}' takes no 'operand'"
+    return None
+
+
 def _sub_columns_error(value):
     """A stage's sub-column names (#1102): none, or 2 to the cap, like the stage action."""
     if problem := _name_list_error(value):
@@ -1593,6 +1710,9 @@ def _validate_json_import_values(data):
         # file from before 1.3 has neither key.
         ("sub_columns", _sub_columns_error),
         ("tracks", _name_list_error),
+        # Entry requirements (#1923), by field and field set name. Additive.
+        ("entry_enforcement", _entry_enforcement_error),
+        ("entry_requirements", _entry_requirements_error),
     )
     swimlane_specs = (
         ("name", _text(_field_max_length(Swimlane, "name"))),
@@ -2880,6 +3000,7 @@ class BoardImportExportMixin:
             ])
             # Field sets (#2570), by field and swimlane name; every name was
             # checked against this file above.
+            field_set_map = {}
             for i, fs in enumerate(field_sets):
                 field_set = CustomFieldSet.objects.create(
                     board=board, position=i, name=fs["name"], description=fs["description"],
@@ -2890,6 +3011,10 @@ class BoardImportExportMixin:
                 CustomFieldDefinition.objects.filter(
                     pk__in=[card_field_map[n].pk for n in fs["fields"]],
                 ).update(field_set=field_set)
+                field_set_map[fs["name"]] = field_set
+            import_warnings = _import_entry_requirements(
+                col_data, column_map, card_field_map, field_set_map,
+            )
             if swimlane_field_map:
                 SwimlaneCustomFieldValue.objects.bulk_create([
                     SwimlaneCustomFieldValue(
@@ -3454,6 +3579,10 @@ class BoardImportExportMixin:
                     broadcast_group_event(gid, _broadcast.EVT_BOARD_CREATED, bd, actor_id=aid)
             transaction.on_commit(_broadcast_created)
         import_summary = {"options_applied": options, "skipped": skipped}
+        if import_warnings:
+            # Present only when something was skipped, so a clean import keeps
+            # the exact summary shape it had before #1923.
+            import_summary["warnings"] = _cap_warnings(import_warnings)
         return Response(_import_envelope(board_data, import_summary), status=status.HTTP_201_CREATED)
 
     @extend_schema(
@@ -4106,6 +4235,7 @@ class BoardImportExportMixin:
                         "parent_name_singular": drf_serializers.CharField(),
                         "parent_name_plural": drf_serializers.CharField(),
                         "cards_can_have_children": drf_serializers.BooleanField(),
+                        "allow_assignee_override": drf_serializers.BooleanField(),
                         "columns": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "swimlanes": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "labels": drf_serializers.ListField(child=drf_serializers.DictField()),
@@ -4293,7 +4423,7 @@ class BoardImportExportMixin:
                 Prefetch(
                     "columns",
                     queryset=Column.objects.prefetch_related(
-                        "sub_columns", "stage_tracks__field_definition",
+                        "sub_columns", "stage_tracks__field_definition", _entry_requirements_prefetch(),
                     ),
                 ),
                 # The swimlane prefetch carries its row field values (#1140) so
@@ -4421,6 +4551,8 @@ class BoardImportExportMixin:
                 "parent_name_singular": board.parent_name_singular,
                 "parent_name_plural": board.parent_name_plural,
                 "cards_can_have_children": board.cards_can_have_children,
+                # #1923. Additive; an older importer ignores it.
+                "allow_assignee_override": board.allow_assignee_override,
                 "columns": [
                     {
                         "name": col.name,
@@ -4435,6 +4567,19 @@ class BoardImportExportMixin:
                         # Additive keys; an older importer ignores them.
                         "sub_columns": [sc.name for sc in col.sub_columns.all()],
                         "tracks": [st.field_definition.name for st in col.stage_tracks.all()],
+                        # Entry requirements (#1923), by field or field set
+                        # name like tracks. ``operand`` is a decimal string,
+                        # as in the API. Additive.
+                        "entry_enforcement": col.entry_enforcement,
+                        "entry_requirements": [
+                            {
+                                "field": r.field_definition.name if r.field_definition_id else None,
+                                "field_set": r.field_set.name if r.field_set_id else None,
+                                "operator": r.operator,
+                                "operand": format_operand(r.operand),
+                            }
+                            for r in col.entry_requirements.all()
+                        ],
                     }
                     for col in columns
                 ],

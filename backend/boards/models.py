@@ -820,6 +820,19 @@ class Column(models.Model):
     # and an older pod's INSERT that omits it stores NULL (no policy).
     policy = models.JSONField(null=True, blank=True, default=None)
 
+    class EntryEnforcement(models.TextChoices):
+        WARN = "warn", "Warn"
+        BLOCK = "block", "Block"
+        HARD = "hard", "Hard"
+
+    # Entry requirements (#1923): how a forward entry that leaves a
+    # ``ColumnEntryRequirement`` unmet is treated. NULL means "not evaluated"
+    # (no requirements, or turned off with the rows kept), which is what
+    # keeps a column without requirements at zero extra queries per move.
+    entry_enforcement = models.CharField(
+        max_length=8, choices=EntryEnforcement.choices, null=True, blank=True, default=None,
+    )
+
     class Meta:
         db_table = "columns"
         ordering = ["position"]
@@ -1357,6 +1370,14 @@ class CardMovement(models.Model):
     to_gates_passed = models.SmallIntegerField(
         null=True,
         blank=True,  # pragma: no mutate -- schema constant (migration-check)
+    )
+    # The Warn record (#1923): the entry requirements the card did not meet
+    # when it entered a ``warn`` column. Requirement/field uids and operators
+    # only, never field values. NULL when nothing was unmet or not checked.
+    entry_unmet = models.JSONField(
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default=None,
     )
 
     class Meta:
@@ -2890,7 +2911,8 @@ class SwimlaneCustomFieldDefinition(models.Model):
     # Where the field shows on a lane band (#2439). NULL means "derived from
     # position" and is what every pre-#2439 row holds: a board whose rows are
     # all NULL renders exactly as before (the first two non-empty values on the
-    # band). The first tier-affecting write materializes every NULL row under
+    # band; an admin may mark up to six, #2663). The first tier-affecting write materializes
+    # every NULL row under
     # the board lock (``boards.services.lane_field_tiers``), so after that a
     # reorder never moves a field between tiers. Nullable rather than a
     # ``db_default`` because the legacy tier depends on position, which a
@@ -3695,3 +3717,81 @@ class SwimlaneTrackException(models.Model):
     class Meta:
         db_table = "swimlane_track_exceptions"
         unique_together = [("swimlane", "field_definition")]
+
+
+class ColumnEntryRequirement(models.Model):
+    """One condition a card must meet to enter a column (#1923).
+
+    A column's requirements are AND-ed. Typed rows rather than JSON on
+    ``Column.policy`` (``column_policy`` forbids that) so that deleting a field
+    definition or a field set CASCADE-deletes the requirements that name it.
+
+    Exactly one target: ``field_definition`` for a field condition, or
+    ``field_set`` with ``set_complete`` ("every field in the set is filled").
+    ``operand`` is set only for the operators that compare against a number.
+    Lane scope is not stored here: it is derived from the field set the
+    requirement belongs to (see ``boards.services.entry_requirements``).
+
+    ``MAX_PER_COLUMN`` is a count over a column's rows, so it is enforced in
+    the replace-all write under the board and column locks, like the field
+    caps.
+    """
+
+    MAX_PER_COLUMN = 10
+
+    class Operator(models.TextChoices):
+        FILLED = "filled", "is filled"
+        MIN_COUNT = "min_count", "has at least N choices"
+        GT = "gt", "is more than"
+        GTE = "gte", "is at least"
+        SATISFIED = "satisfied", "is satisfied"
+        SET_COMPLETE = "set_complete", "whole field set complete"
+
+    #: Operators that compare against ``operand``.
+    OPERAND_OPERATORS = (Operator.MIN_COUNT, Operator.GT, Operator.GTE)
+
+    uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
+    column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="entry_requirements")
+    field_definition = models.ForeignKey(
+        CustomFieldDefinition, null=True, blank=True, on_delete=models.CASCADE,
+        related_name="entry_requirements",
+    )
+    field_set = models.ForeignKey(
+        CustomFieldSet, null=True, blank=True, on_delete=models.CASCADE,
+        related_name="entry_requirements",
+    )
+    operator = models.CharField(max_length=16, choices=Operator.choices)
+    operand = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    position = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "column_entry_requirements"
+        ordering = ["position", "id"]
+        # Built with the new table, so exempt from the concurrent-build rule.
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(field_definition__isnull=False, field_set__isnull=True)
+                    | models.Q(field_definition__isnull=True, field_set__isnull=False)
+                ),
+                name="entry_req_exactly_one_target",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(operator__in=["min_count", "gt", "gte"], operand__isnull=False)
+                    | (~models.Q(operator__in=["min_count", "gt", "gte"]) & models.Q(operand__isnull=True))
+                ),
+                name="entry_req_operand_iff_needed",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(operator="set_complete", field_set__isnull=False)
+                    | (~models.Q(operator="set_complete") & models.Q(field_definition__isnull=False))
+                ),
+                name="entry_req_set_complete_iff_set",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.column_id} / {self.operator}"

@@ -3,6 +3,7 @@ import type { CustomFieldFilterValue, FilterState } from "../components/Board/Fi
 import { parseMultiSelect } from "./customFieldValue";
 import {
   LANE_BUILTIN_FIELDS,
+  LANE_FILTER_MAX_VALUES,
   isLaneBuiltinField,
   laneValueLabel,
   nextLaneItemId,
@@ -12,7 +13,7 @@ import {
   type LaneFilterLane,
   type LaneRule,
 } from "./laneFilter";
-import { isRuleFieldType, type FieldRule } from "./fieldRules";
+import { isRuleFieldType, ruleValues, withRuleValues, type FieldRule } from "./fieldRules";
 
 /**
  * Field-name and value search for the Filter panel (#2437). Pure and client-side
@@ -76,6 +77,8 @@ export interface ValueHit {
   /** Loaded cards (card scope) or lanes (lane scope) holding the value. */
   count: number;
   hiddenOnBand: boolean;
+  /** The field's choices in definition order, for choice-type fields; lets a merge keep that order. */
+  choices?: string[];
 }
 
 export interface SearchResult {
@@ -187,7 +190,7 @@ function valueHits(ctx: SearchContext, c: Candidate, q: string): ValueHit[] {
     // A date or number also matches its stored text, so "2026-11" finds a date shown as 11/20/2026.
     const hit = matchRange(label, q) !== null || ((c.type === "date" || c.type === "number") && matchRange(raw, q) !== null);
     if (!hit) continue;
-    hits.push({ kind: "value", scope: c.scope, fieldId: c.id, fieldName: c.name, fieldType: c.type, raw, label, count: counts.get(raw) ?? 0, hiddenOnBand: c.hidden });
+    hits.push({ kind: "value", scope: c.scope, fieldId: c.id, fieldName: c.name, fieldType: c.type, raw, label, count: counts.get(raw) ?? 0, hiddenOnBand: c.hidden, ...(c.choices.length > 0 ? { choices: c.choices } : {}) });
     if (hits.length >= MAX_VALUES_PER_FIELD) break;
   }
   return hits;
@@ -249,6 +252,23 @@ export function applyValueHit(filters: FilterState, hit: ValueHit): FilterState 
     return { ...filters, customFields: { ...filters.customFields, [id]: next } };
   }
   const items = filters.laneFilter?.items ?? [];
+  if (hit.fieldType === "multi_select") {
+    // #2659 — an existing `is` rule on this field is an any-of list: add to it rather than
+    // stacking an `and is X` rule that would narrow it.
+    const existing = items.find((it): it is LaneRule => it.kind === "rule" && it.field === hit.fieldId && it.op === "is" && ruleValues(it).length > 0);
+    if (existing) {
+      const cur = ruleValues(existing);
+      if (cur.includes(hit.raw) || cur.length >= LANE_FILTER_MAX_VALUES) return filters;
+      // Kept in the field's choice order (as the popover does), so the chip reads the same
+      // however the values were picked; a stored value no longer a choice sorts last.
+      const all = [...cur, hit.raw];
+      const order = hit.choices ?? [];
+      const rank = (v: string) => (order.includes(v) ? order.indexOf(v) : order.length);
+      const ordered = order.length > 0 ? all.map((v, i) => ({ v, i })).sort((a, b) => rank(a.v) - rank(b.v) || a.i - b.i).map((x) => x.v) : all;
+      const merged = items.map((it) => (it === existing ? { ...existing, ...withRuleValues(ordered) } : it));
+      return { ...filters, laneFilter: withLaneItems(filters.laneFilter, merged) };
+    }
+  }
   const rule: FieldRule<LaneFieldKey> =
     hit.fieldType === "number" || hit.fieldType === "date"
       ? { field: hit.fieldId, op: "between", min: hit.raw, max: hit.raw }

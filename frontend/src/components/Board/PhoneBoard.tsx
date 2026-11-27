@@ -13,7 +13,7 @@ import EditColumnModal from "./EditColumnModal";
 import ActiveMark from "../Common/ActiveMark";
 import type { BoardColor } from "../../utils/boardColors";
 import type { LimitFlags } from "../../utils/placementLimits";
-import { DEFAULT_LANE_DETAILS_CAP, INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, laneTierFields, type LaneBandField } from "../../utils/laneBand";
+import { BAND_DEFAULT_COUNT, DEFAULT_LANE_DETAILS_CAP, laneBandFields, laneBandLimit, laneGridFields, laneTierFields, type LaneBandField } from "../../utils/laneBand";
 import { laneRollup } from "../../utils/laneRollup";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
@@ -512,9 +512,9 @@ export default function PhoneBoard({
           // #2439: a board with tiers shows its Band fields, and "Show N more" opens Details plus
           // Hidden on band. Null (a legacy board) keeps the pre-#2439 band exactly. A missing
           // role is a non-admin (`!!isAdmin`), so admin-only fields stay out of every count.
-          const tiers = laneTierFields(lane, swimlaneFieldDefinitions, !!isAdmin, laneDetailsCap);
+          const tiers = laneTierFields(lane, swimlaneFieldDefinitions, !!isAdmin, laneDetailsCap, BAND_DEFAULT_COUNT); // a phone always shows two (#2663)
           const moreCount = tiers ? tiers.details.length + tiers.hidden.length : gridFields.length;
-          const showFieldToggle = tiers ? moreCount > 0 : gridFields.length > INLINE_FIELD_COUNT; // per board, so every lane shows the toggle or none does
+          const showFieldToggle = tiers ? moreCount > 0 : gridFields.length > BAND_DEFAULT_COUNT; // per board, so every lane shows the toggle or none does
           const bandFields = tiers ? tiers.band : fields.inline;
           const fieldsOpen = showFieldToggle && openFieldLanes.has(lane.id);
           const laneLimit = laneBandLimit(lane, allColumns ?? columns, allLane, limitFlags ?? NO_FLAGS, collapsed);

@@ -4,11 +4,12 @@ import { useParams } from "react-router-dom";
 import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard, getArchivedCards } from "../api/cards";
 import { failureReason } from "../utils/moveFailure";
+import { alsoSentences } from "../components/Board/moveBlockedMessages";
 import { placementVerdict, pruneLaneLimitColumn, trippedLimitSentence } from "../utils/placementLimits";
 import { dropUnknownLabels } from "../utils/cardLabels";
 import { isStaleCard } from "../utils/cardVersion";
 import { swimlaneForRole } from "../utils/swimlaneMerge";
-import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, CustomFieldSet, SwimlaneCustomFieldDefinition } from "../types";
+import type { EntryUnmetItem, CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, CustomFieldSet, SwimlaneCustomFieldDefinition } from "../types";
 import { pickPlannedFields, type CardPlannedFields } from "../utils/plannedFields";
 
 /** Result of useBoard.moveCard: it never rejects, so callers must check `ok`. */
@@ -28,6 +29,10 @@ export type MoveBlockedError =
   | { code: "swimlane_wip_limit_exceeded"; column_name: string; swimlane_name: string; current_count: number; wip_limit: number; also?: string[] }
   | { code: "swimlane_wip_hard_blocked"; column_name: string; swimlane_name: string; current_count: number; wip_limit: number; also?: string[] }
   | { code: "swimlane_weight_limit_exceeded"; column_name: string; swimlane_name: string; current_weight: number; weight_limit: number; card_weight: number; also?: string[] }
+  // Entry requirements (#1923): `mode` says whether "Move anyway" exists
+  // (`block`) or not (`hard`). The server's `also` holds the other limits'
+  // bodies; the client turns them into sentences before storing the error.
+  | { code: "entry_requirements_unmet"; detail: string; column_name: string; mode: "block" | "hard"; unmet: EntryUnmetItem[]; also?: string[] }
   | { code: "version_conflict"; detail: string; current_version: number }
   | { code: "permission_denied"; detail: string }
   | { code: "maintenance_mode"; detail: string }
@@ -41,7 +46,17 @@ const KNOWN_MOVE_ERROR_CODES = new Set<string>([
   "wip_limit_exceeded", "wip_hard_blocked", "weight_limit_exceeded",
   "swimlane_wip_limit_exceeded", "swimlane_wip_hard_blocked", "swimlane_weight_limit_exceeded",
   "version_conflict", "permission_denied", "maintenance_mode", "move_failed",
+  "entry_requirements_unmet",
 ]);
+
+/** A Warn-mode move that went through with requirements unmet (#1923): the
+ * Warn toast reads it. `seq` makes a repeat into the same column re-raise. */
+export interface EntryWarning {
+  cardId: number;
+  columnName: string;
+  unmet: EntryUnmetItem[];
+  seq: number;
+}
 
 // Limit refusals a board admin can override with force (#1150 adds the
 // swimlane pair); the hard codes have no retry path.
@@ -681,6 +696,18 @@ export function useBoard() {
   // page swaps in an "isn't available" state; the hook never redirects.
   const [unavailable, setUnavailable] = useState(false);
   const [moveError, setMoveError] = useState<MoveBlockedError | null>(null);
+  const [entryWarning, setEntryWarning] = useState<EntryWarning | null>(null);
+  const entryWarningSeqRef = useRef(0);
+  const clearEntryWarning = useCallback(() => setEntryWarning(null), []);
+  // Warn mode (#1923): a move that went through lists what is unmet. Shared by
+  // the plain and the forced move: a forced WIP move into a Warn column is
+  // still a move into it, so its notice must not be lost.
+  const announceEntryWarning = useCallback((cardId: number, columnId: number, unmet?: EntryWarning["unmet"]) => {
+    if (!unmet || unmet.length === 0) return;
+    const columnName = boardRef.current?.columns.find((c) => c.id === columnId)?.name ?? "";
+    entryWarningSeqRef.current += 1;
+    setEntryWarning({ cardId, columnName, unmet, seq: entryWarningSeqRef.current });
+  }, []);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
 
   // Ref mirrors the latest board state so callbacks can read it without
@@ -985,7 +1012,7 @@ export function useBoard() {
     try {
       // `gates_passed` only when the caller chose a sub-column (#1102): omitted
       // keeps it within a column and starts the card at 0 in a new one.
-      const { card } = await apiMoveCard(boardId, cardId, {
+      const { card, entry_unmet: entryUnmet } = await apiMoveCard(boardId, cardId, {
         column_id: columnId, swimlane_id: swimlaneId, position, version: cardVersion,
         ...(gatesPassed !== undefined ? { gates_passed: gatesPassed } : {}),
       });
@@ -1003,6 +1030,8 @@ export function useBoard() {
       });
       // A stale "Move failed" / limit toast must not outlive a later success (#1761).
       clearMoveError();
+      // Warn mode (#1923): the move went through; the server lists what is unmet.
+      announceEntryWarning(cardId, columnId, entryUnmet);
       return { ok: true };
     } catch (err: unknown) {
       // Roll back the optimistic update, leaving frames that landed meanwhile.
@@ -1053,9 +1082,21 @@ export function useBoard() {
           // Another user modified this card — reload the board to get fresh state.
           surfaced = true; setMoveError(data);
           load();
+        } else if (data?.code === "entry_requirements_unmet") {
+          // #1923: the server names every other limit this move trips in `also`
+          // (as bodies), and one force plus a reason covers them all.
+          surfaced = true;
+          setMoveError({ ...data, also: alsoSentences(data.also) });
+          if (data.mode === "block") setPendingMove({ cardId, columnId, swimlaneId, position, gatesPassed });
         } else if (data?.code && (SOFT_LIMIT_CODES.has(data.code) || HARD_LIMIT_CODES.has(data.code))) {
           const board = boardRef.current;
-          const also = board ? otherTrippedLimits(board, before, columnId, swimlaneId, data.code) : [];
+          const predicted = board ? otherTrippedLimits(board, before, columnId, swimlaneId, data.code) : [];
+          // A hard WIP refusal that also tripped an entry requirement carries it
+          // in the server's `also` (#1923); merge it after the predicted limits.
+          const fromServer = alsoSentences("also" in data ? data.also : undefined)
+            .filter((line) => !predicted.includes(line));
+          const also = [...predicted, ...fromServer];
+          // Server `also` is absent here unless an entry requirement tripped, so `fromServer` is then non-empty.
           surfaced = true; setMoveError(also.length > 0 ? { ...data, also } as MoveBlockedError : data);
           // Hard-blocked moves have no retry path — never set pendingMove.
           if (SOFT_LIMIT_CODES.has(data.code)) setPendingMove({ cardId, columnId, swimlaneId, position, gatesPassed });
@@ -1070,7 +1111,7 @@ export function useBoard() {
       // CardDetail uses it to roll back its local copy and name the cause.
       return { ok: false, error: err };
     }
-  }, [boardId, load, clearMoveError]);
+  }, [boardId, load, clearMoveError, announceEntryWarning]);
 
   // Admin-only: move a card with force=true, bypassing a soft WIP/weight limit.
   // Shared by the toast's override (forceMoveCard, which replays pendingMove)
@@ -1101,7 +1142,7 @@ export function useBoard() {
     });
 
     try {
-      const { card } = await apiMoveCard(boardId, cardId, {
+      const { card, entry_unmet: entryUnmet } = await apiMoveCard(boardId, cardId, {
         column_id: columnId, swimlane_id: swimlaneId, position,
         ...(gatesPassed !== undefined ? { gates_passed: gatesPassed } : {}),
         ...(reason ? { override_reason: reason } : {}),
@@ -1120,6 +1161,7 @@ export function useBoard() {
       });
       // Only the refusal this move answered: a newer one stays.
       if (keepRefusal && pendingMoveRef.current === move) clearMoveError();
+      announceEntryWarning(cardId, columnId, entryUnmet);
       return { ok: true };
     } catch (err: unknown) {
       setBoard((b) => {
@@ -1139,7 +1181,7 @@ export function useBoard() {
       if (axiosErr?.response?.data) {
         const data = axiosErr.response.data as MoveBlockedError;
         if (data?.code && KNOWN_MOVE_ERROR_CODES.has(data.code)) {
-          setMoveError(data);
+          setMoveError("also" in data && data.also ? { ...data, also: alsoSentences(data.also) } as MoveBlockedError : data);
           return { ok: false, error: err };
         }
       }
@@ -1147,7 +1189,7 @@ export function useBoard() {
       setMoveError(genericMoveFailure(err));
       return { ok: false, error: err };
     }
-  }, [boardId, clearMoveError]);
+  }, [boardId, clearMoveError, announceEntryWarning]);
 
   // Retry the last blocked move (the toast's "Move anyway"). Takes no
   // arguments: App passes it straight to the toast's onClick.
@@ -1727,5 +1769,5 @@ export function useBoard() {
     }
   }, [boardId, load, writeBoard]);
 
-  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, ...({ pendingMoveCardId: pendingMove?.cardId } as { pendingMoveCardId?: number | null }), clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applyFieldSets, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
+  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, ...({ entryWarning, clearEntryWarning } as { entryWarning?: EntryWarning | null; clearEntryWarning?: () => void }), ...({ pendingMoveCardId: pendingMove?.cardId } as { pendingMoveCardId?: number | null }), clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applyFieldSets, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
 }

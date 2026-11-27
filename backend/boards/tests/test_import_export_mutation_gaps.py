@@ -1749,6 +1749,7 @@ class ExportJsonShapeTests(ExportBase):
                 "parent_name_singular",  # #2454
                 "parent_name_plural",
                 "cards_can_have_children",
+                "allow_assignee_override",  # #1923, additive
                 "columns",
                 "swimlanes",
                 "labels",
@@ -1783,6 +1784,8 @@ class ExportJsonShapeTests(ExportBase):
                 "policy",  # #1101
                 "sub_columns",  # #1102, additive
                 "tracks",  # #1921, additive
+                "entry_enforcement",  # #1923, additive
+                "entry_requirements",
             ],
         )
         self.assertEqual(
@@ -1798,6 +1801,8 @@ class ExportJsonShapeTests(ExportBase):
                 "policy": None,
                 "sub_columns": [],
                 "tracks": [],
+                "entry_enforcement": None,
+                "entry_requirements": [],
             },
         )
         self.assertEqual(data["columns"][1]["is_done"], True)

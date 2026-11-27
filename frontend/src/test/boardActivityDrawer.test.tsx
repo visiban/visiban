@@ -173,6 +173,23 @@ describe("BoardActivityDrawer", () => {
     expect(windowGroup.querySelector('[aria-pressed="true"] [data-testid="active-mark"]')).not.toBeNull();
   });
 
+  it("idle kind and window chips hold the check's room as padding: px-4 idle, px-2 active (#2673)", () => {
+    render(<BoardActivityDrawer {...defaultProps} />);
+    openFilters();
+    const all = screen.getByRole("button", { name: /^all$/i });
+    const moves = screen.getByRole("button", { name: /^moves$/i });
+    expect(all.className).toMatch(/\bpx-2\b/);
+    expect(all.className).not.toMatch(/\bpx-4\b/);
+    expect(moves.className).toMatch(/\bpx-4\b/);
+    expect(moves.className).not.toMatch(/\bpx-2\b/);
+    const windowGroup = screen.getByRole("group", { name: "Activity time window" });
+    for (const b of Array.from(windowGroup.querySelectorAll("button"))) {
+      const on = b.getAttribute("aria-pressed") === "true";
+      expect(b.className).toMatch(on ? /\bpx-2\b/ : /\bpx-4\b/);
+      expect(b.className).not.toMatch(on ? /\bpx-4\b/ : /\bpx-2\b/);
+    }
+  });
+
   describe("rows and filter popover (#2316)", () => {
     it("renders the card title, the move in words, an avatar and a time per row, with no stale chrome", () => {
       const feed = [makeEntry({ subject: "Zurich Insurance", detail: "Negotiation → Closed Won", timestamp: minutesAgo(12) })];

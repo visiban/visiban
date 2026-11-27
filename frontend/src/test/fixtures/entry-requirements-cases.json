@@ -1,0 +1,422 @@
+{
+  "_comment": [
+    "Shared entry-requirement cases (#1923, #2582). The server evaluator",
+    "(backend/boards/services/entry_requirements.py) is asserted against every row by",
+    "backend/boards/tests/test_entry_requirements_1923.py; the client evaluator",
+    "(frontend/src/utils/entryRequirements.ts, MR C) runs the same rows in vitest.",
+    "expected: met | unmet | not_applicable (the requirement does not apply in the card's lane).",
+    "Omitted keys: operand null, value null, choice_resolutions {}, lane_not_applicable false,",
+    "set_values [], set_scope null (an ungrouped field), set_lane_ids [], lane_id \"lane\"."
+  ],
+  "cases": [
+    {
+      "name": "text with a value is filled",
+      "expected": "met",
+      "operator": "filled",
+      "field_type": "text",
+      "value": "Acme"
+    },
+    {
+      "name": "text unset is not filled",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "text",
+      "value": null
+    },
+    {
+      "name": "url with a value is filled",
+      "expected": "met",
+      "operator": "filled",
+      "field_type": "url",
+      "value": "https://example.com"
+    },
+    {
+      "name": "url unset is not filled",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "url",
+      "value": null
+    },
+    {
+      "name": "date with a value is filled",
+      "expected": "met",
+      "operator": "filled",
+      "field_type": "date",
+      "value": "2026-11-26"
+    },
+    {
+      "name": "date unset is not filled",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "date",
+      "value": null
+    },
+    {
+      "name": "dropdown with a value is filled",
+      "expected": "met",
+      "operator": "filled",
+      "field_type": "dropdown",
+      "value": "High"
+    },
+    {
+      "name": "dropdown unset is not filled",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "dropdown",
+      "value": null
+    },
+    {
+      "name": "number with a value is filled",
+      "expected": "met",
+      "operator": "filled",
+      "field_type": "number",
+      "value": "0"
+    },
+    {
+      "name": "number unset is not filled",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "number",
+      "value": null
+    },
+    {
+      "name": "multi_select with a value is filled",
+      "expected": "met",
+      "operator": "filled",
+      "field_type": "multi_select",
+      "value": "[\"A\"]"
+    },
+    {
+      "name": "multi_select unset is not filled",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "multi_select",
+      "value": null
+    },
+    {
+      "name": "text of only spaces is not filled",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "text",
+      "value": "   "
+    },
+    {
+      "name": "empty multi-select array is not filled",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "multi_select",
+      "value": "[]"
+    },
+    {
+      "name": "multi-select with 2 of at least 2",
+      "expected": "met",
+      "operator": "min_count",
+      "operand": "2",
+      "field_type": "multi_select",
+      "value": "[\"A\",\"B\"]"
+    },
+    {
+      "name": "multi-select with 1 of at least 2",
+      "expected": "unmet",
+      "operator": "min_count",
+      "operand": "2",
+      "field_type": "multi_select",
+      "value": "[\"A\"]"
+    },
+    {
+      "name": "multi-select unset of at least 1",
+      "expected": "unmet",
+      "operator": "min_count",
+      "operand": "1",
+      "field_type": "multi_select",
+      "value": null
+    },
+    {
+      "name": "multi-select malformed value counts 0",
+      "expected": "unmet",
+      "operator": "min_count",
+      "operand": "1",
+      "field_type": "multi_select",
+      "value": "not json"
+    },
+    {
+      "name": "number more than: above",
+      "expected": "met",
+      "operator": "gt",
+      "operand": "50000",
+      "field_type": "number",
+      "value": "60000"
+    },
+    {
+      "name": "number more than: equal is not more",
+      "expected": "unmet",
+      "operator": "gt",
+      "operand": "50000",
+      "field_type": "number",
+      "value": "50000"
+    },
+    {
+      "name": "number at least: equal",
+      "expected": "met",
+      "operator": "gte",
+      "operand": "50000",
+      "field_type": "number",
+      "value": "50000"
+    },
+    {
+      "name": "number at least: below",
+      "expected": "unmet",
+      "operator": "gte",
+      "operand": "50000",
+      "field_type": "number",
+      "value": "49999.99"
+    },
+    {
+      "name": "number at least: decimal operand",
+      "expected": "met",
+      "operator": "gte",
+      "operand": "2.5",
+      "field_type": "number",
+      "value": "2.5"
+    },
+    {
+      "name": "number more than: negative",
+      "expected": "met",
+      "operator": "gt",
+      "operand": "-1",
+      "field_type": "number",
+      "value": "0"
+    },
+    {
+      "name": "number unset is never more",
+      "expected": "unmet",
+      "operator": "gt",
+      "operand": "0",
+      "field_type": "number",
+      "value": null
+    },
+    {
+      "name": "number unparsable is never more",
+      "expected": "unmet",
+      "operator": "gt",
+      "operand": "0",
+      "field_type": "number",
+      "value": "abc"
+    },
+    {
+      "name": "dimension satisfied choice",
+      "expected": "met",
+      "operator": "satisfied",
+      "field_type": "dropdown",
+      "value": "Done",
+      "choice_resolutions": {
+        "Done": "satisfied",
+        "Waived": "not_applicable",
+        "Doing": "open"
+      }
+    },
+    {
+      "name": "dimension open choice",
+      "expected": "unmet",
+      "operator": "satisfied",
+      "field_type": "dropdown",
+      "value": "Doing",
+      "choice_resolutions": {
+        "Done": "satisfied",
+        "Waived": "not_applicable",
+        "Doing": "open"
+      }
+    },
+    {
+      "name": "dimension card-level not applicable counts as satisfied",
+      "expected": "met",
+      "operator": "satisfied",
+      "field_type": "dropdown",
+      "value": "Waived",
+      "choice_resolutions": {
+        "Done": "satisfied",
+        "Waived": "not_applicable",
+        "Doing": "open"
+      }
+    },
+    {
+      "name": "dimension choice missing from resolutions is open",
+      "expected": "unmet",
+      "operator": "satisfied",
+      "field_type": "dropdown",
+      "value": "Other",
+      "choice_resolutions": {
+        "Done": "satisfied",
+        "Waived": "not_applicable",
+        "Doing": "open"
+      }
+    },
+    {
+      "name": "dimension unset is open",
+      "expected": "unmet",
+      "operator": "satisfied",
+      "field_type": "dropdown",
+      "value": null,
+      "choice_resolutions": {
+        "Done": "satisfied",
+        "Waived": "not_applicable",
+        "Doing": "open"
+      }
+    },
+    {
+      "name": "dimension unset but lane N/A counts as satisfied",
+      "expected": "met",
+      "operator": "satisfied",
+      "field_type": "dropdown",
+      "value": null,
+      "choice_resolutions": {
+        "Done": "satisfied",
+        "Waived": "not_applicable",
+        "Doing": "open"
+      },
+      "lane_not_applicable": true
+    },
+    {
+      "name": "dimension open but lane N/A counts as satisfied",
+      "expected": "met",
+      "operator": "satisfied",
+      "field_type": "dropdown",
+      "value": "Doing",
+      "choice_resolutions": {
+        "Done": "satisfied",
+        "Waived": "not_applicable",
+        "Doing": "open"
+      },
+      "lane_not_applicable": true
+    },
+    {
+      "name": "dimension filled ignores resolution",
+      "expected": "met",
+      "operator": "filled",
+      "field_type": "dropdown",
+      "value": "Doing",
+      "choice_resolutions": {
+        "Done": "satisfied",
+        "Waived": "not_applicable",
+        "Doing": "open"
+      }
+    },
+    {
+      "name": "set complete: every field filled",
+      "expected": "met",
+      "operator": "set_complete",
+      "set_values": [
+        [
+          "text",
+          "a"
+        ],
+        [
+          "number",
+          "1"
+        ]
+      ]
+    },
+    {
+      "name": "set complete: one field unset",
+      "expected": "unmet",
+      "operator": "set_complete",
+      "set_values": [
+        [
+          "text",
+          "a"
+        ],
+        [
+          "number",
+          null
+        ]
+      ]
+    },
+    {
+      "name": "set complete: checkbox fields are ignored",
+      "expected": "met",
+      "operator": "set_complete",
+      "set_values": [
+        [
+          "text",
+          "a"
+        ],
+        [
+          "checkbox",
+          null
+        ]
+      ]
+    },
+    {
+      "name": "set complete: empty set is complete",
+      "expected": "met",
+      "operator": "set_complete",
+      "set_values": []
+    },
+    {
+      "name": "ungrouped field applies in every lane",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "text",
+      "value": null,
+      "set_scope": null,
+      "lane_id": "smb"
+    },
+    {
+      "name": "all-cards set applies in every lane",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "text",
+      "value": null,
+      "set_scope": "all",
+      "set_lane_ids": [],
+      "lane_id": "smb"
+    },
+    {
+      "name": "lane-scoped set applies in a listed lane",
+      "expected": "unmet",
+      "operator": "filled",
+      "field_type": "text",
+      "value": null,
+      "set_scope": "swimlanes",
+      "set_lane_ids": [
+        "enterprise",
+        "mid"
+      ],
+      "lane_id": "enterprise"
+    },
+    {
+      "name": "lane-scoped set does not apply in another lane",
+      "expected": "not_applicable",
+      "operator": "filled",
+      "field_type": "text",
+      "value": null,
+      "set_scope": "swimlanes",
+      "set_lane_ids": [
+        "enterprise",
+        "mid"
+      ],
+      "lane_id": "smb"
+    },
+    {
+      "name": "lane-scoped set with no lanes applies nowhere",
+      "expected": "not_applicable",
+      "operator": "set_complete",
+      "set_values": [
+        [
+          "text",
+          null
+        ]
+      ],
+      "set_scope": "swimlanes",
+      "set_lane_ids": [],
+      "lane_id": "smb"
+    },
+    {
+      "name": "unknown operator is never met",
+      "expected": "unmet",
+      "operator": "no_such_operator",
+      "field_type": "text",
+      "value": "x"
+    }
+  ]
+}

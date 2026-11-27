@@ -585,6 +585,46 @@ Since 1.3 (#2225), the role is checked before the body's shape: a caller below m
 
 The `movement` key is **absent** from the response when only the position changed within the same cell (no column or swimlane change) — a `CardMovement` record is created, and the `movement` key included, only when the card actually changes column or swimlane.
 
+#### Entry requirements (since 1.3, #1923)
+
+A column can require conditions on a card's custom fields before the card
+enters it ([configured per column](boards.md#put-apiv1boardsidcolumnscol_identry-requirements-since-13-1923)).
+They are checked on a **forward** move into another column (target position
+greater than the source), on create and on restore, never on a backward move,
+a swimlane-only move, a sub-column move or a weight update. The column's
+`entry_enforcement` decides what happens:
+
+- `warn`: the write succeeds, and the `200`/`201` body gains an additive
+  `entry_unmet` list (the same item shape as below). The movement stores it
+  (`CardMovement.entry_unmet`), but the API does not return it on movement
+  history yet (tracked in #2655). The key is absent when everything was met.
+- `block`: `409`, unless an eligible actor (as for a soft WIP limit) retries
+  with `?force=true` **and** an `override_reason`. A missing reason is
+  `400 override_reason_required`, whoever the actor is.
+- `hard`: `409` for every role; `force` is ignored.
+
+```json
+{
+  "code": "entry_requirements_unmet",
+  "detail": "This card does not meet 1 entry requirement of \"Proposal\".",
+  "column_name": "Proposal",
+  "mode": "block",
+  "unmet": [{"requirement_uid": "r1", "operator": "gt", "operand": "50000",
+             "field_uid": "f1", "field_name": "Amount",
+             "field_set_uid": null, "field_set_name": null}],
+  "also": []
+}
+```
+
+`also` lists the bodies of the other limits the same write trips (for
+example a soft `wip_limit_exceeded`); one `force` and reason covers them all.
+When a hard WIP limit trips alongside an entry requirement, the hard body is
+returned and gains `also` naming the entry requirement. Bodies of writes that
+trip no entry requirement are unchanged. Over MCP there is no `force`, so
+`block` acts as `hard`. Clients older than 1.3 show their generic conflict
+message for this code; it can only occur on a column that opted into `block`
+or `hard`.
+
 #### WIP / weight limit enforcement
 
 When `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board and the target column is at or above its limit, the move returns `409 Conflict`. Since 1.2 (#1428) the same check, bodies, and override rules also apply to card create, restore from archive, and a `PATCH` that raises `weight` (see those endpoints above). Board import is exempt by design, because it restores a board as exported. The bodies:

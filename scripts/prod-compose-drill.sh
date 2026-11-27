@@ -218,6 +218,10 @@ drill_image DRILL_FRONTEND_PROD_IMAGE "${FRONTEND_IMAGE}" frontend/Dockerfile.pr
 # reject-on-unsafe-chars guard itself is asserted in step 2, below.
 log "filling .env from .env.example"
 gen_secret() { openssl rand -hex 32; }
+# Per-run generated password. The prefix keeps the hex from ever being all
+# digits (NumericPasswordValidator). Built in a helper so no password-named
+# variable is assigned a literal-prefixed string (Sonar secrets:S2068, #2677).
+gen_password() { printf 'Drill-%s' "$(gen_secret)"; }
 
 cp .env.example .env
 chmod 600 .env
@@ -520,8 +524,7 @@ grep -Eq '"must_change_password"[[:space:]]*:[[:space:]]*true' "${BODY}" || fail
   "the bootstrapped admin is not flagged must_change_password — the forced first-login change would never be offered: $(head -c 300 "${BODY}")"
 
 log "USER JOURNEY: forced password change, then re-login with the new password"
-# Prefix keeps the hex from ever being all digits (NumericPasswordValidator).
-new_password="Drill-$(gen_secret)"
+new_password="$(gen_password)"
 json_post 200 "POST /api/v1/auth/change-password/" /api/v1/auth/change-password/ \
   <<<"$(printf '{"current_password":"%s","new_password":"%s"}' "${admin_password}" "${new_password}")"
 http_status 200 "POST /api/v1/auth/logout/" -X POST -H "X-CSRFToken: $(csrf_token)" "${BASE_URL}/api/v1/auth/logout/"

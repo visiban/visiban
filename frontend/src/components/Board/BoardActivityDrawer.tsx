@@ -305,11 +305,11 @@ export default function BoardActivityDrawer({
                       type="button"
                       onClick={() => setTab(t.id)}
                       aria-pressed={tab === t.id}
-                      className={`inline-flex items-center gap-1 min-h-6 px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                        tab === t.id ? "bg-surface-hover text-fg font-medium" : "text-fg-tertiary hover:text-fg"
+                      className={`inline-flex items-center gap-1 min-h-6 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                        tab === t.id ? "px-2 bg-surface-hover text-fg font-medium" : "px-4 text-fg-tertiary hover:text-fg"
                       }`}
                     >
-                      <ActiveMark active={tab === t.id} />
+                      {tab === t.id && <ActiveMark active />}
                       {t.label}
                     </button>
                   ))}
@@ -324,11 +324,11 @@ export default function BoardActivityDrawer({
                       type="button"
                       onClick={() => chooseWindow(w.id)}
                       aria-pressed={timeWindow === w.id}
-                      className={`inline-flex items-center gap-1 min-h-6 px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                        timeWindow === w.id ? "bg-surface-hover text-fg font-medium" : "text-fg-tertiary hover:text-fg"
+                      className={`inline-flex items-center gap-1 min-h-6 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                        timeWindow === w.id ? "px-2 bg-surface-hover text-fg font-medium" : "px-4 text-fg-tertiary hover:text-fg"
                       }`}
                     >
-                      <ActiveMark active={timeWindow === w.id} />
+                      {timeWindow === w.id && <ActiveMark active />}
                       {w.label}
                     </button>
                   ))}

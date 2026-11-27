@@ -252,6 +252,15 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "each publish with on_commit. Bounded by the columns and lanes that "
         "referenced the one deleted field."
     ),
+    "backend/boards/views/field_sets.py::broadcast_requirement_columns": (
+        "One column.updated per column whose set-complete entry requirement a "
+        "field set delete cascaded away (#1923). All frames go to the one board "
+        "channel, but each carries that column's own ColumnSerializer payload, "
+        "so they cannot be collapsed into one (same shape as "
+        "views/custom_fields.py::_broadcast_tracks_removed). "
+        "record_board_event() defers each publish with on_commit. Bounded by "
+        "the columns that required the one deleted set."
+    ),
     "backend/groups/views.py::_announce": (
         "One invite_link.revoked per revoked link, fired from the commit hook in "
         "_revoke_lapsed_admin_invite_links. A lapsed creator's links span groups "

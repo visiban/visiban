@@ -99,11 +99,21 @@ class ValidationAndMaterializationTests(_Base):
             ["band", "band", "hidden", "details", "details", "details", "details", "details", "hidden", "hidden"],
         )
 
-    def test_a_third_band_field_is_rejected(self):
-        defs = [_defn(self.board, f"F{i}", i, "band" if i < 2 else "details") for i in range(3)]
-        r = self._patch(defs[2], band_visibility="band")
+    def test_a_sixth_band_field_is_accepted_and_a_seventh_rejected(self):
+        defs = [_defn(self.board, f"F{i}", i, "band" if i < 5 else "details") for i in range(7)]
+        self.assertEqual(self._patch(defs[5], band_visibility="band").status_code, 200)
+        r = self._patch(defs[6], band_visibility="band")
         self.assertEqual(r.status_code, 400)
-        self.assertEqual(r.data["band_visibility"][0], tiers.BAND_FULL_MESSAGE)
+        self.assertEqual(r.data["band_visibility"][0], "The band holds 6 fields. Move one to Details first.")
+
+    def test_ten_legacy_rows_materialize_to_two_band_fields(self):
+        # #2663 raised the limit, not the default: materializing a legacy board still puts two on the band.
+        defs = [_defn(self.board, f"F{i}", i) for i in range(10)]
+        r = self._patch(defs[9], band_visibility="hidden")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(self._tiers(), ["band"] * 2 + ["details"] * 6 + ["hidden"] * 2)
+        resolved = tiers.resolve_tiers([{"id": i, "position": i, "band_visibility": None} for i in range(10)], 6)
+        self.assertEqual(list(resolved.values()), ["band"] * 2 + ["details"] * 8)
 
     def test_reorder_never_moves_a_field_between_tiers(self):
         a = _defn(self.board, "A", 0, "band")
@@ -143,8 +153,8 @@ class ValidationAndMaterializationTests(_Base):
         self.assertEqual(self._tiers(), ["band", "band", "details", "hidden"])
 
     def test_create_with_an_explicit_tier_that_breaks_the_rule_is_a_400(self):
-        _defn(self.board, "A", 0, "band")
-        _defn(self.board, "B", 1, "band")
+        for i in range(6):
+            _defn(self.board, f"F{i}", i, "band")
         r = self.client.post(self.url, {"name": "C", "field_type": "text", "band_visibility": "band"}, format="json")
         self.assertEqual(r.status_code, 400)
 
@@ -304,7 +314,7 @@ class ImportExportTests(_Base):
         payload = json.loads(self.client.get(f"{self.board_url}export/?format=json").content.decode())
         payload["name"] = "Bad"
         payload["swimlane_custom_fields"] = [
-            {"name": f"F{i}", "field_type": "text", "band_visibility": "band"} for i in range(3)
+            {"name": f"F{i}", "field_type": "text", "band_visibility": "band"} for i in range(7)
         ]
         r = self._import(payload)
         self.assertEqual(r.status_code, 400)
@@ -329,9 +339,10 @@ class ConcurrentTierPatchTests(TransactionTestCase):
     def _run_two_concurrent_band_patches(self):
         admin = _make_user("tier_conc_admin")
         board = _make_board(admin, name="Conc")
-        _defn(board, "A", 0, "band")
-        b = _defn(board, "B", 1, "details")
-        c = _defn(board, "C", 2, "details")
+        for i in range(5):
+            _defn(board, f"A{i}", i, "band")
+        b = _defn(board, "B", 5, "details")
+        c = _defn(board, "C", 6, "details")
         release = threading.Event()
         holding = threading.Event()
         results = {}
@@ -377,5 +388,5 @@ class ConcurrentTierPatchTests(TransactionTestCase):
         self.assertEqual(errors, [])
         self.assertEqual(sorted(results.values()), [200, 400])
         self.assertEqual(
-            SwimlaneCustomFieldDefinition.objects.filter(board=board, band_visibility="band").count(), 2
+            SwimlaneCustomFieldDefinition.objects.filter(board=board, band_visibility="band").count(), 6
         )

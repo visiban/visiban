@@ -39,6 +39,7 @@ EXPECTED = {
     "Column": {
         "wip_limit": fe.COLUMN_WIP_LIMIT, "weight_limit": fe.COLUMN_WEIGHT_LIMIT,
         "policy": fe.COLUMN_POLICY,
+        "entry_enforcement": fe.COLUMN_ENTRY_ENFORCEMENT,
     },
     "ColumnRequest": {
         "wip_limit": fe.COLUMN_WIP_LIMIT, "weight_limit": fe.COLUMN_WEIGHT_LIMIT,

@@ -30,6 +30,12 @@
       "cap": 4,
       "defs": [[1, 0, "details"], [2, 1, "details"], [3, 2, "details"], [4, 3, "details"], [5, 4, null]],
       "expected": {"1": "details", "2": "details", "3": "details", "4": "details", "5": "hidden"}
+    },
+    {
+      "name": "materialized: six band fields stay band and a null row is still never band",
+      "cap": 6,
+      "defs": [[1, 0, "band"], [2, 1, "band"], [3, 2, "band"], [4, 3, "band"], [5, 4, "band"], [6, 5, "band"], [7, 6, null]],
+      "expected": {"1": "band", "2": "band", "3": "band", "4": "band", "5": "band", "6": "band", "7": "details"}
     }
   ]
 }

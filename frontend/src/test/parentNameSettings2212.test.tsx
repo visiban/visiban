@@ -53,6 +53,19 @@ describe("ParentNameSettings (#2212)", () => {
     expect(screen.getByTestId("parent-name-mark-Initiative")).toBeInTheDocument();
   });
 
+  it("an idle chip renders no check and holds its room as symmetric padding; pressed swaps px-5 for px-3 (#2673)", async () => {
+    const { user } = setup();
+    const idle = screen.getByRole("button", { name: "Initiative" });
+    expect(idle.querySelector('[data-testid^="parent-name-mark-"]')).toBeNull();
+    expect(idle.querySelector('[aria-hidden="true"]')).toBeNull();
+    expect(idle.className).toContain("px-5");
+    expect(idle.className).not.toMatch(/\bpx-3\b/);
+    await user.click(idle);
+    const pressed = screen.getByRole("button", { name: "Initiative" });
+    expect(pressed.className).toMatch(/\bpx-3\b/);
+    expect(pressed.className).not.toContain("px-5");
+  });
+
   it("pressed is derived from both fields; the pressed suggestion clears both", async () => {
     const { onUpdate, user } = setup({ parent_name_singular: "Release", parent_name_plural: "Releases" });
     const release = screen.getByRole("button", { name: "Release" });

@@ -26,6 +26,7 @@ import {
   removeLaneItem,
   summarizeLaneFilter,
   type LaneFilter,
+  type LaneFieldKey,
   type LaneValueFormatter,
 } from "../../utils/laneFilter";
 import { isNumberFilterActive, numberFilterDisplay, numberInputStep, type NumberFilterValue } from "../../utils/numberFilter";
@@ -169,6 +170,9 @@ interface Props {
   ignoredLaneRuleCount?: number;
   /** #2205 — the Lanes trigger, so BoardView can open the popover from its notices. */
   lanesTriggerRef?: RefObject<HTMLButtonElement | null>;
+  /** #2660 — open the Lanes popover on this field's rule (added when none exists). */
+  lanePreselectField?: LaneFieldKey | null;
+  onLanePreselectConsumed?: () => void;
 }
 
 interface MyCardsButtonProps {
@@ -200,13 +204,13 @@ function BlockedOnlyButton({ filters, onChange, blockedCount }: BlockedOnlyButto
       aria-pressed={isActive}
       aria-label={name}
       title={isActive ? "Remove Blocked only filter" : "Show only blocked cards"}
-      className={`bg-surface border rounded px-2 py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
+      className={`bg-surface border rounded py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
         isActive
-          ? "border-primary-soft text-info"
-          : "border-line-strong text-fg-secondary hover:border-line-emphasis"
+          ? "px-2 border-primary-soft text-info"
+          : "px-[1.0625rem] border-line-strong text-fg-secondary hover:border-line-emphasis"
       }`}
     >
-      <ActiveMark active={isActive} />
+      {isActive && <ActiveMark active />}
       <svg className="w-3 h-3 shrink-0 text-danger" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
       </svg>
@@ -225,13 +229,13 @@ function MyCardsButton({ currentUser, filters, onChange }: MyCardsButtonProps) {
       onClick={() => onChange({ ...filters, assigneeIds: isActive ? [] : [currentUser.id] })}
       aria-pressed={isActive}
       title={isActive ? "Remove My cards filter" : "Show only cards assigned to me"}
-      className={`bg-surface border rounded px-2 py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
+      className={`bg-surface border rounded py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
         isActive
-          ? "border-primary-soft text-info"
-          : "border-line-strong text-fg-secondary hover:border-line-emphasis"
+          ? "px-2 border-primary-soft text-info"
+          : "px-[1.0625rem] border-line-strong text-fg-secondary hover:border-line-emphasis"
       }`}
     >
-      <ActiveMark active={isActive} />
+      {isActive && <ActiveMark active />}
       <Avatar user={currentUser} size="xs" />
       My cards
     </button>
@@ -255,7 +259,7 @@ const FACET_OPTIONS: { value: FacetId; label: string }[] = [
   { value: "blocked", label: "Blocked" },
 ];
 
-export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY", hiddenLaneCount = 0, lanesTriggerRef, cardFilterActive = false, ignoredLaneRuleCount = 0 }: Props) {
+export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY", hiddenLaneCount = 0, lanesTriggerRef, cardFilterActive = false, ignoredLaneRuleCount = 0, lanePreselectField = null, onLanePreselectConsumed }: Props) {
   const activeCount = countActiveFilters(filters);
   // #2205 — the swimlane fields this viewer may rule on. Admin-only fields are
   // offered to admins only: their values are never sent to other roles.
@@ -606,6 +610,8 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
             textChoices={laneTextChoices}
             cardFilterActive={cardFilterActive}
             ignoredCount={ignoredLaneRuleCount}
+            preselectField={lanePreselectField}
+            onPreselectConsumed={onLanePreselectConsumed}
           />
         )}
 
