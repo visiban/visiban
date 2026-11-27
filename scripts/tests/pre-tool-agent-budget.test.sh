@@ -186,6 +186,15 @@ done
 python3 "$READER" --repo "$NOREPO" --stopped a >/dev/null 2>&1 && rc=0 || rc=$?
 check "reader outside a repository: exit 2" "$(ok test "$rc" -eq 2)"
 
+# 11b. --repo is validated before git sees it (#2676): a non-directory or an option-looking
+# value exits 2 and never reaches the subprocess.
+for bad in "$TMP/does-not-exist" "-x" "--help" "$TMP/repo/.git/HEAD"; do
+  python3 "$READER" --repo "$bad" --stopped a >/dev/null 2>&1 && rc=0 || rc=$?
+  check "reader --repo '${bad#"$TMP"/}': exit 2" "$(ok test "$rc" -eq 2)"
+done
+(cd "$REPO" && python3 "$READER" --count w1 >/dev/null 2>&1) && rc=0 || rc=$?
+check "reader: default --repo (cwd) still works" "$(ok test "$rc" -eq 0)"
+
 # 12. The wiring: registered for every tool, and named by the skill's handoff.
 check "settings.json registers the hook on PreToolUse matcher *" "$(ok python3 -c '
 import json,sys
