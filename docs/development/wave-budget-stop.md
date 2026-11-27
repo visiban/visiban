@@ -62,7 +62,10 @@ blocked and the agent stops.
   implementer for a fix round.
 - **Fails closed.** A worker event it cannot read, key (an `agent_id` outside `[A-Za-z0-9_-]`) or
   count is denied with the reason, and so is a count lock held past 4 seconds, which would
-  otherwise run into the 10-second hook timeout and let the call through.
+  otherwise run into the 10-second hook timeout and let the call through. Limitation (follow-up
+  #2650): this does not cover a broken `python3` (one that exits 1 makes the hook exit 1, which
+  does not block the call), and with no `python3` the hook can over-block, refusing any event its
+  shell pre-filter matches, including main-thread and other-agent calls.
 
 What a probe showed (Claude Code 2.1.318, 2026-11-04, headless runs with a throwaway agent and
 hook, recorded on macrodream/blueprint#352): every subagent tool call carries `agent_id` and

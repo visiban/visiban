@@ -194,5 +194,18 @@ hits=[h for e in s["hooks"]["PreToolUse"] if e.get("matcher")=="*" for h in e["h
 assert len(hits)==1' "$ROOT/.claude/settings.json")"
 check "/wave reads the marker after every implementer result" \
   "$(ok grep -q 'wave-agent-budget.py --stopped' "$ROOT/.claude/skills/wave/SKILL.md")"
+# Both bounds hang off the agent type: the hook counts it by name, maxTurns lives in its file.
+SKILL="$ROOT/.claude/skills/wave/SKILL.md"
+FRONT="$(awk '/^---$/ {n++; next} n==1' "$ROOT/.claude/agents/wave-harness-worker.md")"
+check "/wave spawns wave-harness-worker" \
+  "$(ok grep -q 'subagent_type: "wave-harness-worker"' "$SKILL")"
+# Newlines flattened so a wrapped spawn is still seen; prose naming general-purpose is fine.
+check "/wave spawns no general-purpose agent, which neither bound reaches" \
+  "$(tr '\n' ' ' <"$SKILL" | grep -Eq 'subagent_type: *"general-purpose"' && echo 1 || echo 0)"
+check "the agent definition is named wave-harness-worker" \
+  "$(ok grep -qx 'name: wave-harness-worker' <<<"$FRONT")"
+check "the agent definition sets maxTurns: 121" "$(ok grep -qx 'maxTurns: 121' <<<"$FRONT")"
+check "the agent definition lists no tools, so it keeps general-purpose's set" \
+  "$(grep -q '^tools:' <<<"$FRONT" && echo 1 || echo 0)"
 
 exit "$fail"

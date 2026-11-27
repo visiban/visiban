@@ -3555,9 +3555,10 @@ script-tests:
         - scripts/**/*
         - .claude/kaizen-yield-state.json
         - .claude/hooks/**/*
-        # pre-tool-agent-budget.test.sh reads both for its wiring checks (#2564).
+        # pre-tool-agent-budget.test.sh reads these for its wiring checks (#2564).
         - .claude/settings.json
         - .claude/skills/wave/SKILL.md
+        - .claude/agents/wave-harness-worker.md
         - backend/boards/**/*
         - backend/groups/**/*
         - backend/git_lens/**/*
