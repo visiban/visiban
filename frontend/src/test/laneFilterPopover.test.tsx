@@ -236,7 +236,7 @@ describe('LaneFilterPopover', () => {
     const lf: LaneFilter = { items: [rule(1, 7, 'is_not', { values: ['EMEA', 'LATAM'] })] }
     render(<Harness initial={lf} board={makeBoard([REGIONS], 'member')} />)
     const chip = document.querySelector('[data-lane-chip]') as HTMLElement
-    expect(chip).toHaveTextContent('Pricing regions: not EMEA, LATAM')
+    expect(chip).toHaveTextContent('Pricing regions: none of EMEA, LATAM')
     const dialog = await openPopover(user)
     const trigger = within(dialog).getByRole('button', { name: 'Filter 1 value: EMEA, LATAM (not a choice)' })
     // A truncated list stays readable from the trigger's title.

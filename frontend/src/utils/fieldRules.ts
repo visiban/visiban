@@ -254,8 +254,12 @@ export function ruleText(rule: FieldRule<unknown>, t: RuleFieldType, label: stri
   // #2659), like the card chips: several values are joined with ", ".
   if (t === "checkbox") return `${label}: ${rule.value === "true" ? "Yes" : "No"}`;
   if (t === "multi_select") {
-    const shown = ruleValues(rule).join(", ");
-    return rule.op === "is_not" ? `${label}: not ${shown}` : `${label}: ${shown}`;
+    const values = ruleValues(rule);
+    const shown = values.join(", ");
+    // "not EMEA, APAC" reads as "not EMEA, but APAC"; the rule keeps lanes with
+    // none of the values, so several values say so (#2708). One value stays "not".
+    if (rule.op === "is_not") return values.length >= 2 ? `${label}: none of ${shown}` : `${label}: not ${shown}`;
+    return `${label}: ${shown}`;
   }
   if (t === "dropdown") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${rule.value ?? ""}`;
   if (isTextRuleType(t)) {

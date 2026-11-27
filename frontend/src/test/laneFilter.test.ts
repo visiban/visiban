@@ -810,9 +810,17 @@ describe('laneFilter — checkbox and multi-select (#2438)', () => {
     const items = [rule(1, 21, 'is', { values: ['EMEA', 'APAC'] }), rule(2, 21, 'is_not', { values: ['web', 'APAC'] })]
     expect(laneFilterChipItems({ items }, fields, fmt).map((c) => c.label)).toEqual([
       'Pricing regions: EMEA, APAC',
-      'Pricing regions: not web, APAC',
+      'Pricing regions: none of web, APAC',
     ])
     expect(summarizeLaneFilter({ items: items.slice(0, 1) }, fields, fmt).readsAs).toBe('Reads as: Pricing regions: EMEA, APAC')
+  })
+
+  it('multi-select (#2708): the four wordings of ruleText', () => {
+    const text = (r: ReturnType<typeof rule>) => ruleText(r, 'multi_select', 'Pricing regions', (x) => x)
+    expect(text(rule(1, 21, 'is', { value: 'EMEA' }))).toBe('Pricing regions: EMEA')
+    expect(text(rule(1, 21, 'is', { values: ['EMEA', 'APAC'] }))).toBe('Pricing regions: EMEA, APAC')
+    expect(text(rule(1, 21, 'is_not', { value: 'EMEA' }))).toBe('Pricing regions: not EMEA')
+    expect(text(rule(1, 21, 'is_not', { values: ['EMEA', 'APAC'] }))).toBe('Pricing regions: none of EMEA, APAC')
   })
 
   it('multi-select (#2659): a saved filter and a shared link round-trip several values', () => {
