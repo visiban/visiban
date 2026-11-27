@@ -484,6 +484,29 @@ describe('BoardView — Children mode shows only the controls it honors (#2370 r
     }
   })
 
+  it('hides the "Focused on" banner in Children mode and keeps it in Cards mode (#2370)', async () => {
+    const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
+    const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
+    vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
+    try {
+      mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: true, cards: [makeCard({ id: 7 })] }) })
+      mockSearchParams = new URLSearchParams('focus=20')
+      const { unmount } = render(<BoardView />)
+      await act(async () => {})
+      expect(screen.getByText('Focused on:')).toBeInTheDocument()
+      unmount()
+      mockSearchParams = new URLSearchParams('show=children&focus=20')
+      render(<BoardView />)
+      await act(async () => {})
+      expect(screen.getByTestId('children-mode')).toBeInTheDocument()
+      expect(screen.queryByText('Focused on:')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Exit focus' })).toBeNull()
+    } finally {
+      spy.mockRestore()
+      mockSearchParams = new URLSearchParams()
+    }
+  })
+
   it('hides the Filters button, the filter row and the grid shortcuts in Children mode; the Show control carries ActiveMark (#2370 fix A8, A9, A11)', async () => {
     const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
     const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)

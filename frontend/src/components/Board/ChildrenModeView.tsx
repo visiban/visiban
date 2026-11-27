@@ -367,6 +367,8 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
       const ids = d.lanes.map((l) => l.id);
       setLaneRows((s) => (boardWide ? addPage(s, ids, d, null, "page", id) : addPage(s, ids, d, id, p.scope === id ? "page" : "lane")));
       setHead((h) => h && { board_total: d.board_total, lanes: d.lanes, child_boards: mergeBoards(h.child_boards, d.child_boards) });
+      // A re-read in flight snapshotted the rows before this page: one trailing read covers it, so it isn't dropped.
+      if (inFlight.current) trailing.current = true;
     } catch {
       if (gen === generation.current) setMoreError(id);
     } finally {

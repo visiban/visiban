@@ -3847,7 +3847,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       {/* Focus mode banner — sits outside the scroll container so it does not scroll away */}
-      {focusedSwimlaneId !== null && (
+      {focusedSwimlaneId !== null && !childrenMode && (
         <div className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info-on-tint transition-opacity duration-150">
           <svg className="w-3.5 h-3.5 text-info-on-tint shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="8" cy="8" r="3" />

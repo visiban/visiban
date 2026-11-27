@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, within, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import ChildrenModeView from '../components/Board/ChildrenModeView'
 import { CHILDREN_BOARD_ESCAPE_PRIORITY, WIDE_MIN_PX } from '../components/Card/cardChildren'
@@ -309,6 +309,27 @@ describe('ChildrenModeView', () => {
     release(view({ next_cursor: null }))
     await waitFor(() => expect(getChildrenView).toHaveBeenCalledTimes(2))
     expect(signal.aborted).toBe(false)
+  })
+
+  it('a "+N more parents" page that lands during a live re-read is kept by the trailing read (#2370)', async () => {
+    const more = () => view({ rows: [row({ id: 43, title: 'Acme: more' })], next_cursor: null })
+    let release: (v: ChildrenView) => void = () => {}
+    getChildrenView.mockResolvedValueOnce(view())
+    const props = { boardId: 4, laneId: null, options: DEFAULT_CHILDREN_OPTIONS, onOptionsChange: vi.fn(), onOpenParent: vi.fn(), phone: true }
+    const { rerender } = render(<ChildrenModeView {...props} refreshKey={0} />)
+    const acme = await screen.findByRole('region', { name: 'Acme Corp lane' })
+    getChildrenView.mockClear()
+    getChildrenView
+      .mockImplementationOnce(() => new Promise<ChildrenView>((r) => { release = r })) // the live read, slow
+      .mockResolvedValueOnce(more()) // "+N more parents", lands first
+      .mockResolvedValueOnce(view()) // the trailing read: page 1, then page 2 again
+      .mockResolvedValueOnce(more())
+    rerender(<ChildrenModeView {...props} refreshKey={1} />)
+    fireEvent.click(within(acme).getByRole('button', { name: '+1 more parent · load 20' }))
+    await screen.findByRole('button', { name: 'Acme: more' })
+    await act(async () => { release(view()) })
+    await waitFor(() => expect(getChildrenView).toHaveBeenCalledTimes(4))
+    expect(await screen.findByRole('button', { name: 'Acme: more' })).toBeInTheDocument()
   })
 
   it('Focus draws only that lane; a failed read says so', async () => {
