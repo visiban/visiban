@@ -704,7 +704,7 @@ GET /api/v1/boards/4/cards/17/activities/?limit=200&offset=400 -> X-Total-Count:
 ```
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/movements/`
-Movement history for a card, newest first, as a bare array. Every movement by default; since 1.3, accepts `limit`/`offset` and sends `X-Total-Count`/`X-Truncated`, like the other history lists (see [Paging a card's history lists](#paging-a-cards-history-lists)). Each record includes `card_uid`, `card_title`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields, and since 1.2 `imported_from_username` (see the activities table below). UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
+Movement history for a card, newest first, as a bare array. Every movement by default; since 1.3, accepts `limit`/`offset` and sends `X-Total-Count`/`X-Truncated`, like the other history lists (see [Paging a card's history lists](#paging-a-cards-history-lists)). Each record includes `card_uid`, `card_title`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields, and since 1.2 `imported_from_username` (see the activities table below). Since 1.3 (#2655) each record also carries `entry_unmet`: the [Warn record](#entry-requirements-since-13-1923) list, or `null` on a movement that recorded none. UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/activities/`
 Activity log (field changes, comments, attachments, checklist events, and since 1.3 manual blocks: `blocked` carries the reason in `to_value`; `unblocked` carries the cleared reason in `from_value` and the resolution in `to_value`). Newest first. Since 1.3, accepts `limit`/`offset` and sends `X-Total-Count`/`X-Truncated`; see [Paging a card's history lists](#paging-a-cards-history-lists).
@@ -812,7 +812,8 @@ Gate entries are included when `event_types` is omitted, because omitting it mea
         "notes": "",
         "from_gates_passed": null,
         "from_gates_open": null,
-        "to_gates_passed": null
+        "to_gates_passed": null,
+        "entry_unmet": null
       }
     },
     {
