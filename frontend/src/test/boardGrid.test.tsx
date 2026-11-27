@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { fireEvent, render } from '@testing-library/react'
+import { act, fireEvent, render } from '@testing-library/react'
 import { useState } from 'react'
 import {
-  BAND_MAX_WIDTH, BOARD_GRID_MIN_WIDTH, BOARD_VIEW_WIDTH_VAR, boardGridMinWidth, boardGridTemplate,
+  BAND_MAX_WIDTH, BOARD_GRID_MIN_WIDTH, BOARD_VIEW_WIDTH_VAR, bandSlotsFor, boardGridMinWidth, boardGridTemplate,
   clampColumnWidth, columnTrack, columnTrackLine, measureTrackLeftOf, resizedColumnWidth, separatorTrackLine,
   startInsertGesture, trackFloor, useBoardViewWidthVar, type BoardTrack, type TrackResizeMeasure,
 } from '../components/Board/boardGrid'
@@ -338,10 +338,11 @@ describe('useBoardViewWidthVar (#2305)', () => {
 
   function Probe({ width }: { width: number }) {
     const [el, setEl] = useState<HTMLDivElement | null>(null)
-    useBoardViewWidthVar(el)
+    const bandSlots = useBoardViewWidthVar(el)
     return (
       <div
         data-testid="scroll"
+        data-band-slots={bandSlots}
         ref={(node) => {
           if (node) Object.defineProperty(node, 'clientWidth', { configurable: true, get: () => width })
           setEl(node)
@@ -366,6 +367,26 @@ describe('useBoardViewWidthVar (#2305)', () => {
     expect(el.style.getPropertyValue(BOARD_VIEW_WIDTH_VAR)).toBe('900px')
     unmount()
     expect(disconnect).toHaveBeenCalled()
+  })
+
+  it('returns the band slot count for the published width (#2663)', () => {
+    let callback: (() => void) | null = null
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb: () => void) { callback = cb }
+      observe() {}
+      disconnect() {}
+    })
+    const { getByTestId } = render(<Probe width={1920} />)
+    const el = getByTestId('scroll')
+    expect(el.dataset.bandSlots).toBe('5')
+    Object.defineProperty(el, 'clientWidth', { configurable: true, get: () => 900 })
+    act(() => callback!())
+    expect(el.dataset.bandSlots).toBe('2')
+  })
+
+  it('bandSlotsFor steps every 160px between 2 and 6, and an unknown width is 2 (#2663)', () => {
+    const widths = [undefined, 0, 390, 1440, 1479, 1480, 1639, 1640, 1800, 1920, 1959, 1960, 2560]
+    expect(widths.map((w) => bandSlotsFor(w))).toEqual([2, 2, 2, 2, 2, 3, 3, 4, 5, 5, 5, 6, 6])
   })
 
   it('still publishes once without ResizeObserver', () => {

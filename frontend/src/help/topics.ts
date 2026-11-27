@@ -363,6 +363,12 @@ export const HELP_TOPICS = {
     linkText: "Where tracks are set",
     summary: "What a track is and where it is set.",
   },
+  "entry-requirements": {
+    path: "features/entry-requirements/",
+    anchor: "entry-requirements",
+    subject: "entry requirements",
+    summary: "How a column's entry requirements check cards moving in.",
+  },
   "column-policies": {
     path: "features/column-policies/",
     anchor: "column-policies",

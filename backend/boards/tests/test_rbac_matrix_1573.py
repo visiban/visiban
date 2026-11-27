@@ -123,6 +123,7 @@ EXPECTED = {
     ("PATCH", "/api/v1/boards/{board_pk}/columns/{id}/"): "admin",
     ("PUT", "/api/v1/boards/{board_pk}/columns/{id}/"): "admin",
     ("PUT", "/api/v1/boards/{board_pk}/columns/{id}/stage/"): "admin",
+    ("PUT", "/api/v1/boards/{board_pk}/columns/{id}/entry-requirements/"): "admin",
     ("POST", "/api/v1/boards/{board_pk}/custom-fields/"): "admin",
     ("POST", "/api/v1/boards/{board_pk}/custom-fields/reorder/"): "admin",
     ("DELETE", "/api/v1/boards/{board_pk}/custom-fields/{id}/"): "skip:no path-parameter fixture yet",

@@ -16,7 +16,7 @@ states follow from that:
   never moves a field between tiers.
 * **Mixed** (an older pod created a NULL row on a materialized board during a
   rolling deploy): a NULL row is never Band, because that could silently push the
-  band over two. It fills Details in position order up to the cap, then Hidden.
+  band without an admin choosing it. It fills Details in position order up to the cap, then Hidden.
 
 The first write that affects tiers (a ``band_visibility`` PATCH or a cap change)
 calls :func:`materialize` under the board row lock, writing an explicit tier to
@@ -34,10 +34,15 @@ BAND = "band"
 DETAILS = "details"
 HIDDEN = "hidden"
 TIERS = (BAND, DETAILS, HIDDEN)
-#: The band's slot count; the same number as ``INLINE_FIELD_COUNT`` on the frontend.
-BAND_MAX = 2
+#: How many fields are Band with no admin choice (a legacy board, and what
+#: materializing one writes); ``BAND_DEFAULT_COUNT`` on the frontend.
+BAND_DEFAULT = 2
+#: The most fields an admin may mark Band (#2663); ``BAND_MAX_COUNT`` on the
+#: frontend. How many of them a screen shows is a client-side, width-based
+#: choice that never changes a stored tier.
+BAND_MAX = 6
 
-BAND_FULL_MESSAGE = "The band holds 2 fields. Move one to Details first."
+BAND_FULL_MESSAGE = f"The band holds {BAND_MAX} fields. Move one to Details first."
 
 
 def details_full_message(cap: int) -> str:
@@ -67,7 +72,7 @@ def resolve_tiers(defs: Iterable[Any], cap: int) -> dict[Any, str]:
     """
     ordered = _ordered(defs)
     if is_legacy(ordered):
-        return {_get(d, "id"): (BAND if i < BAND_MAX else DETAILS) for i, d in enumerate(ordered)}
+        return {_get(d, "id"): (BAND if i < BAND_DEFAULT else DETAILS) for i, d in enumerate(ordered)}
     details_used = sum(1 for d in ordered if _get(d, "band_visibility") == DETAILS)
     out: dict[Any, str] = {}
     for d in ordered:
@@ -92,9 +97,9 @@ def materialized_tiers(defs: Iterable[Any], cap: int) -> dict[Any, str]:
         return resolve_tiers(ordered, cap)
     out = {}
     for i, d in enumerate(ordered):
-        if i < BAND_MAX:
+        if i < BAND_DEFAULT:
             out[_get(d, "id")] = BAND
-        elif i < BAND_MAX + cap:
+        elif i < BAND_DEFAULT + cap:
             out[_get(d, "id")] = DETAILS
         else:
             out[_get(d, "id")] = HIDDEN
@@ -137,7 +142,7 @@ def materialize(board, *, cap: int | None = None, actor_id=None) -> list:
 
 
 def check_tier_counts(tiers: Iterable[str], cap: int, *, field: str = "band_visibility") -> None:
-    """Raise a 400 when *tiers* put more than two fields on the band or more than *cap* in details."""
+    """Raise a 400 when *tiers* put more than ``BAND_MAX`` fields on the band or more than *cap* in details."""
     tiers = list(tiers)
     if tiers.count(BAND) > BAND_MAX:
         raise serializers.ValidationError({field: BAND_FULL_MESSAGE})
@@ -146,7 +151,7 @@ def check_tier_counts(tiers: Iterable[str], cap: int, *, field: str = "band_visi
 
 
 def assert_band_tiers(board, *, instance, band_visibility) -> None:
-    """At most two Band fields and at most ``lane_details_cap`` Details (#2439).
+    """At most ``BAND_MAX`` Band fields and at most ``lane_details_cap`` Details (#2439).
 
     One rule, two call sites: the serializer's ``validate()`` (an early 400
     against a pre-lock snapshot) and the viewset's locked recheck (exact). The

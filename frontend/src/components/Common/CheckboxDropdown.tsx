@@ -45,10 +45,28 @@ export interface CheckboxDropdownProps<T extends string | number> {
   hideSelectionSummary?: boolean;
   /** Escape priority; default 25. Inside a modal pass one above 40 (frontend/CLAUDE.md). */
   escapePriority?: number;
+  /**
+   * #2659 — for a form cell whose field name sits beside it (a lane filter
+   * rule's value): the trigger reads this text while nothing is picked, then
+   * the picked labels alone, comma-joined, with no "label:" prefix and no
+   * "All". `label` stays the menu's accessible name. Absent keeps the
+   * filter-bar summary unchanged.
+   */
+  placeholder?: string;
+  /** #2659 — trigger accessible name prefix: `aria-label="<ariaLabel>: <trigger text>"`. */
+  ariaLabel?: string;
+  /**
+   * #2659 — `inline` keeps the menu in the host's DOM tree (AnchoredMenuPanel
+   * `mode`), for a host that closes when focus leaves it, like the lane filter
+   * popover. Default `portal`.
+   */
+  menuMode?: "portal" | "inline";
+  /** #2659 — extra trigger classes (e.g. `w-full justify-between` in a form row). */
+  triggerClassName?: string;
 }
 
 function CheckboxDropdownInner<T extends string | number>(
-  { label, options, selected, onChange, onOpenChange, badge, hideSelectionSummary, escapePriority }: CheckboxDropdownProps<T>,
+  { label, options, selected, onChange, onOpenChange, badge, hideSelectionSummary, escapePriority, placeholder, ariaLabel, menuMode = "portal", triggerClassName = "" }: CheckboxDropdownProps<T>,
   forwardedRef: React.Ref<HTMLButtonElement>,
 ) {
   const [open, setOpenState] = useState(false);
@@ -107,20 +125,33 @@ function CheckboxDropdownInner<T extends string | number>(
     );
   };
 
-  const displayLabel = hideSelectionSummary
+  const pickedText = selected.map((v) => options.find((o) => o.value === v)?.label ?? v).join(", ");
+  const displayLabel = placeholder !== undefined
+    ? selected.length === 0 ? placeholder : pickedText
+    : hideSelectionSummary
     ? label
     : selected.length === 0
     ? label
     : selected.length === options.length
     ? `${label}: All`
-    : `${label}: ${selected
-        .map((v) => options.find((o) => o.value === v)?.label ?? v)
-        .join(", ")}`;
+    : `${label}: ${pickedText}`;
 
   const showBadge = !!badge;
 
+  // #2659 — an inline menu sits in this wrapper's DOM, so Tab off its last
+  // checkbox would leave the `fixed` menu open over whatever focus reaches.
+  // Close it when focus moves to an element outside the wrapper (a portaled menu
+  // handles Tab itself). A null relatedTarget is NOT leaving: Safari does not focus a
+  // clicked checkbox, so focus drops to the dialog or nothing; an outside click closes
+  // through the mousedown listener above, and Escape through useDropdownEscape.
+  const onWrapperBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (menuMode !== "inline" || !open) return;
+    const next = e.relatedTarget as Node | null;
+    if (next && !ref.current?.contains(next)) setOpen(false);
+  };
+
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative" onBlur={onWrapperBlur}>
       <button
         type="button"
         ref={triggerRef}
@@ -132,14 +163,14 @@ function CheckboxDropdownInner<T extends string | number>(
         aria-controls={menuId}
         // Built from displayLabel, the text actually painted, then a real space before the
         // badge, so the name starts with the visible words in order (WCAG 2.5.3, #2467).
-        aria-label={showBadge ? `${displayLabel}, ${badge} active` : undefined}
+        aria-label={showBadge ? `${displayLabel}, ${badge} active` : ariaLabel ? `${ariaLabel}: ${displayLabel}` : undefined}
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
           selected.length > 0
             ? "border-primary-soft text-info"
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"
-        }`}
+        } ${triggerClassName}`}
       >
-        {displayLabel}
+        {placeholder !== undefined ? <span className="truncate" title={pickedText || undefined}>{displayLabel}</span> : displayLabel}
         {showBadge && " "}
         {showBadge && (
           <span
@@ -150,9 +181,10 @@ function CheckboxDropdownInner<T extends string | number>(
           </span>
         )}
         <svg
-          className="w-3 h-3 text-fg-muted"
+          className="w-3 h-3 text-fg-muted shrink-0"
           viewBox="0 0 16 16"
           fill="currentColor"
+          aria-hidden="true"
         >
           <path
             d="M4 6l4 4 4-4"
@@ -171,6 +203,7 @@ function CheckboxDropdownInner<T extends string | number>(
           onDismiss={dismiss}
           onPlaced={focusFirst}
           returnFocusRef={triggerRef}
+          mode={menuMode}
           minWidth={140}
           deps={[options.length]}
           role="group"

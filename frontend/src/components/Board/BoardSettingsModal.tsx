@@ -36,7 +36,8 @@ import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from "./BoardSetting
 import { userDisplayName } from "../../types";
 import type { Column } from "../../types";
 import BoardSettingsPoliciesSection from "./BoardSettingsPoliciesSection";
-import { exportBoardCsv, exportBoardJson, patchColumn, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory, recomputeBoardHealth } from "../../api/boards";
+import BoardSettingsEntryRequirementsSection from "./BoardSettingsEntryRequirementsSection";
+import { exportBoardCsv, exportBoardJson, patchColumn, saveEntryRequirements, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory, recomputeBoardHealth } from "../../api/boards";
 import type { BoardExportLogEntry, BoardExportMinRole, BoardMembership, WebhookChangedPayload } from "../../types";
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
@@ -78,8 +79,12 @@ const ROLE_OPTIONS = ROLES.map((r) => ({
 interface Props {
   board: BoardFull;
   isAdmin: boolean;
+  /** #2663 — Band fields this screen shows, passed to the Swimlane fields tab. */
+  bandSlots?: number;
   onClose: () => void;
   initialTab?: SettingsInitialSection;
+  /** #1923: the column ⋮ "Entry requirements…" deep link selects this column (with `initialTab="rules"`). */
+  initialEntryColumnId?: number;
   /** #863 — opened from a `webhook_disabled` notification: the Webhooks tab focuses the first webhook that was turned off automatically. */
   focusFirstStoppedWebhook?: boolean;
   /** #2057 — the latest `webhook.changed` frame; the Webhooks tab refetches on each. */
@@ -253,7 +258,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onShowChildCards, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onFieldSetsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onShowChildCards, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onFieldSetsUpdated, onSwimlaneFieldsUpdated, bandSlots, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated, initialEntryColumnId }: Props) {
   // The Child cards switch (#1104): the server refuses a flip while card links
   // depend on the flag (400). Say why, instead of the silent revert the
   // sibling switches do.
@@ -1400,6 +1405,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               isAdmin={isAdmin}
               onFieldsUpdated={(definitions) => onSwimlaneFieldsUpdated?.(definitions)}
               onUpdateBoardSettings={onUpdateBoardSettings}
+              bandSlots={bandSlots}
             />
             </DemoInert>
           )}
@@ -1992,6 +1998,20 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 hiddenColumnIds={viewPrefs?.hiddenColumnIds}
                 onSaveColumnPolicy={async (columnId, policy) => {
                   const updated = await patchColumn(board.id, columnId, { policy });
+                  onColumnUpdated?.(updated);
+                }}
+              />
+
+              {/* #1923 — entry requirements, after column policies; its own replace-all save */}
+              <BoardSettingsEntryRequirementsSection
+                columns={board.columns}
+                fields={board.custom_field_definitions ?? []}
+                sets={board.custom_field_sets ?? []}
+                swimlanes={board.swimlanes}
+                isAdmin={isAdmin}
+                initialColumnId={initialEntryColumnId}
+                onSave={async (columnId, body) => {
+                  const updated = await saveEntryRequirements(board.id, columnId, body);
                   onColumnUpdated?.(updated);
                 }}
               />

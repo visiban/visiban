@@ -847,6 +847,19 @@ describe('PhoneBoard lane band tiers (#2439)', () => {
     expect(screen.queryByTestId('swimlane-lane-details')).toBeNull()
   })
 
+  it('shows at most two Band fields and moves the rest behind "Show N more" (#2663)', async () => {
+    const user = userEvent.setup()
+    const many = [tdef(1, 'Owner', 'band'), tdef(2, 'Region', 'band'), tdef(3, 'Site', 'band')]
+    setup({ swimlanes: [tiered], swimlaneFieldDefinitions: many, isAdmin: false })
+    const band = screen.getByTestId('phone-lane-band-details')
+    expect(band).toHaveTextContent(/Region\s*West/)
+    expect(band).not.toHaveTextContent('example.test')
+    await user.click(screen.getByRole('button', { name: /^Show 1 more fields for North/ }))
+    const open = screen.getByTestId('swimlane-lane-details')
+    expect(within(open).getByText('Site')).toBeInTheDocument()
+    expect(open).toHaveTextContent('1 in details · 0 hidden on band')
+  })
+
   it('never shows an admin-only field to a non-admin, and shows it to an admin', async () => {
     const user = userEvent.setup()
     setup({ swimlanes: [tiered], swimlaneFieldDefinitions: defs, isAdmin: false })

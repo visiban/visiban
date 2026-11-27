@@ -89,7 +89,7 @@ describe('FilterPanel (#2301)', () => {
     await u.type(screen.getByRole('textbox', { name: 'Search fields and values to filter' }), 'reg')
     const rows = screen.getAllByRole('button', { name: /Any$/ })
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toHaveAccessibleName('Card Region dropdown Any')
+    expect(rows[0]).toHaveAccessibleName('Card Region Dropdown Any')
     await u.clear(screen.getByRole('textbox', { name: 'Search fields and values to filter' }))
     await u.type(screen.getByRole('textbox', { name: 'Search fields and values to filter' }), 'zzz')
     expect(screen.getByRole('status')).toHaveTextContent('No field matches "zzz"')
@@ -669,9 +669,9 @@ describe('FilterPanel search (#2437)', () => {
   const searchBoard = (role: string | null = 'admin') => makeBoard({
     current_user_role: (role ?? undefined) as never,
     cards: [
-      { id: 1, custom_field_values: [cv(7, 'EMEA')] },
-      { id: 2, custom_field_values: [cv(7, 'EMEA')] },
-      { id: 3, custom_field_values: [cv(7, 'APAC')] },
+      { id: 1, title: '', description: '', assignee: null, labels: [], custom_field_values: [cv(7, 'EMEA')] },
+      { id: 2, title: '', description: '', assignee: null, labels: [], custom_field_values: [cv(7, 'EMEA')] },
+      { id: 3, title: '', description: '', assignee: null, labels: [], custom_field_values: [cv(7, 'APAC')] },
     ] as never,
     swimlanes: [
       { id: 1, name: 'Acme', custom_field_values: [cv(50, 'gold'), cv(51, 'hunter2')] },
@@ -725,6 +725,23 @@ describe('FilterPanel search (#2437)', () => {
     expect(onOpenLaneFilters).toHaveBeenCalled()
   })
 
+  it('a lane field with several values lists them and counts as active (#2659)', async () => {
+    const u = userEvent.setup()
+    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 52, op: 'is', values: ['gold', 'silver'] }] }
+    // Several values are a multi-select shape (a dropdown rule with `values` is unusable), so use a multi-select field.
+    const base = searchBoard()
+    const board = { ...base, swimlane_custom_field_definitions: [
+      { ...(base.swimlane_custom_field_definitions as never[])[0] as object, id: 52, name: 'Tier', field_type: 'multi_select' },
+    ] } as never
+    setup({ board, filters: { ...EMPTY_FILTER, laneFilter } as unknown as FilterState })
+    await open(u)
+    await u.type(box(), 'tier')
+    const row = screen.getByRole('button', { name: /Swimlane.*Tier/ })
+    expect(row).toHaveTextContent('gold, silver')
+    expect(row).not.toHaveTextContent('Any')
+    expect(within(row).getByTestId('filter-row-mark')).toBeInTheDocument()
+  })
+
   it('field:value applies with Enter', async () => {
     const u = userEvent.setup()
     const { onChange } = setup({ board: searchBoard() })
@@ -748,6 +765,130 @@ describe('FilterPanel search (#2437)', () => {
     await u.type(box(), 'tier{Enter}')
     expect(onOpenLaneFilters).toHaveBeenCalledTimes(1)
     expect(onChange).not.toHaveBeenCalled()
+  })
+
+  describe('#2660 design fidelity', () => {
+    const boardWith = () => {
+      const b = searchBoard() as unknown as { swimlane_custom_field_definitions: unknown[]; cards: Record<string, unknown>[] }
+      return {
+        ...b,
+        cards: [{ ...b.cards[0], title: 'Pricing page' }, { ...b.cards[1], title: 'Priority fix' }, { ...b.cards[2], title: 'Other' }],
+        swimlane_custom_field_definitions: [
+          ...b.swimlane_custom_field_definitions,
+          { id: 52, uid: 'c', name: 'Approved lane', field_type: 'checkbox', choices: [], position: 2, show_on_row: false, is_admin_only: false, is_required: false, help_text: '', band_visibility: 'band' },
+          { id: 53, uid: 'd', name: 'Regions', field_type: 'multi_select', choices: ['X'], position: 3, show_on_row: false, is_admin_only: false, is_required: false, help_text: '', band_visibility: 'band' },
+          { id: 54, uid: 'e', name: 'Renewal', field_type: 'date', choices: [], position: 4, show_on_row: false, is_admin_only: false, is_required: false, help_text: '', band_visibility: 'band' },
+        ],
+      } as never
+    }
+
+    it('footer reads Enter to add and the scope group is labeled Search in', async () => {
+      const u = userEvent.setup()
+      setup({ board: boardWith() })
+      await open(u)
+      expect(screen.getByText(/to move/)).toHaveTextContent('↑↓ to move · Enter to add · field:value to jump')
+      expect(screen.getByRole('group', { name: 'Search in' })).toBeInTheDocument()
+    })
+
+    it('a checkbox lane field row shows Yes or No and capitalized type names', async () => {
+      const u = userEvent.setup()
+      const filters = { ...EMPTY_FILTER, laneFilter: { items: [{ kind: 'rule', id: 1, join: 'and', field: 52, op: 'is', value: 'false' }] } } as unknown as FilterState
+      setup({ board: boardWith(), filters })
+      await open(u)
+      await u.type(box(), 'approved')
+      const row = screen.getByRole('button', { name: /Swimlane.*Approved lane/ })
+      expect(row).toHaveTextContent('Checkbox')
+      expect(row).toHaveTextContent('No')
+      expect(row).not.toHaveTextContent('false')
+      await u.clear(box())
+      await u.type(box(), 'regions')
+      expect(screen.getByRole('button', { name: /Swimlane.*Regions/ })).toHaveTextContent('Multi-select')
+      await u.clear(box())
+      await u.type(box(), 'region')
+      expect(screen.getByText('Dropdown')).toBeInTheDocument()
+    })
+
+    it('a checked checkbox lane rule reads Yes', async () => {
+      const u = userEvent.setup()
+      const filters = { ...EMPTY_FILTER, laneFilter: { items: [{ kind: 'rule', id: 1, join: 'and', field: 52, op: 'is', value: 'true' }] } } as unknown as FilterState
+      setup({ board: boardWith(), filters })
+      await open(u)
+      await u.type(box(), 'approved')
+      const row = screen.getByRole('button', { name: /Swimlane.*Approved lane/ })
+      expect(row).toHaveTextContent('Yes')
+      expect(row).not.toHaveTextContent('true')
+    })
+
+    it('the Title contains count includes description matches', async () => {
+      const u = userEvent.setup()
+      const b = boardWith() as unknown as { cards: Record<string, unknown>[] }
+      const board = { ...b, cards: [b.cards[0], b.cards[1], { ...b.cards[2], title: 'Other', description: 'about pricing' }] } as never
+      setup({ board })
+      await open(u)
+      await u.type(box(), 'pri')
+      expect(screen.getByRole('button', { name: /Title contains/ })).toHaveTextContent('3 cards')
+    })
+
+    it('the Title contains count does not count a card matched only by a label name', async () => {
+      const u = userEvent.setup()
+      const b = boardWith() as unknown as { cards: Record<string, unknown>[] }
+      const board = { ...b, cards: [b.cards[0], { ...b.cards[1], title: 'Other', labels: [{ id: 9, name: 'pricing', color: '#000' }] }, b.cards[2]] } as never
+      setup({ board })
+      await open(u)
+      await u.type(box(), 'pric')
+      expect(screen.getByRole('button', { name: /Title contains/ })).toHaveTextContent('1 card')
+      expect(screen.getByRole('button', { name: /Title contains/ })).not.toHaveTextContent('2 cards')
+    })
+
+    it('a date between lane rule row shows the formatted dates, as its chip does', async () => {
+      const u = userEvent.setup()
+      const filters = { ...EMPTY_FILTER, laneFilter: { items: [{ kind: 'rule', id: 1, join: 'and', field: 54, op: 'between', min: '2026-01-02', max: '2026-02-03' }] } } as unknown as FilterState
+      setup({ board: boardWith(), filters })
+      await open(u)
+      await u.type(box(), 'renewal')
+      const row = screen.getByRole('button', { name: /Swimlane.*Renewal/ })
+      expect(row).toHaveTextContent('01/02/2026 to 02/03/2026')
+      expect(row).not.toHaveTextContent('2026-01-02')
+    })
+
+    it('an incomplete lane rule leaves its field row reading Any', async () => {
+      const u = userEvent.setup()
+      const filters = { ...EMPTY_FILTER, laneFilter: { items: [{ kind: 'rule', id: 1, join: 'and', field: 54, op: 'between' }, { kind: 'rule', id: 2, join: 'and', field: 50, op: 'is', value: '' }] } } as unknown as FilterState
+      setup({ board: boardWith(), filters })
+      await open(u)
+      await u.type(box(), 'renewal')
+      expect(screen.getByRole('button', { name: /Swimlane.*Renewal/ })).toHaveTextContent('Any')
+      await u.clear(box())
+      await u.type(box(), 'tier')
+      expect(screen.getByRole('button', { name: /Swimlane.*Tier/ })).toHaveTextContent('Any')
+    })
+
+    it('selecting a lane field row opens that field and Enter on a name hit passes it too', async () => {
+      const u = userEvent.setup()
+      const { onOpenLaneFilters } = setup({ board: boardWith() })
+      await open(u)
+      await u.type(box(), 'tier')
+      await u.click(screen.getByRole('button', { name: /Swimlane.*Tier/ }))
+      expect(onOpenLaneFilters).toHaveBeenLastCalledWith(50)
+    })
+
+    it('Enter on a lane name hit passes the field id', async () => {
+      const u = userEvent.setup()
+      const { onOpenLaneFilters } = setup({ board: boardWith() })
+      await open(u)
+      await u.type(box(), 'tier{Enter}')
+      expect(onOpenLaneFilters).toHaveBeenLastCalledWith(50)
+    })
+
+    it('the Title contains row uses curly quotes and counts matching cards', async () => {
+      const u = userEvent.setup()
+      setup({ board: boardWith() })
+      await open(u)
+      await u.type(box(), 'pri')
+      const row = screen.getByRole('button', { name: /Title contains/ })
+      expect(row).toHaveTextContent('Title contains \u201cpri\u201d')
+      expect(row).toHaveTextContent('2 cards')
+    })
   })
 
   it('Enter on a card-field name with no value hit opens that field\'s editor, not a title search (#2437)', async () => {

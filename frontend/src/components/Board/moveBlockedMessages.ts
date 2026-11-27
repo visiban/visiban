@@ -4,6 +4,75 @@
  * fast refresh keeps working (a component module must export only components).
  */
 import type { MoveBlockedError } from "../../hooks/useBoard";
+import type { EntryUnmetItem } from "../../types";
+
+/** How many unmet requirements a "Needs:" line names before "and N more" (#1923 ux-design). */
+const NEEDS_LIST_MAX = 3;
+
+function formatOperand(operand: string | null): string {
+  const n = Number(operand);
+  return operand !== null && Number.isFinite(n) ? n.toLocaleString("en-US") : String(operand ?? "");
+}
+
+/** One unmet entry requirement as a short phrase: "Amount more than 50,000", "MEDDIC complete" (#1923). */
+export function unmetRequirementLabel(item: EntryUnmetItem): string {
+  const name = item.field_name ?? item.field_set_name ?? "A field";
+  switch (item.operator) {
+    case "set_complete": return `${item.field_set_name ?? name} complete`;
+    case "gt": return `${name} more than ${formatOperand(item.operand)}`;
+    case "gte": return `${name} at least ${formatOperand(item.operand)}`;
+    case "min_count": {
+      const n = Number(item.operand);
+      return `${name} with at least ${formatOperand(item.operand)} choice${n === 1 ? "" : "s"}`;
+    }
+    case "satisfied": return `${name} satisfied`;
+    default: return `${name} filled`;
+  }
+}
+
+/** "Needs: A, B and C." with at most three items, then "and N more" (#1923 ux-design). */
+export function entryNeedsLine(unmet: EntryUnmetItem[]): string {
+  const labels = unmet.map((u) => unmetRequirementLabel(u));
+  if (labels.length === 0) return "";
+  const shown = labels.slice(0, NEEDS_LIST_MAX);
+  const rest = labels.length - shown.length;
+  if (rest > 0) return `Needs: ${shown.join(", ")} and ${rest} more.`;
+  if (shown.length === 1) return `Needs: ${shown[0]}.`;
+  return `Needs: ${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}.`;
+}
+
+/** "N entry requirement(s)" for counts in titles and toasts. */
+export function entryRequirementCount(n: number): string {
+  return `${n} entry requirement${n === 1 ? "" : "s"}`;
+}
+
+const SENTENCE_CODES = new Set<string>([
+  "wip_limit_exceeded", "wip_hard_blocked", "weight_limit_exceeded",
+  "swimlane_wip_limit_exceeded", "swimlane_wip_hard_blocked", "swimlane_weight_limit_exceeded",
+]);
+
+/**
+ * The server's `also` (#1923) as sentences for the toast's "Also:" line. The
+ * server sends the other refusals' bodies; a client-predicted `also` is
+ * already sentences, so strings pass through. Anything unrecognized is dropped
+ * rather than rendered as "[object Object]".
+ */
+export function alsoSentences(also: unknown): string[] {
+  if (!Array.isArray(also)) return [];
+  const out: string[] = [];
+  for (const item of also) {
+    if (typeof item === "string") { out.push(item); continue; }
+    const body = item as { code?: unknown; column_name?: unknown; unmet?: unknown } | null;
+    if (!body || typeof body.code !== "string") continue;
+    if (body.code === "entry_requirements_unmet") {
+      const n = Array.isArray(body.unmet) ? body.unmet.length : 0;
+      out.push(`"${String(body.column_name ?? "")}" has ${entryRequirementCount(n)} this card doesn't meet.`);
+    } else if (SENTENCE_CODES.has(body.code)) {
+      out.push(toastBody(body as MoveBlockedError));
+    }
+  }
+  return out;
+}
 
 export function toastBody(error: MoveBlockedError): string {
   if (error.code === "version_conflict") {
@@ -12,6 +81,7 @@ export function toastBody(error: MoveBlockedError): string {
   if (error.code === "permission_denied" || error.code === "maintenance_mode" || error.code === "move_failed") {
     return error.detail;
   }
+  if (error.code === "entry_requirements_unmet") return entryNeedsLine(error.unmet) || error.detail;
   if (error.code === "wip_limit_exceeded" || error.code === "wip_hard_blocked") {
     const s = error.wip_limit !== 1 ? "s" : "";
     return `"${error.column_name}" is at its limit of ${error.wip_limit} card${s} (${error.current_count} active).`;
@@ -58,6 +128,7 @@ export function toastTitle(error: MoveBlockedError): string {
   if (error.code === "maintenance_mode") return "The instance is temporarily read-only";
   if (error.code === "wip_hard_blocked") return "Column at capacity — no exceptions";
   if (error.code === "swimlane_wip_hard_blocked") return "Swimlane at capacity — no exceptions";
+  if (error.code === "entry_requirements_unmet") return `Can't move to ${error.column_name}`;
   return error.code === "wip_limit_exceeded" || error.code === "swimlane_wip_limit_exceeded"
     ? "WIP limit reached"
     : "Weight limit reached";
@@ -73,9 +144,19 @@ export function toastTitle(error: MoveBlockedError): string {
  * failure. No override is offered: the inline surfaces have no force action.
  */
 export function limitBlockedMessage(err: unknown): string | null {
+  const entry = entryRefusal(err);
+  if (entry) return `${toastTitle(entry)}: ${toastBody(entry)}`;
   const data = limitRefusal(err);
   if (data === null) return null;
   return `${toastTitle(data)}: ${toastBody(data)}`;
+}
+
+/** The typed 409 body of an entry-requirements refusal (#1923), or null for anything else. */
+export function entryRefusal(err: unknown): Extract<MoveBlockedError, { code: "entry_requirements_unmet" }> | null {
+  const response = (err as { response?: { status?: number; data?: unknown } } | null)?.response;
+  const data = response?.data as MoveBlockedError | undefined;
+  if (response?.status !== 409 || data?.code !== "entry_requirements_unmet") return null;
+  return { ...data, unmet: Array.isArray(data.unmet) ? data.unmet : [], also: alsoSentences(data.also) };
 }
 
 /** The six limit refusal bodies (WIP soft, WIP hard, weight; column and swimlane). */

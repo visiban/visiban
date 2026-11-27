@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { updateColumn } from '../api/boards'
 import ColumnHeader from '../components/Board/ColumnHeader'
@@ -356,5 +356,21 @@ describe('ColumnHeader — collapsed at-limit cue (#972)', () => {
     expect(name({ column: { ...column, weight_limit: 1 }, cards: cardsOf(2) })).toBe('Expand Backlog, over weight limit (2/1)')
     expect(name({ column: limited, cards: cardsOf(2) })).toBe('Expand Backlog')
     expect(name({ column: limited, cards: cardsOf(1), showWipAtLimit: true })).toBe('Expand Backlog')
+  })
+})
+
+describe('ColumnHeader entry requirements menu item (#1923)', () => {
+  it('offers "Entry requirements…" when wired, and it opens settings for this column', async () => {
+    const onOpen = vi.fn()
+    renderHeader({ isAdmin: true, onOpenEntryRequirements: onOpen })
+    fireEvent.click(screen.getByRole('button', { name: /^Actions for column/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Entry requirements…' }))
+    expect(onOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('omits it when not wired (non-admin or demo)', () => {
+    renderHeader({ isAdmin: true })
+    fireEvent.click(screen.getByRole('button', { name: /^Actions for column/ }))
+    expect(screen.queryByRole('menuitem', { name: 'Entry requirements…' })).toBeNull()
   })
 })

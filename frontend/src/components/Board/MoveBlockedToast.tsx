@@ -6,7 +6,7 @@ import { failureReason } from "../../utils/moveFailure";
 import { canOverride, overrideHint, overrideLabel, type OverrideEligibility } from "../../utils/forceOverride";
 import ModalWrapper from "../shared/ModalWrapper";
 import OverrideReasonForm from "./OverrideReasonForm";
-import { hardLimitContainer, isHardLimit, toastBody, toastTitle } from "./moveBlockedMessages";
+import { entryRequirementCount, hardLimitContainer, isHardLimit, toastBody, toastTitle } from "./moveBlockedMessages";
 
 interface Props {
   error: MoveBlockedError;
@@ -29,13 +29,14 @@ export const MOVE_TOAST_KEY = "move";
  * dismissed or replaced, announced assertively.
  */
 function moveBlockedToast(error: MoveBlockedError, eligibility: OverrideEligibility, onForce: () => void | Promise<unknown>): ToastInput {
-  const hardBlocked = isHardLimit(error.code) || error.code === "permission_denied";
+  const entryHard = error.code === "entry_requirements_unmet" && error.mode === "hard";
+  const hardBlocked = isHardLimit(error.code) || error.code === "permission_denied" || entryHard;
   // maintenance_mode has no override for anyone — a site admin never sees this
   // toast at all, since their own writes succeed — but it keeps the ⚠ glyph
   // (matching MaintenanceBanner's amber tone, not permission_denied's ⛔):
-  // per frontend/CLAUDE.md, ⛔ is reserved for the hard WIP blocks (column
-  // and, since #1150, swimlane), so the no-override condition and the
-  // severity glyph are tracked separately.
+  // per frontend/CLAUDE.md, ⛔ marks the hard WIP blocks (column and, since
+  // #1150, swimlane) and a Hard entry-requirements column (#1923), so the
+  // no-override condition and the severity glyph are tracked separately.
   const noOverride = hardBlocked || error.code === "maintenance_mode" || error.code === "move_failed";
   const versionConflict = error.code === "version_conflict";
   const hardContainer = hardLimitContainer(error);
@@ -45,9 +46,11 @@ function moveBlockedToast(error: MoveBlockedError, eligibility: OverrideEligibil
   const alsoLine = also.length > 0 ? `Also: ${also.join(" ")}` : null;
   // A hard WIP block shows a resolution hint naming the column or swimlane it
   // is on; permission_denied has no actionable hint beyond the body text.
-  const hint = !versionConflict && noOverride && hardContainer !== null
-    ? `To unblock, move a card out of ${hardContainer}, or ask an admin to raise the WIP limit.`
-    : null;
+  const hint = entryHard
+    ? "No one can override this column's requirements."
+    : !versionConflict && noOverride && hardContainer !== null
+      ? `To unblock, move a card out of ${hardContainer}, or ask an admin to raise the WIP limit.`
+      : null;
   const overridable = !versionConflict && !noOverride;
   const actionLabel = overridable && canOverride(eligibility) ? overrideLabel(eligibility) : null;
   const overrideNote = overridable ? overrideHint(eligibility) : null;
@@ -70,8 +73,10 @@ function moveBlockedToast(error: MoveBlockedError, eligibility: OverrideEligibil
       ? { label: actionLabel, pendingLabel: "Moving anyway…", onAction: onForce }
       : undefined,
     // Everything the old role="alert" toast read out, as one sentence group.
+    // An entry refusal's body is a "Needs: ..." list, which a screen reader would read as one long run: announce
+    // the count and leave the list to the visible body (ux-design: the announcement carries no list).
     announceText: [
-      `${title}. ${body}`,
+      error.code === "entry_requirements_unmet" ? `${title}. ${entryRequirementCount(error.unmet.length)} unmet.` : `${title}. ${body}`,
       alsoLine,
       hint,
       overrideNote,
@@ -90,6 +95,11 @@ function moveBlockedToast(error: MoveBlockedError, eligibility: OverrideEligibil
  */
 function reportedByMovePopover(): boolean {
   return document.querySelector("[data-move-popover]") !== null;
+}
+
+/** An assignee override, and any override past entry requirements (owner Q2, #1923), needs a reason first. */
+function needsReason(kind: OverrideEligibility["kind"], error: MoveBlockedError): boolean {
+  return kind === "assignee" || error.code === "entry_requirements_unmet";
 }
 
 const notMoved = (err: unknown) => `Card could not be moved: ${failureReason(err)}.`;
@@ -159,7 +169,7 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
   useEffect(() => {
     const e = (kind === "other_member" ? { kind, assigneeName } : { kind }) as OverrideEligibility;
     notify({
-      ...moveBlockedToast(error, e, () => (kind === "assignee" ? openReason(error) : forceRef.current())),
+      ...moveBlockedToast(error, e, () => (needsReason(kind, error) ? openReason(error) : forceRef.current())),
       announce: !reportedByMovePopover(),
       onDismiss: () => dismissRef.current(),
     });
@@ -193,7 +203,7 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
   const column = "column_name" in error ? error.column_name : null;
   return (
     <ModalWrapper
-      open={reasonFor === error && kind === "assignee"}
+      open={reasonFor === error && needsReason(kind, error)}
       onClose={closeReason}
       dismissable={!busy}
       title={column ? `Move to ${column} anyway?` : "Move anyway?"}

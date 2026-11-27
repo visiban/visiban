@@ -13,7 +13,7 @@ import { isOverdue } from "../../utils/cardUrgency";
 import { failureReason, isLimitFailure } from "../../utils/moveFailure";
 import { canOverride, overrideEligibility, overrideHint, overrideLabel } from "../../utils/forceOverride";
 import OverrideReasonForm from "../Board/OverrideReasonForm";
-import { isHardLimit, limitCounts, limitRefusal, type LimitRefusal } from "../Board/moveBlockedMessages";
+import { entryRefusal, isHardLimit, limitCounts, limitRefusal, type LimitRefusal } from "../Board/moveBlockedMessages";
 import type { MoveOutcome } from "../../hooks/useBoard";
 import {
   buildFieldRows,
@@ -286,6 +286,11 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     const body = (err as { response?: { data?: { column_name?: unknown; swimlane_name?: unknown } } } | null)?.response?.data;
     if (isLimitFailure(err) && typeof body?.swimlane_name === "string") {
       return `Card could not be moved: swimlane "${body.swimlane_name}" has reached its limit.`;
+    }
+    // An entry refusal carries column_name too and counts as a limit failure;
+    // it must not read as a full column.
+    if (entryRefusal(err) && typeof body?.column_name === "string") {
+      return `Card could not be moved: "${body.column_name}" has entry requirements this card doesn't meet.`;
     }
     if (isLimitFailure(err) && typeof body?.column_name === "string") {
       return `Card could not be moved: "${body.column_name}" has reached its limit.`;
