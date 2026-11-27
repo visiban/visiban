@@ -206,7 +206,7 @@ describe('FilterPanel (#2301)', () => {
     })
     const { onOpenLaneFilters } = setup({ board })
     await open(u)
-    await u.click(screen.getByRole('button', { name: /^Lanes/ }))
+    await u.click(screen.getByRole('button', { name: /^Lane filters/ }))
     expect(onOpenLaneFilters).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
@@ -215,7 +215,7 @@ describe('FilterPanel (#2301)', () => {
     const u = userEvent.setup()
     setup()
     await open(u)
-    expect(screen.queryByRole('button', { name: /^Lanes/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Lane filters/ })).toBeNull()
   })
 
   // #2336 — the same laneFilterAvailable gate as the filter bar's Lanes trigger.
@@ -224,16 +224,16 @@ describe('FilterPanel (#2301)', () => {
     const lane = (id: number) => ({ id, name: `L${id}`, custom_field_values: [] })
     setup({ board: makeBoard({ swimlanes: [lane(1)] as never }) })
     await open(u)
-    expect(screen.queryByRole('button', { name: /^Lanes/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Lane filters/ })).toBeNull()
     cleanup()
     setup({ board: makeBoard({ swimlanes: [lane(1), lane(2)] as never }) })
     await open(u)
-    expect(screen.getByRole('button', { name: /^Lanes/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Lane filters/ })).toBeInTheDocument()
     cleanup()
     const lf = { items: [{ kind: 'rule' as const, id: 1, join: 'and' as const, field: 'name' as const, op: 'is' as const, value: 'L1' }] }
     setup({ board: makeBoard({ swimlanes: [lane(1)] as never }), filters: { ...EMPTY_FILTER, laneFilter: lf } })
     await open(u)
-    expect(screen.getByRole('button', { name: /^Lanes(?!:)/ })).toHaveTextContent('1 rule')
+    expect(screen.getByRole('button', { name: /^Lane filters/ })).toHaveTextContent('1 rule')
   })
 
   it('loads a saved filter and closes, marking the active one', async () => {

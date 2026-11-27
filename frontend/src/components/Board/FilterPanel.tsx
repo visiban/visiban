@@ -295,7 +295,7 @@ export default function FilterPanel({
   // #2336 — the same gate as the filter bar's Lanes trigger.
   if (laneFilterAvailable(laneFields.filter((f) => !isLaneBuiltinField(f.id)).length, board.swimlanes.length, filters.laneFilter)) {
     const n = summarizeLaneFilter(filters.laneFilter, laneFields, (_f, raw) => raw).completeCount;
-    rows.push({ id: "lanes", label: "Lanes", value: isLaneFilterActive(filters.laneFilter) ? `${n} ${n === 1 ? "rule" : "rules"}` : null });
+    rows.push({ id: "lanes", label: "Lane filters", value: isLaneFilterActive(filters.laneFilter) ? `${n} ${n === 1 ? "rule" : "rules"}` : null });
   }
   for (const def of customDefs) {
     const v = filters.customFields[def.id];

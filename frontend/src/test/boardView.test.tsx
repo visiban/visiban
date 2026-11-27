@@ -4593,7 +4593,7 @@ describe('BoardView lane filters (#2205)', () => {
       render(<BoardView {...defaultProps()} />)
       expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
       const panel = await openPanel(user)
-      await user.click(within(panel).getByRole('button', { name: /^Lanes/ }))
+      await user.click(within(panel).getByRole('button', { name: /^Lane filters/ }))
       expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
       expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
     })

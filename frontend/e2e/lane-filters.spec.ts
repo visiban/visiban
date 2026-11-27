@@ -47,13 +47,13 @@ test.describe('lane filters', () => {
     await page.getByRole('button', { name: /^filters/i }).click()
 
     // #2301 — the panel's Lanes row hands off to the real Lanes popover.
-    await page.getByRole('dialog', { name: 'Filter' }).getByRole('button', { name: /^Lanes/ }).click()
+    await page.getByRole('dialog', { name: 'Filter' }).getByRole('button', { name: /^Lane filters/ }).click()
     await expect(page.getByRole('dialog', { name: 'Lane filters' })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog', { name: 'Lane filters' })).toHaveCount(0)
     // The handoff also revealed the filter bar, which the rest of the test uses.
     const filters = page.getByRole('search', { name: 'Board filters' })
-    await filters.getByRole('button', { name: 'Lanes', exact: true }).click()
+    await filters.getByRole('button', { name: 'Lane filters', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Lane filters' })
     await dialog.getByRole('button', { name: '+ Add filter' }).click()
     await dialog.getByRole('button', { name: /^Filter 1 field/ }).click()
@@ -65,7 +65,7 @@ test.describe('lane filters', () => {
 
     await expect(globex).toHaveCount(0)
     await expect(acme).toBeVisible()
-    await expect(filters.getByRole('button', { name: 'Lanes, 1 active' })).toBeFocused()
+    await expect(filters.getByRole('button', { name: 'Lane filters, 1 active' })).toBeFocused()
     await expect(filters.getByRole('status')).toHaveText('1 lane hidden')
     await expect(page).toHaveURL(/f_lanes=1\./)
 
@@ -115,7 +115,7 @@ test.describe('lane filters', () => {
 
     await page.getByRole('button', { name: /show filter bar/i }).click()
     const filters = page.getByRole('search', { name: 'Board filters' })
-    await filters.getByRole('button', { name: 'Lanes', exact: true }).click()
+    await filters.getByRole('button', { name: 'Lane filters', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Lane filters' })
     await dialog.getByRole('button', { name: '+ Add filter' }).click()
     await dialog.getByRole('button', { name: /^Filter 1 field/ }).click()
@@ -145,7 +145,7 @@ test.describe('lane filters', () => {
     await page.getByRole('button', { name: /^filters/i }).click()
     // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
     await page.getByRole('button', { name: /show filter bar/i }).click()
-    await filters.getByRole('button', { name: /^Lanes/ }).first().click()
+    await filters.getByRole('button', { name: /^Lane filters/ }).first().click()
     const dialog2 = page.getByRole('dialog', { name: 'Lane filters' })
     await dialog2.getByRole('button', { name: /^Filter 1 operator/ }).click()
     await dialog2.getByRole('menuitem', { name: 'matches wildcard' }).click()
@@ -199,7 +199,7 @@ test.describe('lane filters', () => {
     await page.getByRole('button', { name: /^filters/i }).click()
     // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
     await page.getByRole('button', { name: /show filter bar/i }).click()
-    await page.getByRole('button', { name: 'Lanes, 1 active' }).click()
+    await page.getByRole('button', { name: 'Lane filters, 1 active' }).click()
     const dialog = page.getByRole('dialog', { name: 'Lane filters' })
     await dialog.getByRole('button', { name: '+ Add filter' }).click()
     await dialog.getByRole('button', { name: /^Filter 2 field/ }).click()

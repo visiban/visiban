@@ -68,6 +68,9 @@ import ActiveMark from "../Common/ActiveMark";
 import { OverlayIcon, PresetIcon } from "./toolbarIcons";
 import BoardViewMenu from "./BoardViewMenu";
 import FilterBar, { countActiveFilters, EMPTY_FILTER } from "./FilterBar";
+import LaneOrderControl, { LaneSortBandSlot } from "./LaneOrderControl";
+import { useLaneSort } from "../../hooks/useLaneSort";
+import { laneSortBandValue } from "../../utils/laneSort";
 import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import SavedFilterTabs from "./SavedFilterTabs";
 import FilterPanel from "./FilterPanel";
@@ -2730,6 +2733,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     if (laneFilterHiddenIds.size === 0 && !unmatchedLaneIds?.size) return hiddenSwimlaneIds;
     return new Set([...hiddenSwimlaneIds, ...laneFilterHiddenIds, ...(unmatchedLaneIds ?? [])]);
   }, [hiddenSwimlaneIds, laneFilterHiddenIds, unmatchedLaneIds]);
+  // #2698 — the per-viewer lane sort (URL state only; never a write).
+  const laneSort = useLaneSort({
+    swimlanes: board.swimlanes,
+    laneFieldDefs: board.swimlane_custom_field_definitions,
+    cardFieldDefs: board.custom_field_definitions,
+    isAdmin,
+    cards: board.cards,
+    columns: board.columns,
+    shownCardIds: filteredCardIds,
+    searchParams,
+    setSearchParams,
+  });
+  const laneSortOption = laneSort.sort ? laneSort.options.find((o) => o.key === laneSort.sort?.key) : undefined;
   // Every lane is hidden by the rules, by "hide unmatched", or one each. Requires the rules to hide at
   // least one lane: with none hidden by rules, an all-unmatched board is the no-match panel's job.
   // "Hide unmatched" completes the set only while some card matches: when no card matches, the no-match
@@ -3186,6 +3202,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
       if (!mappedOverId.startsWith("swim:")) return;
       if (activeId === mappedOverId) return;
+      // #2698 — while a lane sort is on the screen order is not the board
+      // order, so a lane drag never writes positions (prompt: #2701).
+      if (laneSort.sort) return;
       const oldIndex = board.swimlanes.findIndex((s) => `swim:${s.id}` === activeId);
       const newIndex = board.swimlanes.findIndex((s) => `swim:${s.id}` === overId);
       if (oldIndex === -1 || newIndex === -1) return;
@@ -3835,6 +3854,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </button>
         </div>
       )}
+      {/* #2698 — the Lanes control: this viewer's lane order (board order or a personal sort). */}
+      {view === "board" && !childrenMode && board.columns.length > 0 && board.swimlanes.length > 1 && (
+        <LaneOrderControl state={laneSort} lanes={board.swimlanes} isAdmin={isAdmin} hiddenLaneCount={hiddenLaneTotal} />
+      )}
       {/* #2205 — every lane filtered out; takes precedence over the card empty state. */}
       {allLanesFilteredOut && (
         <div role="status" className="mx-4 mt-2 px-4 py-2 bg-surface border border-line rounded-lg text-fg-tertiary text-sm flex items-center gap-3">
@@ -4138,7 +4161,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             // so that DnD reordering remains functional even in focus mode.
             <SortableContext items={board.swimlanes.map((s) => `swim:${s.id}`)} strategy={verticalListSortingStrategy}>
               {(() => {
-                const visible = board.swimlanes.filter((s) => !renderHiddenSwimlaneIds.has(s.id));
+                const visible = laneSort.ordered.filter((s) => !renderHiddenSwimlaneIds.has(s.id));
                 return visible.map((swimlane, idx) => (
                   <React.Fragment key={swimlane.id}>
                     <RowSeparator
@@ -4153,6 +4176,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     <SwimlaneRow
                       healthAutoEnabled={board.health_auto_enabled}
                       swimlane={swimlane}
+                      sortBand={laneSort.sort ? (
+                        <LaneSortBandSlot
+                          lane={swimlane}
+                          value={laneSortBandValue(swimlane, laneSortOption, laneSort.ctx)}
+                          pinned={laneSort.sort.pins.includes(swimlane.id)}
+                          onTogglePin={() => laneSort.togglePin(swimlane)}
+                        />
+                      ) : undefined}
                       gridTemplate={gridTemplate}
                       colWidths={colWidths}
                       setColumnWidth={setColumnWidth}
@@ -4224,7 +4255,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               })()}
               {/* Bottom separator — resizes the last swimlane */}
               {(() => {
-                const visible = board.swimlanes.filter((s) => !renderHiddenSwimlaneIds.has(s.id));
+                const visible = laneSort.ordered.filter((s) => !renderHiddenSwimlaneIds.has(s.id));
                 const last = visible[visible.length - 1];
                 return (
                   <RowSeparator

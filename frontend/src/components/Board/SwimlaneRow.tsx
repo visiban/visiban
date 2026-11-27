@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useId, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useId, useMemo, type ReactNode } from "react";
 import { laneDefaultAssignee, teamRowNames } from "../../utils/swimlaneDefaultTeam";
 import SeparatorPlus from "./SeparatorPlus";
 import type { BoardColor } from "../../utils/boardColors";
@@ -31,6 +31,8 @@ import { BAND_MAX_WIDTH, boardGridTemplate, clampColumnWidth, measureTrackLeftOf
 
 interface Props {
   swimlane: Swimlane;
+  /** #2698 — the lane sort's band slot (sorted value, Pinned tag, pin button); only while a sort is on. */
+  sortBand?: ReactNode;
   /** #2245: the board's auto health is on, so the lane shows its computed status. */
   healthAutoEnabled?: boolean;
   columns: Column[];
@@ -175,7 +177,7 @@ function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
   return autoEnabled && !!lane.health_computed_at;
 }
 
-export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, bandSlots = BAND_DEFAULT_COUNT, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, childrenAction, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onManageSwimlaneFields, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, members, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
+export default function SwimlaneRow({ swimlane, sortBand, healthAutoEnabled = false, columns, cards, boardId, isAdmin, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, bandSlots = BAND_DEFAULT_COUNT, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, childrenAction, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onManageSwimlaneFields, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, members, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -574,6 +576,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               folds away when collapsed, an over-limit one never does), then the number rollup
               (#2275). The band ends at the rollup, as in board-dark.png: no card count (#2328).
               Text always carries the state; color only reinforces it. */}
+          {sortBand}
           {noMatch && <span className="text-sm text-fg-tertiary whitespace-nowrap" data-testid="swimlane-no-match">No matching cards</span>}
           {/* board-states.png: the no-match band is the name and "No matching cards" only, so the stats go. */}
           {!noMatch && (
