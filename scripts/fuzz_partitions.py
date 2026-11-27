@@ -49,6 +49,7 @@ import argparse
 import json
 import re
 import sys
+import urllib.parse
 import urllib.request
 
 from _paths import cli_roots, resolve_within
@@ -185,18 +186,41 @@ def filter_baseline(baseline: dict, regex: str) -> dict:
     return out
 
 
+LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1"})
+
+
+def validate_schema_url(raw: str) -> str:
+    """Return a URL rebuilt from validated parts, or raise PartitionError.
+
+    The request carries the API token, so the target must really be the job's own
+    loopback server. A `startswith("http://localhost:")` prefix check is bypassable
+    (`http://localhost:@evil.example/`, `http://localhost:80.evil.example/`);
+    parsing and rebuilding from the validated components is not (#2675).
+    """
+    msg = "--schema-url must be the job's own http://localhost:<port> server"
+    try:
+        parts = urllib.parse.urlsplit(raw)
+        host, port = parts.hostname, parts.port  # .port raises ValueError on garbage
+    except ValueError:
+        raise PartitionError(msg) from None
+    if parts.scheme != "http" or host not in LOOPBACK_HOSTS or port is None:
+        raise PartitionError(msg)
+    if parts.username is not None or parts.password is not None or "@" in parts.netloc:
+        raise PartitionError(msg)
+    return urllib.parse.urlunsplit(("http", f"{host}:{port}", parts.path, parts.query, ""))
+
+
 def _load_schema(args) -> dict:
     if args.schema:
         with open(resolve_within(cli_roots(), args.schema), encoding="utf-8") as f:
             return json.load(f)
     if not (args.schema_url and args.token_file):
         raise PartitionError("check needs --schema, or --schema-url with --token-file")
-    if not args.schema_url.startswith("http://localhost:"):
-        raise PartitionError("--schema-url must be the job's own http://localhost: server")
+    url = validate_schema_url(args.schema_url)
     with open(resolve_within(cli_roots(), args.token_file), encoding="utf-8") as f:
         token = f.read().strip()
-    req = urllib.request.Request(args.schema_url, headers={"Authorization": "Token " + token})
-    with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 - localhost only, checked above
+    req = urllib.request.Request(url, headers={"Authorization": "Token " + token})
+    with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 - http scheme and loopback host validated, URL rebuilt from parts
         return json.load(resp)
 
 
@@ -298,6 +322,18 @@ def _self_test() -> int:
     _expect_error(lambda: check_schema({"paths": {}}), "no operations")
     _expect_error(lambda: check_schema({"paths": {"/api/v1/x/": {"parameters": []}}}), "no operations")
     _expect_error(lambda: check_schema(None), "no operations")
+
+    # --schema-url guard (#2675): the token must only ever reach the job's own loopback server.
+    assert validate_schema_url("http://localhost:8000/api/schema/?format=json") == \
+        "http://localhost:8000/api/schema/?format=json"
+    assert validate_schema_url("http://127.0.0.1:8000/x") == "http://127.0.0.1:8000/x"
+    for bad in (
+        "http://localhost:@evil.example/", "http://localhost:80.evil.example/",
+        "https://localhost:8000/", "http://localhost/", "http://user:pw@localhost:8000/",
+        "http://localhost:abc/", "http://localhost:99999/", "http://evil.example:8000/",
+        "http://localhost.evil.example:8000/", "ftp://localhost:8000/", "", "localhost:8000",
+    ):
+        _expect_error(lambda bad=bad: validate_schema_url(bad), "--schema-url must be")
 
     # CI matrix must list exactly the partitions.
     names = [n for n, _ in PARTITIONS]
