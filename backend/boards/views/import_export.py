@@ -2222,6 +2222,20 @@ def _assign_cell_positions(cards):
             card.position = slot
 
 
+def _imported_value_changed_at(raw, now):
+    """The exported ``value_changed_at`` to give an imported value, or None (#2651).
+
+    None ("unknown", the API's ``changed_at: null``) for a missing, malformed
+    or future time, the same as a value with no history. A file can only
+    backdate its own cards' values, which it could already do through their
+    activity rows.
+    """
+    at = _aware_timestamp(raw)
+    if at is None or at > now:
+        return None
+    return at
+
+
 def _imported_card_created_at(card_data, history_on, now):
     """The exported ``created_at`` to give an imported card, or None for "now" (#1906).
 
@@ -3280,12 +3294,18 @@ class BoardImportExportMixin:
             for card_obj, card_data in zip(cards_to_create, cards_raw):
                 card_pk = card_obj.pk
 
+                changed_at_raw = card_data.get("custom_field_values_changed_at")
+                if not isinstance(changed_at_raw, dict):
+                    changed_at_raw = {}
                 for definition, value in _import_field_values(
                     card_data.get("custom_field_values"), card_field_map,
                     "CUSTOM_FIELD_VALIDATORS",
                 ):
                     field_values_to_create.append(CustomFieldValue(
                         card_id=card_pk, field_definition=definition, value=value,
+                        value_changed_at=_imported_value_changed_at(
+                            changed_at_raw.get(definition.name), import_now,
+                        ),
                     ))
 
                 # The file's own history for this card. When it already
@@ -4407,6 +4427,15 @@ class BoardImportExportMixin:
                 for row in card.custom_field_values.all()
             }
 
+        def _custom_values_changed_at_by_name(card):
+            """``{field name: ISO time or None}``: when each value last changed (#2651)."""
+            return {
+                row.field_definition.name: (
+                    row.value_changed_at.isoformat() if row.value_changed_at else None
+                )
+                for row in card.custom_field_values.all()
+            }
+
         if export_format == "json":
             # Prefetch columns and swimlanes onto the export-bound board in a
             # single trip so ``.all()`` reads from the prefetch cache instead
@@ -4492,6 +4521,10 @@ class BoardImportExportMixin:
                     # JSON import against the "custom_fields" definitions below
                     # (#1447), and by CSV import from its `Custom: ` columns (#1449).
                     "custom_field_values": _custom_values_by_name(card),
+                    # #2651. Additive: when each value above last changed,
+                    # keyed the same way; restored on JSON import so a moved
+                    # board keeps its age in state.
+                    "custom_field_values_changed_at": _custom_values_changed_at_by_name(card),
                     # #352. Additive like custom_field_values above; unlike
                     # them it *is* restored on import (validated through
                     # ExternalRefSerializer). null when the card has no link.

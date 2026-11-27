@@ -913,6 +913,8 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
         "checklist_open_due_dates", "checklist_open_assignee_ids",
         # #1102: count of gates passed inside a stage — structure, not user text.
         "gates_passed",
+        # #2651: field ids and change times of dimension values — structure only.
+        "dimension_states",
     }
     MOVEMENT_STRUCTURE = {
         "id", "card_uid",

@@ -2721,6 +2721,22 @@ class CustomFieldValue(models.Model):
         CustomFieldDefinition, on_delete=models.CASCADE, related_name="values"
     )
     value = models.TextField(blank=True)
+    # When ``value`` last really changed (#2651): age in state for the
+    # dimension matrix and the health roll-up. Written by
+    # ``boards.services.custom_fields`` only when the stored value differs, so
+    # re-saving the same choice keeps the clock. Kept on the value row rather
+    # than in a table of its own so the card read carries it in the
+    # ``custom_field_values`` prefetch it already runs (no added query).
+    # Clearing a value deletes the row, so a cleared field has no time here;
+    # its "not set" age is the card's ``column_entered_at`` (the matrix design).
+    # Nullable, no default: rows older than this column are backfilled from
+    # CardActivity where history exists (migration 0152) and stay NULL
+    # ("unknown") otherwise, as does a row an older release inserts during a
+    # rolling upgrade. Every writer in this release sets it explicitly.
+    value_changed_at = models.DateTimeField(
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+    )
 
     class Meta:
         db_table = "custom_field_values"

@@ -452,6 +452,8 @@ Dimensions are what a stage's **tracks** are: a board admin binds dimension fiel
 
 Every change to any custom field value, dimension or not, appears in the card's history with the old value, the new value and who made it.
 
+**When a value last changed.** *Added in 1.3* (#2651). Each card value also records when it last really changed; saving the value a card already has does not count. The card payload's `dimension_states` lists that time for every dimension with a value (see [Cards API](../api/cards.md)), for age in state. Values set before 1.3 take the time from the card's history where it has the change, and read as unknown otherwise. A cleared dimension has no time of its own: it is "not set", aged from when the card entered its column. JSON export and import carry the time.
+
 ### Dimension chips on the card face
 
 *Added in 1.3* (#1922). A board admin can pin up to **3 dimensions** with **Pin** on the field's row in Board Settings → Card fields. This pool is separate from the 2 pinned fields. A pinned dimension shows as a chip under the card title at Comfortable and Standard density: the dimension's name with an icon for its state (a check for done, a hollow circle for open, a dash for not applicable). The state is spelled out for screen readers and in the chip's tooltip ("Security: open"), so it never depends on color. A dimension that is already a track of the card's column shows once, as a track chip.

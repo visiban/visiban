@@ -3888,6 +3888,38 @@ class CardDimensionPlanSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class DimensionStateSerializer(serializers.Serializer):
+    """When one dimension's value last really changed on a card (#2651).
+
+    Read from the card's ``CustomFieldValue`` row, so it rides the
+    ``custom_field_values`` prefetch the card read already runs.
+    ``changed_at`` is null when the time is unknown (a value older than the
+    column with no matching history).
+    """
+
+    field_id = serializers.IntegerField(source="field_definition_id", read_only=True)
+    changed_at = serializers.DateTimeField(source="value_changed_at", read_only=True, allow_null=True)
+
+
+class ParkedDimensionStateListSerializer(serializers.ListSerializer):
+    """The card's dimension value rows (#2651), from the parked value prefetch.
+
+    Only dimension fields (``is_dimension``), in the board's field order. A
+    cleared dimension has no value row and so no entry; its "not set" age is
+    the card's ``column_entered_at``. ``_card_queryset`` joins the definition
+    into the parked rows; a card read without that prefetch joins it here so
+    reading ``is_dimension`` never costs a query per row.
+    """
+
+    def get_attribute(self, instance):
+        rows = getattr(instance, _PARKED_CUSTOM_FIELD_VALUES, None)
+        if rows is None:
+            rows = instance.custom_field_values.select_related("field_definition").order_by(
+                "field_definition__position", "field_definition_id",
+            )
+        return [row for row in rows if row.field_definition.is_dimension]
+
+
 class ParkedDimensionPlanListSerializer(serializers.ListSerializer):
     """Reads the parked ``dimension_plans`` prefetch (#1922, pattern of #1212)."""
 
@@ -4751,6 +4783,11 @@ class CardSerializer(serializers.ModelSerializer):
     dimension_plans = ParkedDimensionPlanListSerializer(
         child=CardDimensionPlanSerializer(read_only=True), read_only=True,
     )
+    # #2651: when each dimension's value last changed. Read-only, no query of
+    # its own (reads the custom_field_values prefetch).
+    dimension_states = ParkedDimensionStateListSerializer(
+        child=DimensionStateSerializer(), read_only=True,
+    )
     # MR/PR link (#352). Omitted = untouched, null = cleared, object = full
     # replace. Stored in its own table (CardExternalRef) and applied after the
     # row exists — see _apply_external_ref.
@@ -4830,6 +4867,8 @@ class CardSerializer(serializers.ModelSerializer):
             "is_stale", "archived_at", "version", "custom_field_values",
             # #1922: additive, read-only.
             "dimension_plans",
+            # #2651: additive, read-only.
+            "dimension_states",
             "blocker_count", "external_ref", "notify_assignee",
             # Who set the current assignee (#1923). Read-only; null when
             # unassigned, imported, or the assigner was deleted.
