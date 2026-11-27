@@ -125,7 +125,7 @@ def _vet_smtp_host(host):
     host = (host or "").strip().strip("[]")
     if not host:
         return False, None
-    # Checked at save time and again at send time because DNS can change.
+    # Checked at save time and again at send time.
     # Literals skip DNS.
     addresses = _resolve_host_addresses(host)
     refused = any(egress.classify_ip(ip) in (egress.SENSITIVE, egress.NEVER) for ip in addresses)
