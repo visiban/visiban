@@ -3693,6 +3693,30 @@ help-link-anchors:
     - python3 scripts/check-help-link-anchors.py --self-test
     - python3 scripts/check-help-link-anchors.py
 
+# The always-loaded frontend rules stay short (#2681). Claude Code loads
+# frontend/CLAUDE.md into context on every frontend task; it had grown to 723 KB
+# before it was split into an index plus frontend/ui-conventions/ topic files.
+# Fails when the index exceeds 64 KiB, an index line exceeds 300 characters, an
+# index line points at a missing topic file or section, or a topic-file section
+# has no index line. Offline, standard library only.
+frontend-claude-md-size:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: &frontend-claude-md-paths
+        - frontend/CLAUDE.md
+        - frontend/ui-conventions/**/*
+        - scripts/check-frontend-claude-md.py
+        - scripts/_paths.py
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *frontend-claude-md-paths
+  script:
+    - python3 scripts/check-frontend-claude-md.py --self-test
+    - python3 scripts/check-frontend-claude-md.py
+
 # Astro docs-site prototype suites (#2614): version slugs, the mkdocs anchor
 # model, and the rewrite fact check's controls. The controls compare the
 # prototype root page with docs/index.md, so a docs/-only MR can break them;

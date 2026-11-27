@@ -17,7 +17,7 @@ The owner ruled on 2026-11-14 that this design is the standard for the Board vie
 2. The screenshots in `docs/development/board-redesign/`.
 3. The artboard sources in `docs/development/board-redesign/artboards/`, for exact copy, order and spacing.
    Note: the swimlane band's `+N`/`Less` expansion in these artboards is superseded by #2354 (the "N fields" toggle and aligned grid).
-4. `frontend/CLAUDE.md`. Its token, contrast, focus, motion and accessibility rules still apply in full. Its board layout sections listed under [Rules to rewrite](#rules-to-rewrite) describe the board being replaced; each child issue rewrites its section in the same MR.
+4. `frontend/CLAUDE.md` and the `frontend/ui-conventions/` topic files it indexes. Their token, contrast, focus, motion and accessibility rules still apply in full. Their board layout sections listed under [Rules to rewrite](#rules-to-rewrite) describe the board being replaced; each child issue rewrites its section in the same MR.
 
 An older board issue that describes a different look, including #871, follows this page.
 
@@ -42,14 +42,14 @@ All are 1440px wide unless noted, dark theme unless noted.
 
 Top to bottom:
 
-1. App header (Row 1): the menu button (opens the navigation drawer, `[`), the breadcrumb rooted at "Home" whose last crumb is the page's only `h1` (on a board, a button with the board name and a chevron that opens the board switcher), star, board status pill, board search, notifications, account. There is no sidebar (#2473): navigation is the on-demand drawer described in `frontend/CLAUDE.md` § App shell.
+1. App header (Row 1): the menu button (opens the navigation drawer, `[`), the breadcrumb rooted at "Home" whose last crumb is the page's only `h1` (on a board, a button with the board name and a chevron that opens the board switcher), star, board status pill, board search, notifications, account. There is no sidebar (#2473): navigation is the on-demand drawer described in `frontend/ui-conventions/shell-and-navigation.md` § App shell.
 2. Board toolbar (Row 2): view tabs on the left; Filter, View, Activity, overflow menu and the connection status on the right.
 3. Filter chip row: only when a filter is active.
 4. Show chips, with the board totals and "Collapse all lanes" on the right.
 5. Column headers, one grid row.
 6. One section per swimlane: a header band, then one cell per column.
 
-The landmarks in `frontend/CLAUDE.md` § Top chrome do not change: `banner`, `navigation: Breadcrumb`, `navigation: Board toolbar`, `search: Board filters`, `main`.
+The landmarks in `frontend/ui-conventions/shell-and-navigation.md` § Top chrome do not change: `banner`, `navigation: Breadcrumb`, `navigation: Board toolbar`, `search: Board filters`, `main`.
 
 The column grid is one CSS grid template shared by the header row, every lane's cells and every collapsed strip: one `minmax(0, 1fr)` track per column and one column's width per sub-column for a split stage (`minmax(0, 2fr)` for two, `3fr` for three, `4fr` for four; #2531). Gap 8px. Below 1240px of board width the grid scrolls sideways inside its own box; the page does not.
 
@@ -310,7 +310,7 @@ All additive.
 
 ## Rules to rewrite
 
-Each child issue rewrites the `frontend/CLAUDE.md` section it replaces, in the same MR as the code:
+Each child issue rewrites the frontend UI conventions section it replaces (in `frontend/CLAUDE.md` or the `frontend/ui-conventions/` topic file its index line names), in the same MR as the code:
 
 | Section | Issue |
 |---|---|
@@ -370,7 +370,7 @@ For `ux-review` and `completeness-check` on the implementing MRs:
 - [ ] Every drag state renders as in `components.png`
 - [ ] No sideways page scroll at 390px; targets are at least 44px there
 - [ ] Light and dark themes pass the contrast rules in `frontend/CLAUDE.md`
-- [ ] The replaced `frontend/CLAUDE.md` section is rewritten in the same MR
+- [ ] The replaced frontend UI conventions section (`frontend/CLAUDE.md` or its topic file) is rewritten in the same MR
 
 ## Artboard sources
 

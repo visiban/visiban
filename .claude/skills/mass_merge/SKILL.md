@@ -56,13 +56,13 @@ quality problem:
    app has two heads and every subsequent migration command fails until someone
    adds a merge migration. The `changelog-check` job has the same shape: two
    MRs each add a distinct fragment file, so neither collides on its own tree,
-   but a shared file two MRs both edit (`frontend/CLAUDE.md`, a shared config)
+   but a shared file two MRs both edit (`frontend/CLAUDE.md` or a `frontend/ui-conventions/` topic file, a shared config)
    can still merge textually-clean and be semantically wrong.
 2. **Stale merge base.** GitLab gates each MR against the main it *branched
    from*, not current main (no merged-results pipelines / merge trains are
    configured — `.gitlab-ci.yml` uses plain `merge_request_event` /
    `on-mr` rules, not `merge_train_event`). Auto-merges on shared files
-   (`changelog.d/*`, `frontend/CLAUDE.md`, `docs/`, `backend/*/migrations/*`)
+   (`changelog.d/*`, `frontend/CLAUDE.md`, `frontend/ui-conventions/*`, `docs/`, `backend/*/migrations/*`)
    apply cleanly as text but can break semantically.
 
 This skill fixes both **before** merge by (A) stacking the MRs on a local
@@ -180,7 +180,7 @@ in the batch — these are where the stale-base semantic conflicts land. Known
 hotspots in this repo: `changelog.d/*`, `backend/*/migrations/*` (two MRs each
 adding a migration under the same app produce two graph heads once both land —
 `makemigrations --check --dry-run` on the merged tree is what catches this),
-`frontend/CLAUDE.md`, `docs/`, `CLAUDE.md`, `.gitlab-ci.yml`. Serial landing
+`frontend/CLAUDE.md`, `frontend/ui-conventions/*`, `docs/`, `CLAUDE.md`, `.gitlab-ci.yml`. Serial landing
 (Phase A/B) handles these correctly by construction, but tell the user which
 MRs collide so the ordering is deliberate.
 

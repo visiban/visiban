@@ -11,7 +11,7 @@ This page is the build spec for the redesigned Analytics tab. It records the des
 
 ## What wins when sources disagree
 
-1. `frontend/CLAUDE.md`, including § Charts. The design follows it, with the three color exceptions that § Charts now lists for this tab; if another conflict remains, the rule wins and the conflict is a bug in this page.
+1. `frontend/CLAUDE.md` and its topic files, including `frontend/ui-conventions/analytics-and-history.md` § Charts. The design follows it, with the three color exceptions that § Charts now lists for this tab; if another conflict remains, the rule wins and the conflict is a bug in this page.
 2. This page.
 3. The screenshots in `docs/development/analytics-redesign/`.
 4. The artboard sources in `docs/development/analytics-redesign/artboards/`, for exact copy, order and spacing.
@@ -253,7 +253,7 @@ Smallest text is 12px everywhere.
 
 ### Chart colors
 
-`frontend/CLAUDE.md` § Charts keeps one hue as the default and lists three exceptions for this tab. This table is the full mapping.
+`frontend/ui-conventions/analytics-and-history.md` § Charts keeps one hue as the default and lists three exceptions for this tab. This table is the full mapping.
 
 | Mark | Color |
 |---|---|
@@ -329,7 +329,7 @@ No shipped analytics feature is removed, which keeps the page inside the open-co
 
 - `docs/features/analytics.md`: it describes the heatmap, the Age/Throughput toggle, the 7/30/90 pills, the stalled table and the blocked table, and uses "Throughput" for dwell time. After the change "Throughput" means cards finished per week everywhere.
 - `docs/api/`: every added field and parameter.
-- `frontend/CLAUDE.md` § Charts: any new rule `ux-review` surfaces. It already lists this tab's three color exceptions and points here.
+- `frontend/ui-conventions/analytics-and-history.md` § Charts: any new rule `ux-review` surfaces. It already lists this tab's three color exceptions and points here.
 
 ## Decisions
 
@@ -355,7 +355,7 @@ For `ux-review` and `completeness-check` on the implementing MRs:
 - [ ] All four states render as in `states.png`
 - [ ] No sideways page scroll at 390px
 - [ ] Light and dark themes both pass the contrast rules in `frontend/CLAUDE.md`
-- [ ] `docs/features/analytics.md`, `docs/api/` and `frontend/CLAUDE.md` § Charts are updated in the same MR
+- [ ] `docs/features/analytics.md`, `docs/api/` and `frontend/ui-conventions/analytics-and-history.md` § Charts are updated in the same MR
 
 ## Artboard sources
 
