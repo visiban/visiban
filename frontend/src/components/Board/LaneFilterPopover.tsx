@@ -73,6 +73,8 @@ interface Props {
   cardFilterActive?: boolean;
   /** #2337 — rules dropped because this viewer cannot use their field (countUnusableLaneRules). */
   ignoredCount?: number;
+  /** #2660 — focus this field's rule on open, adding one when the filter has none for it. */
+  preselectField?: LaneFieldKey | null;
 }
 
 type FocusTarget = { kind: "row"; id: number } | { kind: "add" };
@@ -100,7 +102,7 @@ function MenuUnmountGuard({ ruleId, onGone }: { ruleId: number; onGone: (key: st
  * closes. Inner menus are deliberately not portaled: a portaled menu would sit
  * outside the panel and the focusin-outside close would fire on it.
  */
-export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, fmt, id, textChoices, cardFilterActive = false, ignoredCount = 0 }: Props) {
+export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, fmt, id, textChoices, cardFilterActive = false, ignoredCount = 0, preselectField = null }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // #2231 — the inner menus are in-flow (not portaled, see frontend/CLAUDE.md
@@ -177,9 +179,22 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
   const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
   const placed = top !== null;
   const openedRef = useRef(false);
+  // Captured at mount: the control clears the prop once the popover is open (#2660).
+  const preselectRef = useRef(preselectField);
   useEffect(() => {
     if (!placed || openedRef.current) return;
     openedRef.current = true;
+    const want = preselectRef.current;
+    if (want !== null && fieldsById.has(want)) {
+      const existing = items.flatMap((it) => (it.kind === "rule" ? [it] : it.rules)).find((r) => r.field === want);
+      if (existing) { setFocusTarget({ kind: "row", id: existing.id }); return; }
+      if (canAdd) {
+        const r: LaneRule = { ...newRule("and"), field: want };
+        commit([...items, r]);
+        setFocusTarget({ kind: "row", id: r.id });
+        return;
+      }
+    }
     const first = items[0];
     setFocusTarget(first ? { kind: "row", id: first.kind === "rule" ? first.id : first.rules[0].id } : { kind: "add" });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on first placement
@@ -646,16 +661,23 @@ interface ControlProps {
   cardFilterActive?: boolean;
   /** #2337 — rules ignored because the viewer cannot use their field. */
   ignoredCount?: number;
+  preselectField?: LaneFieldKey | null;
+  /** Called once the popover has opened, so a later plain click does not preselect again. */
+  onPreselectConsumed?: () => void;
 }
 
 /** The "Lanes" trigger in the filter strip plus its popover. */
-export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCount, triggerRef: externalRef, textChoices, cardFilterActive, ignoredCount }: ControlProps) {
+export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCount, triggerRef: externalRef, textChoices, cardFilterActive, ignoredCount, preselectField, onPreselectConsumed }: ControlProps) {
   const ownRef = useRef<HTMLButtonElement>(null);
   const triggerRef = externalRef ?? ownRef;
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const id = useId();
   const popoverId = `lane-filter-${id.replace(/:/g, "")}`;
   const open = anchor !== null;
+  useEffect(() => {
+    // The request is a one-shot: clear it so a later plain click on Lanes does not preselect again.
+    if (open && preselectField != null) onPreselectConsumed?.();
+  }, [open, preselectField, onPreselectConsumed]);
   const hasRules = (filter?.items.length ?? 0) > 0;
   const onClose = useRef((refocus: boolean) => {
     setAnchor(null);
@@ -701,6 +723,7 @@ export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCou
           textChoices={textChoices}
           cardFilterActive={cardFilterActive}
           ignoredCount={ignoredCount}
+          preselectField={preselectField}
         />
       )}
     </>

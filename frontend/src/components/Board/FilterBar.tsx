@@ -26,6 +26,7 @@ import {
   removeLaneItem,
   summarizeLaneFilter,
   type LaneFilter,
+  type LaneFieldKey,
   type LaneValueFormatter,
 } from "../../utils/laneFilter";
 import { isNumberFilterActive, numberFilterDisplay, numberInputStep, type NumberFilterValue } from "../../utils/numberFilter";
@@ -169,6 +170,9 @@ interface Props {
   ignoredLaneRuleCount?: number;
   /** #2205 — the Lanes trigger, so BoardView can open the popover from its notices. */
   lanesTriggerRef?: RefObject<HTMLButtonElement | null>;
+  /** #2660 — open the Lanes popover on this field's rule (added when none exists). */
+  lanePreselectField?: LaneFieldKey | null;
+  onLanePreselectConsumed?: () => void;
 }
 
 interface MyCardsButtonProps {
@@ -255,7 +259,7 @@ const FACET_OPTIONS: { value: FacetId; label: string }[] = [
   { value: "blocked", label: "Blocked" },
 ];
 
-export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY", hiddenLaneCount = 0, lanesTriggerRef, cardFilterActive = false, ignoredLaneRuleCount = 0 }: Props) {
+export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange, userDateFormat = "MM/DD/YYYY", hiddenLaneCount = 0, lanesTriggerRef, cardFilterActive = false, ignoredLaneRuleCount = 0, lanePreselectField = null, onLanePreselectConsumed }: Props) {
   const activeCount = countActiveFilters(filters);
   // #2205 — the swimlane fields this viewer may rule on. Admin-only fields are
   // offered to admins only: their values are never sent to other roles.
@@ -606,6 +610,8 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
             textChoices={laneTextChoices}
             cardFilterActive={cardFilterActive}
             ignoredCount={ignoredLaneRuleCount}
+            preselectField={lanePreselectField}
+            onPreselectConsumed={onLanePreselectConsumed}
           />
         )}
 

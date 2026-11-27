@@ -130,7 +130,7 @@ import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
 import { firstNotDoneColumn, wouldBecomeIntakeColumn } from "../../utils/intakeColumn";
 import { parseParentFilterParam, parseParentLaneFilterParam } from "../../utils/parentFilter";
-import { countUnusableLaneRules, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam, withHideUnmatched, withLaneItems } from "../../utils/laneFilter";
+import { type LaneFieldKey, countUnusableLaneRules, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam, withHideUnmatched, withLaneItems } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 import ChildrenModeView from "./ChildrenModeView";
 import { ToggleField } from "../Common/Toggle";
@@ -2588,7 +2588,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     markLaneLocalEdit(s.id);
     onSwimlaneUpdated(s);
   }, [markLaneLocalEdit, onSwimlaneUpdated]);
-  const openLaneFilters = useCallback(() => {
+  // #2660 — a swimlane field row in the Filter panel opens the Lanes popover on that field's rule.
+  const [lanePreselect, setLanePreselect] = useState<LaneFieldKey | null>(null);
+  const openLaneFilters = useCallback((fieldId?: LaneFieldKey) => {
+    setLanePreselect(typeof fieldId === "number" || typeof fieldId === "string" ? fieldId : null);
     setShowFilters(true);
     setTimeout(() => lanesTriggerRef.current?.click(), 0);
   }, []);
@@ -3786,6 +3789,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               cardFilterActive={filteredCardIds !== null}
               ignoredLaneRuleCount={ignoredLaneRuleCount}
               lanesTriggerRef={lanesTriggerRef}
+              lanePreselectField={lanePreselect}
+              onLanePreselectConsumed={() => setLanePreselect(null)}
               scope={scope}
               onScopeChange={setScope}
               userDateFormat={userDateFormat}
@@ -3809,7 +3814,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {laneNotice && (
         <div className="flex items-center gap-2 px-3 py-1 text-xs text-fg-secondary bg-surface border-b border-line shrink-0">
           <span aria-hidden="true" className="min-w-0">{laneNotice}</span>
-          <button type="button" onClick={openLaneFilters} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <button type="button" onClick={() => openLaneFilters()} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 min-h-6 max-sm:min-h-11 max-sm:px-3 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Edit lane filters
           </button>
           <button type="button" aria-label="Dismiss notice" onClick={dismissLaneNotice} className="w-6 h-6 max-sm:w-11 max-sm:h-11 rounded hover:bg-surface-hover text-fg-tertiary hover:text-fg flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
