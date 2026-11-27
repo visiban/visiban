@@ -30,6 +30,7 @@ that exactly:
 Without that split, a development install running the console backend could
 silently start sending real mail.
 """
+import functools
 import logging
 import smtplib
 import socket
@@ -107,17 +108,28 @@ def smtp_host_refused(host) -> bool:
     Applies only to the database-stored configuration. The environment
     configuration is the operator's own and is never checked.
     """
+    return _vet_smtp_host(host)[0]
+
+
+def _vet_smtp_host(host):
+    """``(refused, addresses)`` for *host*, as judged by ``smtp_host_refused``.
+
+    ``addresses`` are the resolved addresses that were checked, for the send
+    path to connect to. It is ``None`` when no check applies (operator opt-out
+    or a blank host), and the connection then uses the host name as before.
+    """
     from visiban import egress
 
     if getattr(settings, "SMTP_ALLOW_PRIVATE_HOSTS", False):
-        return False
+        return False, None
     host = (host or "").strip().strip("[]")
     if not host:
-        return False
+        return False, None
     # Checked at save time and again at send time because DNS can change.
     # Literals skip DNS.
     addresses = _resolve_host_addresses(host)
-    return any(egress.classify_ip(ip) in (egress.SENSITIVE, egress.NEVER) for ip in addresses)
+    refused = any(egress.classify_ip(ip) in (egress.SENSITIVE, egress.NEVER) for ip in addresses)
+    return refused, addresses
 
 
 class EmailConfigUnusable(Exception):
@@ -203,8 +215,6 @@ def _checked(config: ResolvedEmailConfig) -> ResolvedEmailConfig:
     are dropped or spam-foldered, and account recovery silently stops working.
     Failing loudly is strictly better than delivering undeliverable mail.
     """
-    if config.source == "database" and smtp_host_refused(config.host):
-        raise EmailConfigUnusable(ERROR_CONFIG_UNUSABLE, SMTP_HOST_NOT_ALLOWED_DETAIL)
     if sender_is_placeholder(config.from_email):
         raise EmailConfigUnusable(
             ERROR_CONFIG_UNUSABLE,
@@ -322,9 +332,18 @@ def build_smtp_backend(config: ResolvedEmailConfig, **kwargs) -> SMTPEmailBacken
 
     Every real SMTP send funnels through here, which is why the placeholder
     sender check lives at this point rather than during resolution.
+
+    A database-stored mail host is checked here (#1878), and the connection
+    goes to the addresses that were checked. The environment configuration is
+    the operator's own and is built exactly as before.
     """
+    vetted = None
+    if config.source == "database":
+        refused, vetted = _vet_smtp_host(config.host)
+        if refused:
+            raise EmailConfigUnusable(ERROR_CONFIG_UNUSABLE, SMTP_HOST_NOT_ALLOWED_DETAIL)
     config = _checked(config)
-    return SMTPEmailBackend(
+    params = dict(
         host=config.host,
         port=config.port,
         username=config.username or None,
@@ -334,6 +353,71 @@ def build_smtp_backend(config: ResolvedEmailConfig, **kwargs) -> SMTPEmailBacken
         timeout=config.timeout,
         **kwargs,
     )
+    if vetted is None:
+        return SMTPEmailBackend(**params)
+    return VettedAddressSMTPBackend(vetted_addresses=vetted, **params)
+
+
+class _VettedAddressSMTP(smtplib.SMTP):
+    """``smtplib.SMTP`` that opens its TCP connection to checked addresses.
+
+    Only the socket connect changes. The host name passed in stays
+    ``self._host``, which ``starttls`` (and ``SMTP_SSL`` below) give to
+    ``wrap_socket`` as ``server_hostname``, so the server name sent and the
+    certificate check use the host name, never the address.
+    """
+
+    def __init__(self, *args, vetted_addresses=(), **kwargs):
+        self._vetted_addresses = tuple(vetted_addresses)
+        super().__init__(*args, **kwargs)
+
+    def _get_socket(self, host, port, timeout):
+        if timeout is not None and not timeout:
+            raise ValueError("Non-blocking socket (timeout=0) is not supported")
+        # Every address was checked and passed, so each is as good as the
+        # others. Trying them in resolver order, as socket.create_connection
+        # does for a name, keeps a dual-stack relay working when one family
+        # is unreachable from this server.
+        last_error = None
+        for address in self._vetted_addresses:
+            try:
+                return socket.create_connection((str(address), port), timeout, self.source_address)
+            except OSError as exc:
+                last_error = exc
+        if last_error is not None:
+            raise last_error
+        # The name did not resolve when it was checked. Fail the same way a
+        # lookup failure does instead of resolving it again here.
+        raise socket.gaierror(socket.EAI_NONAME, "mail host did not resolve")
+
+
+class _VettedAddressSMTPSSL(smtplib.SMTP_SSL, _VettedAddressSMTP):
+    """Implicit-TLS variant: ``SMTP_SSL._get_socket`` wraps the socket that
+    ``_VettedAddressSMTP._get_socket`` opens, with ``server_hostname`` set to
+    the host name."""
+
+    def __init__(self, *args, vetted_addresses=(), **kwargs):
+        # SMTP_SSL.__init__ calls SMTP.__init__ directly (it connects), so the
+        # addresses are set before it runs.
+        self._vetted_addresses = tuple(vetted_addresses)
+        super().__init__(*args, **kwargs)
+
+
+class VettedAddressSMTPBackend(SMTPEmailBackend):
+    """Django's SMTP backend, connecting to the checked addresses (#1878).
+
+    Everything else (TLS, ``ssl_context`` with its certificate settings, login,
+    timeouts, ``local_hostname``) is Django's own.
+    """
+
+    def __init__(self, *args, vetted_addresses=(), **kwargs):
+        self.vetted_addresses = tuple(vetted_addresses)
+        super().__init__(*args, **kwargs)
+
+    @property
+    def connection_class(self):
+        cls = _VettedAddressSMTPSSL if self.use_ssl else _VettedAddressSMTP
+        return functools.partial(cls, vetted_addresses=self.vetted_addresses)
 
 
 def classify_smtp_error(exc: BaseException) -> str:
