@@ -90,10 +90,9 @@ class BoardMemberRoleFloorTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(self._role(self.group_admin), "admin")
 
-    def test_lower_row_kept_after_group_promotion_and_removable_by_another_group_admin(self):
-        # The lower row is stored while the user is an ordinary group member,
-        # then the group role is raised. Nothing deletes the row on its own,
-        # and a different group admin can remove it.
+    def test_stored_row_survives_group_role_change_and_is_removable(self):
+        # A stored row is kept when the user's group role changes later, and
+        # another group admin can remove it to return the user to the group role.
         row = BoardMembership.objects.create(
             board=self.board, user=self.group_member, role=BoardMembership.Role.VIEWER
         )
@@ -131,6 +130,53 @@ class BoardMemberRoleFloorTests(TestCase):
             [orig.pk],
         )
         self.assertEqual(self._events(), before)
+
+    def test_row_written_while_waiting_keeps_the_floor(self):
+        # A row the request did not see is judged when the board lock is held.
+        # Two starting points: no row yet (the user becomes a group admin and
+        # gets an admin row meanwhile), and a stored row named unchanged.
+        real = board_views.lock_board_row_or_404
+
+        def promote_then_lock(*args, **kwargs):
+            GroupMembership.objects.filter(group=self.group, user=self.group_member).update(
+                role=GroupMembership.Role.ADMIN
+            )
+            BoardMembership.objects.create(
+                board=self.board, user=self.group_member, role=BoardMembership.Role.ADMIN
+            )
+            return real(*args, **kwargs)
+
+        def raise_row_then_lock(*args, **kwargs):
+            BoardMembership.objects.filter(board=self.board, user=self.group_admin).update(
+                role=BoardMembership.Role.ADMIN
+            )
+            return real(*args, **kwargs)
+
+        BoardMembership.objects.create(board=self.board, user=self.group_admin, role=BoardMembership.Role.VIEWER)
+        for user, side_effect in ((self.group_member, promote_then_lock), (self.group_admin, raise_row_then_lock)):
+            with self.subTest(user=user.username):
+                before = self._events()
+                with mock.patch.object(board_views, "lock_board_row_or_404", side_effect=side_effect):
+                    r = self._post(user, role="viewer")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+                self.assertEqual(r.json()["code"], GROUP_ADMIN_FLOOR_CODE)
+                self.assertEqual(BoardMembership.objects.get(board=self.board, user=user).role, "admin")
+                self.assertEqual(self._events(), before)
+
+    def test_site_admin_target_keeps_the_group_role(self):
+        # A board admin who is not a site admin adds a site admin with a lower
+        # role. The stored role is the one the group gives, so it still holds
+        # if all-content access is later removed.
+        for user, expected in ((self.group_admin, "admin"), (self.group_member, "member")):
+            with self.subTest(user=user.username):
+                user.is_site_admin = True
+                user.can_access_all_content = True
+                user.save()
+                r = self._post(user, role="viewer")
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.content)
+                self.assertEqual(BoardMembership.objects.get(board=self.board, user=user).role, expected)
+                User.objects.filter(pk=user.pk).update(can_access_all_content=False)
+                self.assertEqual(self._role(User.objects.get(pk=user.pk)), expected)
 
     def test_group_member_can_still_get_an_explicit_lower_role(self):
         r = self._post(self.group_member, role="viewer")

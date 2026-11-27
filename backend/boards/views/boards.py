@@ -106,9 +106,8 @@ _BOARD_OWNER_REFUSED_CODE_HELP = (
 )
 
 
-# An explicit row outranks the group-derived role, so one below ``admin`` would
-# lower a group admin's access and a board admin could not be told apart from
-# the user it was written for (#1942). ``code`` is part of the public
+# A stored board role is never lower than the admin role a user's group
+# already gives them on the board (#1942). ``code`` is part of the public
 # ``{detail, code}`` 400 contract; ``detail`` is prose and may be reworded.
 GROUP_ADMIN_FLOOR_CODE = "group_admin_role_floor"
 GROUP_ADMIN_FLOOR_MESSAGE = (
@@ -1814,6 +1813,10 @@ class BoardViewSet(
             and not request.user.is_site_admin
         ):
             current = get_board_role(target_user, board)
+            if current == SITE_ADMIN:
+                # All-content access is not a board role and can be revoked
+                # later, so the stored role keeps the one the group gives.
+                current = group_derived_board_role(target_user, board)
             order = [
                 BoardMembership.Role.VIEWER,
                 BoardMembership.Role.COLLABORATOR,
