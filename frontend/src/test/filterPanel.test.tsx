@@ -760,6 +760,7 @@ describe('FilterPanel search (#2437)', () => {
           ...b.swimlane_custom_field_definitions,
           { id: 52, uid: 'c', name: 'Approved lane', field_type: 'checkbox', choices: [], position: 2, show_on_row: false, is_admin_only: false, is_required: false, help_text: '', band_visibility: 'band' },
           { id: 53, uid: 'd', name: 'Regions', field_type: 'multi_select', choices: ['X'], position: 3, show_on_row: false, is_admin_only: false, is_required: false, help_text: '', band_visibility: 'band' },
+          { id: 54, uid: 'e', name: 'Renewal', field_type: 'date', choices: [], position: 4, show_on_row: false, is_admin_only: false, is_required: false, help_text: '', band_visibility: 'band' },
         ],
       } as never
     }
@@ -801,7 +802,7 @@ describe('FilterPanel search (#2437)', () => {
       expect(row).not.toHaveTextContent('true')
     })
 
-    it('the Title contains count uses the applied search predicate (description matches count)', async () => {
+    it('the Title contains count includes description matches', async () => {
       const u = userEvent.setup()
       const b = boardWith() as unknown as { cards: Record<string, unknown>[] }
       const board = { ...b, cards: [b.cards[0], b.cards[1], { ...b.cards[2], title: 'Other', description: 'about pricing' }] } as never
@@ -809,6 +810,40 @@ describe('FilterPanel search (#2437)', () => {
       await open(u)
       await u.type(box(), 'pri')
       expect(screen.getByRole('button', { name: /Title contains/ })).toHaveTextContent('3 cards')
+    })
+
+    it('the Title contains count does not count a card matched only by a label name', async () => {
+      const u = userEvent.setup()
+      const b = boardWith() as unknown as { cards: Record<string, unknown>[] }
+      const board = { ...b, cards: [b.cards[0], { ...b.cards[1], title: 'Other', labels: [{ id: 9, name: 'pricing', color: '#000' }] }, b.cards[2]] } as never
+      setup({ board })
+      await open(u)
+      await u.type(box(), 'pric')
+      expect(screen.getByRole('button', { name: /Title contains/ })).toHaveTextContent('1 card')
+      expect(screen.getByRole('button', { name: /Title contains/ })).not.toHaveTextContent('2 cards')
+    })
+
+    it('a date between lane rule row shows the formatted dates, as its chip does', async () => {
+      const u = userEvent.setup()
+      const filters = { ...EMPTY_FILTER, laneFilter: { items: [{ kind: 'rule', id: 1, join: 'and', field: 54, op: 'between', min: '2026-01-02', max: '2026-02-03' }] } } as unknown as FilterState
+      setup({ board: boardWith(), filters })
+      await open(u)
+      await u.type(box(), 'renewal')
+      const row = screen.getByRole('button', { name: /Swimlane.*Renewal/ })
+      expect(row).toHaveTextContent('01/02/2026 to 02/03/2026')
+      expect(row).not.toHaveTextContent('2026-01-02')
+    })
+
+    it('an incomplete lane rule leaves its field row reading Any', async () => {
+      const u = userEvent.setup()
+      const filters = { ...EMPTY_FILTER, laneFilter: { items: [{ kind: 'rule', id: 1, join: 'and', field: 54, op: 'between' }, { kind: 'rule', id: 2, join: 'and', field: 50, op: 'is', value: '' }] } } as unknown as FilterState
+      setup({ board: boardWith(), filters })
+      await open(u)
+      await u.type(box(), 'renewal')
+      expect(screen.getByRole('button', { name: /Swimlane.*Renewal/ })).toHaveTextContent('Any')
+      await u.clear(box())
+      await u.type(box(), 'tier')
+      expect(screen.getByRole('button', { name: /Swimlane.*Tier/ })).toHaveTextContent('Any')
     })
 
     it('selecting a lane field row opens that field and Enter on a name hit passes it too', async () => {

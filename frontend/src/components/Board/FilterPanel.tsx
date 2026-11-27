@@ -8,7 +8,7 @@ import { parentFilterAvailable, parentFilterLabel, parentFilterOptions, parentLa
 import { plannedFilterAvailable, plannedFilterLabel, type PlannedFilter } from "../../utils/plannedFilter";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue, CUSTOM_FIELD_TYPE_LABEL } from "../../utils/customFieldValue";
 import { choiceColorBase } from "../../constants/choiceColors";
-import { isLaneBuiltinField, type LaneFieldKey, isLaneFilterActive, laneFilterAvailable, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
+import { isLaneBuiltinField, laneValueLabel, type LaneFieldKey, isLaneFilterActive, laneFilterAvailable, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
 import Tooltip from "../Common/Tooltip";
 import ActiveMark from "../Common/ActiveMark";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
@@ -20,7 +20,7 @@ import { DEFAULT_LANE_DETAILS_CAP } from "../../utils/laneBand";
 import { applyValueHit, matchRange, searchFields, type SearchScope, type ValueHit, type NameHit } from "../../utils/filterFieldSearch";
 import { isImeComposing } from "../../utils/imeComposition";
 import { removeLaneItem, laneFilterChipItems } from "../../utils/laneFilter";
-import { cardMatchesSearch } from "../../utils/filterCards";
+import { isRuleComplete, type RuleFieldType } from "../../utils/fieldRules";
 import FilterChip from "./FilterChip";
 import NumberFilterEditor from "./NumberFilterEditor";
 import { numberFilterDisplay } from "../../utils/numberFilter";
@@ -388,15 +388,24 @@ export default function FilterPanel({
     : rows;
   const laneNameHits = needle && showNames ? result.names.filter((h) => h.scope === "lane" && !isLaneBuiltinField(h.fieldId)) : [];
   const valueHits = result.values;
+  const laneValueFmt = useMemo(
+    () => makeLaneValueFormatter(board.swimlane_custom_field_definitions, userDateFormat),
+    [board.swimlane_custom_field_definitions, userDateFormat],
+  );
   const laneHitValue = (h: NameHit): string | null => {
-    const vals = (filters.laneFilter?.items ?? []).flatMap((it) => (it.kind === "rule" ? [it] : it.rules)).filter((r) => r.field === h.fieldId)
-      .map((r) => (r.op === "between" ? [r.min, r.max].filter(Boolean).join(" to ") : h.fieldType === "checkbox" ? (r.value === "true" ? "Yes" : r.value === "false" ? "No" : r.value ?? "") : r.value ?? ""));
+    const def = laneFields.find((f) => f.id === h.fieldId);
+    if (!def) return null;
+    const show = (raw: string) => (h.fieldType === "checkbox" ? (raw === "true" ? "Yes" : raw === "false" ? "No" : raw) : laneValueLabel(def, raw, laneValueFmt));
+    // An incomplete rule (an auto-added one with no value yet) filters nothing, so the row reads "Any".
+    const vals = (filters.laneFilter?.items ?? []).flatMap((it) => (it.kind === "rule" ? [it] : it.rules))
+      .filter((r) => r.field === h.fieldId && isRuleComplete(r, h.fieldType as RuleFieldType))
+      .map((r) => (r.op === "between" ? [r.min, r.max].filter(Boolean).map((x) => show(x as string)).join(" to ") : show(r.value ?? "")));
     return vals.length ? vals.join(", ") : null;
   };
   const titleCount = useMemo(() => {
-    // The applied search (filters.search) matches more than the title; count with the same predicate.
-    const q = result.titleQuery ?? "";
-    return q ? board.cards.filter((c) => cardMatchesSearch(c, q)).length : 0;
+    // Counts what the search matches server-side: card title or description (not assignee or labels).
+    const q = (result.titleQuery ?? "").toLowerCase();
+    return q ? board.cards.filter((c) => c.title.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)).length : 0;
   }, [result.titleQuery, board.cards]);
   const addTitle = () => onChange({ ...filters, search: query.trim() });
   const addValue = (h: ValueHit) => { onChange(applyValueHit(filters, h)); };

@@ -2594,9 +2594,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     setLanePreselect(typeof fieldId === "number" || typeof fieldId === "string" ? fieldId : null);
     setShowFilters(true);
     setTimeout(() => {
-      lanesTriggerRef.current?.click();
-      // The request lives for one open attempt: a missing trigger or a no-op click must not leave it for the next plain Lanes open.
-      setLanePreselect(null);
+      // The request is cleared by the popover's onPreselectConsumed once it has opened. It must not be
+      // cleared here: that update would batch with the click's open and the popover would mount without
+      // it. Only a missing trigger (nothing will consume it) clears it now.
+      if (lanesTriggerRef.current) lanesTriggerRef.current.click();
+      else setLanePreselect(null);
     }, 0);
   }, []);
 

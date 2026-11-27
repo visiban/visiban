@@ -112,8 +112,8 @@ export function pruneStaleFilters(
 
 /**
  * The client-side search predicate: title, description, assignee name and label
- * names. Shared with the Filter panel's "Title contains" count so the number
- * shown is the number of cards the applied search will show (#2660).
+ * names, used by `filterCards`. The Filter panel's "Title contains" count does
+ * not use it: it counts title and description, like the server search.
  */
 export function cardMatchesSearch(card: Card, search: string): boolean {
   const q = search.toLowerCase();

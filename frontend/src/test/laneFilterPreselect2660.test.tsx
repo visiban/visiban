@@ -5,7 +5,7 @@ import FilterBar, { EMPTY_FILTER } from '../components/Board/FilterBar'
 import { LaneFilterControl } from '../components/Board/LaneFilterPopover'
 import { isRuleComplete } from '../utils/fieldRules'
 import type { LaneFilter } from '../utils/laneFilter'
-import { LANE_FILTER_MAX_ITEMS } from '../utils/laneFilter'
+import { LANE_FILTER_MAX_ITEMS, LANE_FILTER_MAX_RULES } from '../utils/laneFilter'
 
 const fields = [
   { id: 50, uid: 'a', name: 'Tier', field_type: 'dropdown', choices: ['gold', 'silver'], position: 0, show_on_row: false, is_admin_only: false, is_required: false, help_text: '', band_visibility: 'band' },
@@ -75,6 +75,30 @@ describe('Lanes popover preselect (#2660)', () => {
     screen.getByRole('button', { name: /Lanes/ }).click()
     const dialog = await screen.findByRole('dialog')
     await waitFor(() => expect(dialog.querySelector('[data-lane-row="1"] button')).toBe(document.activeElement))
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('with two existing rules, preselecting the second field focuses the second rule', async () => {
+    const items = [
+      { kind: 'rule', id: 1, join: 'and', field: 50, op: 'is', value: 'gold' },
+      { kind: 'rule', id: 2, join: 'and', field: 51, op: 'is', value: 'EMEA' },
+    ]
+    const { onChange } = mount({ items } as unknown as LaneFilter, 51)
+    screen.getByRole('button', { name: /Lanes/ }).click()
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(dialog.querySelector('[data-lane-row="2"] button')).toBe(document.activeElement))
+    expect(dialog.querySelector('[data-lane-row="1"] button')).not.toBe(document.activeElement)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('at the group rule limit adds no rule and focuses the first item', async () => {
+    const rules = Array.from({ length: LANE_FILTER_MAX_RULES }, (_, i) => ({ kind: 'rule', id: i + 2, join: 'and', field: 51, op: 'is', value: 'EMEA' }))
+    // Two items (a group holding every rule, plus one): under the item cap but at the rule cap.
+    const items = [{ kind: 'group', id: 1, join: 'and', rules }]
+    const { onChange } = mount({ items } as unknown as LaneFilter, 50)
+    screen.getByRole('button', { name: /Lanes/ }).click()
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(dialog.querySelector('[data-lane-row="2"] button')).toBe(document.activeElement))
     expect(onChange).not.toHaveBeenCalled()
   })
 
