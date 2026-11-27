@@ -170,8 +170,8 @@ Rules:
   line per gate".** When its round-2 full audit ran (see
   `.claude/agents/completeness-check.md` § Round 2), round 2 gets its own line under the
   same gate name with `round 2` first in the parenthetical:
-  `- gate: completeness-check — 2 findings (round 2; opus; causes: class-missed 2; overlap 1/3)`.
-  Round 1's line carries `causes: <tally>` too. Do not invent a `completeness-check-r2`
+  `- gate: completeness-check — 2 findings (round 2; opus; blocking 1; causes: class-missed 2; overlap 1/3)`.
+  Round 1's line carries `blocking <k>` and `causes: <tally>` too. Do not invent a `completeness-check-r2`
   name — it resolves to no agent and would be a phantom gate; the ledger parser
   (`scripts/kaizen_gate_ledger.py`) splits the two rounds by the marker and reports round 2
   as `completeness-check:r2`. Round 2 replaces fix-diff, so the fix-diff line is `n/a`.

@@ -529,7 +529,7 @@ Every agent finishes by, in order:
    than piping it through `tail` — the pipe swallows the diagnostic, and an OOM kill then
    reads as a bare exit code.
 4. **Commit and stop — do not push yet.** Report the commit SHA, the pre-MR
-   gate ledger, the model and effort it passed to each gate agent, and how many of its gates
+   gate ledger (each gate's `blocking <k>` included), the model and effort it passed to each gate agent, and how many of its gates
    hit a budget, to the orchestrator. The orchestrator then spawns
    `Agent(subagent_type: "completeness-check")` (`.claude/agents/completeness-check.md`)
    on the unpushed branch — a fresh agent that did not write it, model per its own

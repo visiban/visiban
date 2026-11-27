@@ -69,7 +69,7 @@ File paths such as `--input` must resolve under the repo, cwd, or temp dir — s
 
 ### Parser grammar — looser than `.claude/skills/mr/SKILL.md` documents
 
-The `mr` skill's canonical line is `gate: <name> — <N> findings`. Real MRs
+The `mr` skill's canonical line is `gate: <name> — <N> findings (<model>; blocking <k>)`. Real MRs
 also use: en/em/plain dashes with variable spacing (including the
 fixed-width-aligned form inside a fenced code block), singular "finding",
 bare `n/a` with no parenthetical, and non-numeric "deliverable" outcomes

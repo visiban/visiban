@@ -148,6 +148,13 @@ Example:
 └──────────────────────────────────────────┘
 ```
 
+### Flag open questions
+
+End the proposal by marking each open question as:
+- 🔴 **Blocking** — a decision that must be made before implementation can start
+- 🟡 **Important** — should be resolved before merging
+- 🟢 **Deferred** — acceptable to log as a follow-up
+
 **Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 Blocking open questions it raised (0 if none), so it lands in the MR's `## Gates` line.
 
 ## Tone
