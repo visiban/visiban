@@ -5,9 +5,13 @@ enterprise extension-point contracts (#1009) and should not absorb MCP SDK
 churn. All of the SDK-mounting mechanics live here (#511).
 """
 import asyncio
+import contextvars
+import functools
 import logging
 
+from asgiref.sync import SyncToAsync, ThreadSensitiveContext, sync_to_async
 from django.conf import settings
+from django.db import connections
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +150,141 @@ class MCPCorsMiddleware:
         await send({"type": "http.response.body", "body": b""})
 
 
+def _close_request_connections():
+    """Close every DB connection the current (per-request) thread opened."""
+    connections.close_all()
+
+
+class _RequestState:
+    """Whether the ``/mcp`` request that started this work has ended."""
+
+    __slots__ = ("finished",)
+
+    def __init__(self):
+        self.finished = False
+
+
+# Bound by MCPRequestThreadMiddleware for the life of one request. Work the
+# MCP SDK dispatches for that request copies the context, so it sees the
+# same object, including after the request has ended.
+_request_state: contextvars.ContextVar = contextvars.ContextVar(
+    "mcp_request_state", default=None
+)
+
+
+def _run_and_close_connections(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        connections.close_all()
+
+
+def request_sync_to_async(fn):
+    """Run sync ``fn`` off the event loop for the in-flight ``/mcp`` request.
+
+    Every MCP sync call (auth, throttle, maintenance check, tool) goes
+    through this rather than ``sync_to_async`` directly (#2586). While the
+    request is in progress it is exactly
+    ``sync_to_async(fn, thread_sensitive=True)``, so the request's calls
+    share its own thread and that thread's connection, which
+    :class:`MCPRequestThreadMiddleware` closes when the request ends.
+
+    The MCP SDK can still run part of a request's work after the request
+    has ended (it finishes dispatched work in its own task group). Such a
+    call has no request thread left to use, so it runs on the default
+    executor and closes its own connections when it returns, the way
+    Channels' ``database_sync_to_async`` does. Routing it to the request's
+    context instead would start an executor that nothing shuts down.
+
+    With no request bound (a tool called directly, as in tests) it is plain
+    ``sync_to_async(fn, thread_sensitive=True)``.
+    """
+    @functools.wraps(fn)
+    async def call(*args, **kwargs):
+        state = _request_state.get()
+        if state is None or not state.finished:
+            return await sync_to_async(fn, thread_sensitive=True)(*args, **kwargs)
+        return await sync_to_async(_run_and_close_connections, thread_sensitive=False)(
+            fn, *args, **kwargs
+        )
+    return call
+
+
+class MCPRequestThreadMiddleware:
+    """Run one ``/mcp`` request's sync work on an executor of its own (#2586).
+
+    Django's ``ASGIHandler`` wraps every HTTP request in
+    ``asgiref.sync.ThreadSensitiveContext``, so the request's
+    ``sync_to_async(thread_sensitive=True)`` calls share one thread that
+    belongs to that request alone. ``/mcp`` is routed in front of that
+    handler (see ``McpPathRouter``), so it does the same here, consistent
+    with other HTTP requests. The auth, throttle and tool calls of one
+    request share one thread, so a transaction and its connection stay
+    together.
+
+    Concurrency: the thread is created on the request's first sync call and
+    shut down when the request ends, so there is at most one per in-flight
+    ``/mcp`` request. That is the model Django applies to every other HTTP
+    request: the thread count follows the number of in-flight requests.
+    Failed authentication attempts per IP are limited by #1679, authenticated
+    request rates by the per-token throttles (#1177) and heavy analytics work
+    by the #2428 gate. With ``DATABASE_POOL`` on, database connections are
+    capped by the pool's ``max_size`` (#1958); a thread waiting on a full
+    pool still holds its thread until the pool's timeout.
+
+    Connection cleanup: Django closes a request's connections from its
+    ``request_finished`` signal. The thread here is discarded when the
+    request ends, so any connection it opened is closed on that thread
+    before it goes, whatever ``CONN_MAX_AGE`` is. When the sync work ran on
+    some other thread instead (an outer ``async_to_sync`` caller, as in the
+    test suite, or an enclosing context that owns the executor), that
+    thread's owner manages its connections and nothing is closed here.
+
+    Work after the request: the request is marked finished before its
+    connections are closed, so a call made through
+    :func:`request_sync_to_async` either was queued on this thread before
+    the close (and the close follows it) or sees the mark and closes its own
+    connections on another thread.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        async with ThreadSensitiveContext() as request_context:
+            state = _RequestState()
+            state_token = _request_state.set(state)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                # Set before the close below is queued; see the class docstring.
+                state.finished = True
+                try:
+                    # Only this context's own executor is cleaned up. The dict
+                    # is asgiref's map from a ThreadSensitiveContext to the
+                    # executor it created; no entry means no thread of ours
+                    # ran sync work.
+                    if SyncToAsync.context_to_thread_executor.get(request_context) is not None:
+                        await self._close_connections()
+                finally:
+                    _request_state.reset(state_token)
+
+    @staticmethod
+    async def _close_connections():
+        # Shielded so a second cancellation cannot drop the close: the call
+        # is queued on this context's executor, whose shutdown on context
+        # exit waits for it. Plain sync_to_async, not request_sync_to_async:
+        # the request is already marked finished, and this close must run on
+        # the request's own thread. A failure is logged rather than raised so it
+        # never replaces the request's own exception.
+        try:
+            await asyncio.shield(
+                sync_to_async(_close_request_connections, thread_sensitive=True)()
+            )
+        except Exception:
+            logger.exception("Closing MCP request database connections failed")
+
+
 class _LazySessionManagerApp:
     """Start the MCP session manager on first request, then delegate.
 
@@ -216,7 +355,12 @@ class _LazySessionManagerApp:
                     ready.set()
 
             self._app = app
-            self._task = asyncio.ensure_future(_run())
+            # An empty context, not a copy of this request's: the supervisor
+            # outlives the request, so it must not carry the request's
+            # ThreadSensitiveContext (#2586) or its caller identity.
+            self._task = asyncio.get_running_loop().create_task(
+                _run(), context=contextvars.Context()
+            )
             self._ready = ready
             self._loop = asyncio.get_running_loop()
         await self._ready.wait()
@@ -236,6 +380,8 @@ def build_mcp_asgi_app():
     ``MCPCorsMiddleware`` wraps ``BearerAuthMiddleware`` from the outside —
     see its own docstring for why the order cannot be reversed (a preflight
     carries no Authorization header, so authentication must not run first).
+    ``MCPRequestThreadMiddleware`` is outermost so the auth, throttle and
+    tool work of one request all run inside its executor context (#2586).
     """
     from .auth import BearerAuthMiddleware
     from .server import _build_transport_security, build_mcp_server
@@ -255,7 +401,9 @@ def build_mcp_asgi_app():
         )
         return app, mcp.session_manager
 
-    return MCPCorsMiddleware(BearerAuthMiddleware(_LazySessionManagerApp(_factory)))
+    return MCPRequestThreadMiddleware(
+        MCPCorsMiddleware(BearerAuthMiddleware(_LazySessionManagerApp(_factory)))
+    )
 
 
 class McpPathRouter:

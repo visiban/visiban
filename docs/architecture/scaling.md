@@ -101,7 +101,7 @@ PostgreSQL holds all persistent state: boards, cards, movements, memberships, co
 
 **What limits it:** write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via `CardMovement`). Reads are less of a concern: query budgets are tight (≤ 20 queries for full board load, 3 more when cards carry parent/child links: the parent-board role batch and the sibling count) and the ORM uses `select_related`/`prefetch_related` throughout.
 
-**Connection count:** by default each HTTP request opens and closes its own PostgreSQL connection (`CONN_MAX_AGE` is unset); connections are not held between requests. Peak usage is therefore roughly the number of requests in flight at once. WebSocket consumers add little: Channels runs their database work on one thread per process, so it is serialized. PostgreSQL's default `max_connections = 100` suits small deployments; large ones should add pgBouncer.
+**Connection count:** by default each HTTP request opens and closes its own PostgreSQL connection (`CONN_MAX_AGE` is unset); connections are not held between requests. Peak usage is therefore roughly the number of requests in flight at once. WebSocket consumers add little: Channels runs their database work on one thread per process, so it is serialized. MCP requests count like any other HTTP request: each runs its database work on a thread of its own and, when it ends, closes its connection (or, with `DATABASE_POOL`, returns it to the pool) (#2586). PostgreSQL's default `max_connections = 100` suits small deployments; large ones should add pgBouncer.
 
 > **Added in 1.3** (#1958).
 

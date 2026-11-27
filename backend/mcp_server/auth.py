@@ -11,8 +11,6 @@ frame is parsed, keeping the pre-auth attack surface to header inspection only.
 import json
 import logging
 
-from asgiref.sync import sync_to_async
-
 from accounts.authentication import (
     InvalidPersonalAccessToken,
     enforce_mcp_scope,
@@ -22,6 +20,7 @@ from accounts.authentication import (
 
 from visiban.authorization import account_state_denial
 
+from .asgi_mount import request_sync_to_async
 from .throttling import ERROR_CODE_THROTTLED, preauth_limiter
 
 from .context import (
@@ -169,9 +168,7 @@ class BearerAuthMiddleware:
         # failed lookups BEFORE touching the database (#1679). The PAT-keyed
         # buckets cannot do this because they need a resolved token.
         client_ip = preauth_limiter.client_ip(scope)
-        retry_after = await sync_to_async(
-            preauth_limiter.blocked, thread_sensitive=True
-        )(client_ip)
+        retry_after = await request_sync_to_async(preauth_limiter.blocked)(client_ip)
         if retry_after is not None:
             logger.warning("Rejected MCP request: pre-auth failure limit reached")
             await _send_json_error(
@@ -182,22 +179,19 @@ class BearerAuthMiddleware:
 
         try:
             # One hop, not three: the lookup and the usage write both touch the
-            # ORM and so must leave the event loop, and thread_sensitive=True
-            # pins them to the single sync worker thread that shares Django's
+            # ORM and so must leave the event loop, and request_sync_to_async
+            # pins them to this request's sync worker thread (see
+            # asgi_mount.MCPRequestThreadMiddleware), which shares Django's
             # per-thread DB connection. Dispatching them separately would pay
             # the scheduling cost twice per request for no benefit, so the whole
             # resolve -> authorize -> record sequence goes over together.
-            pat = await sync_to_async(
-                _authenticate_and_authorize, thread_sensitive=True
-            )(raw_token)
+            pat = await request_sync_to_async(_authenticate_and_authorize)(raw_token)
         except InvalidPersonalAccessToken as exc:
             # Never log the token itself, and do not log the username either —
             # this path is reachable by unauthenticated callers.
             logger.warning("Rejected MCP request: %s", exc.detail)
             if getattr(exc, "counts_toward_preauth", False):
-                await sync_to_async(
-                    preauth_limiter.record_failure, thread_sensitive=True
-                )(client_ip)
+                await request_sync_to_async(preauth_limiter.record_failure)(client_ip)
             await _send_json_error(send, 401, exc.detail)
             return
         except AccountStateBlocked as exc:
