@@ -12,6 +12,7 @@ import type { HealthStatus } from "../../constants/healthStatus";
 import { laneHealthAuto, laneHealthFields } from "../../utils/healthStatus";
 import BoardCell from "./BoardCell";
 import type { CardMenuAnchor } from "../Card/CardContextMenu";
+import { inProgressChip } from "../../utils/childrenMode";
 import OverflowMenu from "../Layout/OverflowMenu";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
@@ -68,6 +69,11 @@ interface Props {
   onFocus: (id: number) => void;
   /** Called when the user exits focus mode via the crosshair toggle. */
   onExitFocus: () => void;
+  /**
+   * The Children lane action (#2370 way in 1), on a board where cards can have children: for everyone, it
+   * opens Children mode at this lane. `inProgress` is the server's count, null until it lands.
+   */
+  childrenAction?: { inProgress: number | null; onOpen: () => void };
   /** True when this swimlane is currently the active focus target. */
   isFocused: boolean;
   onHoverEnter?: () => void;
@@ -167,7 +173,7 @@ function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
   return autoEnabled && !!lane.health_computed_at;
 }
 
-export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onManageSwimlaneFields, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, members, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
+export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, childrenAction, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onManageSwimlaneFields, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, members, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -480,7 +486,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               controls keep their space (opacity, never display:none) so nothing shifts on hover. */}
           <button type="button"
             onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
-            className={`relative inline-flex items-center justify-center min-w-6 min-h-6 rounded shrink-0 hover:bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
+            className={`relative inline-flex items-center justify-center min-w-6 min-h-6 [@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:min-h-11 rounded shrink-0 hover:bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
             title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
             // Stable label: aria-pressed carries the state, so a swapped name would announce it twice.
             aria-label={`Focus on ${swimlane.name}`}
@@ -495,6 +501,21 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             </svg>
             <ActiveUnderline active={isFocused} placement="below" />
           </button>
+          {childrenAction && (
+            // Visible text leads the name (WCAG 2.5.3); the lane name tells the bands' buttons apart.
+            <button
+              type="button"
+              onClick={childrenAction.onOpen}
+              aria-label={`Children${childrenAction.inProgress != null ? ` ${inProgressChip(childrenAction.inProgress)}` : ""}, ${swimlane.name}`}
+              data-testid="lane-children-action"
+              className="inline-flex items-center gap-1 min-h-6 [@media(pointer:coarse)]:min-h-11 px-1.5 rounded shrink-0 text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Children
+              {childrenAction.inProgress != null && (
+                <span className="rounded-full bg-surface-active px-1.5 text-xs text-fg">{inProgressChip(childrenAction.inProgress)}</span>
+              )}
+            </button>
+          )}
           {isAdmin && (
             // A portaled menu breaks focus-within, so the open state is held here to keep the trigger visible.
             <span

@@ -22,6 +22,7 @@ vi.mock('../api/cards', () => ({
   moveCard: vi.fn(),
   unlinkCardChild: vi.fn(),
   addChild: vi.fn(),
+  getChildrenView: vi.fn(),
 }))
 vi.mock('../api/boards', () => ({ patchBoard: vi.fn() }))
 
@@ -158,7 +159,8 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     act(() => first.focus())
     await userEvent.keyboard('{ArrowDown}')
     await waitFor(() => expect(screen.getByRole('link', { name: /^Kickoff/ })).toHaveFocus())
-    await userEvent.keyboard('{ArrowRight}')
+    // Right walks through the card's own Move and Unlink first (#2370 roving fix), then to the next column.
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}')
     await waitFor(() => expect(screen.getByRole('link', { name: /^Contract/ })).toHaveFocus())
     await userEvent.keyboard('{ArrowLeft}')
     await waitFor(() => expect(screen.getByRole('link', { name: /^Pen-test/ })).toHaveFocus())
@@ -168,6 +170,31 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     await waitFor(() => expect(screen.getByRole('link', { name: /^Pen-test/ })).toHaveFocus())
     await userEvent.keyboard('{Escape}')
     expect(onExit).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps each card's Move and Unlink inside its one roving stop: arrows reach them, Tab does not (#2370)", async () => {
+    renderTab(state({ data: read(kids) }))
+    const link = screen.getByRole('link', { name: /^Pen-test/ })
+    const move = screen.getByRole('button', { name: 'Move Pen-test scoping call' })
+    const unlink = screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' })
+    for (const b of screen.getAllByRole('button', { name: /^(Move|Unlink child) / })) expect(b).toHaveAttribute('tabindex', '-1')
+    act(() => link.focus())
+    await userEvent.keyboard('{ArrowRight}')
+    expect(move).toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(unlink).toHaveFocus()
+    // The card stays the roving stop while one of its buttons holds focus.
+    expect(link).toHaveAttribute('tabindex', '0')
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}')
+    expect(link).toHaveFocus()
+    // Down from a button acts as from the card link.
+    act(() => move.focus())
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => expect(screen.getByRole('link', { name: /^Kickoff/ })).toHaveFocus())
+    // Tab leaves the card: it never stops on the focused card's Move or Unlink.
+    await userEvent.tab()
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Move Kickoff' }))
+    expect(document.activeElement?.getAttribute('data-child-action')).toBeNull()
   })
 
   it("moves through the child board's move endpoint; an at-limit column is disabled with its reason", async () => {
@@ -183,7 +210,7 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     expect(within(group).getByText('At its limit of 5')).toBeInTheDocument()
     await userEvent.click(within(group).getByRole('radio', { name: 'Done' }))
     await userEvent.click(screen.getByRole('button', { name: 'Move' }))
-    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 102, swimlane_id: 50, position: 4 }, false)
+    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 102, position: 4 }, false)
     await waitFor(() => expect(reload).toHaveBeenCalled())
     expect(screen.getByText('Pen-test scoping call moved to Done. 2 of 3 done.')).toBeInTheDocument()
   })
@@ -616,7 +643,7 @@ describe('Children tab review fixes (#2209)', () => {
     }
   })
 
-  it.each([[840, true], [800, true], [799, false], [500, false]])('lays the columns side by side from a measured 800px container (%ipx: %s)', (px, wide) => {
+  it.each([[1000, true], [880, true], [879, false], [800, false], [500, false]])('lays the columns side by side from a measured 880px container (%ipx: %s)', (px, wide) => {
     const RO = globalThis.ResizeObserver
     globalThis.ResizeObserver = class {
       cb: ResizeObserverCallback
@@ -769,7 +796,7 @@ describe('Children tab remainder (#2209 slice 3)', () => {
     await userEvent.click(screen.getByRole('radio', { name: /^Doing 5 of 5/ }))
     expect(screen.getByText('At its limit of 5 · admin override')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Move' }))
-    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 101, swimlane_id: 50, position: 5 }, true)
+    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 101, position: 5 }, true)
   })
 
   it('shows "Work moved" from the rollup, and nothing without one', () => {
@@ -905,7 +932,7 @@ describe('Children tab assignee override (#1923)', () => {
     expect(await screen.findByText("Couldn't move Mine. Try again.")).toBeInTheDocument()
     expect(screen.getByLabelText('Reason (required)')).toHaveValue('urgent')
     await userEvent.click(screen.getByRole('button', { name: 'Move anyway' }))
-    expect(moveCard).toHaveBeenLastCalledWith(7, 10, { column_id: 101, swimlane_id: 50, position: 5, override_reason: 'urgent' }, true)
+    expect(moveCard).toHaveBeenLastCalledWith(7, 10, { column_id: 101, position: 5, override_reason: 'urgent' }, true)
   })
 
   it('Escape closes the reason box only and returns focus to its trigger', async () => {
@@ -1080,5 +1107,30 @@ describe('Children tab Try again focus (#2575)', () => {
     renderTab(st)
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(screen.getByTestId('card-children-tab')).toHaveFocus()
+  })
+})
+
+describe('CardChildrenTab: All children in the lane (#2370 way in 2)', () => {
+  it('is Tab stop 8, after Movement history, and opens Children mode at the parent lane with its count', async () => {
+    const { getChildrenView } = await import('../api/cards')
+    vi.mocked(getChildrenView).mockResolvedValue({ lanes: [{ id: 3, in_progress: 12, planned: 2 }] } as never)
+    render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lane={{ id: 3, name: 'Acme Corp' }} />)
+    const link = await screen.findByRole('link', { name: 'All children in Acme Corp (12 in progress)' })
+    expect(link).toHaveAttribute('href', '/boards/1?show=children&lane=3')
+    expect(getChildrenView).toHaveBeenCalledWith(1, { lane: 3, countsOnly: true }, expect.anything())
+    const history = screen.getByRole('link', { name: 'Movement history of these children' })
+    expect(history.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps the link without a count when the read fails, and has no link without a lane or children', async () => {
+    const { getChildrenView } = await import('../api/cards')
+    vi.mocked(getChildrenView).mockRejectedValue(new Error('nope'))
+    const { unmount } = render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lane={{ id: 3, name: 'Acme Corp' }} />)
+    expect(await screen.findByRole('link', { name: 'All children in Acme Corp' })).toBeInTheDocument()
+    unmount()
+    vi.mocked(getChildrenView).mockClear()
+    render(<CardChildrenTab board={{ ...parentBoard, cards_can_have_children: false }} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lane={{ id: 3, name: 'Acme Corp' }} />)
+    expect(screen.queryByTestId('all-children-in-lane')).toBeNull()
+    expect(getChildrenView).not.toHaveBeenCalled()
   })
 })

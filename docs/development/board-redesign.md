@@ -74,7 +74,7 @@ Screenshot: `menus.png`.
 
 - **Filter panel:** a "Search fields and values to filter" input, then one row per filterable field showing its current value or "Any" (Assignee, Label, Swimlane, Due date, Last moved, Track state, then each custom field). An active row is tinted and bold. Saved filters are listed at the bottom.
 - **Filter chip row:** "Filtered by", one removable chip per active filter, "Clear all", and "Save filter" at the right.
-- **View menu:** Preset (select), Card density (segmented: Comfortable, Standard, Dense, active member marked with `ActiveMark`), Overlay (select), Swimlanes (Collapse all, Expand all), "Show sub-columns" (checkbox, as the reference draws it; #2388), and an "On the card: <fields> Change" line naming the fields pinned to the card, where Change opens Board settings on Card fields. The Overlay select shows its value ("None"), not its name.
+- **View menu** (in Children mode, #2370, only the Children options render): Preset (select), Card density (segmented: Comfortable, Standard, Dense, active member marked with `ActiveMark`), Overlay (select), Swimlanes (Collapse all, Expand all), "Show sub-columns" (checkbox, as the reference draws it; #2388), and an "On the card: <fields> Change" line naming the fields pinned to the card, where Change opens Board settings on Card fields. The Overlay select shows its value ("None"), not its name.
 
 All three use the existing dropdown primitives and focus containment rules.
 
@@ -113,7 +113,7 @@ A full-width band replaces the left label panel. Left to right:
 
 - collapse toggle (chevron, turns 90° when collapsed, `aria-expanded`);
 - lane color square and lane name (17px, semibold);
-- the lane's health status (the pill when set, the unset icon when not: one slot), then the lane actions beside the name (#2353): **Focus** (everyone) and a `⋮` menu (admins) holding "Edit swimlane…" and "Change field order…". There is no action cluster at the far right;
+- the lane's health status (the pill when set, the unset icon when not: one slot), then the lane actions beside the name (#2353): **Focus** (everyone) and a `⋮` menu (admins) holding "Edit swimlane…" and "Change field order…". Two additions (#2370): **Children** (everyone, on every band of a board where cards can have children, with the lane's in-progress count, "Children 12 in progress"; it opens Children mode at that lane) and **Copy link** (Children mode only; copies `?show=children&lane=<lane id>`). The Children-mode band keeps Focus (it shows only that lane) and the admin `⋮`, in the order Focus, Copy link, `⋮`. There is no action cluster at the far right;
 - the first two lane fields as "Label value";
 - on a legacy board (#2439), an "N fields" toggle (rotating chevron) that opens an aligned definition grid of every field on its own line in the band (#2354);
   on a board whose fields have a Show tier (#2439), the band shows its **Band** fields (at most 2) and the toggle reads "Show N more" / "Hide details" (N = Details + Hidden the viewer may see); open, it shows the Details grid (`LaneFieldGrid`, capped by `Board.lane_details_cap`), a muted "Hidden on band" group labeled with `aria-labelledby`, and the footer "N in details · N hidden on band · Manage swimlane fields" (the link is admin-only). A board whose tiers are all null keeps the #2354 band unchanged. Tiers resolve through `resolveLaneTiers` (`utils/laneBand.ts`), pinned to the backend by `backend/boards/tests/fixtures/lane_field_tiers.json`;

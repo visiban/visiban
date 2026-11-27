@@ -73,3 +73,50 @@ export function parentFilterAvailable(
   if (f !== undefined) return true;
   return !board.cards_can_have_children && board.cards.some((c) => c.parent != null);
 }
+
+/**
+ * The Parent lane filter on a child board (#2370 way in 3): one lane id on a parent board. A card matches when
+ * its own `parent` (#1104) is a parent the viewer can open in that lane, so a hidden parent never matches and the
+ * server is never asked about a lane the viewer cannot see. Combines with the Parent filter (AND).
+ */
+export type ParentLaneFilter = number;
+
+/** A stored, saved or URL lane id, or `undefined` (Any) for anything else. Same bound as the Parent filter. */
+export function sanitizeParentLaneFilter(v: unknown): ParentLaneFilter | undefined {
+  return typeof v === "number" && Number.isInteger(v) && v > 0 && v <= PARENT_FILTER_MAX_ID ? v : undefined;
+}
+
+/** `f_parent_lane` in a board URL: a lane id. */
+export function parseParentLaneFilterParam(raw: string | null): ParentLaneFilter | undefined {
+  return raw !== null && /^\d{1,10}$/.test(raw) ? sanitizeParentLaneFilter(Number(raw)) : undefined;
+}
+
+export function matchesParentLaneFilter(card: Pick<Card, "parent">, f: ParentLaneFilter | undefined): boolean {
+  if (f === undefined) return true;
+  const p = card.parent ?? null;
+  return p !== null && !p.hidden && p.swimlane_id === f;
+}
+
+/**
+ * The lanes the Parent lane row offers: only lanes of parents the viewer can open (so only lanes on parent
+ * boards they can open), read from the cards' own `parent`. Two lanes that share a name carry their board.
+ */
+export function parentLaneFilterOptions(cards: Pick<Card, "parent">[]): { id: number; label: string }[] {
+  const seen = new Map<number, { name: string; board: string }>();
+  for (const c of cards) {
+    const p = c.parent;
+    if (p && !p.hidden && !seen.has(p.swimlane_id)) seen.set(p.swimlane_id, { name: p.swimlane_name, board: p.board_name });
+  }
+  const nameCount = new Map<string, number>();
+  for (const v of seen.values()) nameCount.set(v.name, (nameCount.get(v.name) ?? 0) + 1);
+  return [...seen]
+    .map(([id, v]) => ({ id, name: v.name, label: (nameCount.get(v.name) ?? 0) > 1 ? `${v.name} (${v.board})` : v.name }))
+    .sort((a, b) => a.label.localeCompare(b.label) || a.id - b.id)
+    .map(({ id, label }) => ({ id, label }));
+}
+
+/** The row and chip value. A lane no visible card names still filters, so it reads as active without a name. */
+export function parentLaneFilterLabel(f: ParentLaneFilter | undefined, cards: Pick<Card, "parent">[]): string | null {
+  if (f === undefined) return null;
+  return parentLaneFilterOptions(cards).find((o) => o.id === f)?.label ?? "A lane not shown here";
+}

@@ -1162,6 +1162,8 @@ export interface ChildrenViewTotals {
   blocked: number;
   /** Live children on boards you can't open: a count only. */
   hidden: number;
+  /** Of `total`, children planned for a later parent stage (#2371): their own bucket, never in `in_progress` (#2551). */
+  planned: number;
 }
 
 /** One lane's rollup in Children mode (#2370). States count only children you can open. */
@@ -1178,6 +1180,8 @@ export interface ChildrenViewLane extends ChildrenViewTotals {
   todo: number;
   /** Parents you can open with nothing in progress. */
   folded: number;
+  /** Of `folded`, parents you can open with nothing in progress and at least one planned child (#2550). */
+  planned_only: number;
   /** Most recent move of a child you can open under the lane; null when none. Never reflects hidden children. */
   last_moved_at: string | null;
 }
@@ -1193,6 +1197,10 @@ export interface ChildrenViewChild {
   assignee: BoardUser | null;
   blocked: boolean;
   blocked_at: string | null;
+  /** Since 1.3 (#2370): the manual block's reason; null without a manual block or reason. */
+  blocked_reason: string | null;
+  /** Planned for a later parent stage (#2371); never true for a done or blocked child. */
+  planned: boolean;
 }
 
 /** One parent row in Children mode (#2370). A locked row has a hidden rollup and no children. */
@@ -1208,6 +1216,10 @@ export interface ChildrenViewRow {
   in_progress: number | null;
   /** Nothing in progress; always false for a locked row. */
   folded: boolean;
+  /** Planned children (#2371), never counted in `in_progress`. Null for a locked row. */
+  planned: number | null;
+  /** Nothing in progress and at least one planned child; such a row is also `folded`. Always false for a locked row. */
+  planned_only: boolean;
   /** Null for a locked row. */
   child_board_id: number | null;
   children: ChildrenViewChild[];

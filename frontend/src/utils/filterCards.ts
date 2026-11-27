@@ -7,7 +7,7 @@ import { isOverdue } from "./cardUrgency";
 import { isCardBlocked } from "./blockedState";
 import { matchesStageFilters, type StageFilterContext } from "./stageFilter";
 import { isNumberFilterActive, matchesNumberFilter } from "./numberFilter";
-import { matchesParentFilter } from "./parentFilter";
+import { matchesParentFilter, matchesParentLaneFilter } from "./parentFilter";
 import { activeDueDate } from "./plannedFields";
 import { matchesPlannedFilter } from "./plannedFilter";
 
@@ -37,6 +37,7 @@ export function hasActiveClientFilters(filters: FilterState): boolean {
     (filters.subColumnIds?.length ?? 0) > 0 ||
     (filters.trackStates?.length ?? 0) > 0 ||
     filters.parentFilter !== undefined ||
+    filters.parentLaneFilter !== undefined ||
     filters.plannedFilter !== undefined
   );
 }
@@ -203,6 +204,8 @@ export function filterCards(
 
       // #2209 — the Parent filter, on the card's own `parent` (#1104).
       if (!matchesParentFilter(card, filters.parentFilter)) return false;
+      // #2370 — the Parent lane filter, on the same `parent`.
+      if (!matchesParentLaneFilter(card, filters.parentLaneFilter)) return false;
 
       // #371 — custom field filters, AND-combined with everything above like
       // every other dimension. Equality-only for date; number (#2357) also

@@ -139,7 +139,7 @@ describe('Children tab Move popover (#2550)', () => {
     expect(within(dialog).getByRole('status')).toBeEmptyDOMElement()
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Doing' }))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Move' }))
-    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 101, swimlane_id: 50, position: 1 }, false)
+    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 101, position: 1 }, false)
     await waitFor(() => expect(screen.getByRole('link', { name: /^Proposal readout with Hooli CFO/ })).toHaveFocus())
   })
   it('does not warn for an ordinary child', async () => {

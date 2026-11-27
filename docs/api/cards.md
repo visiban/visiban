@@ -534,7 +534,7 @@ Since 1.3 (#2225), the role is checked before the body's shape: a caller below m
 | Field | Required | Description |
 |---|---|---|
 | `column_id` | ✓ | ID of the destination column (must belong to this board) |
-| `swimlane_id` | ✓ | ID of the destination swimlane (must belong to this board) |
+| `swimlane_id` | | ID of the destination swimlane (must belong to this board). *Optional since 1.3* (#2370): omitted or `null` keeps the card in its current swimlane, read under the move's lock, so a column-only move cannot put back a lane another user just changed. Earlier releases required it and answered `404` without it. |
 | `position` | | Target position within the destination cell (0-based, default: `0`). Out-of-range values are clamped: a negative value places the card first, a value past the last card places it last. A value that is not an integer returns `400` with body `{"detail": "position must be an integer."}` (since 1.2, #1570). |
 | `version` | | Optimistic concurrency token. When provided, the server rejects the move with `409 Conflict` (`code: "version_conflict"`) if the card has been modified since the client last fetched it. Omitting this field disables the OCC check. A move without `version` can still get `409 version_conflict` in one rare case: the card is changed by other writers between the server's read and its row lock on several consecutive attempts (the server re-reads and retries before giving up). Re-fetch and retry. |
 
@@ -1364,6 +1364,8 @@ plans the child again. `200` returns
   Every refusal is `400` keyed `needed_at_column` and names no column.
 - A card with no parent, or a missing key, is `400`. The card's due date is
   kept. A change records a `needed_changed` history row; a no-op records none.
+- **Events:** a change sends `card.parent_changed` `{card_ids}` on this card's board and, since #2370,
+  `card.children_changed` `{parent_id}` on the parent's board. A no-op sends neither.
 
 #### Planned children (since 1.3)
 

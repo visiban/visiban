@@ -14,8 +14,21 @@ title of a child, and never counts toward a lane's done, doing, blocked or
 to-do totals, its ``folded`` count, or the row order's blocked and last-move
 keys: two boards that differ only in the state of children the viewer cannot
 open read identically. Board archive does not exist (#2206 decision F), so
-there is no archived-child-board state. Planned children (#2371) are not
-built; they would add keys, never change these.
+there is no archived-child-board state.
+
+Planned children (#2371, #2550, #2551): a child is planned when
+:func:`card_links.is_planned_state` says so (Needed set, not released, and
+neither blocked nor done: blocked and done beat planned, which beats to do,
+the card's ``children_rollup`` order). A planned child is its own bucket,
+``planned``: it is in ``total`` but never in ``todo``, ``doing``,
+``blocked`` or ``in_progress``, and never feeds ``last_moved_at`` (the #2551
+owner ruling). ``planned_only`` marks a row with nothing in progress and at
+least one planned child; such a row is ``folded`` like an empty one, and a
+lane's ``planned_only`` is the subset of its ``folded`` rows that are planned
+only. Both are computed for visible rows only and never for a locked row, so
+a planned count cannot leak a parent or child the viewer cannot open
+(Rule 19). The client never re-derives "planned": it reads these keys and
+each child's ``planned`` flag.
 """
 
 import base64
@@ -103,11 +116,12 @@ def _empty_lane(lane_id, name, position):
         "parents": 0, "child_boards": 0,
         "total": 0, "in_progress": 0, "done": 0, "doing": 0, "todo": 0, "blocked": 0,
         "hidden": 0, "folded": 0, "last_moved_at": None,
+        "planned": 0, "planned_only": 0,
     }
 
 
 def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_done=False,
-                             page_size=CHILDREN_VIEW_PAGE_SIZE):
+                             counts_only=False, page_size=CHILDREN_VIEW_PAGE_SIZE):
     """The Children mode read of ``board`` for ``user`` (#2370). Computed per viewer.
 
     The caller has authorized ``board`` for ``user`` (any role) and checked
@@ -115,7 +129,10 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
     404) limits the rows, never the lane rollups: a collapsed band still shows
     its total. ``cursor`` is a ``next_cursor`` from the previous page.
     ``include_done`` adds done children to ``rows[].children``; the counts
-    always include them.
+    always include them. ``counts_only`` returns the rollups (``board_total``
+    and ``lanes``) with no page: ``rows`` and ``child_boards`` are empty and
+    ``next_cursor`` is ``null``, so a caller that needs only the counts (the
+    Children lane action) skips the page's five queries (#2370 perf).
 
     A parent is a row when it is live and has at least one live child; its
     rollup reads only the board of its first live link (one child board per
@@ -159,11 +176,13 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
             e = entries[parent_id] = {
                 "id": parent_id, "swimlane_id": lane, "child_board_id": child_board_id,
                 "total": 0, "done": 0, "doing": 0, "todo": 0, "blocked": 0, "last_moved_at": None,
+                "planned": 0,
             }
         e["total"] += 1
         state = card_links.rollup_state(blocked_at, has_blocker, is_done, position, first_position.get(child_board_id))
         if card_links.is_planned_state(state, needed_col, released):
             # Same rule as the card's children_rollup: a planned child is neither to do nor a recent move.
+            e["planned"] += 1
             continue
         e[state] += 1
         if moved is not None and (e["last_moved_at"] is None or moved > e["last_moved_at"]):
@@ -177,7 +196,8 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
         lane = lane_out.get(e["swimlane_id"])
         if not visible:
             # Count only (decision B): no state, time or board for this row.
-            e.update(child_board_id=None, has_blocked=False, folded=False, last_moved_at=None)
+            e.update(child_board_id=None, has_blocked=False, folded=False, last_moved_at=None,
+                     planned=None, planned_only=False)
             if lane is not None:
                 lane["parents"] += 1
                 lane["hidden"] += e["total"]
@@ -185,7 +205,10 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
         # Planned children were skipped above, so this is total - done - planned (#2551 owner ruling).
         e["in_progress"] = e["todo"] + e["doing"] + e["blocked"]
         e["has_blocked"] = e["blocked"] > 0
+        # A row whose open work is all planned has nothing in progress, so it folds (#2370 "Parents whose
+        # only children are planned fold there too"); planned_only names that subset for the fold label.
         e["folded"] = e["in_progress"] == 0
+        e["planned_only"] = e["in_progress"] == 0 and e["planned"] > 0
         if lane is None:
             continue
         lane["parents"] += 1
@@ -194,6 +217,8 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
             lane[k] += e[k]
         lane["in_progress"] += e["in_progress"]
         lane["folded"] += 1 if e["folded"] else 0
+        lane["planned"] += e["planned"]
+        lane["planned_only"] += 1 if e["planned_only"] else 0
         # Visible rows only: a hidden child's move must never reach the lane
         # (a locked row's last_moved_at was already cleared above).
         moved = e["last_moved_at"]
@@ -202,7 +227,7 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
     for pk, lane in lane_out.items():
         lane["child_boards"] = len(lane_boards[pk])
 
-    after = decode_cursor(cursor) if cursor is not None else None
+    after = decode_cursor(cursor) if cursor is not None and not counts_only else None
     ordered = sorted(
         (
             (_sort_key(e, lane_order), e) for e in entries.values()
@@ -212,8 +237,8 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
     )
     if after is not None:
         ordered = [pair for pair in ordered if pair[0] > after]
-    page = ordered[:page_size]
-    next_cursor = encode_cursor(page[-1][0]) if len(ordered) > page_size else None
+    page = [] if counts_only else ordered[:page_size]
+    next_cursor = encode_cursor(page[-1][0]) if page and len(ordered) > page_size else None
     lane_list = list(lane_out.values())
     for lane in lane_list:
         moved = lane["last_moved_at"]
@@ -224,6 +249,7 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
             "total": sum(lane["total"] for lane in lane_list),
             "blocked": sum(lane["blocked"] for lane in lane_list),
             "hidden": sum(lane["hidden"] for lane in lane_list),
+            "planned": sum(lane["planned"] for lane in lane_list),
         },
         "lanes": lane_list,
         **_page_rows([e for _key, e in page], {b.pk: b for b in child_boards}, roles, first_position,
@@ -251,7 +277,13 @@ def _page_rows(page, boards, roles, first_position, *, include_done):
                 archived_at__isnull=True,
             )
             .select_related("column", "assignee").defer(*_UNREAD_CARD_FIELDS)
-            .annotate(_parent_id=F("parent_link__parent_id"))
+            # The planned predicate's two fields, read off the link row this
+            # query already joins, so planned adds no subquery.
+            .annotate(
+                _parent_id=F("parent_link__parent_id"),
+                _needed_at=F("parent_link__needed_at_column_id"),
+                _released_at=F("parent_link__planned_released_at"),
+            )
             # The #449 predicate, as children_for_viewer reads it: a manual
             # block or an active same-board blocking relation.
             .prefetch_related(Prefetch(
@@ -284,6 +316,9 @@ def _page_rows(page, boards, roles, first_position, *, include_done):
                 "assignee": BoardUserSerializer(c.assignee).data if c.assignee_id else None,
                 "blocked": state == "blocked",
                 "blocked_at": _datetime.to_representation(c.blocked_at) if c.blocked_at else None,
+                # A manual block's reason, for the card's accessible name (#2370 A13); additive, null otherwise.
+                "blocked_reason": (c.blocked_reason or None) if c.blocked_at else None,
+                "planned": card_links.is_planned_state(state, c._needed_at, c._released_at),
             })
     board_ids = sorted(set(visible.values()))
     columns = {pk: [] for pk in board_ids}
@@ -323,6 +358,8 @@ def _page_rows(page, boards, roles, first_position, *, include_done):
             "rollup": rollup,
             "in_progress": e["in_progress"] if e["visible"] else None,
             "folded": e["folded"],
+            "planned": e["planned"] if e["visible"] else None,
+            "planned_only": e["planned_only"],
             "child_board_id": e["child_board_id"],
             "children": children.get(e["id"], []),
         })

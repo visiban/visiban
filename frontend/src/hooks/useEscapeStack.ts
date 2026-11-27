@@ -59,6 +59,7 @@ function dispatch(e: KeyboardEvent): void {
  *   32 — card-face custom-field quick-edit popover (CustomFieldQuickEditPopover, #1856)
  *   31 — RichTextEditor edit-mode cancel
  *   30.5 — field set Maximize layer (FieldSetBlocks, #2570)
+ *   30.4 — the Children tab's scoped board (CardChildrenTab, #2209, #2370)
  *   30 — side panels (card detail)
  *   25 — dropdowns (SelectDropdown, FilterBar, BulkActionToolbar) — via useDropdownEscape
  *   21 — inline board text fields (add-card, column/swimlane/board rename, search) — via useInlineEditEscape (#1860)
@@ -67,6 +68,7 @@ function dispatch(e: KeyboardEvent): void {
  *   19 — Activity drawer, Recent and Archived tabs (BoardActivityDrawer, #2274): non-modal, so below dropdowns, the View menu, inline fields and the bulk-delete confirm
  *   18 — movement-history slide-in (above the view-toggle's 15, below menus and dropdowns at 25)
  *   15 — view-toggle navigation (analytics → summary → board)
+ *   14 — Children mode grid on the board (ChildrenModeView, #2370): leaves the grid, below the View menu's 25
  *   12 — focus mode (single-swimlane focus — above selection-clear, below view-toggle)
  *   10 — selection state (multi-card selection)
  *    0 — page-level navigation (board → referrer, group → referrer)

@@ -885,3 +885,30 @@ describe('SwimlaneRow default team row behind "+N" (#2211)', () => {
     expect(screen.queryByTestId('swimlane-fields-toggle')).toBeNull()
   })
 })
+
+describe('SwimlaneRow: the Children lane action (#2370 way in 1)', () => {
+  it('shows "Children N in progress" beside Focus for everyone and opens Children mode', () => {
+    const onOpen = vi.fn()
+    render(<SwimlaneRow {...defaultProps()} isAdmin={false} childrenAction={{ inProgress: 12, onOpen }} />)
+    const btn = screen.getByTestId('lane-children-action')
+    expect(btn).toHaveTextContent('Children12 in progress')
+    expect(btn.getAttribute('aria-label')).toMatch(/^Children 12 in progress, /)
+    // Like the other lane actions: hidden until hover or focus, always shown on touch.
+    expect(btn.className).toContain('group-hover:opacity-100')
+    expect(btn.className).toContain('focus:opacity-100')
+    expect(btn.className).toContain('[@media(hover:none)]:opacity-100')
+    const focusBtn = screen.getByRole('button', { name: /^Focus on / })
+    expect(focusBtn.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.click(btn)
+    expect(onOpen).toHaveBeenCalled()
+  })
+
+  it('has no count before it lands, and no action where cards cannot have children', () => {
+    const { unmount } = render(<SwimlaneRow {...defaultProps()} childrenAction={{ inProgress: null, onOpen: vi.fn() }} />)
+    expect(screen.getByTestId('lane-children-action')).toHaveTextContent(/^Children$/)
+    unmount()
+    render(<SwimlaneRow {...defaultProps()} />)
+    expect(screen.queryByTestId('lane-children-action')).toBeNull()
+  })
+})
+

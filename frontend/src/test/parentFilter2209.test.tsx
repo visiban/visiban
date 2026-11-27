@@ -122,7 +122,7 @@ describe('Parent filter (#2209 row 10)', () => {
       />,
     )
     await u.click(screen.getByRole('button', { name: /^Filters/ }))
-    const row = screen.getByRole('button', { name: /^Parent/ })
+    const row = screen.getByRole('button', { name: /^Parent(?! lane)/ })
     expect(row).toHaveTextContent('Initech: security review')
     await u.click(row)
     const group = screen.getByRole('radiogroup', { name: 'Parent' })
@@ -149,7 +149,7 @@ describe('Parent filter (#2209 row 10)', () => {
       />,
     )
     await u.click(screen.getByRole('button', { name: /^Filters/ }))
-    const row = screen.getByRole('button', { name: /^Parent/ })
+    const row = screen.getByRole('button', { name: /^Parent(?! lane)/ })
     expect(row).toHaveTextContent('Initech: security review')
     await u.click(row)
     const group = screen.getByRole('radiogroup', { name: 'Parent' })

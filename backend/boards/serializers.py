@@ -4265,6 +4265,10 @@ class _ChildrenViewTotalsSerializer(serializers.Serializer):
     total = serializers.IntegerField(help_text="Live children you can open.")
     blocked = serializers.IntegerField(help_text="Of `total`, blocked (the #449 predicate), in any column.")
     hidden = serializers.IntegerField(help_text="Live children on boards you can't open: a count only.")
+    planned = serializers.IntegerField(
+        help_text="Of `total`, children planned for a later parent stage (#2371): a bucket of their own, never in "
+                  "`in_progress`, `todo`, `doing` or `blocked` (#2551). Children you can open only.",
+    )
 
 
 class ChildrenViewLaneSerializer(_ChildrenViewTotalsSerializer):
@@ -4279,6 +4283,9 @@ class ChildrenViewLaneSerializer(_ChildrenViewTotalsSerializer):
     doing = serializers.IntegerField()
     todo = serializers.IntegerField()
     folded = serializers.IntegerField(help_text="Parents you can open with nothing in progress.")
+    planned_only = serializers.IntegerField(
+        help_text="Of `folded`, parents you can open with nothing in progress and at least one planned child (#2550).",
+    )
     last_moved_at = serializers.DateTimeField(
         allow_null=True,
         help_text="Most recent move of any child you can open under this lane; null when none. Never reflects hidden children.",
@@ -4297,6 +4304,13 @@ class ChildrenViewChildSerializer(serializers.Serializer):
     assignee = BoardUserSerializer(allow_null=True)
     blocked = serializers.BooleanField()
     blocked_at = serializers.DateTimeField(allow_null=True)
+    blocked_reason = serializers.CharField(
+        allow_null=True,
+        help_text="Since 1.3 (#2370): the manual block's reason; null without a manual block or reason.",
+    )
+    planned = serializers.BooleanField(
+        help_text="Planned for a later parent stage (#2371); never true for a done or blocked child, which beat planned.",
+    )
 
 
 class ChildrenViewRowSerializer(serializers.Serializer):
@@ -4311,6 +4325,12 @@ class ChildrenViewRowSerializer(serializers.Serializer):
     rollup = CardChildrenRollupField()
     in_progress = serializers.IntegerField(allow_null=True, help_text="`todo + doing + blocked`: not done and not planned for a later parent column (#2551). Null when the child board is one you can't open.")
     folded = serializers.BooleanField(help_text="Nothing in progress; always false for a locked row.")
+    planned = serializers.IntegerField(
+        allow_null=True, help_text="Planned children (#2371), never counted in `in_progress`. Null for a locked row.",
+    )
+    planned_only = serializers.BooleanField(
+        help_text="Nothing in progress and at least one planned child; such a row is also `folded`. Always false for a locked row.",
+    )
     child_board_id = serializers.IntegerField(allow_null=True, help_text="Null when the child board is one you can't open.")
     children = ChildrenViewChildSerializer(many=True, help_text="Not-done children, plus done ones with `done=true`; empty for a locked row.")
 
@@ -6561,6 +6581,7 @@ class SavedFilterSerializer(serializers.ModelSerializer):
         "search", "assigneeIds", "labelIds", "priorities", "dueDate", "blockedOnly",
         "customFields", "visibleCustomFieldFilterIds", "laneFilter",
         "subColumnIds", "trackStates", "parentFilter", "plannedFilter",
+        "parentLaneFilter",
     }
     # plannedFilter (#2550) is additive and optional: "hide" or "only" planned
     # children, matched client-side on the card's own planned state. Mirrored
@@ -6572,6 +6593,9 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     # saved id that names any other card matches nothing on the board. The
     # bound is mirrored in frontend/src/utils/parentFilter.ts.
     _PARENT_FILTER_WORDS = {"any", "none"}
+    # parentLaneFilter (#2370) is additive and optional: one lane id on a
+    # parent board, matched client-side on Card.parent.swimlane_id. Never
+    # resolved here, for the same reason as parentFilter; same id bound.
     _PARENT_FILTER_MAX_ID = 2**31 - 1
     # subColumnIds / trackStates (#2367) are additive and optional: show only
     # cards in those sub-columns / with a track in one of those states. A
@@ -6625,7 +6649,7 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     state_json = serializers.DictField(
         help_text=(
             "Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate, "
-            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter, subColumnIds, trackStates, parentFilter, plannedFilter}."
+            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter, subColumnIds, trackStates, parentFilter, plannedFilter, parentLaneFilter}."
         ),
     )
 
@@ -6706,6 +6730,10 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     'state_json.parentFilter must be "any", "none" or a card id.'
                 )
+        if "parentLaneFilter" in value:
+            pl = value["parentLaneFilter"]
+            if not (isinstance(pl, int) and not isinstance(pl, bool) and 0 < pl <= self._PARENT_FILTER_MAX_ID):
+                raise serializers.ValidationError("state_json.parentLaneFilter must be a lane id.")
         if "plannedFilter" in value:
             pl = value["plannedFilter"]
             if not (isinstance(pl, str) and pl in self._PLANNED_FILTER_VALUES):

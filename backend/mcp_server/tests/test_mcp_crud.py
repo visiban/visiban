@@ -977,6 +977,34 @@ class MoveCardTests(CrudToolsTestCase):
         card.refresh_from_db()
         self.assertEqual(card.column_id, self.other_column.id)
 
+    def test_omitted_swimlane_keeps_the_lane_another_user_set(self):
+        from unittest.mock import patch
+
+        from boards.services import cards as card_services
+
+        card = _make_card(self.column, self.swimlane, title="Relaned")
+        real_move = card_services.move_card
+
+        def move_after_another_user_relanes(**kwargs):
+            # Lands after the tool read the card and before the service does.
+            Card.objects.filter(pk=card.pk).update(swimlane=self.other_swimlane)
+            return real_move(**kwargs)
+
+        with patch.object(card_services, "move_card", side_effect=move_after_another_user_relanes):
+            result = self._call(
+                "move_card", self.write_token, card_id=card.id, to_column_id=self.other_column.id,
+            )
+        self.assertNotIn("error", result, result)
+        card.refresh_from_db()
+        self.assertEqual(
+            (card.column_id, card.swimlane_id), (self.other_column.id, self.other_swimlane.id),
+        )
+        movement = CardMovement.objects.filter(card=card).latest("moved_at")
+        self.assertEqual(
+            (movement.from_swimlane_id, movement.to_swimlane_id),
+            (self.other_swimlane.id, self.other_swimlane.id),
+        )
+
     def test_neither_target_given_is_a_validation_error(self):
         card = _make_card(self.column, self.swimlane, title="Stuck")
         result = self._call("move_card", self.write_token, card_id=card.id)

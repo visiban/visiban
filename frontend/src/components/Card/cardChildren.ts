@@ -15,17 +15,21 @@ import { PARENT_PICKER_ESCAPE_PRIORITY } from "./ParentCardPicker";
  */
 export const CHILD_PICKER_ESCAPE_PRIORITY = PARENT_PICKER_ESCAPE_PRIORITY;
 
-/** Escape slot of the scoped board (frontend/CLAUDE.md § Escape priority inside the card detail panel). */
-export const CHILDREN_BOARD_ESCAPE_PRIORITY = 30.5;
+/**
+ * Escape slot of the scoped board (frontend/CLAUDE.md § Escape priority inside the card detail panel). 30.4, not
+ * 30.5: the field set Maximize layer (#2570) holds 30.5, and the two must not share a slot even though they sit on
+ * different tabs (#2370 design ruling).
+ */
+export const CHILDREN_BOARD_ESCAPE_PRIORITY = 30.4;
 /** The in-sheet Move popover shares the card panel's move-popover slot; the two are never open together. */
 export const CHILD_MOVE_ESCAPE_PRIORITY = 36;
 /**
- * At or above this width of the tab's own container the scoped board shows its columns side by side (canvas 2a).
- * It is compared with the measured container, so side by side needs a Children tab at least this wide. The
- * current 540px sheet never gives that, so today it shows one column at a time; 800 leaves slack under a
- * hypothetical 880px sheet's 840px content width (less ~16 for a scrollbar).
+ * At or above this width of the tab's own container the scoped board shows its columns side by side: "four
+ * columns only at 880px or wider" (canvas 2a/2d and Notes; #2370 design ruling). It is compared with the measured
+ * container, so the full-width sheet gets four columns and the 540px anchored sheet, or anything narrower, gets
+ * the column buttons.
  */
-export const WIDE_MIN_PX = 800;
+export const WIDE_MIN_PX = 880;
 
 export const WRITE_ROLES = new Set(["member", "admin", "site_admin"]);
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { CardDensity } from "../types";
 
-// Per-user, per-board preference (#974): lets a user override the board
+// Per-browser, per-board preference (#974): lets a user override the board
 // admin's `card_density` default for their own view only. Board-scoped
 // (like useViewPrefs) rather than a flat user:prefs:* key, because "follow
 // board default" only has a coherent meaning relative to *this* board's

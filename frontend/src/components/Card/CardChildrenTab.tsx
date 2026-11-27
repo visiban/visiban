@@ -1,4 +1,6 @@
 import { focusSurvivor } from "../../utils/focusSurvivor";
+import { useChildrenLaneCounts } from "../../hooks/useChildrenLaneCounts";
+import { allChildrenLinkText } from "../../utils/childrenMode";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import HelpLink from "../Common/HelpLink";
 import { Link, useInRouterContext } from "react-router-dom";
@@ -75,6 +77,11 @@ interface Props {
    * existing stay focusable but `aria-disabled`, with the reason beside them.
    */
   cardArchived?: boolean;
+  /**
+   * The parent's own lane on this board (#2370 way in 2): Tab stop 8, "All children in {lane} (N in progress)",
+   * opens Children mode at that lane. Absent: no link.
+   */
+  lane?: { id: number; name: string } | null;
 }
 
 const ARCHIVED_PARENT_REASON = "This card is archived. Restore it before adding or linking children.";
@@ -86,13 +93,15 @@ const ARCHIVED_PARENT_REASON = "This card is archived. Restore it before adding 
  * `CardMovement` history and broadcasts apply unchanged. The parent board's role never authorizes a write on
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
-export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false, laterColumns, currentUserId = null }: Props) {
+export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false, laterColumns, currentUserId = null, lane = null }: Props) {
   const { notify, dismiss } = useToast();
   // Minute ticker (#2210 footer uses the same one) so "Work moved Xd ago" never goes stale
   // while the tab stays open.
   const clock = useSharedMinuteClock();
   const inRouter = useInRouterContext();
   const archivedReasonId = useId();
+  // The lane's in-progress count is the server's lane rollup (children-view), read only where Children mode exists.
+  const laneCounts = useChildrenLaneCounts(board.id, !!lane && board.cards_can_have_children === true, lane?.id ?? null);
   const { data, error, loading, reload } = state;
   const rootRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -263,7 +272,8 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     beginWrite();
     try {
       const target = moveTargetState(col, childBoard, { userId: currentUserId, child });
-      await moveCard(childBoard.id, child.id, { column_id: col.id, swimlane_id: child.swimlane_id, position: col.card_count, ...(reason ? { override_reason: reason } : {}) }, target.force);
+      // No `swimlane_id`: the server keeps the child's current lane; the one read here can be stale (#2370 audit).
+      await moveCard(childBoard.id, child.id, { column_id: col.id, position: col.card_count, ...(reason ? { override_reason: reason } : {}) }, target.force);
       const doneAfter = counts.done
         + (col.is_done ? 1 : 0)
         - (columns.find((c) => c.id === child.column_id)?.is_done ? 1 : 0);
@@ -304,6 +314,22 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     } else return;
     e.preventDefault();
     if (target) focusCard(target.id);
+  };
+  // A card's Move and Unlink live inside its one roving stop (#2370 roving fix): Tab never stops on them.
+  // Right from the card link walks into its buttons, then on to the next column; Left walks back. Up, Down,
+  // Home and End act from any of them as from the card link.
+  const cardStops = (id: number) => [
+    gridRef.current?.querySelector<HTMLElement>(`[data-child-id="${id}"]`),
+    ...Array.from(gridRef.current?.querySelectorAll<HTMLElement>(`[data-child-action="${id}"]`) ?? []),
+  ].filter((el): el is HTMLElement => !!el);
+  const onCardStopKeyDown = (e: React.KeyboardEvent<HTMLElement>, child: CardChildRow) => {
+    if (isImeComposing(e)) return;
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      const stops = cardStops(child.id);
+      const next = stops[stops.indexOf(e.currentTarget) + (e.key === "ArrowRight" ? 1 : -1)];
+      if (next) { e.preventDefault(); next.focus(); return; }
+    }
+    onCardKeyDown(e, child);
   };
   const rovingId = children.some((c) => c.id === activeId && shownColumns.some((s) => s.id === c.column_id))
     ? activeId
@@ -576,7 +602,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
                       data-child-id={child.id}
                       tabIndex={child.id === rovingId ? 0 : -1}
                       onFocus={() => setActiveId(child.id)}
-                      onKeyDown={(e) => onCardKeyDown(e, child)}
+                      onKeyDown={(e) => onCardStopKeyDown(e, child)}
                       aria-label={`${child.title}, ${col.name}${child.assignee ? `, ${child.assignee.display_name || child.assignee.username}` : ""}${child.blocked ? ", blocked" : ""}, ${i + 1} of ${list.length}`}
                       className={`${tgt} ${wide ? "" : "flex items-center"} text-sm text-fg hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}
                     >
@@ -589,7 +615,10 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
                       {canMove && (
                         <button
                           type="button"
-                          tabIndex={child.id === rovingId ? 0 : -1}
+                          tabIndex={-1}
+                          data-child-action={child.id}
+                          onFocus={() => setActiveId(child.id)}
+                          onKeyDown={(e) => onCardStopKeyDown(e, child)}
                           aria-label={`Move ${child.title}`}
                           onClick={() => setMoving(child)}
                           className={`${tgt} ${wide ? "" : "min-w-11"} px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
@@ -600,7 +629,10 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
                       {canLinkHere && data?.visible && (
                         <button
                           type="button"
-                          tabIndex={child.id === rovingId ? 0 : -1}
+                          tabIndex={-1}
+                          data-child-action={child.id}
+                          onFocus={() => setActiveId(child.id)}
+                          onKeyDown={(e) => onCardStopKeyDown(e, child)}
                           aria-label={`Unlink child ${child.title}`}
                           onClick={() => void unlink(child)}
                           className={`${tgt} ${wide ? "" : "min-w-11"} px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
@@ -621,6 +653,15 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
         {inRouter
           ? <Link to={historyUrl} className={`${tgt} self-start inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Movement history of these children</Link>
           : <a href={historyUrl} className={`${tgt} self-start inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Movement history of these children</a>}
+        {/* Tab stop 8 (#2370): the parent's whole lane in Children mode on this board. */}
+        {lane && board.cards_can_have_children === true && (() => {
+          const href = `/boards/${board.id}?show=children&lane=${lane.id}`;
+          const text = allChildrenLinkText(lane.name, laneCounts.get(lane.id) ?? null);
+          const cls = `${tgt} self-start inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`;
+          return inRouter
+            ? <Link to={href} className={cls} data-testid="all-children-in-lane">{text}</Link>
+            : <a href={href} className={cls} data-testid="all-children-in-lane">{text}</a>;
+        })()}
         <p className="text-xs text-fg-muted">Arrows move between cards · Enter open on {boardName} · Esc back</p>
       </div>
     );
@@ -695,8 +736,11 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
   );
 }
 
+/** What the Move picker reads of a child: the Children tab's row, or a Children mode card (#2370 item 11). */
+export type MovableChild = Pick<CardChildRow, "id" | "title" | "column_id" | "assignee" | "due_date"> & Partial<Pick<CardChildRow, "assigned_by" | "planned">>;
+
 interface MoveProps {
-  child: CardChildRow;
+  child: MovableChild;
   boardName: string;
   columns: CardChildrenColumn[];
   board: { role: string; enforce_wip_limits?: boolean; enforce_wip_hard?: boolean; allow_assignee_override?: boolean };
@@ -713,7 +757,7 @@ interface MoveProps {
  * child board's counts, at-limit columns disabled with their reason. The server re-checks the limit; its
  * refusal is shown as the tab's error line.
  */
-function ChildMovePopover({ child, boardName, columns, board, currentUserId, error, userTimezone = "", onMove, onClose }: MoveProps) {
+export function ChildMovePopover({ child, boardName, columns, board, currentUserId, error, userTimezone = "", onMove, onClose }: MoveProps) {
   const [choice, setChoice] = useState<number>(child.column_id);
   const firstRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);

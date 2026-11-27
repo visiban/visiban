@@ -30,6 +30,7 @@ const FILTER_STATE_KEYS: Record<keyof FilterState, true> = {
   subColumnIds: true,
   trackStates: true,
   parentFilter: true,
+  parentLaneFilter: true,
   plannedFilter: true,
 }
 

@@ -1089,11 +1089,13 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, ve
     try:
         board, role, card = _resolve_board_for_card(user, card_id)
         target_column_id = to_column_id if to_column_id is not None else card.column_id
-        target_swimlane_id = to_swimlane_id if to_swimlane_id is not None else card.swimlane_id
         render = _BroadcastRender(board)
         result = card_services.move_card(
             actor=user, board=board, role=role, card_id=card_id,
-            target_column_id=target_column_id, target_swimlane_id=target_swimlane_id,
+            target_column_id=target_column_id,
+            # Passed through: on None the service keeps the lane the card is in
+            # at move time, not one this tool read earlier (#2370).
+            target_swimlane_id=to_swimlane_id,
             position=position if position is not None else 0,
             render=render.moved, expected_version=version, gates_passed=gates_passed,
         )

@@ -1,4 +1,5 @@
 import LaneFieldGrid, { LaneTierDetails } from "./LaneFieldGrid";
+import { inProgressChip } from "../../utils/childrenMode";
 import { useState, useId, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { cardSubColumnIndex, getTrackStates, stageSubColumns } from "../../utils/stages";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -78,6 +79,11 @@ interface Props {
   focusedSwimlaneId?: number | null;
   onFocusLane?: (swimlaneId: number) => void;
   onExitFocus?: () => void;
+  /**
+   * The Children lane action (#2370 way in 1, item 12), on a board where cards can have children: always shown on
+   * touch, for everyone; opens Children mode at the lane. `counts` holds the server's in-progress counts, absent until they land.
+   */
+  childrenAction?: { counts: Map<number, number>; onOpen: (swimlaneId: number) => void };
   /** Asks the board to open the add-card input for a cell (header "+", empty-board button). */
   addRequest?: { columnId: number; swimlaneId: number; nonce: number } | null;
   /** Called once `addRequest` is acted on, so the board can clear it and a remount does not replay it. */
@@ -179,7 +185,7 @@ export default function PhoneBoard({
   staleness_threshold_days, stale_warning_pct, customFieldDefinitions,
   isAdmin = false, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, allColumns, onEditFieldOrder, onManageSwimlaneFields, boardColors, limitFlags, members, swimlaneFieldDefinitions, intakeColumnId = null,
   onCardAdded, onColumnUpdated, onRequestDeleteColumn, onSwimlaneUpdated, onSwimlaneDeleted,
-  onAddColumn, onAddSwimlane, focusedSwimlaneId = null, onFocusLane, onExitFocus, addRequest = null,
+  onAddColumn, onAddSwimlane, focusedSwimlaneId = null, onFocusLane, onExitFocus, childrenAction, addRequest = null,
   onAddRequestHandled, allSwimlanes, onColumnsReordered, onSwimlanesReordered, hardWipEnforced = false,
   healthAutoEnabled = false, showWipAtLimit = false, rollupField = null, hideRowChipFieldNames = false,
   showSubColumns = true,
@@ -522,7 +528,7 @@ export default function PhoneBoard({
           const showFocus = !!onFocusLane && swimlanes.length > 1;
           const hasLaneMenu = isAdmin || showFocus;
           const laneActionsOpen = openLaneActions.has(lane.id);
-          const hasActions = canAdd || hasLaneMenu || lanePillVisible(lane, healthAutoEnabled);
+          const hasActions = canAdd || hasLaneMenu || !!childrenAction || lanePillVisible(lane, healthAutoEnabled);
           const renderField = ({ def, value }: LaneBandField) => (
             <CustomFieldValueDisplay key={def.id} definition={def} value={value} variant="band" adminOnly={def.is_admin_only} hideName={hideRowChipFieldNames} userDateFormat={userDateFormat} />
           );
@@ -612,6 +618,16 @@ export default function PhoneBoard({
                         <span aria-hidden="true" className="mr-1">+</span>Add card<span className="sr-only"> to {column.name} in {lane.name}</span>
                       </button>
                     )}
+                    {childrenAction && (() => {
+                      const n = childrenAction.counts.get(lane.id);
+                      return (
+                        <button type="button" className={ACTION_BTN} data-testid="phone-lane-children-action" onClick={() => childrenAction.onOpen(lane.id)}
+                          aria-label={`Children${n != null ? ` ${inProgressChip(n)}` : ""}, ${lane.name}`}>
+                          Children
+                          {n != null && <span className="ml-1.5 rounded-full bg-surface-active px-1.5 text-xs text-fg">{inProgressChip(n)}</span>}
+                        </button>
+                      );
+                    })()}
                     {hasLaneMenu && (
                       <button
                         type="button"

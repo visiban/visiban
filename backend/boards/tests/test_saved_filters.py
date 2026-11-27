@@ -1012,6 +1012,18 @@ class SavedFilterStageFilterStateTests(TestCase):
                 r = self._post({**EMPTY_FILTER_STATE, "parentFilter": value})
                 self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_parent_lane_filter_round_trips_and_is_type_checked(self):
+        """#2370 — parentLaneFilter is optional: a positive lane id; absent is Any."""
+        r = self.client.post(
+            self.url, {"name": "Parent lane", "state_json": {**EMPTY_FILTER_STATE, "parentLaneFilter": 7}}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.data["state_json"]["parentLaneFilter"], 7)
+        for value in (True, 0, -1, "7", "any", None, [1], 2**31):
+            with self.subTest(value):
+                r = self._post({**EMPTY_FILTER_STATE, "parentLaneFilter": value})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_planned_filter_round_trips_and_is_type_checked(self):
         """#2550 — plannedFilter is optional: "hide" or "only"; absent is Any."""
         import json
