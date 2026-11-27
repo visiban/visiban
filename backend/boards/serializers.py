@@ -55,7 +55,8 @@ from .permissions import (
 )
 
 from .models import (
-    Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardPresetId, BoardTemplate, Column, Swimlane, Label, Card,
+    Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardPresetId, BoardTemplate, Column,
+    ColumnEntryRequirement, Swimlane, Label, Card,
     CardMovement, CardParentLink, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
     CardRelation, CardDimensionPlan, CustomFieldDefinition, CustomFieldSet, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
@@ -523,6 +524,42 @@ class StageTrackSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+def entry_requirements_prefetch(prefix=""):
+    """One query for every column's entry requirements and their targets
+    (#1923); a fresh ``Prefetch`` per call, since ``add_prefix`` mutates."""
+    from django.db.models import Prefetch
+
+    return Prefetch(
+        f"{prefix}entry_requirements",
+        queryset=ColumnEntryRequirement.objects.select_related("field_definition", "field_set"),
+    )
+
+
+class ColumnEntryRequirementSerializer(serializers.ModelSerializer):
+    """Read shape of one entry requirement (#1923). Written only through the
+    replace-all ``PUT .../columns/{id}/entry-requirements/``."""
+
+    field_uid = serializers.SerializerMethodField()
+    field_set_uid = serializers.SerializerMethodField()
+    operand = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ColumnEntryRequirement
+        fields = ["uid", "field_uid", "field_set_uid", "operator", "operand", "position"]
+        read_only_fields = fields
+
+    def get_field_uid(self, obj) -> str | None:
+        return obj.field_definition.uid if obj.field_definition_id else None
+
+    def get_field_set_uid(self, obj) -> str | None:
+        return obj.field_set.uid if obj.field_set_id else None
+
+    def get_operand(self, obj) -> str | None:
+        from .services.entry_requirements import format_operand
+
+        return format_operand(obj.operand)
+
+
 class ColumnSerializer(ColorValidationMixin, serializers.ModelSerializer):
     policy = ColumnPolicyField(
         required=False, allow_null=True, help_text=field_enforcement.COLUMN_POLICY,
@@ -532,18 +569,24 @@ class ColumnSerializer(ColorValidationMixin, serializers.ModelSerializer):
     # its 1.x shape. Empty on a column that is not a gated stage.
     sub_columns = SubColumnSerializer(many=True, read_only=True)
     tracks = StageTrackSerializer(source="stage_tracks", many=True, read_only=True)
+    # Additive (#1923). Read-only here: the replace-all
+    # PUT .../columns/{id}/entry-requirements/ is the only writer, so a column
+    # PATCH keeps its 1.x shape.
+    entry_requirements = ColumnEntryRequirementSerializer(many=True, read_only=True)
 
     class Meta:
         model = Column
         fields = [
             "id", "uid", "name", "position", "color", "wip_limit", "weight_limit",
             "allow_card_creation", "is_done", "policy", "sub_columns", "tracks",
+            "entry_enforcement", "entry_requirements",
         ]
-        read_only_fields = ["uid"]
+        read_only_fields = ["uid", "entry_enforcement"]
         # Schema-only (#1077): say which write paths the limits actually bind on.
         extra_kwargs = {
             "wip_limit": {"help_text": field_enforcement.COLUMN_WIP_LIMIT},
             "weight_limit": {"help_text": field_enforcement.COLUMN_WEIGHT_LIMIT},
+            "entry_enforcement": {"help_text": field_enforcement.COLUMN_ENTRY_ENFORCEMENT},
         }
 
     def validate(self, attrs):
@@ -600,7 +643,13 @@ class PublicColumnSerializer(ColumnSerializer):
     # board's structure, not team-written card content. Pinned in
     # ``test_stages.py``.
     class Meta(ColumnSerializer.Meta):
-        fields = [f for f in ColumnSerializer.Meta.fields if f != "policy"]
+        # Entry requirements (#1923) are the team's rules, not structure a
+        # share-link visitor needs; excluded by name like ``policy`` (pinned
+        # in test_entry_requirements_1923.py).
+        fields = [
+            f for f in ColumnSerializer.Meta.fields
+            if f not in ("policy", "entry_enforcement", "entry_requirements")
+        ]
 
 
 def _parent_instance(field, model):

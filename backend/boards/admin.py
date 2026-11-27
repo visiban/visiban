@@ -40,7 +40,7 @@ from .services.share_links import record_share_link_updated, revoke_lapsed_share
 from .services.swimlane_team import remove_from_board_teams
 from .services.errors import (
     LinksChanged,
-    LIMIT_ERRORS, CardNotFound, SwimlaneNotFound, SwimlaneWeightLimitExceeded,
+    LIMIT_ERRORS, CardNotFound, EntryRequirementsUnmet, SwimlaneNotFound, SwimlaneWeightLimitExceeded,
     SwimlaneWipHardBlocked, SwimlaneWipLimitExceeded, WipHardBlocked, WipLimitExceeded,
 )
 from .views._helpers import (
@@ -98,6 +98,15 @@ def _record_board_update_event(board_id, old_group_id, new_group_id, payload, *,
 
 def _limit_error_message(exc):
     """A sentence for the admin form from a card-service limit error."""
+    if isinstance(exc, EntryRequirementsUnmet):
+        # #1923: the admin form has no override; it names what is missing.
+        names = ", ".join(
+            u["field_name"] or u["field_set_name"] or u["requirement_uid"] for u in exc.unmet
+        )
+        return (
+            f'Column "{exc.column_name}" has entry requirements this card does not '
+            f"meet: {names}. Fill them in on the card first, or move it through the board."
+        )
     if isinstance(exc, SwimlaneWipHardBlocked):
         return (
             f'Swimlane "{exc.swimlane_name}" is at its WIP limit ({exc.current_count}/'
@@ -133,6 +142,17 @@ def _limit_error_message(exc):
         f"({exc.current_weight} + {exc.card_weight} > {exc.weight_limit}). Raise the "
         "limit, or override it as a board admin through the API with ?force=true."
     )
+
+
+def _is_forward(source_column_id, target_column):
+    """Whether moving from ``source_column_id`` into ``target_column`` is a
+    forward entry (#1923): a different column further right."""
+    if source_column_id is None or source_column_id == target_column.pk:
+        return False
+    source_position = (
+        Column.objects.filter(pk=source_column_id).values_list("position", flat=True).first()
+    )
+    return source_position is not None and target_column.position > source_position
 
 
 def _require_present_for_admin(*querysets):
@@ -338,6 +358,11 @@ class CardAdminForm(forms.ModelForm):
                 source=None if (creating or restoring) else (current.column_id, current.swimlane_id),
                 # Locked above, after the card row.
                 lock=False,
+                # Entry requirements (#1923): a create, a restore, or a
+                # forward move into another column, as on the REST paths.
+                check_entry=entering_row and (
+                    creating or restoring or _is_forward(current.column_id, column)
+                ),
             )
         except LIMIT_ERRORS as exc:
             raise ValidationError(_limit_error_message(exc)) from None

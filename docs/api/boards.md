@@ -1673,7 +1673,7 @@ In `mapping.columns`, `position` is `null` for a list that will not be imported 
 
 The board comes back as `board`, with a `summary`. `board` has the shape of `GET /api/v1/boards/{id}/`; `summary` repeats the preview's `counts`, `result`, `warnings`, and `unmappable`. The OpenAPI document names these `TrelloImportPreview` (the `dry_run=true` 200) and `TrelloImportConfirm` (this 201).
 
-*Changed in 1.3 (#1903):* the body also carries the native import's envelope: the board's fields at the top level and the summary again as `import_summary`, so both imports return the same four keys (`board`, `summary`, `import_summary`, and the board's fields). Nothing was removed. The summary's contents still differ by source: a Trello summary has `counts`, `result`, `warnings` (objects) and `unmappable`; a native one has `options_applied`, `skipped` and, for CSV, `warnings` (strings). Error bodies carry a `code` (see [Import error codes](#import-error-codes)).
+*Changed in 1.3 (#1903):* the body also carries the native import's envelope: the board's fields at the top level and the summary again as `import_summary`, so both imports return the same four keys (`board`, `summary`, `import_summary`, and the board's fields). Nothing was removed. The summary's contents still differ by source: a Trello summary has `counts`, `result`, `warnings` (objects) and `unmappable`; a native one has `options_applied`, `skipped` and `warnings` (strings; always for CSV, and for JSON only when an entry requirement was skipped, since 1.3). Error bodies carry a `code` (see [Import error codes](#import-error-codes)).
 
 ```json
 {
@@ -2121,6 +2121,44 @@ rule as checklist-item reorder, #1292.)*
 *(1.3+, #2500)* A reorder that changes which column is first sends the same `card.children_bulk_changed` to each parent board whose cards have live children in the old or new first column; a reorder that keeps the first column sends none. See [WebSockets](websockets.md).
 
 ---
+
+### `PUT /api/v1/boards/{id}/columns/{col_id}/entry-requirements/` (since 1.3, #1923)
+
+Replace a column's entry requirements. **Board admin or site admin only**
+(`403` otherwise). Replace-all: the `requirements` list becomes the column's
+whole list, in order (at most 10). Emits `column.updated`.
+
+```json
+{
+  "entry_enforcement": "block",
+  "requirements": [
+    {"field_uid": "a1b2c3", "operator": "gt", "operand": "50000"},
+    {"field_set_uid": "d4e5f6", "operator": "set_complete"}
+  ]
+}
+```
+
+| Field | Notes |
+|---|---|
+| `entry_enforcement` | Optional. `warn`, `block`, `hard` or `null`. When omitted, a column's first requirements start in `warn` and a column that already has requirements keeps its current mode (including `null`); `null` keeps the rows but stops evaluating them. An empty list always sets `null`. |
+| `requirements[].field_uid` / `field_set_uid` | Exactly one, on this board. A set takes only `set_complete`. |
+| `requirements[].operator` | `filled` (any type but checkbox), `gt` / `gte` (number), `min_count` (multi-select, whole number of at least 1), `satisfied` (dimension), `set_complete` (field set). Checkbox fields can't be required. |
+| `requirements[].operand` | Required for `gt`, `gte`, `min_count`; refused otherwise. |
+
+Returns the column. `ColumnSerializer` gains two read-only fields:
+`entry_enforcement` and `entry_requirements` (`[{uid, field_uid, field_set_uid,
+operator, operand, position}]`; `operand` is a decimal string or `null`). A
+column `PATCH` cannot write them. The public share endpoint omits both.
+
+**Field sets, dry run.** `DELETE .../field-sets/{id}/?dry_run=true`
+and `PATCH .../field-sets/{id}/?dry_run=true` validate, write nothing, and
+return `{"affected_requirements": [{requirement_uid, column_uid, column_name,
+operator, field_uid, field_name, field_set_name}]}`: the requirements whose
+lane scope would widen to every lane. A `PATCH` reports them for a membership
+change and for a `scope` change from `swimlanes` to `all`; a scope change also
+lists the set's own `set_complete` requirements (`field_uid` and `field_name`
+`null`, `field_set_name` set), because the set survives it. A delete does not
+list them, since they are deleted with the set.
 
 ## Swimlanes
 
@@ -2696,6 +2734,24 @@ The JSON export carries `field_sets`, each with `name`, `description`, `position
 the API does (cap, names, one set per field) and returns `400` naming the bad entry. A
 lane-scoped set whose lane list is empty (its last swimlane was deleted) stays
 `scope: "swimlanes"` with no lanes, so a round-trip does not change where it shows.
+
+**Entry requirements (since 1.3, #1923).** Each column in the JSON export also carries
+`entry_enforcement` (`null`, `"warn"`, `"block"` or `"hard"`) and `entry_requirements`, an
+array in position order of `{field, field_set, operator, operand}`. A requirement names its
+target by custom field name (`field`) or field set name (`field_set`), never both, so the
+file carries no ids. `operand` is a decimal string, or `null` for the operators that take
+none. The top level gains `allow_assignee_override` (the board's "let a card's assignee move
+it anyway" switch). All three keys are additive: `schema_version` stays `2`, an older
+importer ignores them, and a file without them imports with enforcement off and the switch
+off.
+
+On import, a malformed entry (an unknown `operator`, both or neither target, an operand the
+operator ignores or lacks, more than 10 entries, an unknown mode, a non-boolean switch) is a
+`400` naming the column. A `field` or `field_set` that matches nothing in the same file is
+skipped, and `import_summary.warnings` lists each skip (the key is present only when
+something was skipped). A column left with no requirement imports with `entry_enforcement`
+`null`. Imports are exempt from enforcement, so a card that sits past an unmet Block column
+imports where it was. The override log (`CardOverride`) is not exported or imported.
 
 ---
 

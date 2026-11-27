@@ -55,8 +55,8 @@ from boards.permissions import (
 )
 from boards.serializers import (
     BlockCardSerializer, CardChecklistSerializer, CardMovementSerializer, CardSerializer,
-    SubColumnSerializer, UnblockCardSerializer,
-    _board_health_start, _card_checklist_items, _card_queryset,
+    ColumnEntryRequirementSerializer, SubColumnSerializer, UnblockCardSerializer,
+    _board_health_start, _card_checklist_items, _card_queryset, entry_requirements_prefetch,
 )
 from boards.services import cards as card_services
 from boards.services import flow_metrics
@@ -745,7 +745,7 @@ def _columns_payload(board):
     columns = (
         Column.objects.filter(board=board)
         .annotate(_card_count=Count("cards", filter=Q(cards__archived_at__isnull=True)))
-        .prefetch_related("sub_columns")
+        .prefetch_related("sub_columns", entry_requirements_prefetch())
         .order_by("position")
     )
     return [
@@ -764,6 +764,14 @@ def _columns_payload(board):
             # #1102: the stage's ordered sub-columns, [] on a plain column.
             # REST's shape, so `gates_passed` on a card (0..len-1) is readable.
             "sub_columns": SubColumnSerializer(c.sub_columns.all(), many=True).data,
+            # #1923: REST's shape. A move or create into the column can be
+            # refused with entry_requirements_unmet (and MCP has no override,
+            # so Block acts as Hard); read these first instead of finding out
+            # from the refusal.
+            "entry_enforcement": c.entry_enforcement,
+            "entry_requirements": ColumnEntryRequirementSerializer(
+                c.entry_requirements.all(), many=True,
+            ).data,
         }
         for c in columns
     ]
@@ -1002,6 +1010,10 @@ def create_card(*, board_id, column_id, swimlane_id, title, description=None,
     a create into a full column comes back as the same structured
     ``wip_limit_exceeded``/``wip_hard_blocked``/``weight_limit_exceeded``
     error (``swimlane_*`` for a full swimlane, #1150), and nothing is written.
+    A column with unmet entry requirements (#1923) refuses with
+    ``entry_requirements_unmet`` in Block and Hard mode (Block acts as Hard
+    here: no override argument). Warn mode creates the card; the tool result
+    does not carry the unmet list.
     """
     user = get_current_user()
     try:
@@ -1068,7 +1080,12 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, ve
     override: this tool never exposes ``force``, so a blocked move always
     comes back as a structured ``wip_limit_exceeded``/``wip_hard_blocked``
     (or ``swimlane_*``, #1150)
-    error rather than a 500.
+    error rather than a 500. A forward move into a column whose entry
+    requirements (#1923) are unmet comes back as ``entry_requirements_unmet``
+    (``mode``, ``unmet``, ``also``) in Block and Hard mode; Block acts as Hard
+    here because there is no override argument. Warn moves the card and
+    records the unmet list on the movement (``entry_unmet``); the tool result
+    does not carry it.
 
     ``version`` (#1974) is the REST move endpoint's optional ``version`` body
     field, passed to the same service argument, so the two agree on what
