@@ -2746,7 +2746,8 @@ class CustomFieldValue(models.Model):
     # Nullable, no default: rows older than this column are backfilled from
     # CardActivity where history exists (migration 0152) and stay NULL
     # ("unknown") otherwise, as does a row an older release inserts during a
-    # rolling upgrade. Every writer in this release sets it explicitly.
+    # rolling upgrade, and a row the CSV import or the seed/demo commands
+    # create (they do not stamp it; it is stamped on the next real edit).
     value_changed_at = models.DateTimeField(
         null=True,
         blank=True,  # pragma: no mutate -- schema constant (migration-check)
