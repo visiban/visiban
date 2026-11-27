@@ -2,6 +2,8 @@
 
 Part of the frontend UI conventions. Always-loaded index: `frontend/CLAUDE.md`, which carries one
 line per section of this file. A new section here also gets an index line there (#2681).
+Sections here were moved verbatim from `frontend/CLAUDE.md` in #2681; inside them, "this file", "above" and "below" refer to the
+pre-split `frontend/CLAUDE.md`. Find any § title through the Topic index in `frontend/CLAUDE.md`. Rewording is tracked in #2689.
 
 ## Analytics page structure and URL state (#2457, #2318)
 

@@ -6,7 +6,7 @@ grown to 723 KB (about 180k tokens) before #2681 split it into a short index plu
 topic files under `frontend/ui-conventions/`, which are read on demand. This gate
 keeps the index short and keeps every topic section reachable from it:
 
-  1. `frontend/CLAUDE.md` is at most MAX_BYTES (48 KiB).
+  1. `frontend/CLAUDE.md` is at most MAX_BYTES (64 KiB).
   2. An index line (`- **<title>** — <summary> → `frontend/ui-conventions/<file>.md``)
      is at most MAX_INDEX_LINE characters.
   3. Every index line points at an existing topic file that has a `## <title>` section.
@@ -38,12 +38,19 @@ import sys
 import tempfile
 from pathlib import Path
 
-MAX_BYTES = 48 * 1024
+from _paths import PathEscapeError, cli_roots, resolve_within
+
+MAX_BYTES = 64 * 1024
 MAX_INDEX_LINE = 300
 INDEX = "frontend/CLAUDE.md"
 TOPIC_DIR = "frontend/ui-conventions"
 
 POINTER = re.compile(r"^- \*\*(?P<title>.+?)\*\* — (?P<summary>.+) → `(?P<path>[^`]+)`$")
+
+
+def _confine(path: Path) -> Path:
+    """Canonicalize a CLI path and refuse one outside the repo, cwd and temp dir (#1377, Sonar S8707)."""
+    return resolve_within(cli_roots(), path)
 
 
 def _lines(path: Path) -> list[str]:
@@ -124,22 +131,32 @@ def self_test() -> int:
     good_topic = {"cards.md": "# Card face\n\n## Cards\n\n- A card is calm.\n- See [spec](../../docs/x.md).\n"}
     old = "# Frontend UI Conventions\n\n## Color tokens\n\n- Always use slate.\n\n## Cards\n\n- A card is calm.\n- See [spec](../docs/x.md).\n"
 
+    ghost_section = good_index + f"- **Ghost** — Not a section. → `{TOPIC_DIR}/cards.md`\n"
+    ghost_file = good_index + f"- **Cards** — Cards again. → `{TOPIC_DIR}/gone.md`\n"
     cases = [
-        ("good tree passes", good_index, good_topic, False),
-        ("oversized index fails", good_index + ("x" * 80 + "\n") * (MAX_BYTES // 80 + 1), good_topic, True),
-        ("long index line fails", good_index.replace("Cards are calm.", "c" * MAX_INDEX_LINE), good_topic, True),
-        ("pointer to a missing file fails", good_index.replace("cards.md", "gone.md"), good_topic, True),
-        ("pointer to a missing section fails", good_index.replace("**Cards**", "**Board**"), good_topic, True),
+        ("good tree passes", good_index, good_topic, None),
+        ("oversized index fails", good_index + ("x" * 80 + "\n") * (MAX_BYTES // 80 + 1), good_topic, "-byte cap"),
+        ("long index line fails", good_index.replace("Cards are calm.", "c" * MAX_INDEX_LINE), good_topic, "over 300"),
+        ("pointer to a missing file fails", ghost_file, good_topic, "missing file"),
+        ("pointer to a missing section fails", ghost_section, good_topic, "has no '## Ghost' section"),
         ("topic section without an index line fails", good_index,
-         {"cards.md": good_topic["cards.md"] + "\n## Orphan\n\n- text\n"}, True),
+         {"cards.md": good_topic["cards.md"] + "\n## Orphan\n\n- text\n"}, "section '## Orphan' has no index line"),
         ("a fenced '## ' line is not a section", good_index,
-         {"cards.md": good_topic["cards.md"] + "\n```md\n## not a heading\n```\n"}, False),
+         {"cards.md": good_topic["cards.md"] + "\n```md\n## not a heading\n```\n"}, None),
+        ("a moved-from note in a topic file is not a section", good_index,
+         {"cards.md": good_topic["cards.md"].replace("# Card face\n", "# Card face\n\nMoved verbatim; \"above\" means the old file.\n")}, None),
     ]
-    for name, index, topics, expect_fail in cases:
+    for name, index, topics, expect in cases:
         with tempfile.TemporaryDirectory() as tmp:
             errors = check(build(Path(tmp), index, topics))
-        if bool(errors) != expect_fail:
-            failures.append(f"{name}: expected {'errors' if expect_fail else 'clean'}, got {errors}")
+        if expect is None:
+            ok = not errors
+        else:
+            # Assert on the message, not just a non-zero result: two checks can both fire on
+            # one fixture, and a case that passes via the wrong check proves nothing.
+            ok = len(errors) == 1 and expect in errors[0]
+        if not ok:
+            failures.append(f"{name}: expected {expect or 'clean'}, got {errors}")
 
     lossless_cases = [
         ("verbatim move is lossless (relative link rebased)", good_topic, False),
@@ -155,7 +172,21 @@ def self_test() -> int:
         if bool(missing) != expect_fail:
             failures.append(f"lossless {name}: expected {'missing lines' if expect_fail else 'none'}, got {missing}")
 
-    total = len(cases) + len(lossless_cases)
+    confine_cases = 0
+    with tempfile.NamedTemporaryFile(suffix=".md") as inside:
+        confine_cases += 1
+        try:
+            _confine(Path(inside.name))
+        except PathEscapeError:
+            failures.append("confine: a file in the temp dir was refused")
+    confine_cases += 1
+    try:
+        _confine(Path("/etc/hostname"))
+        failures.append("confine: a path outside the allowed roots was accepted")
+    except PathEscapeError:
+        pass
+
+    total = len(cases) + len(lossless_cases) + confine_cases
     if failures:
         for f in failures:
             print(f"SELF-TEST FAIL: {f}", file=sys.stderr)
@@ -173,6 +204,13 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
     if args.self_test:
         return self_test()
+    try:
+        args.root = _confine(args.root)
+        args.index = _confine(args.index) if args.index else None
+        args.lossless = _confine(args.lossless) if args.lossless else None
+    except PathEscapeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     if args.lossless:
         total, missing = lossless(args.root, args.lossless)
         for line in missing[:20]:

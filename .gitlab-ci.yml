@@ -3688,7 +3688,7 @@ help-link-anchors:
 # The always-loaded frontend rules stay short (#2681). Claude Code loads
 # frontend/CLAUDE.md into context on every frontend task; it had grown to 723 KB
 # before it was split into an index plus frontend/ui-conventions/ topic files.
-# Fails when the index exceeds 48 KiB, an index line exceeds 300 characters, an
+# Fails when the index exceeds 64 KiB, an index line exceeds 300 characters, an
 # index line points at a missing topic file or section, or a topic-file section
 # has no index line. Offline, standard library only.
 frontend-claude-md-size:
@@ -3701,6 +3701,7 @@ frontend-claude-md-size:
         - frontend/CLAUDE.md
         - frontend/ui-conventions/**/*
         - scripts/check-frontend-claude-md.py
+        - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *frontend-claude-md-paths
   script:

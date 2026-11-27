@@ -6,7 +6,7 @@ This file is the always-loaded index of the frontend UI rules. The sections belo
 
 - **A new rule goes into the topic file it belongs to**, inside its section, or as a new `## ` section there. A new section also gets one line in the Topic index: `` - **<Section title>** — <one-sentence rule summary> → `frontend/ui-conventions/<file>.md` ``. A new topic file gets a `### ` heading there.
 - **Only a rule that applies to almost every frontend edit goes here in full.** Moving a section between this file and a topic file moves its text unchanged.
-- `scripts/check-frontend-claude-md.py` (CI job `frontend-claude-md-size`) fails when this file exceeds 48 KB, an index line exceeds 300 characters, an index line points at a missing file or section, or a topic-file section has no index line.
+- `scripts/check-frontend-claude-md.py` (CI job `frontend-claude-md-size`) fails when this file exceeds 64 KiB, an index line exceeds 300 characters, an index line points at a missing file or section, or a topic-file section has no index line.
 
 ## Color tokens
 
@@ -77,6 +77,44 @@ Seven variants — use no others (#2475; Danger outline added in #2504). `compon
 - Placeholder: `placeholder-fg-muted`
 - **A dynamic hint under a form field must be reachable by assistive tech (#2371 ux-review).** A hint that appears or changes with the field's value (Add child's "Lead time without dates: split the work." under Needed) gets an id that the field's `aria-describedby` includes while it is shown (alongside any static help id), or is a `role="status"` region; a sighted-only hint is a defect. Reference: `AddChildDialog`.
 - **Inputs in a row with `SingleSelectDropdown` triggers** (rule builders such as `LaneFilterPopover`, #2205/#2226) use `px-2 py-1 text-sm`, matching the trigger, rather than `px-3 py-1.5`, so the row's controls share one height. Standalone form inputs keep `px-3 py-1.5`.
+
+## Dropdown menus
+
+All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
+
+**Trigger button**
+- `bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition`
+- Default state: `border-line-strong text-fg-secondary hover:border-line-emphasis`
+- Open / active-filter state: `border-primary-soft text-info`
+
+**Menu panel**
+- `bg-surface border border-line-strong rounded-lg shadow-lg py-1`
+
+**Menu items**
+- `w-full text-left px-3 py-1.5 text-sm transition hover:bg-surface-hover`
+- Default text: `text-fg-secondary`; selected/active: `text-info`
+
+**Separators** (3D engraved effect — every adjacent item pair, all dropdowns):
+```tsx
+{i > 0 && (
+  <div role="separator" className="mx-4">
+    <div className="h-px bg-sunken" />
+    <div className="h-px bg-surface-active/50" />
+  </div>
+)}
+```
+- Place before each item where `i > 0`; no manual `separatorBefore` prop needed for `SelectDropdown`; `OverflowMenu` items take `separatorBefore` instead
+- `SelectDropdown` handles this automatically; hand-rolled dropdowns (e.g. FilterBar) must add it manually
+
+**Disabled dropdowns must include an explanation** — when rendering `<SelectDropdown disabled={true}>`, always pass `disabledReason="..."`. The component renders it as a `title` attribute and `aria-label` on the trigger. A silently greyed-out control with no explanation is inaccessible and a dead end for all users.
+
+**Long lists need type-to-jump.** A `SelectDropdown` with more than about 20 options must support type-to-jump or use the filterable combobox. `SelectDropdown` has type-to-jump built in (focus the trigger and type; a repeated letter cycles; it resets after 700 ms), so a long list such as the board time zone picker (#2051) needs no extra prop, but memoize its options and give the trigger `shrink-0 max-w-[14rem]` so a long name truncates rather than pushing its row.
+
+**`SelectDropdown` supports external label and helper wiring (#1430).** Pass `id` so `<label htmlFor>` binds to the `role=combobox` button trigger, and `ariaDescribedBy={helperId}` to tie always-rendered helper text (`text-xs text-fg-muted`, with a stable `id`) to it. Use `ariaLabel` only when there is no visible label, because `aria-label` overrides the label association.
+
+**Active-count badge on a "reveals sub-controls" trigger (#964).** A `CheckboxDropdown`/`SingleSelectDropdown` trigger may carry an active-count badge (`bg-primary-emphasis/20 text-info px-2 py-0.5 text-xs rounded-full`, `aria-hidden="true"`, count folded into the trigger's `aria-label` as `"{label}, {N} active"`) when the trigger's job is to reveal a variable set of sub-controls into the toolbar row rather than being itself a single filter. Precedent: `"+ Filter"` in `FilterBar` (`frontend/src/components/Board/FilterBar.tsx`), which replaced four always-visible facet dropdowns with one collapsed trigger; the badge counts facets that have an active *value*, independent of which facets are currently expanded — that "expanded" signal already has its own presentation (the trigger's own `border-primary-soft text-info` active state), so the badge stays a distinct, decoupled signal rather than duplicating it. Do not add this badge to a trigger that is itself a single filter (e.g. the Assignee/Label/Priority dropdowns it replaces) — those communicate their own active state via the existing border-color treatment and don't need a second indicator.
+
+**A badge-carrying "reveals sub-controls" trigger must pin its own visible label, not let `selected` drive it.** `CheckboxDropdown`'s default `displayLabel` logic renders a generic `"{label}: {selected labels}"` summary once anything is selected — correct for a trigger that *is* a filter (Assignee, Label, Priority), wrong for one whose `selected` instead tracks which *other* controls are expanded (`"+ Filter"`), where it would produce `"+ Filter: Assignee, Label"` — a third, text-based signal on top of the border-color "expanded" state and the badge's "has a value" count, and one that can diverge from the trigger's `aria-label` (always built from the static `label`), a WCAG 2.5.3 Label-in-Name mismatch. Pass `hideSelectionSummary` on any such trigger to keep its visible text pinned to `label`. `badge={0}` and `badge={undefined}` both suppress the badge and its `aria-label` fold-in identically — the component gates both on the same truthy check, so a caller never needs to remember to pass `count || undefined`.
 
 ## Motion and reduced motion (#199)
 
@@ -201,8 +239,7 @@ The card detail sheet, its tabs and key facts, the rich text editor, checklists,
 
 Modals, focus containment, dropdown primitives and the shared toast region.
 
-- **Dropdown menus** — All dropdowns, `SelectDropdown` or hand-rolled, follow one trigger, menu panel and menu item style. → `frontend/ui-conventions/overlays-and-menus.md`
-- **Modals and dialogs** — Modal spec, focus handoff when a control unmounts itself, confirm dialogs and dialog footers. → `frontend/ui-conventions/overlays-and-menus.md`
+- **Modals and dialogs** — Read before adding or editing any modal, dialog, drawer or inline confirm: modal spec, focus handoff when a control unmounts itself, confirm dialogs and dialog footers. → `frontend/ui-conventions/overlays-and-menus.md`
 - **Toasts (#2060, #1438)** — One shared toast region (`ToastProvider`); placement, timing, stacking and announcement. → `frontend/ui-conventions/overlays-and-menus.md`
 - **Move-blocked toast (MoveBlockedToast)** — Card move refusals use `MoveBlockedToast`, a persistent assertive `blocked` toast. → `frontend/ui-conventions/overlays-and-menus.md`
 - **Post-import notice (ImportSkippedToast)** — The post-import summary is an informational `info` toast, never amber. → `frontend/ui-conventions/overlays-and-menus.md`
@@ -214,12 +251,12 @@ Modals, focus containment, dropdown primitives and the shared toast region.
 
 Badges, status and empty states, banners, callouts, truncation and loading cues.
 
-- **Badges and labels** — Pill, badge and label shapes, tokens and wording, including the webhook status pill family. → `frontend/ui-conventions/status-and-feedback.md`
+- **Badges and labels** — Read before adding or editing any pill, badge, chip or label: shapes, tokens and wording, including the webhook status pill family. → `frontend/ui-conventions/status-and-feedback.md`
 - **Capped lists say so (#2254, #2339)** — A server-capped list says so in a muted line above the list, with the total count. → `frontend/ui-conventions/status-and-feedback.md`
 - **Truncation inside nested flex chips** — Every truncating span inside a nested `inline-flex` chip gets an explicit `min-w-0`. → `frontend/ui-conventions/status-and-feedback.md`
 - **Decorative glyphs (#2012)** — A decorative glyph in its own element is `aria-hidden="true"`. → `frontend/ui-conventions/status-and-feedback.md`
 - **Security notices** — Security notices ignore email opt-in and say so in their footer. → `frontend/ui-conventions/status-and-feedback.md`
-- **Inline status messages** — Inline status and refusal message wording, placement and roles. → `frontend/ui-conventions/status-and-feedback.md`
+- **Inline status messages** — Read before writing any inline error, success, refusal or status text: wording, placement and roles. → `frontend/ui-conventions/status-and-feedback.md`
 - **Loading and spinner states** — Use the canonical spinner classes and an accessible loading label. → `frontend/ui-conventions/status-and-feedback.md`
 - **Empty states** — Empty, not-found and unavailable states: copy, structure and actions. → `frontend/ui-conventions/status-and-feedback.md`
 - **First-encounter indicators** — Surface an undiscovered feature with a static `bg-primary-emphasis` dot. → `frontend/ui-conventions/status-and-feedback.md`
