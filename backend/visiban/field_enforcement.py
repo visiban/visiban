@@ -58,6 +58,20 @@ COLUMN_POLICY = (
     "of done is shown in card detail and never blocks moving a card out."
 )
 
+COLUMN_ENTRY_ENFORCEMENT = (
+    "Enforcement: binding on every API card write path except board import. "
+    "How the column's entry requirements (#1923) are enforced when a card "
+    "moves into it, is created in it, or is restored into it: warn (the "
+    "default) lets the write through and records the unmet list on the "
+    "movement, block returns 409 entry_requirements_unmet unless a board "
+    "admin, or the card's assignee when the board allows it, overrides it "
+    "with a reason, and hard returns the same 409 with no "
+    "override. Read-only here; change it with PUT "
+    ".../columns/{id}/entry-requirements/. MCP has no override, so block acts "
+    "as hard there. Board import restores a board as exported and is not "
+    "checked."
+)
+
 # -- Swimlane (#1150) --------------------------------------------------------
 
 SWIMLANE_WIP_LIMIT = (

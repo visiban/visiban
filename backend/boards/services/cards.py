@@ -77,7 +77,7 @@ from .errors import (
     InvalidGatesPassed, InvalidPosition, InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
     SwimlaneWeightLimitExceeded, SwimlaneWipHardBlocked, SwimlaneWipLimitExceeded,
     UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
-    WipLimitExceeded, clean_override_reason,
+    WipLimitExceeded, clean_override_reason, EntryRequirementsUnmet,
 )
 
 logger = logging.getLogger(__name__)
@@ -251,6 +251,10 @@ class PlacementOutcome:
     actor_basis: str | None = None
     unmet: tuple = ()
     reason: str = ""
+    # A ``warn`` column's unmet entry requirements (#1923): the placement went
+    # through, and the caller records these on the CardMovement and returns
+    # them as the additive ``entry_unmet`` on the 200 body.
+    warn_unmet: tuple = ()
 
 
 _NOTHING_FORCED = PlacementOutcome()
@@ -294,6 +298,21 @@ def record_overrides(outcome, *, card, actor, trigger, movement=None, column=Non
         "actor": {"id": actor.pk, "username": actor.username},
         "reason": outcome.reason,
     }
+
+
+def _warn_record(outcome):
+    """``CardMovement.entry_unmet`` for a Warn placement, else None (#1923)."""
+    if isinstance(outcome, PlacementOutcome) and outcome.warn_unmet:
+        return list(outcome.warn_unmet)
+    return None
+
+
+def _with_entry_unmet(payload, outcome):
+    """Add the additive ``entry_unmet`` to a move/create/restore body, only
+    when a Warn requirement was unmet (owner, #1923), so every other body is
+    byte-for-byte unchanged."""
+    record = _warn_record(outcome)
+    return {**payload, "entry_unmet": record} if record else payload
 
 
 def _fire_hooks(event, card_id, board_id, actor_id):
@@ -740,8 +759,100 @@ def _swimlane_check_applies(board, swimlane, column, *, check_wip, check_weight,
     return not _source_counts_for_swimlane(swimlane, source)
 
 
+_WARN = "warn"
+
+
+@dataclass(frozen=True)
+class EntryRequirementsConstraint:
+    """A column's entry requirements as one placement constraint (#1923).
+
+    ``mode`` is ``_HARD``, ``_BLOCK`` or ``_WARN``. Unlike the measured
+    limits, ``evaluate`` returns the unmet requirement list (truthy when it
+    trips) rather than a total, because the refusal names what is missing.
+    """
+
+    kind = CardOverride.Kind.ENTRY_REQUIREMENTS.value
+    mode: str
+    column: object
+    swimlane_id: int | None
+
+    def evaluate(self, card):
+        from .entry_requirements import unmet_requirements
+
+        return unmet_requirements(column=self.column, card=card, swimlane_id=self.swimlane_id) or None
+
+    def error(self, unmet, also=None):
+        return EntryRequirementsUnmet(
+            column_name=self.column.name, mode=self.mode, unmet=unmet, also=also,
+        )
+
+
+def _entry_mode(column):
+    """The constraint mode for ``column.entry_enforcement``; ``None`` when off.
+    A value only a raw write could store fails closed to hard."""
+    chosen = getattr(column, "entry_enforcement", None)
+    if not chosen:
+        return None
+    return {"warn": _WARN, "block": _BLOCK}.get(chosen, _HARD)
+
+
+def _with_also(error, also):
+    """Add ``also`` to a WIP/weight refusal's body, only when an entry
+    requirement tripped alongside it (#1923): the other bodies stay
+    byte-identical."""
+    body = error.body
+    error.body = lambda: {**body(), "also": also}
+    return error
+
+
+def _evaluate_with_entry(
+    constraints, entry, unmet_entry, *, card, role, force, actor, board, override_reason,
+):
+    """The placement trips a Block or Hard entry requirement (#1923).
+
+    Every other constraint is measured too, so one refusal lists all of them
+    (``also``) and one ``force`` plus reason covers them. Priority is
+    unchanged: a hard limit wins over any soft one, entry requirements
+    included; the hard refusal then carries the others in ``also``.
+    """
+    trips = []
+    for constraint in sorted(constraints, key=lambda c: c.mode != _HARD):
+        measured = constraint.measure()
+        if constraint.is_exceeded(measured, card.weight):
+            trips.append((constraint, measured))
+    entry_body = {k: v for k, v in entry.error(unmet_entry).body().items() if k != "also"}
+    hard = [t for t in trips if t[0].mode == _HARD]
+    if hard:
+        first, measured = hard[0]
+        also = [c.error(m).body() for c, m in trips if c is not first] + [entry_body]
+        raise _with_also(first.error(measured), also)
+    if entry.mode == _HARD or not force:
+        raise entry.error(unmet_entry, also=[c.error(m).body() for c, m in trips])
+    basis = _require_force(role=role, card=card, actor=actor, board=board, kinds=(entry.kind,))
+    reason = override_reason or ""
+    # Owner ruling (#1923): a reason is required whenever an entry
+    # requirement is part of the override, whoever the actor is.
+    if not reason:
+        raise OverrideReasonRequired()
+    forced = []
+    for constraint, _m in trips:
+        if constraint.kind not in forced:
+            forced.append(constraint.kind)
+    forced.append(entry.kind)
+    from .entry_requirements import snapshot
+
+    unmet = [
+        {"kind": c.kind, "scope": c.scope, "uid": c.scope_uid, "limit": c.limit}
+        for c, _m in trips
+    ] + snapshot(unmet_entry)
+    return PlacementOutcome(
+        forced=tuple(forced), actor_basis=basis, unmet=tuple(unmet), reason=reason,
+    )
+
+
 def _evaluate_constraints(
     constraints, *, card, role, force, actor=None, board=None, override_reason=None,
+    entry=None,
 ):
     """Raise the strictest refusal among ``constraints``, or return.
 
@@ -754,6 +865,17 @@ def _evaluate_constraints(
     accepted only from a board admin or site admin (``ForceNotPermitted``
     worded for the first tripped kind otherwise).
     """
+    warn_unmet = ()
+    if entry is not None:
+        unmet_entry = entry.evaluate(card)
+        if unmet_entry and entry.mode == _WARN:
+            # Warn never raises: the move goes through and is flagged.
+            warn_unmet = tuple(unmet_entry)
+        elif unmet_entry:
+            return _evaluate_with_entry(
+                constraints, entry, unmet_entry, card=card, role=role, force=force,
+                actor=actor, board=board, override_reason=override_reason,
+            )
     forced, unmet, basis = [], [], None
     for constraint in sorted(constraints, key=lambda c: c.mode != _HARD):
         measured = constraint.measure()
@@ -774,7 +896,7 @@ def _evaluate_constraints(
             "uid": constraint.scope_uid, "limit": constraint.limit,
         })
     if not forced:
-        return _NOTHING_FORCED
+        return PlacementOutcome(warn_unmet=warn_unmet) if warn_unmet else _NOTHING_FORCED
     reason = override_reason or ""
     # Q2 (#1923): an assignee override always carries a reason; an admin
     # WIP/weight force may omit it so pre-1.3 clients keep working.
@@ -782,13 +904,14 @@ def _evaluate_constraints(
         raise OverrideReasonRequired()
     return PlacementOutcome(
         forced=tuple(forced), actor_basis=basis, unmet=tuple(unmet), reason=reason,
+        warn_unmet=warn_unmet,
     )
 
 
 def enforce_column_limits(
     *, board, column, card, role, force=False, check_wip=True, check_weight=True,
     lock=True, swimlane=None, source=None, check_column=True, actor=None,
-    override_reason=None,
+    override_reason=None, check_entry=False,
 ):
     """Raise if placing ``card`` in the cell (``column``, ``swimlane``) breaks
     a placement limit: the column's WIP or weight limit, or, since #1150, the
@@ -850,7 +973,26 @@ def enforce_column_limits(
     ``lock=False`` is only for a caller that already holds the column row lock
     in the same transaction (``create_card`` takes it for position assignment).
     It never skips the swimlane lock, which no caller takes beforehand.
+
+    ``check_entry`` (#1923) adds the column's entry requirements, for the
+    callers that place a card *into* a column: a forward move across columns,
+    a create, a restore. It is off by default, so a weight update, a lane-only
+    move, a sub-column move and a backward move never evaluate them. A column
+    whose ``entry_enforcement`` is NULL costs no query. Requirements are
+    evaluated first: an entry refusal is reported ahead of any soft WIP or
+    weight limit and carries them in ``also`` (only a hard limit outranks it);
+    ``warn`` never raises and is returned in
+    ``PlacementOutcome.warn_unmet``. The caller must hold the card row lock,
+    so the values read cannot change before COMMIT.
     """
+    entry_mode = _entry_mode(column) if check_entry else None
+    entry = (
+        EntryRequirementsConstraint(
+            mode=entry_mode, column=column,
+            swimlane_id=swimlane.pk if swimlane is not None else getattr(card, "swimlane_id", None),
+        )
+        if entry_mode else None
+    )
     constraints = (
         _column_constraints(board, column, card, check_wip=check_wip, check_weight=check_weight)
         if check_column else []
@@ -858,12 +1000,13 @@ def enforce_column_limits(
     lane_applies = swimlane is not None and _swimlane_check_applies(
         board, swimlane, column, check_wip=check_wip, check_weight=check_weight, source=source,
     )
-    if not (constraints or lane_applies):
+    if not (constraints or lane_applies or entry):
         return _NOTHING_FORCED
 
-    # One lock per row covers WIP and weight; acquiring it twice on the same
+    # One lock per row covers WIP, weight and entry requirements (whose
+    # replace-all write locks the column too); acquiring it twice on the same
     # row would be a redundant round-trip. Column first, then swimlane.
-    if constraints and lock:
+    if (constraints or entry) and lock:
         Column.objects.select_for_update(no_key=True).get(pk=column.pk)
     if lane_applies:
         locked_swimlane = Swimlane.objects.select_for_update(no_key=True).filter(pk=swimlane.pk).first()
@@ -877,7 +1020,7 @@ def enforce_column_limits(
 
     return _evaluate_constraints(
         constraints, card=card, role=role, force=force, actor=actor, board=board,
-        override_reason=override_reason,
+        override_reason=override_reason, entry=entry,
     )
 
 
@@ -967,6 +1110,7 @@ def create_card(
         outcome = enforce_column_limits(
             board=board, column=column, card=card, role=role, force=force, lock=False,
             swimlane=swimlane, actor=actor, override_reason=override_reason,
+            check_entry=True,
         )
         movement = CardMovement(
             card=card,
@@ -984,6 +1128,7 @@ def create_card(
             to_swimlane_uid=swimlane.uid,
             moved_by=actor,
             notes="Card created",
+            entry_unmet=_warn_record(outcome),
         )
         # A create that sends the "assigned" notification must not also send
         # the creation "moved to <column>" one: one notification, not two.
@@ -998,7 +1143,7 @@ def create_card(
             outcome, card=card, actor=actor, trigger=CardOverride.Trigger.CREATE,
             movement=movement, column=column,
         )
-        payload = render(card)
+        payload = _with_entry_unmet(render(card), outcome)
         if override:
             # Additive (#1923): present only when a limit was overridden.
             payload = {**payload, "override": override}
@@ -2362,6 +2507,9 @@ def _move_card_attempt(
                 lock=False, swimlane=target_swimlane,
                 source=(card.column, card.swimlane_id), check_column=column_changed,
                 actor=actor, override_reason=override_reason,
+                # Forward entry only (#1923): a backward move, a lane-only
+                # move and a sub-column move inside the stage are exempt.
+                check_entry=column_changed and target_column.position > card.column.position,
             )
 
         movement = None
@@ -2390,6 +2538,7 @@ def _move_card_attempt(
                     if source_subs and column_changed else None
                 ),
                 to_gates_passed=to_gates if target_subs else None,
+                entry_unmet=_warn_record(outcome),
             )
 
             # Compact the gap the moved card leaves in its (already locked)
@@ -2444,7 +2593,7 @@ def _move_card_attempt(
             outcome, card=card, actor=actor, trigger=CardOverride.Trigger.MOVE,
             movement=movement, column=target_column,
         )
-        payload = render(card, movement)
+        payload = _with_entry_unmet(render(card, movement), outcome)
         if transitions:
             # Additive (#1102): present only when a gate was crossed, so the
             # body of every pre-1.3 move is byte-for-byte unchanged.
@@ -2595,7 +2744,7 @@ def _fetch_for_archive(card_id, board):
         raise CardNotFound() from None
 
 
-def _archive_movement(card, actor, movement_type):
+def _archive_movement(card, actor, movement_type, *, entry_unmet=None):
     """Record an archive/restore event in movement history.
 
     from/to column and swimlane are both the card's current ones — its position
@@ -2619,6 +2768,7 @@ def _archive_movement(card, actor, movement_type):
         to_swimlane_uid=card.swimlane.uid,
         moved_by=actor,
         movement_type=movement_type,
+        entry_unmet=entry_unmet,
     )
 
 
@@ -2763,8 +2913,11 @@ def unarchive_card(
         outcome = enforce_column_limits(
             board=board, column=card.column, card=card, role=role, force=force,
             swimlane=card.swimlane, actor=actor, override_reason=override_reason,
+            check_entry=True,
         )
-        movement = _archive_movement(card, actor, CardMovement.MovementType.UNARCHIVED)
+        movement = _archive_movement(
+            card, actor, CardMovement.MovementType.UNARCHIVED, entry_unmet=_warn_record(outcome),
+        )
         override = record_overrides(
             outcome, card=card, actor=actor, trigger=CardOverride.Trigger.RESTORE,
             movement=movement,
@@ -2772,7 +2925,7 @@ def unarchive_card(
         # Rendered inside the atomic block so the payload is a plain dict
         # captured before the callback is registered (#999), and reused as the
         # response rather than re-fetched (#1050).
-        payload = render(card)
+        payload = _with_entry_unmet(render(card), outcome)
         if override:
             payload = {**payload, "override": override}
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UNARCHIVED, payload, actor.id)

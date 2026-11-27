@@ -945,6 +945,8 @@ backend-test:
   rules: &backend-test-rules
     - changes:
         - backend/**/*
+        # test_entry_requirements_1923.py reads it (the frontend suite shares it).
+        - frontend/src/test/fixtures/entry-requirements-cases.json
         - requirements*.txt
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -1029,6 +1031,8 @@ backend-test-migrations:
   rules:
     - changes:
         - backend/**/*
+        # test_entry_requirements_1923.py reads it (the frontend suite shares it).
+        - frontend/src/test/fixtures/entry-requirements-cases.json
         - requirements*.txt
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -1194,6 +1198,8 @@ backend-test-coverage:
   rules:
     - changes:
         - backend/**/*
+        # test_entry_requirements_1923.py reads it (the frontend suite shares it).
+        - frontend/src/test/fixtures/entry-requirements-cases.json
         - requirements*.txt
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
