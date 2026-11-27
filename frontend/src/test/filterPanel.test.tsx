@@ -725,6 +725,18 @@ describe('FilterPanel search (#2437)', () => {
     expect(onOpenLaneFilters).toHaveBeenCalled()
   })
 
+  it('a lane field with several values lists them and counts as active (#2659)', async () => {
+    const u = userEvent.setup()
+    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 50, op: 'is', values: ['gold', 'silver'] }] }
+    setup({ board: searchBoard(), filters: { ...EMPTY_FILTER, laneFilter } as unknown as FilterState })
+    await open(u)
+    await u.type(box(), 'tier')
+    const row = screen.getByRole('button', { name: /Swimlane.*Tier/ })
+    expect(row).toHaveTextContent('gold, silver')
+    expect(row).not.toHaveTextContent('Any')
+    expect(within(row).getByTestId('filter-row-mark')).toBeInTheDocument()
+  })
+
   it('field:value applies with Enter', async () => {
     const u = userEvent.setup()
     const { onChange } = setup({ board: searchBoard() })

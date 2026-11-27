@@ -397,7 +397,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
               placeholder="Choose values"
               ariaLabel={`Filter ${n} value`}
               menuMode="inline"
-              triggerClassName="w-full justify-between"
+              triggerClassName="w-full justify-between max-sm:min-h-11"
               escapePriority={INNER_ESCAPE_PRIORITY}
               // A stored value that is no longer a choice stays listed, and says so, so it can be removed.
               options={[...def.choices, ...ruleValues(r).filter((v) => !def.choices.includes(v))].map((c) => ({ value: c, label: def.choices.includes(c) ? c : `${c} (not a choice)` }))}

@@ -205,3 +205,23 @@ describe('applyValueHit', () => {
     expect(two.laneFilter?.items.map((i) => i.id)).toEqual([1, 2])
   })
 })
+
+describe('applyValueHit on a multi-select lane rule (#2659)', () => {
+  const hit = (raw: string) => ({ kind: 'value', scope: 'lane', fieldId: 52, fieldName: 'Stack', fieldType: 'multi_select', raw, label: raw, count: 1, hiddenOnBand: false }) as never
+  const withRule = (rule: object) => ({ ...EMPTY_FILTER, laneFilter: { items: [{ kind: 'rule', id: 1, join: 'and', field: 52, op: 'is', ...rule }] } }) as never
+
+  it('picking a value the rule already holds is a no-op', () => {
+    const f = withRule({ values: ['go', 'rust'] })
+    expect(applyValueHit(f, hit('go'))).toBe(f)
+  })
+  it('picking a new value merges into the rule rather than adding an and-rule', () => {
+    const next = applyValueHit(withRule({ values: ['go', 'rust'] }), hit('zig')) as unknown as { laneFilter: { items: Array<Record<string, unknown>> } }
+    expect(next.laneFilter.items).toHaveLength(1)
+    expect(next.laneFilter.items[0]).toMatchObject({ field: 52, op: 'is', values: ['go', 'rust', 'zig'] })
+  })
+  it('a single-value rule becomes a values rule with two entries', () => {
+    const next = applyValueHit(withRule({ value: 'go' }), hit('rust')) as unknown as { laneFilter: { items: Array<Record<string, unknown>> } }
+    expect(next.laneFilter.items).toHaveLength(1)
+    expect(next.laneFilter.items[0]).toMatchObject({ values: ['go', 'rust'], value: undefined })
+  })
+})

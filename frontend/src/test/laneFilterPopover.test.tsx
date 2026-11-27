@@ -169,6 +169,8 @@ describe('LaneFilterPopover', () => {
     await user.click(within(dialog).getByRole('menuitem', { name: 'Pricing regions' }))
     await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
     await user.click(within(dialog).getByRole('menuitem', { name: 'is not' }))
+    // 44px touch target on phones (#2659).
+    expect(within(dialog).getByRole('button', { name: /^Filter 1 value/ })).toHaveClass('max-sm:min-h-11')
     await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
     await user.click(within(dialog).getByRole('checkbox', { name: 'EMEA' }))
     expect(screen.getByText('Reads as: Pricing regions: not EMEA')).toBeInTheDocument()

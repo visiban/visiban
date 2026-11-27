@@ -3,6 +3,7 @@ import type { CustomFieldFilterValue, FilterState } from "../components/Board/Fi
 import { parseMultiSelect } from "./customFieldValue";
 import {
   LANE_BUILTIN_FIELDS,
+  LANE_FILTER_MAX_VALUES,
   isLaneBuiltinField,
   laneValueLabel,
   nextLaneItemId,
@@ -12,7 +13,7 @@ import {
   type LaneFilterLane,
   type LaneRule,
 } from "./laneFilter";
-import { isRuleFieldType, type FieldRule } from "./fieldRules";
+import { isRuleFieldType, ruleValues, withRuleValues, type FieldRule } from "./fieldRules";
 
 /**
  * Field-name and value search for the Filter panel (#2437). Pure and client-side
@@ -249,6 +250,17 @@ export function applyValueHit(filters: FilterState, hit: ValueHit): FilterState 
     return { ...filters, customFields: { ...filters.customFields, [id]: next } };
   }
   const items = filters.laneFilter?.items ?? [];
+  if (hit.fieldType === "multi_select") {
+    // #2659 — an existing `is` rule on this field is an any-of list: add to it rather than
+    // stacking an `and is X` rule that would narrow it.
+    const existing = items.find((it): it is LaneRule => it.kind === "rule" && it.field === hit.fieldId && it.op === "is" && ruleValues(it).length > 0);
+    if (existing) {
+      const cur = ruleValues(existing);
+      if (cur.includes(hit.raw) || cur.length >= LANE_FILTER_MAX_VALUES) return filters;
+      const merged = items.map((it) => (it === existing ? { ...existing, ...withRuleValues([...cur, hit.raw]) } : it));
+      return { ...filters, laneFilter: withLaneItems(filters.laneFilter, merged) };
+    }
+  }
   const rule: FieldRule<LaneFieldKey> =
     hit.fieldType === "number" || hit.fieldType === "date"
       ? { field: hit.fieldId, op: "between", min: hit.raw, max: hit.raw }
