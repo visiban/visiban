@@ -33,6 +33,8 @@ from visiban.invite_email import (
 )
 from .adapter import clear_login_lockout
 from visiban.mail import (
+    SMTP_HOST_NOT_ALLOWED_DETAIL,
+    smtp_host_refused,
     ERROR_AUTH_FAILED,
     ERROR_BACKEND_PINNED,
     ERROR_CONFIG_UNUSABLE,
@@ -243,6 +245,14 @@ class SiteEmailSettingSerializer(drf_serializers.Serializer):
                 "use_ssl": "STARTTLS and implicit SSL cannot both be enabled. "
                            "Use STARTTLS on port 587, or implicit SSL on port 465.",
             })
+
+        # Only a host submitted in this request is judged, so saving an
+        # unrelated field on a row stored before this check still works; the
+        # send path re-checks the stored host (#1878).
+        if attrs.get("host") and smtp_host_refused(attrs["host"]):
+            raise drf_serializers.ValidationError(
+                {"host": SMTP_HOST_NOT_ALLOWED_DETAIL}, code="smtp_host_not_allowed",
+            )
 
         from_email = self._merged(attrs, "from_email")
         if from_email and sender_is_placeholder(from_email):

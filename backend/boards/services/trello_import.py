@@ -47,6 +47,7 @@ from visiban.parsers import first_lone_surrogate
 from groups.models import GroupMembership
 
 from ..import_errors import ImportErrorCode
+from ..permissions import group_derived_board_role
 from ..models import (
     Board, BoardMembership, Card, CardChecklist, CardComment, Column, Label, Notification, Swimlane,
 )
@@ -1168,9 +1169,15 @@ def execute_plan(plan: ImportPlan, user, *, group=None, board_name: str | None =
             group=group,
         )
         memberships = [BoardMembership(board=board, user=user, role=BoardMembership.Role.ADMIN)]
+        # A direct row outranks the group role, so a matched user who is already
+        # an admin of this board through its group gets no row: the members
+        # endpoint refuses that same write (#1942).
         memberships += [
             BoardMembership(board=board, user_id=uid, role=BoardMembership.Role.MEMBER)
-            for uid in plan.member_user_ids if uid != user.pk
+            for uid in plan.member_user_ids
+            if uid != user.pk
+            and not (group is not None and group_derived_board_role(
+                User(pk=uid), board) == BoardMembership.Role.ADMIN)
         ]
         BoardMembership.objects.bulk_create(memberships)
         _notify_added_members(board, user, [m.user_id for m in memberships[1:]])

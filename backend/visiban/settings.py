@@ -716,6 +716,12 @@ SHARE_BOARD_CACHE_TTL_SECONDS = env.int("SHARE_BOARD_CACHE_TTL_SECONDS", default
 # their board's change feed; `manage.py dispatch_webhooks` delivers them.
 # Refused while DEMO_MODE is on (system check webhooks.E001).
 WEBHOOKS_ENABLED = env.bool("WEBHOOKS_ENABLED", default=False)
+# Operator opt-out for the mail host check on the admin-UI SMTP settings (#1878).
+# False refuses a host that is or resolves to loopback, link-local or metadata
+# addresses. Set true if the relay runs on this host. The environment-configured
+# EMAIL_HOST is never checked.
+SMTP_ALLOW_PRIVATE_HOSTS = env.bool("SMTP_ALLOW_PRIVATE_HOSTS", default=False)
+
 # Private/LAN destinations a webhook may target, comma-separated exact
 # hostnames, IPs or CIDRs. Empty (default) admits public addresses only.
 # Hostname and CIDR entries admit RFC 1918 / CGNAT / ULA addresses; loopback,

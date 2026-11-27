@@ -478,7 +478,7 @@ A movement leaves in two ways:
 
 See [Card History Retention](../administration/card-history-retention.md).
 
-**BoardMembership is explicit per board.** A user can have different roles on different boards. Group membership is inherited automatically (see [Group Inheritance](../features/rbac/inheritance.md)), but an explicit `BoardMembership` row overrides it.
+**BoardMembership is explicit per board.** A user can have different roles on different boards. Group membership is inherited automatically (see [Group Inheritance](../features/rbac/inheritance.md)), but an explicit `BoardMembership` row overrides it. *(1.3+)* A row below `admin` is not written for a user who is an `admin` through the board's group (#1942).
 
 **Column positions use a two-pass update.** To avoid `unique_together(board, position)` conflicts when reordering, columns are first shifted to high temporary positions, then assigned final positions.
 

@@ -1735,6 +1735,8 @@ Add or update a board member. Requires board admin: a caller with no access gets
 
 For a caller who is not a site admin, the response (and the `member.added` / `member.updated` event) omits `is_site_admin` for every target. When the target is a site admin with no direct membership, the stored role is the higher of the requested role and the role the user already holds through a group, so the new membership never lowers it (any other user's new direct membership keeps its ordinary precedence over a group-inherited role). `is_site_admin` is therefore optional here (not in the OpenAPI `required` list): a site-admin caller gets it, others do not.
 
+*(1.3+, #1942)* A request that would store a role below `admin` for a user who is already an admin of the board through its group (or a parent group) returns `400 Bad Request` with `"code": "group_admin_role_floor"` and writes nothing. Branch on `code`. Raising the stored role to `admin`, or a request that leaves the stored role as it is, is accepted, and removing a direct membership returns the user to their group role.
+
 *(1.3+, #1828)* A request that would give the board owner a stored role below `admin` returns `400 Bad Request` and writes nothing, for every caller including site admins:
 
 ```json

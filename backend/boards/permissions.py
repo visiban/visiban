@@ -404,6 +404,25 @@ def _nearest_ancestor_role(ancestor_ids, group_roles):
     return None
 
 
+def group_derived_board_role(user, board):
+    """Return the role *user* holds on *board* through group membership alone, or None.
+
+    Ignores the owner, ``can_access_all_content`` and any explicit row, so a
+    writer can ask what an explicit row would override (#1942). ``None`` when
+    the board has no group or the user is in no ancestor group.
+    """
+    ancestor_ids = _group_ancestor_ids(board)
+    if not ancestor_ids:
+        return None
+    from groups.models import GroupMembership
+
+    group_roles = {
+        gm.group_id: gm.role
+        for gm in GroupMembership.objects.filter(group_id__in=ancestor_ids, user=user)
+    }
+    return _nearest_ancestor_role(ancestor_ids, group_roles)
+
+
 def get_board_role(user, board):
     """Return the effective role of *user* on *board*, or None if they have no access.
 

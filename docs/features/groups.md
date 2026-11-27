@@ -44,7 +44,7 @@ Membership is **inherited**: a member of "Acme Corp" is automatically a member o
 
 ## Board roles vs group roles
 
-All four roles (`admin`, `member`, `collaborator`, `viewer`) are valid at both the group and board level. A group role is inherited by every board in the group. A board admin can override a user's role on a specific board from the **Members** button in the board toolbar. See [Roles & Permissions](rbac/roles.md).
+All four roles (`admin`, `member`, `collaborator`, `viewer`) are valid at both the group and board level. A group role is inherited by every board in the group. A board admin can raise or narrow a user's role on a specific board from the **Members** button in the board toolbar, except below `admin` for someone who is an admin through the group. See [Roles & Permissions](rbac/roles.md).
 
 ## Group description
 

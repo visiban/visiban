@@ -8,7 +8,7 @@ A user with a role in a parent group automatically has that same role on all sub
 
 **The big picture:** group roles are inherited through the group ancestry chain.
 
-All four non-admin roles — `admin`, `member`, `collaborator`, and `viewer` — are valid at both the group and board level. An explicit `BoardMembership` record can override the inherited role for a specific board.
+All four non-admin roles — `admin`, `member`, `collaborator`, and `viewer` — are valid at both the group and board level. An explicit `BoardMembership` record can override the inherited role for a specific board (see [Overrides](#overrides)).
 
 ## How it works
 
@@ -34,11 +34,11 @@ Alice is an `admin` on "Sprint 12" because she is an admin of "Acme Corp" and no
 
 ## Overrides
 
-An explicit `BoardMembership` always takes precedence over inherited group membership. This lets you grant a user a narrower role on a specific board — for example, a group `admin` explicitly set as a `viewer` on one sensitive board.
+An explicit `BoardMembership` takes precedence over inherited group membership. It can raise a user's role on a specific board or narrow it — for example, a group `member` set as a `viewer` on one sensitive board. *(1.3+)* The exception is a user who is an `admin` through the group (or a parent group): their direct role on the group's boards can't be set below `admin`. Remove their direct membership to return them to the group role, or change their group role.
 
 ## Collaborator and viewer
 
-`collaborator` and `viewer` are valid at both the group and board level. As a group membership role, they're inherited by all boards within the group exactly like `admin` and `member`. An explicit `BoardMembership` always overrides the inherited value for that specific board.
+`collaborator` and `viewer` are valid at both the group and board level. As a group membership role, they're inherited by all boards within the group exactly like `admin` and `member`. An explicit `BoardMembership` overrides the inherited value for that specific board, except that it can't be set below `admin` for someone who is an admin through the group (see [Overrides](#overrides)).
 
 ## Visibility of descendant groups
 
