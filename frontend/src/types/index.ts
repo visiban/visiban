@@ -1533,7 +1533,12 @@ export type CardActivityEventType =
   | "needed_changed"
   // #1923: a Block limit overridden with force. from_value is the actor basis,
   // to_value the overridden kinds, item_text the reason ("" when none).
-  | "override_used";
+  | "override_used"
+  // #2703: dimension plan edits. item_text is the dimension's name; from/to are
+  // usernames (owner, blank = Unassigned), the next action text, or ISO dates.
+  | "dimension_owner_changed"
+  | "dimension_next_action_changed"
+  | "dimension_target_date_changed";
 
 export interface CardActivity {
   id: number;

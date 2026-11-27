@@ -1636,6 +1636,17 @@ class CardActivity(models.Model):
         # to_value the comma-joined kinds tripped (wip, weight). On the
         # assignee basis ``assigned_by`` is who assigned the card (#2594).
         OVERRIDE_USED = "override_used", "Override used"
+        # #2703: one row per changed part of a dimension plan (#1922), so a
+        # retrospective can see who reassigned a dimension or moved its
+        # target. ``item_text`` is the dimension field's name at write time.
+        # Owner: from/to are usernames (blank = Unassigned), as for checklist
+        # assignees (#445). Next action: the full text (at most 200
+        # characters, the same text the card payload carries). Target date:
+        # ISO dates (blank = none). A purge removes them with the card's other
+        # activity rows.
+        DIMENSION_OWNER_CHANGED = "dimension_owner_changed", "Dimension owner changed"
+        DIMENSION_NEXT_ACTION_CHANGED = "dimension_next_action_changed", "Dimension next action changed"
+        DIMENSION_TARGET_DATE_CHANGED = "dimension_target_date_changed", "Dimension target date changed"
 
     # Event types whose ``item_text`` is meaningful (#2199, #1921): the
     # checklist item's text on assign/due rows, the custom field's name on
@@ -1646,6 +1657,9 @@ class CardActivity(models.Model):
         EventType.CHECKLIST_ITEM_DUE_CHANGED,
         EventType.CUSTOM_FIELD_CHANGED,
         EventType.OVERRIDE_USED,
+        EventType.DIMENSION_OWNER_CHANGED,
+        EventType.DIMENSION_NEXT_ACTION_CHANGED,
+        EventType.DIMENSION_TARGET_DATE_CHANGED,
     })
 
     # SET_NULL, not CASCADE (#1799): a hard-deleted card keeps its activity

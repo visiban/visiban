@@ -107,6 +107,15 @@ export function activityLabel(
     // Any custom field value change (#1921); item_text names the field.
     case "custom_field_changed":
       return `${d.item_text ? cappedName(d.item_text) : "Custom field"}: ${d.from_value || "(none)"} → ${d.to_value || "(none)"}`;
+    // #2703: dimension plan edits; item_text names the dimension.
+    case "dimension_owner_changed":
+      return `${d.item_text ? cappedName(d.item_text) : "Dimension"} owner: ${d.from_value || "Unassigned"} → ${d.to_value || "Unassigned"}`;
+    case "dimension_next_action_changed":
+      return `${d.item_text ? cappedName(d.item_text) : "Dimension"} next action: ${d.from_value || "(none)"} → ${d.to_value || "(none)"}`;
+    case "dimension_target_date_changed": {
+      const fmt = (iso: string) => (iso ? formatDateStr(iso, userDateFormat) : "(none)");
+      return `${d.item_text ? cappedName(d.item_text) : "Dimension"} target date: ${fmt(d.from_value)} → ${fmt(d.to_value)}`;
+    }
     // Cross-board links (#1104). The row names nothing about the other card,
     // not even its id (from_value and to_value are blank), because it may be on
     // a board this reader cannot open. The label ignores both values anyway.

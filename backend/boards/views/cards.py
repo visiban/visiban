@@ -1757,6 +1757,9 @@ class CardViewSet(viewsets.ModelViewSet):
             "blocked", "unblocked",
             # Every custom field value change (#1921), dimension or not.
             "custom_field_changed",
+            # Since 1.3 (#2703): dimension plan edits.
+            "dimension_owner_changed", "dimension_next_action_changed",
+            "dimension_target_date_changed",
         ],
         "checklist": [
             "checklist_item_added", "checklist_item_checked",
