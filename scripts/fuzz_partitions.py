@@ -218,7 +218,11 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 # ProxyHandler({}) ignores http_proxy so the token cannot be routed through an env proxy.
-_LOOPBACK_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
+def _build_loopback_opener():
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
+
+
+_LOOPBACK_OPENER = _build_loopback_opener()
 
 
 def _fetch_json(url: str, token: str) -> dict:
@@ -348,10 +352,10 @@ def _self_test_fetch() -> None:
         else:
             raise AssertionError("redirect was followed")
         assert seen["b"] == [], seen["b"]
-        # Env proxies are read when the opener is built (at import), so the dead proxy set above
-        # cannot prove this. An empty ProxyHandler({}) registers no <scheme>_open methods, so it
+        # Env proxies are read when an opener is built, not per request, so rebuild one now with
+        # the dead proxy set. An empty ProxyHandler({}) registers no <scheme>_open methods and so
         # never lands in .handlers; the default env-driven one (with http_open) does.
-        proxied = [h for h in _LOOPBACK_OPENER.handlers if isinstance(h, urllib.request.ProxyHandler)]
+        proxied = [h for h in _build_loopback_opener().handlers if isinstance(h, urllib.request.ProxyHandler)]
         assert proxied == [], proxied
         assert seen["a"] == ["Token tok"], seen["a"]  # reached A directly, not via the proxy
 
