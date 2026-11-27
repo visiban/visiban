@@ -4167,7 +4167,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                   <React.Fragment key={swimlane.id}>
                     <RowSeparator
                       isAdmin={isAdmin}
-                      onInsert={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
+                      // #2698 — idx indexes the viewer's (sorted, filtered) list; the insert
+                      // writes board order, so map it to the board index of the lane below.
+                      onInsert={() => { setInsertSwimlanePosition(board.swimlanes.findIndex((s) => s.id === swimlane.id)); setShowAddSwimlane(true); }}
                       currentHeight={idx > 0 ? (viewPrefs.swimlaneHeights[visible[idx - 1].id] ?? undefined) : undefined}
                       setHeight={idx > 0 ? (h) => setSwimlaneHeight(visible[idx - 1].id, h) : undefined}
                       gridTemplate={gridTemplate}

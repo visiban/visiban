@@ -68,6 +68,8 @@ export default function LaneOrderControl({ state, lanes, isAdmin, hiddenLaneCoun
       document.removeEventListener("focusin", onFocusIn);
     };
   }, [open]);
+  // Non-modal dialog: move focus inside on open so it is announced and reachable (ux-review, #2698).
+  useEffect(() => { if (open) panelRef.current?.focus(); }, [open]);
 
   /** Apply a change at once (there is no Apply button) and announce it. */
   const apply = (next: LaneSort | null) => {
@@ -121,7 +123,8 @@ export default function LaneOrderControl({ state, lanes, isAdmin, hiddenLaneCoun
         )}
       </div>
       {noticeText && (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-fg-secondary" data-lane-order-notice>
+        // role=status: a fallback can appear with no user action (a field deleted while looking, a link).
+        <div role="status" className="flex flex-wrap items-center gap-2 text-xs text-fg-secondary" data-lane-order-notice>
           <span className="min-w-0">{noticeText}</span>
           {noticeChoose && <button type="button" className={linkButton} onClick={chooseAnother}>Choose another field</button>}
           {noticeDismiss && <button type="button" className={linkButton} onClick={dismissNotice}>Dismiss</button>}
@@ -134,6 +137,7 @@ export default function LaneOrderControl({ state, lanes, isAdmin, hiddenLaneCoun
           ref={panelRef}
           id={popoverId}
           role="dialog"
+          tabIndex={-1}
           aria-labelledby={`${popoverId}-title`}
           className="absolute left-3 top-full mt-1 z-40 w-80 max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto rounded-lg border border-line bg-surface shadow-lg p-3 flex flex-col gap-3 text-sm"
         >
@@ -226,7 +230,7 @@ function SortFieldPicker({ options, selected, emptyKeys, onSelect }: {
         <legend className="text-xs font-medium text-fg-secondary mb-1">Sort lanes by</legend>
         {groups.map(({ g, items }) => (
           <div key={g} role="group" aria-label={g} className="flex flex-col">
-            <span aria-hidden="true" className="text-[11px] uppercase tracking-wide text-fg-tertiary mt-1">{g}</span>
+            <span aria-hidden="true" className="text-xs uppercase tracking-wide text-fg-tertiary mt-1">{g}</span>
             {items.map((o) => (
               <label key={o.key} className="flex items-center gap-2 min-h-8 max-sm:min-h-11 text-fg">
                 <input type="radio" name={`${id}-field`} className={`accent-primary ${focusRing}`} checked={current === o.key} onChange={() => choose(o.key)} />
@@ -254,6 +258,7 @@ function SortFieldPicker({ options, selected, emptyKeys, onSelect }: {
         type="search"
         role="combobox"
         aria-expanded="true"
+        aria-autocomplete="list"
         aria-controls={`${id}-list`}
         aria-activedescendant={activeKey ? `${id}-opt-${activeKey}` : undefined}
         aria-describedby={`${id}-result`}
@@ -275,7 +280,7 @@ function SortFieldPicker({ options, selected, emptyKeys, onSelect }: {
         <div id={`${id}-list`} role="listbox" aria-label="Sort lanes by" className="flex flex-col max-h-56 overflow-y-auto">
           {groups.map(({ g, items }) => (
             <div key={g} role="group" aria-label={g}>
-              <span aria-hidden="true" className="block text-[11px] uppercase tracking-wide text-fg-tertiary mt-1">{g}</span>
+              <span aria-hidden="true" className="block text-xs uppercase tracking-wide text-fg-tertiary mt-1">{g}</span>
               {items.map((o) => (
                 // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- keyboard choice goes through the combobox (aria-activedescendant); focus never leaves the search box
                 <div
@@ -285,8 +290,9 @@ function SortFieldPicker({ options, selected, emptyKeys, onSelect }: {
                   aria-selected={current === o.key}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => choose(o.key)}
-                  className={`flex items-center gap-2 px-2 min-h-8 max-sm:min-h-11 rounded cursor-pointer ${o.key === activeKey ? "bg-surface-hover ring-1 ring-primary-emphasis" : ""} ${current === o.key ? "font-medium text-fg" : "text-fg-secondary"}`}
+                  className={`flex items-center gap-2 px-2 min-h-8 max-sm:min-h-11 rounded cursor-pointer hover:bg-surface-hover ${o.key === activeKey ? "bg-surface-hover ring-1 ring-primary-emphasis" : ""} ${current === o.key ? "font-medium text-fg" : "text-fg-secondary"}`}
                 >
+                  <span aria-hidden="true" className="w-3">{current === o.key ? "✓" : ""}</span>
                   <span>{o.label}</span>
                   {current === o.key && <span className="sr-only">, selected</span>}
                   {o.hint && <span className="text-xs text-fg-tertiary">{o.hint}</span>}
@@ -368,7 +374,6 @@ export function LaneSortBandSlot({ lane, value, pinned, onTogglePin }: {
       {value && <span className="text-sm font-semibold text-fg whitespace-nowrap tabular-nums" data-testid="lane-sort-value">{value}</span>}
       <button
         type="button"
-        aria-pressed={pinned}
         aria-label={pinned ? `Unpin ${lane.name}` : `Pin ${lane.name} to the top`}
         title={pinned ? `Unpin ${lane.name}` : `Pin ${lane.name} to the top`}
         onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
