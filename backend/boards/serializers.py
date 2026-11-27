@@ -6636,7 +6636,14 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _LANE_ENUM_BUILTINS = {"health_status": frozenset(HealthStatus.values)}
     _LANE_ENUM_OPS = {"is", "is_not", "is_set", "is_empty"}
     _LANE_JOINS = {"and", "or"}
-    _LANE_RULE_KEYS = {"kind", "id", "join", "field", "op", "value", "min", "max"}
+    _LANE_RULE_KEYS = {"kind", "id", "join", "field", "op", "value", "values", "min", "max"}
+    # #2659: a multi-select ``is`` / ``is_not`` rule may name several values in
+    # an optional ``values`` list (any-of / none-of). Additive: a one-value rule
+    # keeps ``value``. Capped at the most choices a multi-select field may have
+    # (100, validate_definition_choices), so ticking every choice always saves; the
+    # 64 KB state_json cap bounds the total. Mirrored in laneFilter.ts.
+    _LANE_MAX_VALUES = 100
+    _LANE_VALUES_OPS = {"is", "is_not"}
     _LANE_GROUP_KEYS = {"kind", "id", "join", "rules"}
     _STATE_V1_PRIORITIES = {"low", "medium", "high", "urgent"}
 
@@ -6902,6 +6909,8 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 if not isinstance(v, str) or len(v) > cap:
                     raise err(f"state_json.laneFilter rule {key} must be a string of at most {cap} characters.")
                 self._reject_nul(v, f"state_json.laneFilter rule {key}")
+        if "values" in rule:
+            self._validate_lane_rule_values(rule, field, op)
         if op in self._LANE_TEXT_OPS:
             # #2226/#2227: a text match has one operand, the value string (the
             # cap above bounds it); range bounds would be silently ignored.
@@ -6909,6 +6918,28 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 raise err(f"state_json.laneFilter {op} rule needs a string value.")
             if "min" in rule or "max" in rule:
                 raise err(f"state_json.laneFilter {op} rule takes a value, not min or max.")
+
+    def _validate_lane_rule_values(self, rule, field, op):
+        """#2659 — ``values`` on a multi-select rule: 1 to _LANE_MAX_VALUES
+        non-empty strings, each bounded like ``value``. The validator has no
+        board context, so like ``value`` on a custom field it checks the
+        shape, not that each entry is one of the field's choices; the client
+        matches whole entries, so an unknown one simply matches no lane. It
+        only fits ``is`` / ``is_not`` on a custom field id and is never mixed
+        with ``value``, ``min`` or ``max``, so a rule has one reading."""
+        err = serializers.ValidationError
+        cap = self._CF_MAX_STRING
+        values = rule["values"]
+        if not isinstance(values, list) or not 1 <= len(values) <= self._LANE_MAX_VALUES:
+            raise err(f"state_json.laneFilter rule values must be a list of 1 to {self._LANE_MAX_VALUES} strings.")
+        for v in values:
+            if not isinstance(v, str) or v == "" or len(v) > cap:
+                raise err(f"state_json.laneFilter rule values must be non-empty strings of at most {cap} characters.")
+            self._reject_nul(v, "state_json.laneFilter rule values")
+        if not self._is_lane_id(field) or op not in self._LANE_VALUES_OPS:
+            raise err("state_json.laneFilter rule values is only valid with is or is_not on a swimlane field id.")
+        if "value" in rule or "min" in rule or "max" in rule:
+            raise err("state_json.laneFilter rule values cannot be combined with value, min or max.")
 
     def _validate_lane_filter(self, lf):
         """Shape check for ``laneFilter`` (#2205): {"items": [rule | group],

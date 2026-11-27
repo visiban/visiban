@@ -26,8 +26,10 @@ export type FieldRuleOp = "is" | "is_not" | "between" | "contains" | "not_contai
  * The field types a rule can target (text and url since #2226). `enum` (#2247)
  * is a fixed set of values supplied by a built-in field, e.g. lane health.
  * `checkbox` and `multi_select` (#2438) match the stored value the way the card
- * filters do (#1848, #1391) but keep the one-value rule shape, so a saved lane
- * filter never changes shape; an older client drops such a rule as unusable.
+ * filters do (#1848, #1391). A multi-select rule may hold several values
+ * (#2659) in the optional `values` list; one value stays in `value`, so a
+ * single-value rule keeps the shape it was saved with. An older client reads
+ * only `value`, so it sees a several-value rule as incomplete and ignores it.
  */
 export type RuleFieldType = "dropdown" | "number" | "date" | "text" | "url" | "enum" | "checkbox" | "multi_select";
 
@@ -53,6 +55,12 @@ export interface FieldRule<K = number> {
   op: FieldRuleOp;
   /** `is` / `is_not` / `contains` / `not_contains` / `wildcard` operand. */
   value?: string;
+  /**
+   * #2659 — a multi-select `is` / `is_not` rule's several values (two or
+   * more). Additive: a rule with one value keeps it in `value` and has no
+   * `values`, and the two are never both set (`withRuleValues`).
+   */
+  values?: string[];
   /** `between` lower bound, inclusive; "" or absent = open. */
   min?: string;
   /** `between` upper bound, inclusive; "" or absent = open. */
@@ -78,6 +86,28 @@ export function normalizeText(raw: string | null | undefined): string | null {
   if (typeof raw !== "string") return null;
   const t = raw.trim().toLowerCase();
   return t === "" ? null : t;
+}
+
+/**
+ * #2659 — the values a multi-select rule names: `values` when it has any,
+ * else the single `value`, else none.
+ */
+export function ruleValues(rule: Pick<FieldRule<unknown>, "value" | "values">): string[] {
+  if (Array.isArray(rule.values) && rule.values.length > 0) return rule.values;
+  return typeof rule.value === "string" && rule.value !== "" ? [rule.value] : [];
+}
+
+/**
+ * #2659 — the operand patch for a multi-select rule holding `picked`. One
+ * value goes in `value` (the shape every client reads); two or more go in
+ * `values` with no `value`, so an older client sees an incomplete rule rather
+ * than misapplying the first value alone. Nothing picked is a half-built rule.
+ */
+export function withRuleValues(picked: readonly string[]): Pick<FieldRule<unknown>, "value" | "values"> {
+  const unique = [...new Set(picked.filter((v) => v !== ""))];
+  if (unique.length === 0) return { value: "", values: undefined };
+  if (unique.length === 1) return { value: unique[0], values: undefined };
+  return { value: undefined, values: unique };
 }
 
 /** Raw stored number text to a finite number, else null. */
@@ -116,9 +146,12 @@ function normalizeFor(t: RuleFieldType, raw: string | null | undefined): number 
 export function isRuleComplete(rule: FieldRule<unknown>, t: RuleFieldType | null | undefined): boolean {
   if (rule.field === null || !t) return false;
   if (!opsForFieldType(t).includes(rule.op)) return false;
+  if (t === "multi_select") return ruleValues(rule).length > 0;
+  // #2659 — several values are a multi-select shape; on any other type the rule is unusable.
+  if (rule.values !== undefined) return false;
   if (t === "enum" && isPresenceOp(rule.op)) return true;
   if (t === "checkbox") return rule.value === "true" || rule.value === "false";
-  if (t === "dropdown" || t === "enum" || t === "multi_select") return typeof rule.value === "string" && rule.value !== "";
+  if (t === "dropdown" || t === "enum") return typeof rule.value === "string" && rule.value !== "";
   // A blank or whitespace-only operand (an empty `contains` box) is incomplete.
   if (isTextRuleType(t)) return normalizeText(rule.value) !== null;
   return normalizeFor(t, rule.min) !== null || normalizeFor(t, rule.max) !== null;
@@ -136,9 +169,11 @@ export function matchRule(rule: FieldRule<unknown>, t: RuleFieldType, raw: strin
   }
   if (t === "multi_select") {
     // #1391: exact membership in the parsed entries, never a substring test on
-    // the JSON text. An empty or unparseable value has no entries, so it fails
-    // `is` and passes `is_not`.
-    const has = parseMultiSelect(raw).includes(rule.value ?? "");
+    // the JSON text. #2659: `is` is any-of the rule's values, `is_not` none-of.
+    // An empty or unparseable value has no entries, so it fails `is` and
+    // passes `is_not`.
+    const want = ruleValues(rule);
+    const has = parseMultiSelect(raw).some((entry) => want.includes(entry));
     return rule.op === "is_not" ? !has : has;
   }
   if (t === "dropdown" || t === "enum") {
@@ -215,9 +250,13 @@ const TEXT_OP_WORDS: Partial<Record<FieldRuleOp, string>> = {
 export function ruleText(rule: FieldRule<unknown>, t: RuleFieldType, label: string, fmt: (raw: string) => string): string {
   if (t === "enum" && isPresenceOp(rule.op)) return `${label} ${rule.op === "is_set" ? "is set" : "is empty"}`;
   if (t === "enum") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${fmt(rule.value ?? "")}`;
-  // Chips read "PCI in scope: Yes" and "Pricing regions: EMEA" (#2438), like the card chips.
+  // Chips read "PCI in scope: Yes" and "Pricing regions: EMEA, APAC" (#2438,
+  // #2659), like the card chips: several values are joined with ", ".
   if (t === "checkbox") return `${label}: ${rule.value === "true" ? "Yes" : "No"}`;
-  if (t === "multi_select") return rule.op === "is_not" ? `${label}: not ${rule.value ?? ""}` : `${label}: ${rule.value ?? ""}`;
+  if (t === "multi_select") {
+    const shown = ruleValues(rule).join(", ");
+    return rule.op === "is_not" ? `${label}: not ${shown}` : `${label}: ${shown}`;
+  }
   if (t === "dropdown") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${rule.value ?? ""}`;
   if (isTextRuleType(t)) {
     const word = TEXT_OP_WORDS[rule.op] ?? "is";
