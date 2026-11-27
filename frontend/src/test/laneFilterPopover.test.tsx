@@ -236,9 +236,22 @@ describe('LaneFilterPopover', () => {
     const chip = document.querySelector('[data-lane-chip]') as HTMLElement
     expect(chip).toHaveTextContent('Pricing regions: not EMEA, LATAM')
     const dialog = await openPopover(user)
-    await user.click(within(dialog).getByRole('button', { name: 'Filter 1 value: EMEA, LATAM' }))
-    expect(within(dialog).getByRole('checkbox', { name: 'LATAM' })).toBeChecked()
+    const trigger = within(dialog).getByRole('button', { name: 'Filter 1 value: EMEA, LATAM (not a choice)' })
+    // A truncated list stays readable from the trigger's title.
+    expect(trigger.querySelector('span[title]')).toHaveAttribute('title', 'EMEA, LATAM (not a choice)')
+    await user.click(trigger)
+    expect(within(dialog).getByRole('checkbox', { name: 'LATAM (not a choice)' })).toBeChecked()
     expect(within(dialog).getByRole('checkbox', { name: 'APAC' })).not.toBeChecked()
+    // Tab off the last checkbox closes the inline checklist; the popover stays open.
+    within(dialog).getByRole('checkbox', { name: 'LATAM (not a choice)' }).focus()
+    await user.tab()
+    expect(within(dialog).queryByRole('group', { name: 'Filter 1 values' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Lane filters' })).toBeInTheDocument()
+    // Moving between checkboxes inside it does not close it.
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
+    within(dialog).getByRole('checkbox', { name: 'EMEA' }).focus()
+    await user.tab()
+    expect(within(dialog).getByRole('group', { name: 'Filter 1 values' })).toBeInTheDocument()
   })
 
   it('shows a checkbox lane rule as a Lanes chip', () => {

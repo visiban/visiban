@@ -138,8 +138,18 @@ function CheckboxDropdownInner<T extends string | number>(
 
   const showBadge = !!badge;
 
+  // #2659 — an inline menu sits in this wrapper's DOM, so Tab off its last
+  // checkbox would leave the `fixed` menu open over whatever focus reaches.
+  // Close it when focus leaves the wrapper (a portaled menu handles Tab itself).
+  const onWrapperBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (menuMode !== "inline" || !open) return;
+    const next = e.relatedTarget as Node | null;
+    if (next && ref.current?.contains(next)) return;
+    setOpen(false);
+  };
+
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative" onBlur={onWrapperBlur}>
       <button
         type="button"
         ref={triggerRef}
@@ -158,7 +168,7 @@ function CheckboxDropdownInner<T extends string | number>(
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"
         } ${triggerClassName}`}
       >
-        {placeholder !== undefined ? <span className="truncate">{displayLabel}</span> : displayLabel}
+        {placeholder !== undefined ? <span className="truncate" title={pickedText || undefined}>{displayLabel}</span> : displayLabel}
         {showBadge && " "}
         {showBadge && (
           <span
@@ -169,9 +179,10 @@ function CheckboxDropdownInner<T extends string | number>(
           </span>
         )}
         <svg
-          className="w-3 h-3 text-fg-muted"
+          className="w-3 h-3 text-fg-muted shrink-0"
           viewBox="0 0 16 16"
           fill="currentColor"
+          aria-hidden="true"
         >
           <path
             d="M4 6l4 4 4-4"

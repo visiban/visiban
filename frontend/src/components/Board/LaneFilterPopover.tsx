@@ -399,8 +399,8 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
               menuMode="inline"
               triggerClassName="w-full justify-between"
               escapePriority={INNER_ESCAPE_PRIORITY}
-              // A stored value that is no longer a choice stays listed, so it can be removed.
-              options={[...def.choices, ...ruleValues(r).filter((v) => !def.choices.includes(v))].map((c) => ({ value: c, label: c }))}
+              // A stored value that is no longer a choice stays listed, and says so, so it can be removed.
+              options={[...def.choices, ...ruleValues(r).filter((v) => !def.choices.includes(v))].map((c) => ({ value: c, label: def.choices.includes(c) ? c : `${c} (not a choice)` }))}
               // Kept in the field's choice order, so the chip reads the same however they were picked.
               selected={ruleValues(r)}
               onChange={(picked) => {
