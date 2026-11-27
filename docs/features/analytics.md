@@ -337,6 +337,13 @@ Every empty state names the next action, except **Needs attention** with nothing
 
 When the selected window has no movement data at all (a new board, or a period before any activity), the view shows an informational message instead of an empty heatmap. Widen the period or add some card movements.
 
+### Known limits on old boards
+
+These limits show on a board with about three years of history and 12k active cards. They were measured with `ANALYTICS_MAX_CONCURRENT=1` on `daphne`.
+
+- **Drill-down memory.** One cumulative-flow day drill-down (`?date=`) peaks at about 676-720 MB of process memory. This is accepted for 1.3 and tracked in [#2559](https://gitlab.com/visiban/visiban/-/issues/2559). The chart's default backend memory limit is `1Gi` for this reason. See [Backend memory and CPU sizing](../administration/configuration.md#backend-memory-and-cpu-sizing).
+- **Overview and cumulative flow are refused.** A board that old holds more movements than `ANALYTICS_MAX_MOVEMENTS` (150000 by default), so the Overview and the cumulative flow chart without a date return `422 analytics_too_large`. This is by design (#2622): the limit protects the backend from running out of memory. See [Analytics limits](../administration/configuration.md#analytics-limits).
+
 ### CSV export
 
 Click **Export CSV**, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode last chosen, in a file named `analytics-{mode}-{days}d.csv`. It includes all active columns, the velocity column, and a stalled card count per swimlane. The stalled count follows the same planned-child rule as Needs attention. The button is visible only to **admin** and **site_admin** users. Names in the export are quoted where needed, and leading `=`, `+`, `-` and `@` characters are removed, the same as the board CSV export.
