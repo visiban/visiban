@@ -4383,15 +4383,22 @@ describe('CardDetail — custom field and weight saves follow the live card (#18
   })
 
   it('a pending weight edit is not reset by an unrelated remote bump', async () => {
-    const props = defaultProps()
-    const user = userEvent.setup()
-    const { rerender } = render(<CardDetail {...props} />)
-    await user.click(screen.getByRole('button', { name: 'Increase weight' }))
-    rerender(<CardDetail {...props} card={makeCard({ weight: 7, version: 4 })} />)
-    expect(screen.getByText('2')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Increase weight' }))
-    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { weight: 3 }))
-    expect(mockUpdateCard).toHaveBeenCalledTimes(1)
+    // Fake timers: with the real 600 ms debounce, a slow runner could fire the
+    // first save between the two clicks and send two PATCHes.
+    vi.useFakeTimers()
+    try {
+      const props = defaultProps()
+      const { rerender } = render(<CardDetail {...props} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Increase weight' }))
+      rerender(<CardDetail {...props} card={makeCard({ weight: 7, version: 4 })} />)
+      expect(screen.getByText('2')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Increase weight' }))
+      await act(() => vi.advanceTimersByTimeAsync(600))
+      expect(mockUpdateCard).toHaveBeenCalledTimes(1)
+      expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { weight: 3 })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('the weight minus button steps down from a remotely changed weight', async () => {
