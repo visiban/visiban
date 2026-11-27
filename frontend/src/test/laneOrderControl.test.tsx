@@ -133,6 +133,16 @@ describe('LaneOrderControl (#2698)', () => {
     expect(search()).toBe('')
   })
 
+  it('clears the "can\'t use" notice once the viewer applies a new sort', async () => {
+    const user = userEvent.setup()
+    renderAt('/b/1?lsort=f:99')
+    expect(screen.getByText("You can't use the field this link sorts by, so lanes are in board order.")).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Choose another field' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Lane order' })).getByRole('radio', { name: /^Priority/ }))
+    expect(search()).toContain('lsort=f%3A7')
+    expect(screen.queryByText("You can't use the field this link sorts by, so lanes are in board order.")).not.toBeInTheDocument()
+  })
+
   it('names a sort field deleted while the viewer is looking, and a deleted tie-breaker', () => {
     const view = renderAt('/b/1?lsort=f:7&lsort_then=f:8', { defs: [field(7, 'Priority'), field(8, 'Region', 'text', [])] })
     view.rerender(<MemoryRouter><Harness defs={[field(7, 'Priority')]} /></MemoryRouter>)

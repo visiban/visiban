@@ -73,9 +73,17 @@ export function useLaneSort({ swimlanes, laneFieldDefs, cardFieldDefs, isAdmin, 
   const labels = useRef(new Map<string, string>());
   for (const o of options) labels.current.set(o.key, o.label);
 
-  const setSort = useCallback((next: LaneSort | null) => {
+  const writeSort = useCallback((next: LaneSort | null) => {
     setSearchParams((prev) => writeLaneSortParams(new URLSearchParams(prev), next), { replace: true });
   }, [setSearchParams]);
+
+  // A viewer applying a sort retires any "turned off" / "can't use" notice: it
+  // described the old sort. The fallback effect below uses `writeSort` so it
+  // does not clear the notice it just raised.
+  const setSort = useCallback((next: LaneSort | null) => {
+    setNotice(null);
+    writeSort(next);
+  }, [writeSort]);
 
   const mainOk = requested ? options.some((o) => o.key === requested.key) : true;
   const thenOk = requested?.then ? options.some((o) => o.key === requested.then) : true;
@@ -87,13 +95,13 @@ export function useLaneSort({ swimlanes, laneFieldDefs, cardFieldDefs, isAdmin, 
       // A known field that vanished was deleted; a key this viewer never had
       // (admin-only for a member, or unknown to this board) "can't be used".
       setNotice(label ? { kind: "deleted", field: label } : { kind: "cant_use" });
-      setSort(null);
+      writeSort(null);
     } else if (!thenOk && requested.then) {
       const label = labels.current.get(requested.then);
       if (label) setNotice({ kind: "then_deleted", field: label });
-      setSort({ ...requested, then: null });
+      writeSort({ ...requested, then: null });
     }
-  }, [requested, mainOk, thenOk, setSort]);
+  }, [requested, mainOk, thenOk, writeSort]);
 
   const sort = useMemo<LaneSort | null>(() => {
     if (!requested || !mainOk) return null;
