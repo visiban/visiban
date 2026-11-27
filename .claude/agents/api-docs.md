@@ -3,6 +3,7 @@ name: api-docs
 model: sonnet
 description: Use proactively when adding or modifying an API endpoint, serializer field, or permission rule. Keeps docs/api/ in sync with code changes. Checks completeness of HTTP method, permissions, request fields, response examples, and error cases.
 tools: Read, Grep, Glob, Write, Edit, Bash
+maxTurns: 39
 ---
 
 # API Docs Sync
@@ -91,3 +92,7 @@ List every doc change made, or needed if not yet made:
 - One-line description of the change
 
 If no doc changes are needed (e.g. internal refactor with no API surface change), state that explicitly so the reviewer knows it was checked.
+
+### 7. Batch use
+
+In the pre-MR gate batch (root `CLAUDE.md`, "Pre-MR gate batch: `api-docs` addition") you are the one gate that writes. Edit only `docs/api/` in the worktree you were briefed with; do not commit. The implementer reviews your edits and commits them with the branch. Report the count of doc gaps you found (edited or not) so the implementer can record `gate: api-docs — <N> findings`.

@@ -248,6 +248,11 @@ persisted in the MR's `## Gates` (Step 5); Step 7 only reports them.
 security" — a one-line permission-class fix with a named root cause is Sonnet
 work; `rbac-check` and `security-review` catch what Sonnet misses.
 
+**`api-docs` is the one writer in the batch.** When a view, viewset, serializer, or permission file
+changed, the implementer runs it in the same parallel batch as the read-only gates, with
+`model: "sonnet"` and `effort: "medium"`. It edits `docs/api/` in the implementer's worktree;
+the implementer reviews those edits and commits them with the branch (the gate never commits).
+
 **Read-only gates always run on Sonnet.** `regression-check`, `rbac-check`,
 `perf-check`, `security-review`, `broadcast-check`, `migration-check` read a diff and
 report findings. None needs Opus. Pass `model: "sonnet"` on the Agent call when you spawn
@@ -281,6 +286,7 @@ than calling the omission a defect.
 | Implementer, escalated (a criterion above, named in the report) | `opus` | `high` |
 | Rescue (after Opus failed; a *Rescue escalation* trigger and the user's answer, named in the report) | `fable` | `high` |
 | Read-only gates (`regression-check`, `rbac-check`, `perf-check`, `security-review`, `broadcast-check`, `migration-check`) | `sonnet` | `medium` |
+| `api-docs` (the one writer in the batch; edits `docs/api/`) | `sonnet` | `medium` |
 | `completeness-check` round 1 | `sonnet`, or `opus` on its own criteria | `high` |
 | `completeness-check` round 2 | `opus` | `high` |
 | `completeness-check/fix-diff` re-check | `sonnet`, or `opus` if round 1 escalated | `medium` |
@@ -312,6 +318,7 @@ costs more than it saves). Tool calls are not the ledger's `turns:` unit; keep t
 |---|---|---|
 | Implementer | 80 | 45 min |
 | Read-only gate (`regression-check`, `perf-check`, `security-review`, `rbac-check`, ...) | 25 | 15 min |
+| `api-docs` (writer gate) | 25 | 15 min |
 | `completeness-check`, each pass | 40 | 30 min |
 
 **These numbers are PROVISIONAL.** They are judgment, not derived from this repo's ledger. The
@@ -468,7 +475,10 @@ named. Include:
   and which are `n/a`, so the agent does not run the whole battery. The implementer spawns
   only the pre-MR batch, as one parallel batch, with `model: "sonnet"` and
   `effort: "medium"` on each call (see the table above), and tells you which values it
-  passed. It writes tests and docs itself.
+  passed. It writes tests and docs itself. When the diff changes a view, viewset, serializer,
+  or permission file, the batch also includes `api-docs` (root `CLAUDE.md`, "Pre-MR gate batch:
+  `api-docs` addition"); it writes `docs/api/` in the worktree, and the implementer commits
+  its edits.
 - The scoped test command — the affected test file, not the whole suite
   (`cd backend && pytest <path> -q`, or `cd frontend && npx vitest run <file>`,
   or `cd frontend && npx playwright test e2e/<spec>.spec.ts`).
