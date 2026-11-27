@@ -149,8 +149,8 @@ describe('Children mode ways in and band (#2370 items 1, 2, 3, 8, 10)', () => {
     expect(document.activeElement).toBe(parent)
   })
 
-  it('useChildrenLaneCounts reads the server lane rollups, in progress minus planned, and is empty when off or failed', async () => {
-    getChildrenView.mockResolvedValueOnce({ lanes: [{ id: 3, in_progress: 14, planned: 2 }] })
+  it('useChildrenLaneCounts reads the server lane in_progress (planned already excluded), and is empty when off or failed', async () => {
+    getChildrenView.mockResolvedValueOnce({ lanes: [{ id: 3, in_progress: 12, planned: 2 }] })
     const { result } = renderHook(() => useChildrenLaneCounts(4, true))
     await waitFor(() => expect(result.current.get(3)).toBe(12))
     getChildrenView.mockClear()

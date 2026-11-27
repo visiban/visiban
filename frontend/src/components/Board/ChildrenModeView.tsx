@@ -636,7 +636,9 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
         const sectionIds = [...new Set(drawn.map((r) => r.child_board_id).filter((id): id is number => id != null))];
         const maxCols = Math.max(0, ...sectionIds.map((id) => boards.get(id)?.columns.length ?? 0));
         const remaining = lane.parents - (loadedPerLane.get(lane.id) ?? 0);
+        // lane.planned_only is a subset of lane.folded; "Only planned" unfolds those rows, so they leave the button.
         const plannedOnlyFolded = options.planned === "only" ? 0 : lane.planned_only;
+        const foldedCount = options.planned === "only" ? lane.folded - lane.planned_only : lane.folded;
         // Phone: one child board per lane at a time; the others are "Onboarding · 2 children · Columns ›" switches.
         const phoneBoardId = phone ? (sectionIds.includes(phoneBoard[lane.id]) ? phoneBoard[lane.id] : sectionIds[0]) : undefined;
         const shownSectionIds = phoneBoardId != null ? [phoneBoardId] : sectionIds;
@@ -768,7 +770,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
                     onClick={() => setFoldOpen((s) => toggle(s, lane.id))}
                     className={`${FOCUS} ${tgt} mx-2 mt-2 px-3 text-sm text-fg-secondary rounded border border-line hover:bg-surface-hover`}
                   >
-                    {foldLabel(lane.folded, plannedOnlyFolded)}
+                    {foldLabel(foldedCount, plannedOnlyFolded)}
                   </button>
                 )}
                 {remaining > 0 && lastLaneWithRows === lane.id && data.next_cursor && (

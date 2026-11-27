@@ -10,20 +10,19 @@ const PARENT = { ...CARD, title: 'Acme: analytics module' }
 const BOARD = { ...BOARD_FULL, cards_can_have_children: true, cards: [PARENT] }
 const LANE_ID = BOARD_FULL.swimlanes[0].id
 
-// Pre-B (#2370 owner decision): in_progress 5 includes the 1 planned child, so the page shows 4 (shownInProgress).
-// After MR B the server excludes planned itself; then send in_progress 4 here and the asserted strings stay the same.
+// The server's shape since #2551: the 1 planned child is its own bucket, in total but not in todo or in_progress.
 const view = {
-  board_total: { in_progress: 5, total: 6, blocked: 1, hidden: 4, planned: 1 },
+  board_total: { in_progress: 4, total: 6, blocked: 1, hidden: 4, planned: 1 },
   lanes: [{
     id: LANE_ID, name: BOARD_FULL.swimlanes[0].name, position: 0, parents: 2, child_boards: 1, total: 6,
-    in_progress: 5, done: 1, doing: 1, todo: 3, blocked: 1, hidden: 4, folded: 0, planned: 1, planned_only: 0,
+    in_progress: 4, done: 1, doing: 1, todo: 2, blocked: 1, hidden: 4, folded: 0, planned: 1, planned_only: 0,
     last_moved_at: null,
   }],
   rows: [
     {
       id: PARENT.id, title: PARENT.title, swimlane_id: LANE_ID, column_id: PARENT.column, column_name: 'Discovery',
-      assignee: null, rollup: { visible: true, total: 6, done: 1, doing: 1, todo: 3, blocked: 1, last_moved_at: null },
-      in_progress: 5, folded: false, planned: 1, planned_only: false, child_board_id: 7,
+      assignee: null, rollup: { visible: true, total: 6, done: 1, doing: 1, todo: 2, blocked: 1, last_moved_at: null },
+      in_progress: 4, folded: false, planned: 1, planned_only: false, child_board_id: 7,
       children: [
         { id: 20, title: 'Usage export spec', column_id: 100, swimlane_id: 1, position: 0, state: 'todo', assignee: null, blocked: false, blocked_at: null, planned: false },
         { id: 21, title: 'Proposal workshop', column_id: 100, swimlane_id: 1, position: 1, state: 'todo', assignee: null, blocked: false, blocked_at: null, planned: true },

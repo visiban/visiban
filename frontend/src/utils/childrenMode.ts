@@ -155,11 +155,11 @@ export function laneLink(origin: string, boardId: number, laneId: number): strin
 
 /**
  * "In progress" as the board shows it: not done and not planned (#2370 clarification 3, #2550). The ONE place the
- * frontend derives it: every count shown in Children mode, the lane action and the Children tab link reads it here.
- * Reconcile point (owner decision): once MR B's `children_view.py` returns `in_progress` already excluding planned
- * children, this becomes `c.in_progress`; the tests that pin the subtraction are named "...subtracts planned (pre-B)".
+ * frontend reads it: every count shown in Children mode, the lane action and the Children tab link come from here.
+ * The server's `in_progress` is already `todo + doing + blocked` with planned children in their own `planned`
+ * bucket (#2551 owner ruling), so this never subtracts `planned` and never re-derives the rule.
  */
-export const shownInProgress = (c: { in_progress: number; planned: number }) => Math.max(0, c.in_progress - c.planned);
+export const shownInProgress = (c: { in_progress: number }) => c.in_progress;
 
 /**
  * The lane band's total: "12 in progress of 16", or with planned children "2 in progress · 2 planned" (planned
@@ -207,9 +207,12 @@ export function compactRowLabel(row: ChildrenViewRow): string {
   return rowDoneLabel(row);
 }
 
-/** The fold button, the same everywhere (#2370 clarification 1, #2550). */
+/**
+ * The fold button, the same everywhere (#2370 clarification 1, #2550). `folded` is every folded parent and
+ * `plannedOnly` the subset of them whose open work is all planned (the server's lane `folded` and `planned_only`).
+ */
 export function foldLabel(folded: number, plannedOnly: number): string {
-  const n = folded + plannedOnly;
+  const n = folded;
   const base = `${n} ${n === 1 ? "parent" : "parents"} with nothing in progress`;
   return plannedOnly > 0 ? `${base} · ${plannedOnly} with only planned work` : base;
 }
@@ -222,11 +225,14 @@ export function moreParentsLabel(remaining: number, phone: boolean): string {
   return `+${remaining} more ${remaining === 1 ? "parent" : "parents"} · ${phone ? "load 20" : "loads 20 rows at a time"}`;
 }
 
-/** A row folds when nothing is in progress, or (unless "Only planned") when its only work is planned. */
+/**
+ * A row folds when nothing is in progress (the server's `folded`), except that "Only planned" unfolds the rows whose
+ * only open work is planned (`planned_only`, a subset of `folded`; #2370 clarification 1).
+ */
 export function isFoldedRow(row: ChildrenViewRow, planned: PlannedOption): boolean {
   if (!row.rollup.visible) return false;
-  if (row.folded) return true;
-  return row.planned_only && planned !== "only";
+  if (row.planned_only) return planned !== "only";
+  return row.folded;
 }
 
 /** Which of a row's children the grid draws under the Planned and Blocked only options. */

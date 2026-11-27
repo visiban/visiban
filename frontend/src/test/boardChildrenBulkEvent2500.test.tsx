@@ -357,6 +357,8 @@ describe('BoardView — Children lane counts re-read live, throttled (#2370 item
 
   it('re-reads the children view once for a burst of count-changing events, and not for card.updated', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
+    // Pin the up-to-500ms jitter to 0: two random waits can sum past the 2,100ms this test advances (a real flake).
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
     const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
     const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
     vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
@@ -385,6 +387,7 @@ describe('BoardView — Children lane counts re-read live, throttled (#2370 item
     } finally {
       vi.useRealTimers()
       spy.mockRestore()
+      random.mockRestore()
     }
   })
 

@@ -66,7 +66,7 @@ describe('Children mode rules (#2370, #2550)', () => {
 
   it('words the lane band, planned never counting as in progress', () => {
     expect(laneTotalLabel(lane())).toBe('12 in progress of 16')
-    expect(laneTotalLabel(lane({ in_progress: 4, planned: 2 }))).toBe('2 in progress · 2 planned')
+    expect(laneTotalLabel(lane({ in_progress: 2, planned: 2 }))).toBe('2 in progress · 2 planned')
     expect(laneBlockedLabel(lane())).toBe('3 blocked')
     expect(laneBlockedLabel(lane({ blocked: 0 }))).toBe('none blocked')
     expect(laneBlockedLabel(lane({ blocked: 2, in_progress: 2 }))).toBe('All blocked')
@@ -83,15 +83,19 @@ describe('Children mode rules (#2370, #2550)', () => {
     expect(compactRowLabel(row())).toBe('2 blocked')
     expect(compactRowLabel(row({ rollup: { visible: true, total: 5, done: 3, doing: 2, todo: 0, blocked: 0, last_moved_at: null } }))).toBe('3/5 done')
     expect(foldLabel(2, 0)).toBe('2 parents with nothing in progress')
-    expect(foldLabel(0, 1)).toBe('1 parent with nothing in progress · 1 with only planned work')
+    expect(foldLabel(1, 1)).toBe('1 parent with nothing in progress · 1 with only planned work')
+    expect(foldLabel(3, 1)).toBe('3 parents with nothing in progress · 1 with only planned work')
     expect(lockedRowText(4)).toBe("4 children on a board you can't open. Their columns and titles are not shown.")
     expect(moreParentsLabel(9, false)).toBe('+9 more parents · loads 20 rows at a time')
     expect(moreParentsLabel(9, true)).toBe('+9 more parents · load 20')
   })
 
   it('folds planned-only rows unless Only planned, and filters children', () => {
-    expect(isFoldedRow(row({ planned_only: true }), 'any')).toBe(true)
-    expect(isFoldedRow(row({ planned_only: true }), 'only')).toBe(false)
+    const plannedOnly = row({ planned_only: true, folded: true, in_progress: 0 })
+    expect(isFoldedRow(plannedOnly, 'any')).toBe(true)
+    expect(isFoldedRow(plannedOnly, 'hide')).toBe(true)
+    expect(isFoldedRow(plannedOnly, 'only')).toBe(false)
+    expect(isFoldedRow(row(), 'any')).toBe(false)
     expect(isFoldedRow(row({ folded: true }), 'only')).toBe(true)
     expect(isFoldedRow(row({ rollup: { visible: false, total: 2 } }), 'any')).toBe(false)
     const kids = [child({ id: 1, planned: true }), child({ id: 2, blocked: true }), child({ id: 3 })]
@@ -117,8 +121,8 @@ describe('Children mode rules (#2370, #2550)', () => {
 })
 
 const view = (o: Partial<ChildrenView> = {}): ChildrenView => ({
-  board_total: { in_progress: 6, total: 8, blocked: 1, hidden: 4, planned: 2 },
-  lanes: [lane({ total: 8, in_progress: 6, planned: 2, planned_only: 1, folded: 0, parents: 4, done: 2 }), lane({ id: 4, name: 'Globex', parents: 1, hidden: 0 })],
+  board_total: { in_progress: 4, total: 8, blocked: 1, hidden: 4, planned: 2 },
+  lanes: [lane({ total: 8, in_progress: 4, planned: 2, planned_only: 1, folded: 1, parents: 4, done: 2 }), lane({ id: 4, name: 'Globex', parents: 1, hidden: 0 })],
   rows: [
     row({
       children: [
@@ -127,7 +131,7 @@ const view = (o: Partial<ChildrenView> = {}): ChildrenView => ({
       ],
       planned: 1,
     }),
-    row({ id: 41, title: 'Acme: pilot', rollup: { visible: true, total: 1, done: 0, doing: 0, todo: 1, blocked: 0, last_moved_at: null }, planned: 1, planned_only: true, children: [child({ id: 3, planned: true })] }),
+    row({ id: 41, title: 'Acme: pilot', rollup: { visible: true, total: 1, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null }, in_progress: 0, folded: true, planned: 1, planned_only: true, children: [child({ id: 3, planned: true })] }),
     row({ id: 42, title: 'Acme: expansion', rollup: { visible: false, total: 4 }, in_progress: null, planned: null, child_board_id: null }),
   ],
   child_boards: [{

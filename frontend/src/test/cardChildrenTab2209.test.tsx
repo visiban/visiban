@@ -1113,7 +1113,7 @@ describe('Children tab Try again focus (#2575)', () => {
 describe('CardChildrenTab: All children in the lane (#2370 way in 2)', () => {
   it('is Tab stop 8, after Movement history, and opens Children mode at the parent lane with its count', async () => {
     const { getChildrenView } = await import('../api/cards')
-    vi.mocked(getChildrenView).mockResolvedValue({ lanes: [{ id: 3, in_progress: 14, planned: 2 }] } as never)
+    vi.mocked(getChildrenView).mockResolvedValue({ lanes: [{ id: 3, in_progress: 12, planned: 2 }] } as never)
     render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lane={{ id: 3, name: 'Acme Corp' }} />)
     const link = await screen.findByRole('link', { name: 'All children in Acme Corp (12 in progress)' })
     expect(link).toHaveAttribute('href', '/boards/1?show=children&lane=3')

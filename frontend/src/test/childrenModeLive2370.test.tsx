@@ -41,11 +41,11 @@ const base = { options: DEFAULT_CHILDREN_OPTIONS, onOptionsChange: vi.fn(), onOp
 beforeEach(() => { getChildrenView.mockReset(); moveCard.mockReset() })
 
 describe('shownInProgress, the one in-progress derivation (#2370, #2550)', () => {
-  // Reconcile point: after MR B the server's in_progress already excludes planned, and this becomes the identity.
-  it('subtracts planned (pre-B)', async () => {
+  // The server's in_progress already excludes planned (#2551 owner ruling): the client never subtracts it again.
+  it('reads the server in_progress as is', async () => {
     const { shownInProgress } = await import('../utils/childrenMode')
-    expect(shownInProgress({ in_progress: 5, planned: 1 })).toBe(4)
-    expect(shownInProgress({ in_progress: 1, planned: 3 })).toBe(0)
+    expect(shownInProgress({ in_progress: 4 })).toBe(4)
+    expect(shownInProgress({ in_progress: 0 })).toBe(0)
   })
 })
 
