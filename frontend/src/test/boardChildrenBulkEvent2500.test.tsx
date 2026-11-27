@@ -7,7 +7,7 @@
  * Kept out of boardSocketEvents.test.tsx so it does not collide with other
  * open branches editing that file; the mock setup below is copied from it.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act, screen, within, fireEvent } from '@testing-library/react'
 import { boardStateMessage } from '../hooks/useLiveAnnouncer'
 import BoardView from '../components/Board/BoardView'
@@ -62,15 +62,32 @@ vi.mock('@dnd-kit/sortable', () => ({
   arrayMove: vi.fn(),
   useSortable: () => ({ setNodeRef: () => {}, attributes: {}, listeners: {}, transform: null, transition: undefined, isDragging: false }),
 }))
-const { mockLocationState } = vi.hoisted(() => ({ mockLocationState: { current: null as unknown } }))
-vi.mock('react-router-dom', () => ({
+const { mockLocationState, liveParams } = vi.hoisted(() => ({
+  mockLocationState: { current: null as unknown },
+  // Opt-in (#2370 audit): when `on`, setSearchParams really updates `mockSearchParams` and re-renders, so a test
+  // can walk Cards -> Focus -> Children -> back. Off, the setter is a no-op as every other test here expects.
+  liveParams: { on: false, version: 0, listeners: new Set<() => void>() },
+}))
+vi.mock('react-router-dom', async () => {
+  const React = await import('react')
+  const subscribe = (l: () => void) => { liveParams.listeners.add(l); return () => { liveParams.listeners.delete(l) } }
+  const set = (next: URLSearchParams | ((p: URLSearchParams) => URLSearchParams)) => {
+    mockSearchParams = typeof next === 'function' ? next(new URLSearchParams(mockSearchParams)) : new URLSearchParams(next)
+    liveParams.version += 1
+    liveParams.listeners.forEach((l) => l())
+  }
+  return {
   // BoardView reads navigation state for the board-invite joined notice (#1444).
   useLocation: () => ({ pathname: '/', search: '', hash: '', state: mockLocationState.current, key: 'default' }),
-  useSearchParams: () => [mockSearchParams, vi.fn()],
+  useSearchParams: () => {
+    React.useSyncExternalStore(subscribe, () => liveParams.version)
+    return [mockSearchParams, liveParams.on ? set : vi.fn()]
+  },
   useNavigate: () => vi.fn(),
   useInRouterContext: () => false,
   Link: ({ to, children, ...rest }: { to: string; children?: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
-}))
+  }
+})
 vi.mock('../api/boards', () => ({
   exportBoardCsv: vi.fn(),
   exportBoardJson: vi.fn(),
@@ -81,7 +98,13 @@ vi.mock('../components/Board/ColumnHeader', () => ({
   default: ({ column }: { column: { name: string } }) => <div>{column.name}</div>,
 }))
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, onExitFocus: _onExitFocus, compact: _compact }: { swimlane: { name: string }; onExitFocus?: () => void; compact?: boolean }) => <div>{swimlane.name}</div>,
+  default: ({ swimlane, collapsed, onFocus, childrenAction, onExitFocus: _onExitFocus, compact: _compact }: { swimlane: { id: number; name: string }; collapsed?: boolean; onFocus?: (id: number) => void; childrenAction?: { onOpen: () => void }; onExitFocus?: () => void; compact?: boolean }) => (
+    <div data-testid={`lane-${swimlane.id}`} data-collapsed={String(!!collapsed)}>
+      {swimlane.name}
+      <button type="button" data-testid={`lane-focus-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)} />
+      <button type="button" data-testid={`lane-children-${swimlane.id}`} onClick={() => childrenAction?.onOpen()} />
+    </div>
+  ),
 }))
 vi.mock('../components/Card/CardItem', () => ({ default: () => <div /> }))
 vi.mock('../components/Card/CardDetail', () => ({
@@ -426,6 +449,70 @@ describe('BoardView — Children lane counts re-read live, throttled (#2370 item
     }
   })
 
+  // #2370 broadcast audit: a parent column's reorder can release planned children, a delete drops rows, a rename
+  // changes each row's column name; each re-reads once.
+  it.each([
+    ['column.reordered', { order: [11, 10] }],
+    ['column.deleted', { id: 11 }],
+    ['column.updated', { id: 10, uid: 'col001', name: 'Backlog', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }],
+  ])('%s re-reads the children view once (#2370 audit)', async (evt, data) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
+    const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
+    vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
+    try {
+      mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: true, cards: [makeCard({ id: 7 })] }) })
+      render(<BoardView />)
+      await act(async () => {})
+      const before = spy.mock.calls.length
+      await act(async () => { getOnEvent.dispatch({ event: evt, data } as never) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+      expect(spy.mock.calls.length).toBe(before + 1)
+    } finally {
+      vi.useRealTimers()
+      spy.mockRestore()
+      random.mockRestore()
+    }
+  })
+
+  it("card.updated re-reads only when a parent's title or assignee changed, judged before the frame applies (#2370 audit)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
+    const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
+    vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
+    try {
+      const leaf = makeCard({ id: 7, children_rollup: { visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null } })
+      const parent = makeCard({ id: 8, uid: 'crd008', children_rollup: { visible: true, total: 2, done: 0, doing: 1, todo: 1, blocked: 0, last_moved_at: null } })
+      const ctx = makeContext({ board: makeBoard({ cards_can_have_children: true, cards: [leaf, parent] }) })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      const before = spy.mock.calls.length
+      const settle = async () => { await act(async () => { await vi.advanceTimersByTimeAsync(3000) }) }
+      // A comment on the parent (same title and assignee) and a leaf renamed: nothing.
+      await act(async () => { getOnEvent.dispatch({ event: 'card.updated', data: { ...parent } as never }) })
+      await act(async () => { getOnEvent.dispatch({ event: 'card.updated', data: { ...leaf, title: 'Renamed leaf' } as never }) })
+      await settle()
+      expect(spy.mock.calls.length).toBe(before)
+      // The frame is still applied either way.
+      expect(ctx.updateCard).toHaveBeenCalled()
+      // The parent renamed: one re-read.
+      await act(async () => { getOnEvent.dispatch({ event: 'card.updated', data: { ...parent, title: 'Hooli: rollout' } as never }) })
+      await settle()
+      expect(spy.mock.calls.length).toBe(before + 1)
+      // The parent reassigned: one more.
+      await act(async () => { getOnEvent.dispatch({ event: 'card.updated', data: { ...parent, assignee: fakeUser } as never }) })
+      await settle()
+      expect(spy.mock.calls.length).toBe(before + 2)
+    } finally {
+      vi.useRealTimers()
+      spy.mockRestore()
+      random.mockRestore()
+    }
+  })
+
   it('a hidden tab reads nothing until it is shown again, then reads once', async () => {
     const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
     const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
@@ -550,5 +637,53 @@ describe('BoardView — Children mode shows only the controls it honors (#2370 r
       localStorage.clear()
       spy.mockRestore()
     }
+  })
+})
+
+// The audit suspected these paths left the grid collapsed; they do not (the focusedSwimlaneId effect runs exitFocus
+// on every focused-to-none change). Kept as regression guards: nothing else walked Cards -> Focus -> Children -> Cards.
+describe('BoardView — leaving Focus from Children mode restores the grid (#2370 audit)', () => {
+  const lanes = [
+    { id: 20, uid: 'lane001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null },
+    { id: 21, uid: 'lane002', name: 'Customer B', contact_email: '', notes: '', position: 1, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null },
+  ]
+  const laneRow = { id: 20, name: 'Customer A', position: 0, parents: 1, child_boards: 1, total: 1, in_progress: 1, done: 0, doing: 0, todo: 1, blocked: 0, hidden: 0, folded: 0, planned_only: 0, planned: 0, last_moved_at: null }
+  const view = { board_total: { in_progress: 1, total: 1, blocked: 0, hidden: 0, planned: 0 }, lanes: [laneRow], rows: [], child_boards: [], next_cursor: null }
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); mockSearchParams = new URLSearchParams(); liveParams.on = true })
+  afterEach(() => { liveParams.on = false; mockSearchParams = new URLSearchParams(); localStorage.clear() })
+
+  const setup = async () => {
+    vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(view as never)
+    vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
+    mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: true, swimlanes: lanes, cards: [makeCard({ id: 7 })] }) })
+    render(<BoardView />)
+    await act(async () => {})
+    expect(screen.getByTestId('lane-21').dataset.collapsed).toBe('false')
+    // Focus on Customer A in Cards mode collapses Customer B.
+    await act(async () => { fireEvent.click(screen.getByTestId('lane-focus-20')) })
+    expect(mockSearchParams.get('focus')).toBe('20')
+  }
+  const show = (name: 'Cards' | 'Children') => within(screen.getByTestId('show-mode')).getByRole('button', { name })
+  const backToCards = async () => {
+    await act(async () => { fireEvent.click(show('Cards')) })
+    expect(mockSearchParams.get('focus')).toBeNull()
+    expect(screen.getByTestId('lane-21').dataset.collapsed).toBe('false')
+    expect(screen.getByTestId('lane-20').dataset.collapsed).toBe('false')
+  }
+
+  it('un-pressing Focus in Children mode restores the pre-focus collapse state', async () => {
+    await setup()
+    await act(async () => { fireEvent.click(show('Children')) })
+    const focus = await screen.findByRole('button', { name: 'Focus on Customer A' })
+    expect(focus).toHaveAttribute('aria-pressed', 'true')
+    await act(async () => { fireEvent.click(focus) })
+    await backToCards()
+  })
+
+  it("a lane's Children action, which clears Focus, restores it too", async () => {
+    await setup()
+    await act(async () => { fireEvent.click(screen.getByTestId('lane-children-20')) })
+    expect(mockSearchParams.get('show')).toBe('children')
+    await backToCards()
   })
 })

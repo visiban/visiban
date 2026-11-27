@@ -125,7 +125,7 @@ describe('Children mode Move (#2370 item 11)', () => {
     const moved = view([row(40, 'Alpha', [kid(1, 'Scope', 31)]), row(41, 'Beta', [kid(2, 'Build', 30)])])
     getChildrenView.mockResolvedValue(moved)
     await userEvent.click(within(dialog).getByRole('button', { name: 'Move' }))
-    expect(moveCard).toHaveBeenCalledWith(7, 1, { column_id: 31, swimlane_id: 12, position: 4 }, false)
+    expect(moveCard).toHaveBeenCalledWith(7, 1, { column_id: 31, position: 4 }, false)
     await waitFor(() => expect(getChildrenView).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.getByRole('link', { name: /^Scope, Doing/ })).toHaveFocus())
     expect(screen.queryByRole('dialog')).toBeNull()

@@ -381,15 +381,29 @@ const FIRST_OPEN_RESYNC_MS = 1000;
 
 /**
  * Board events that can change a Children mode lane or row count (#2370 item 9). The child board's own column
- * changes reach this board as `card.children_changed` / `card.children_bulk_changed`; parent cards and lanes
- * changing here are the rest. Not `card.updated`: it fires on every comment and changes no count.
+ * changes reach this board as `card.children_changed` / `card.children_bulk_changed`; parent cards, lanes and
+ * columns changing here are the rest. Not `card.updated`: it fires on every comment and changes no count; a
+ * parent's title or assignee edit is caught on its own (`parentRowChanged`).
  */
 const CHILDREN_VIEW_EVENTS = new Set([
   // Not `card.created`: a new card has no children yet, so it changes no count (#2370 fix A12). `card.moved`
   // counts only for a card with children (it can change lanes); see `movesChildrenCount`.
   "card.children_changed", "card.children_bulk_changed", "card.parent_changed", "card.moved",
   "card.archived", "card.unarchived", "card.deleted", "swimlane.created", "swimlane.updated", "swimlane.deleted", "swimlane.reordered",
+  // A parent column's reorder can release planned children (`release_on_reorder`), a delete drops its rows and
+  // releases its planned children, and a rename changes each row's column name (#2370 broadcast audit).
+  "column.reordered", "column.deleted", "column.updated",
 ]);
+
+/**
+ * True when a `card.updated` frame changes what a Children mode row shows for a parent (its title or assignee),
+ * judged against the card as shown BEFORE the frame applies. A card with no known children has no row, and an
+ * unchanged title and assignee (every comment, checklist or attachment frame) re-read nothing (#2370 audit).
+ */
+function parentRowChanged(shown: Card | undefined, next: Card): boolean {
+  if (!shown || (shown.children_rollup?.total ?? 0) <= 0) return false;
+  return shown.title !== next.title || (shown.assignee?.id ?? null) !== (next.assignee?.id ?? null);
+}
 /** At most one children-view re-read per this many ms, trailing: a burst of pings is one read (#2370 item 9). */
 export const CHILDREN_VIEW_REFETCH_MS = 2000;
 /** Above this many ids, a `card.parent_changed` re-reads the board, not each card (#1104). */
@@ -1005,6 +1019,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       if (shownBefore && plannedStateMovesWithCard(shownBefore)) refetchCardParents([shownBefore.id]);
     } else if (event.event === "card.updated") {
       const updatedCard = d as unknown as Card;
+      // Read before the frame applies: afterwards the shown card already has the new title.
+      if (parentRowChanged(boardRef.current?.cards.find((c) => c.id === updatedCard.id), updatedCard)) bumpChildrenView();
       onCardUpdated(updatedCard);
       // card.updated also fires for comment/checklist/attachment mutations
       // (they don't touch the card row itself, so there's no narrower signal
@@ -2608,6 +2624,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   childrenModeRef.current = childrenMode;
   // Focus (the band's Focus, the View menu's Lanes) is the board's `?focus=` lane filter, honored by Children mode
   // too; it never touches the grid's collapse state. `?lane=` only picks the lane that opens expanded (#2370 fix A1).
+  // Clearing it here ("All lanes", un-pressing Focus) needs no restore of its own: the `focusedSwimlaneId` effect
+  // runs `exitFocus` on every focused-to-none change, which puts back the collapse state Cards-mode Focus saved.
   const setChildrenFocus = useCallback((laneId: number | null) => {
     setSearchParams((prev) => {
       if (laneId === null) prev.delete("focus");

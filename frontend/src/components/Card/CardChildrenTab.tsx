@@ -272,7 +272,8 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     beginWrite();
     try {
       const target = moveTargetState(col, childBoard, { userId: currentUserId, child });
-      await moveCard(childBoard.id, child.id, { column_id: col.id, swimlane_id: child.swimlane_id, position: col.card_count, ...(reason ? { override_reason: reason } : {}) }, target.force);
+      // No `swimlane_id`: the server keeps the child's current lane; the one read here can be stale (#2370 audit).
+      await moveCard(childBoard.id, child.id, { column_id: col.id, position: col.card_count, ...(reason ? { override_reason: reason } : {}) }, target.force);
       const doneAfter = counts.done
         + (col.is_done ? 1 : 0)
         - (columns.find((c) => c.id === child.column_id)?.is_done ? 1 : 0);

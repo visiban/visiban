@@ -195,7 +195,9 @@ test('Children mode Move changes the column only and returns focus to the moved 
   await dialog.getByRole('radio', { name: /^Doing/ }).check()
   await dialog.getByRole('button', { name: 'Move', exact: true }).click()
   await expect(dialog).toHaveCount(0)
-  expect(moves).toEqual([expect.objectContaining({ column_id: 101, swimlane_id: 1 })])
+  // Column only: no lane is sent, so the server keeps the child's current one (#2370 broadcast audit).
+  expect(moves).toEqual([expect.objectContaining({ column_id: 101 })])
+  expect(moves[0]).not.toHaveProperty('swimlane_id')
   await expect(mode.getByRole('link', { name: /^Usage export spec/ })).toBeFocused()
   // No parent change and no drag here: the grid has no draggable card.
   await expect(mode.locator('[draggable="true"]')).toHaveCount(0)

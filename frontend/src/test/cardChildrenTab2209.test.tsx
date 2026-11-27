@@ -210,7 +210,7 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     expect(within(group).getByText('At its limit of 5')).toBeInTheDocument()
     await userEvent.click(within(group).getByRole('radio', { name: 'Done' }))
     await userEvent.click(screen.getByRole('button', { name: 'Move' }))
-    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 102, swimlane_id: 50, position: 4 }, false)
+    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 102, position: 4 }, false)
     await waitFor(() => expect(reload).toHaveBeenCalled())
     expect(screen.getByText('Pen-test scoping call moved to Done. 2 of 3 done.')).toBeInTheDocument()
   })
@@ -796,7 +796,7 @@ describe('Children tab remainder (#2209 slice 3)', () => {
     await userEvent.click(screen.getByRole('radio', { name: /^Doing 5 of 5/ }))
     expect(screen.getByText('At its limit of 5 · admin override')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Move' }))
-    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 101, swimlane_id: 50, position: 5 }, true)
+    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 101, position: 5 }, true)
   })
 
   it('shows "Work moved" from the rollup, and nothing without one', () => {
@@ -932,7 +932,7 @@ describe('Children tab assignee override (#1923)', () => {
     expect(await screen.findByText("Couldn't move Mine. Try again.")).toBeInTheDocument()
     expect(screen.getByLabelText('Reason (required)')).toHaveValue('urgent')
     await userEvent.click(screen.getByRole('button', { name: 'Move anyway' }))
-    expect(moveCard).toHaveBeenLastCalledWith(7, 10, { column_id: 101, swimlane_id: 50, position: 5, override_reason: 'urgent' }, true)
+    expect(moveCard).toHaveBeenLastCalledWith(7, 10, { column_id: 101, position: 5, override_reason: 'urgent' }, true)
   })
 
   it('Escape closes the reason box only and returns focus to its trigger', async () => {

@@ -45,7 +45,8 @@ export const deleteCard = (boardId: number, cardId: number) =>
 
 export const moveCard = (boardId: number, cardId: number, data: {
   column_id: number;
-  swimlane_id: number;
+  /** Omitted (since 1.3, #2370): the card stays in its current lane, read by the server under the move's lock. */
+  swimlane_id?: number;
   position: number;
   version?: number;
   /** Gated stages (#1102): omitted keeps the sub-column within a column and starts at 0 in a new one. */

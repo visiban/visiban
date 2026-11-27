@@ -417,7 +417,9 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, focusLaneI
     setMoveError(null);
     try {
       const target = moveTargetState(col, board, { userId: currentUserId, child });
-      await moveCard(board.id, child.id, { column_id: col.id, swimlane_id: child.swimlane_id, position: col.card_count, ...(reason ? { override_reason: reason } : {}) }, target.force);
+      // No `swimlane_id`: the server keeps the child's current lane. The lane this view read can be stale (a lane
+      // change on the child board sends this board nothing), and sending it would undo that change (#2370 audit).
+      await moveCard(board.id, child.id, { column_id: col.id, position: col.card_count, ...(reason ? { override_reason: reason } : {}) }, target.force);
       setCopied(`${child.title} moved to ${col.name}.`);
       restoreFocus.current = { childId: child.id, rowId, title: child.title };
       setMoving(null);
