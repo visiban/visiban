@@ -6748,10 +6748,16 @@ deleted) carry no actor.</p>
 transport, and counts its movement rows against one budget: held rows against <code>ANALYTICS_MAX_MOVEMENTS</code>, rows a pass folds and drops against a fixed ceiling of <code>STREAMED_ROWS_MULTIPLE</code> times it. The order is fixed: authorize
 the board (Rule 7's <code>404</code>), validate parameters (<code>400</code>), then take the slot, so
 a refusal never answers for a board the caller cannot see. The slot is keyed on
-the user (<code>user.pk</code>, never the token), is released in <code>try</code>/<code>finally</code>, is
+the user (<code>user.pk</code>, never the token), is released in <code>try</code>/<code>finally</code> (also when putting the session setting back raises), is
 counted in-process and never in the cache, and an absent or anonymous user is
-never admitted. No caller is exempt, site admins included. The refusal bodies
-(<code>analytics_busy</code> <code>503</code>, <code>analytics_too_large</code> <code>422</code>) and <code>Retry-After</code> are
+never admitted. No caller is exempt, site admins included. An admitted
+request runs at most <code>ANALYTICS_MAX_SECONDS</code>: every query it starts inside the
+slot checks the deadline first and, on PostgreSQL, runs under a
+<code>statement_timeout</code> of the time left (never looser than the session's own), and
+<code>Ticket.count_rows</code> reads the clock every <code>DEADLINE_CHECK_ROWS</code> rows; past it
+the request ends with <code>AnalyticsTimedOut</code> and the same <code>finally</code> frees the slot.
+A direct caller's fresh counter has a deadline too. The refusal bodies
+(<code>analytics_busy</code> <code>503</code>, <code>analytics_timeout</code> <code>503</code>, <code>analytics_too_large</code> <code>422</code>) and <code>Retry-After</code> are
 constant: no counts, limits or queue positions.</p>
 <table>
 <thead>
@@ -6775,7 +6781,7 @@ constant: no counts, limits or queue positions.</p>
 <tr>
 <td>Direct service callers (enterprise, management commands)</td>
 <td><code>boards/services/flow_metrics.py</code> <code>_movement_rows</code>, <code>analytics_admission.row_counter</code></td>
-<td>with no active slot, each read (<code>_movement_rows</code>, <code>_deciding_rows</code>, <code>_attach_wait</code>, the block-row reads) gets its own fresh counter at <code>settings.ANALYTICS_MAX_MOVEMENTS</code> (and its streamed ceiling) and raises <code>AnalyticsTooLarge</code>, never unlimited, so a call with no slot can hold about twice the budget across its reads; a direct caller should take <code>analytics_slot</code> so the reads share one ticket; every loop over movement or gate-transition rows (<code>_movement_rows</code>, <code>_deciding_rows</code>, <code>_attach_wait</code>) calls <code>row_counter().count_rows(n, held=...)</code>, and so must any new loop over card history rows</td>
+<td>with no active slot, each read (<code>_movement_rows</code>, <code>_deciding_rows</code>, <code>_attach_wait</code>, the block-row reads) gets its own fresh counter at <code>settings.ANALYTICS_MAX_MOVEMENTS</code> (and its streamed ceiling) and a deadline of <code>settings.ANALYTICS_MAX_SECONDS</code>, and raises <code>AnalyticsTooLarge</code> or <code>AnalyticsTimedOut</code>, never unlimited, so a call with no slot can hold about twice the budget across its reads; a direct caller should take <code>analytics_slot</code> so the reads share one ticket; every loop over movement or gate-transition rows (<code>_movement_rows</code>, <code>_deciding_rows</code>, <code>_attach_wait</code>) calls <code>row_counter().count_rows(n, held=...)</code>, and so must any new loop over card history rows</td>
 </tr>
 </tbody>
 </table>

@@ -5811,7 +5811,7 @@ the instance by uploading in a loop.</p>
 <p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
 <p>Every Analytics request (the Summary tab, the dwell time heatmap, each <code>metrics/*</code>
 chart and the MCP flow tools) replays the board's card history in the server
-process. Two settings bound that work. Both are per server process, so with
+process. Three settings bound that work. All are per server process, so with
 several pods or worker processes the instance-wide figure is that many times
 larger. These codes and settings follow the 1.0+ compatibility rules.</p>
 <table>
@@ -5833,9 +5833,14 @@ larger. These codes and settings follow the 1.0+ compatibility rules.</p>
 <td>Card movement rows one Analytics request may hold in memory. A pass that reads rows one card at a time and drops them (the cumulative flow diagram's cards that rest outside the range, and its day drill-down) has a fixed ceiling of four times this instead. A request that needs more is refused with <code>422</code> <code>analytics_too_large</code>; it is never answered from part of the history. Helm: <code>backend.settings.analyticsMaxMovements</code>.</td>
 <td><code>150000</code></td>
 </tr>
+<tr>
+<td><code>ANALYTICS_MAX_SECONDS</code></td>
+<td>Wall-clock seconds one admitted Analytics request may run, counted from when it gets its slot. Each query the request starts checks the time left first and, on PostgreSQL, runs under a <code>statement_timeout</code> of that time (never looser than one you set yourself), and the row loops check it as they read. A request that runs past it is stopped and refused with <code>503</code> <code>analytics_timeout</code> (no <code>Retry-After</code>), and its slot is freed for the next request. Keep the slot wait (8 seconds) plus this under your proxy's read timeout, so a slow request gets this refusal rather than a proxy <code>504</code>: the default gives 53 seconds, under both bundled proxies (the Compose stack's nginx allows 90 seconds for <code>/api/</code>; the Helm chart's frontend nginx sets no read timeout for <code>/api/</code>, so nginx's own 60-second default applies, and a value above 51 there lets a slow request reach the proxy limit first). A client that disconnects does not stop its request at once (the server notices a disconnect only when it writes the response), so this bound is also how long an abandoned request can keep its slot. The <code>statement_timeout</code> is a per-session setting, so behind a connection pooler use session pooling (PgBouncer <code>pool_mode = session</code>), not transaction pooling; the deadline checks between queries and row reads apply either way. Helm: <code>backend.settings.analyticsMaxSeconds</code>. <em>Added in 1.3.</em></td>
+<td><code>45</code></td>
+</tr>
 </tbody>
 </table>
-<p>Both must be a whole number of at least 1; blank keeps the default. Unlike the
+<p>Each must be a whole number of at least 1; blank keeps the default. Unlike the
 attachment and comment quotas, <code>0</code> does <strong>not</strong> mean "no limit": there is no
 off switch, and <code>0</code>, a negative number or a non-integer stops the server at
 startup with a configuration error.</p>
