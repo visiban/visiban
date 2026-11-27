@@ -856,6 +856,8 @@
       
         
       
+        
+      
     
     
     
@@ -1205,6 +1207,34 @@
     
   
     Column Policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/entry-requirements/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entry Requirements
   
 
     
@@ -1754,7 +1784,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_31" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_32" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1776,14 +1806,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_31" id="__nav_3_31_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_32" id="__nav_3_32_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_31_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_31">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_32_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_32">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4628,8 +4658,15 @@
 <td><code>Column.policy</code></td>
 <td>Advisory (by design)</td>
 <td>Entry criteria and a definition of done for the column</td>
-<td>Stored, validated (shape only) and shown, never enforced. <code>mode: "confirm"</code> makes the web client ask the mover to tick the entry criteria after a drag-and-drop move into the column; it is a client-side acknowledgment, and API, MCP, the card-detail Move popover, bulk moves, an admin's forced move after a limit block, and import never see it. The anonymous share-link payload leaves it out. The definition of done is display-only in card detail and never blocks a move out. Server-enforced entry gates are a separate field (#1923)</td>
+<td>Stored, validated (shape only) and shown, never enforced. <code>mode: "confirm"</code> makes the web client ask the mover to tick the entry criteria after a drag-and-drop move into the column; it is a client-side acknowledgment, and API, MCP, the card-detail Move popover, bulk moves, an admin's forced move after a limit block, and import never see it. The anonymous share-link payload leaves it out. The definition of done is display-only in card detail and never blocks a move out. Server-enforced entry checks are a separate feature, <a href="../../features/entry-requirements/">Entry requirements</a> (#1923)</td>
 <td>— (by design, #1101)</td>
+</tr>
+<tr>
+<td><code>Column.entry_enforcement</code></td>
+<td>Binding (import exempt by design)</td>
+<td>How the column's <a href="../../features/entry-requirements/">entry requirements</a> are enforced</td>
+<td><code>warn</code> (default) lets a move, create or restore through and records the unmet list on the movement; <code>block</code> returns <code>409 entry_requirements_unmet</code> unless a board admin overrides it with a reason (or the card's assignee, when the board switch is on); <code>hard</code> returns the same 409 with no override. Checked on every API card write path that adds an active card to the column, including MCP, where block acts as hard. Read-only on the column; set with <code>PUT .../columns/{id}/entry-requirements/</code>. Board import restores it as exported and is not checked</td>
+<td>— (by design, #1923)</td>
 </tr>
 <tr>
 <td><code>Swimlane.wip_limit</code></td>

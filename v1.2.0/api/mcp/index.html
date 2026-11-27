@@ -856,6 +856,8 @@
       
         
       
+        
+      
     
     
     
@@ -1205,6 +1207,34 @@
     
   
     Column Policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/entry-requirements/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entry Requirements
   
 
     
@@ -1754,7 +1784,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_31" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_32" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1776,14 +1806,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_31" id="__nav_3_31_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_32" id="__nav_3_32_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_31_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_31">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_32_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_32">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5569,6 +5599,10 @@
 <td>The target column is at its WIP limit. Returned by <code>move_card</code> and, since 1.2 (#1428), <code>create_card</code>. Neither tool overrides either — there is no <code>force</code> option over MCP.</td>
 </tr>
 <tr>
+<td><code>entry_requirements_unmet</code></td>
+<td>A forward <code>move_card</code>, or a <code>create_card</code>, into a column whose entry requirements are unmet, in Block or Hard mode. Carries <code>column_name</code>, <code>mode</code>, <code>unmet</code> and <code>also</code>, as on REST. There is no <code>force</code> option over MCP, so Block acts as Hard here: a board admin overrides it in the web app. In Warn mode the move or create succeeds and the unmet list is recorded on the movement; the tool result does not carry it. <em>Added in 1.3 (#1923).</em></td>
+</tr>
+<tr>
 <td><code>weight_limit_exceeded</code></td>
 <td>The target column is at its weight limit (<code>move_card</code>, and <code>create_card</code> since 1.2).</td>
 </tr>
@@ -5608,9 +5642,10 @@
 <h3 id="list_columns"><code>list_columns</code><a class="headerlink" href="#list_columns" title="Permanent link">&para;</a></h3>
 <p>Lists a board's columns, ordered by position. All board roles may call it.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>
-<p><strong>Returns:</strong> an array of <code>{id, uid, name, position, color, wip_limit, policy, card_count, sub_columns}</code> — <code>card_count</code> excludes archived cards; <code>sub_columns</code> (since 1.3, #1102) is the stage's ordered <code>[{id, uid, position, name}]</code>, <code>[]</code> on a plain column, and bounds a card's <code>gates_passed</code> (0 to the last sub-column's index); <code>uid</code> is new in 1.3 (see <a href="#stable-identifiers-uid">Stable identifiers</a>).</p>
+<p><strong>Returns:</strong> an array of <code>{id, uid, name, position, color, wip_limit, policy, card_count, sub_columns, entry_enforcement, entry_requirements}</code> — <code>card_count</code> excludes archived cards; <code>sub_columns</code> (since 1.3, #1102) is the stage's ordered <code>[{id, uid, position, name}]</code>, <code>[]</code> on a plain column, and bounds a card's <code>gates_passed</code> (0 to the last sub-column's index); <code>uid</code> is new in 1.3 (see <a href="#stable-identifiers-uid">Stable identifiers</a>).</p>
 <p><strong>Watch out:</strong> <code>wip_limit</code> is checked by both <code>move_card</code> and <code>create_card</code> (since 1.2, #1428); only a board import can leave <code>card_count</code> above it (see <a href="../../architecture/field-enforcement/">Field Enforcement</a>).</p>
 <p><code>policy</code> (since 1.3, #1101) is the column's written entry criteria and definition of done, <code>{"v": 1, "entry": [...], "done": [...], "mode": "advisory" | "confirm"}</code>, or <code>null</code>; it is <a href="../../features/column-policies/">advisory</a>, so <code>move_card</code> never refuses a move because of it — read it before moving a card if you want to follow the team's policy.</p>
+<p><code>entry_enforcement</code> (<code>warn</code>, <code>block</code> or <code>hard</code>) and <code>entry_requirements</code> (since 1.3, #1923) are the column's <a href="../../features/entry-requirements/">entry requirements</a>, in the same shape as REST's column. Unlike <code>policy</code> they are enforced: <code>move_card</code> and <code>create_card</code> into a column whose requirements the card does not meet return <code>entry_requirements_unmet</code> in <code>block</code> and <code>hard</code> mode, so read them first.</p>
 <h3 id="list_swimlanes"><code>list_swimlanes</code><a class="headerlink" href="#list_swimlanes" title="Permanent link">&para;</a></h3>
 <p>Lists a board's swimlanes, ordered by position. All board roles may call it.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>
@@ -5704,7 +5739,7 @@
 <p>Moves a card to a new column and/or swimlane and/or position. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
 <p><strong>Arguments:</strong> <code>card_id</code> (required); <code>to_column_id</code>, <code>to_swimlane_id</code> — at least one required, the other defaults to the card's current value; <code>position</code> (default <code>0</code>); <code>version</code> (integer, optional, <em>added in 1.3</em>): the card's <code>version</code> from a prior read, which makes the move fail with <code>version_conflict</code> if the card changed since (see <a href="#optimistic-concurrency">Optimistic concurrency</a>).</p>
 <p><strong>Returns:</strong> <code>{"card": &lt;card&gt;, "movement": &lt;movement-or-null&gt;}</code>. <code>movement</code> is <code>null</code> for a pure position reorder within the same cell (no column/swimlane change); otherwise it carries <code>{id, from_column, to_column, from_swimlane, to_swimlane, from_column_uid, to_column_uid, from_swimlane_uid, to_swimlane_uid, moved_at, moved_by, imported_from_username}</code>. The four <code>*_uid</code> keys (<em>added in 1.3</em>) are the column and swimlane UIDs captured when the movement was written, <code>null</code> where the matching name is <code>null</code> (no "from" cell on a creation row) or where an old row predates UID capture. <code>imported_from_username</code> is <code>null</code> except on a row created by a board import with history (since 1.2), where it holds the username the import file named and <code>moved_by</code> is the user who imported it.</p>
-<p><strong>Watch out:</strong> Enforces the board's WIP/weight limits exactly as the REST move endpoint does, with no override — a blocked move returns <code>wip_limit_exceeded</code>/<code>wip_hard_blocked</code>/<code>weight_limit_exceeded</code> rather than moving the card.</p>
+<p><strong>Watch out:</strong> Enforces the board's WIP/weight limits exactly as the REST move endpoint does, with no override — a blocked move returns <code>wip_limit_exceeded</code>/<code>wip_hard_blocked</code>/<code>weight_limit_exceeded</code> rather than moving the card. A forward move that leaves a Block or Hard column's entry requirements unmet returns <code>entry_requirements_unmet</code> the same way (Block acts as Hard over MCP).</p>
 <p>Broadcasts <code>card.moved</code> with the same payload as the REST move endpoint (<code>{card, movement}</code>, full card and movement objects, <code>movement</code> omitted for a same-cell reorder), plus since 1.3 the <a href="../websockets/#sibling-positions-on-cardmoved-since-13"><code>sibling_positions</code></a> of the cards the move renumbered, not the tool's return shape. <em>Fixed in 1.2 (#1926).</em></p>
 <h3 id="update_card"><code>update_card</code><a class="headerlink" href="#update_card" title="Permanent link">&para;</a></h3>
 <p>Updates one or more fields on a card. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>

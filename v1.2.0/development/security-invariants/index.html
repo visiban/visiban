@@ -856,6 +856,8 @@
       
         
       
+        
+      
     
     
     
@@ -1205,6 +1207,34 @@
     
   
     Column Policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/entry-requirements/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entry Requirements
   
 
     
@@ -1754,7 +1784,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_31" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_32" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1776,14 +1806,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_31" id="__nav_3_31_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_32" id="__nav_3_32_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_31_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_31">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_32_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_32">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -6318,7 +6348,14 @@ re-read at decision time), the card's assignee with role <code>member</code> pas
 an <code>override_reason</code> and did not assign the card to themselves (<code>assigned_by</code> set
 and not the caller; #1923); a hard WIP limit refuses every role and ignores <code>force</code>. When
 several limits trip, the strictest one is reported (hard before block; the
-column first when equal), and one <code>force</code> covers every soft limit tripped. A
+column first when equal; an entry-requirements refusal is reported ahead of any
+soft WIP or weight limit and carries them in <code>also</code>), and one <code>force</code> covers every soft limit tripped. Since 1.3 (#1923) a column's <strong>entry requirements</strong> are one more constraint
+on a forward move across columns, a create and a restore (never a backward
+move, a lane-only move, a sub-column move or a weight update): <code>warn</code> never
+refuses and records the unmet list on the <code>CardMovement</code>; <code>block</code> refuses with
+<code>409 entry_requirements_unmet</code> unless an eligible actor forces it <strong>with an
+<code>override_reason</code></strong> (required whenever an entry requirement is overridden);
+<code>hard</code> refuses every role. A
 swimlane limit applies only when the write adds to the swimlane's counted total
 (a move between two counted columns of one swimlane never trips it; a move
 into a counted column from an uncounted column of the same swimlane is checked). Archived
@@ -6429,6 +6466,16 @@ check.</p>
 <td>Eligibility predicate fails closed (#1923)</td>
 <td><code>boards/services/cards.py</code> <code>_require_force</code></td>
 <td>One shared function; a missing or unresolved role, actor, card, board, assignee or <code>assigned_by</code>, a viewer or collaborator role, an ex-member (role <code>None</code>), or the switch off raises <code>ForceNotPermitted</code> (403 <code>code: force_not_permitted</code>; <code>reason: self_assigned</code> only when the switch is on and the assignee assigned the card to themselves). Absent-input tests: <code>boards/tests/test_assignee_override_1923.py</code> <code>RequireForcePredicateTests</code>; the PostgreSQL race test there proves the read waits on the card lock</td>
+</tr>
+<tr>
+<td>Entry requirements (#1923 MR B)</td>
+<td><code>boards/services/cards.py</code> <code>enforce_column_limits(..., check_entry=True)</code> from <code>move_card</code> (forward only), <code>create_card</code>, <code>unarchive_card</code>, and <code>boards/admin.py</code> <code>CardAdminForm.clean</code></td>
+<td><code>EntryRequirementsConstraint</code> evaluated first by <code>_evaluate_constraints</code>: its refusal is reported ahead of any soft WIP or weight limit and carries them in <code>also</code> (only a hard limit outranks it); values read by <code>boards/services/entry_requirements.py</code> <code>unmet_requirements</code> while the caller holds the card row lock. Warn never raises; Block needs <code>force</code> + reason through <code>_require_force</code>; Hard refuses all. MCP sends no <code>force</code>, so Block acts as Hard there. The admin form has no override (<code>LIMIT_ERRORS</code>). Import and seed are exempt, as above. Coverage: <code>boards/tests/test_entry_requirements_1923.py</code></td>
+</tr>
+<tr>
+<td>Entry requirement writes (#1923 MR B)</td>
+<td><code>boards/views/columns.py</code> <code>ColumnViewSet.entry_requirements</code> (<code>PUT .../columns/{id}/entry-requirements/</code>)</td>
+<td>Board admin or site admin only; board then column row lock; every field and set uid resolved on this board (a foreign uid is a 400); at most 10 per column; <code>PublicColumnSerializer</code> excludes <code>entry_enforcement</code> and <code>entry_requirements</code> by name</td>
 </tr>
 </tbody>
 </table>

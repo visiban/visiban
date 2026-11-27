@@ -858,6 +858,8 @@
       
         
       
+        
+      
     
     
     
@@ -1010,10 +1012,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#compare-the-five" class="md-nav__link">
+  <a href="#compare-the-six" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Compare the five
+        Compare the six
       
     </span>
   </a>
@@ -1290,6 +1292,34 @@
     
   
     Column Policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../entry-requirements/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entry Requirements
   
 
     
@@ -1842,7 +1872,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_31" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_32" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1864,14 +1894,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_31" id="__nav_3_31_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_32" id="__nav_3_32_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_31_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_31">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_32_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_32">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4547,10 +4577,10 @@
 
 <h1 id="breaking-work-down-which-tool">Breaking work down: which tool?<a class="headerlink" href="#breaking-work-down-which-tool" title="Permanent link">&para;</a></h1>
 <p><a id="which-tool"></a></p>
-<p>Visiban has five ways to break work down or track progress inside a column. Pick by asking two questions: is it about <strong>this one card</strong> or <strong>every card in the column</strong>, and does it need <strong>its own flow</strong> or just <strong>done / not done</strong>?</p>
-<p><strong>Why it matters:</strong> the five look alike on the board. A sign-off every card in Review needs can end up hand-typed into each card's checklist, and a piece of work that needs its own team and board can end up as a checklist item nobody else sees.</p>
-<p><strong>The big picture:</strong> a checklist and a child card belong to one card. Sub-columns, tracks and entry criteria belong to the column, so a board admin sets them up once and they apply to every card that enters it. A column is also called a <strong>stage</strong>, and a stage split into sub-columns is a <strong>gated stage</strong> (see <a href="../board/#board-cards">Board &amp; Cards</a>).</p>
-<h2 id="compare-the-five">Compare the five<a class="headerlink" href="#compare-the-five" title="Permanent link">&para;</a></h2>
+<p>Visiban has six ways to break work down or track progress inside a column. Pick by asking two questions: is it about <strong>this one card</strong> or <strong>every card in the column</strong>, and does it need <strong>its own flow</strong> or just <strong>done / not done</strong>?</p>
+<p><strong>Why it matters:</strong> the six look alike on the board. A sign-off every card in Review needs can end up hand-typed into each card's checklist, and a piece of work that needs its own team and board can end up as a checklist item nobody else sees.</p>
+<p><strong>The big picture:</strong> a checklist and a child card belong to one card. Sub-columns, tracks, entry criteria and entry requirements belong to the column, so a board admin sets them up once and they apply to every card that enters it. A column is also called a <strong>stage</strong>, and a stage split into sub-columns is a <strong>gated stage</strong> (see <a href="../board/#board-cards">Board &amp; Cards</a>).</p>
+<h2 id="compare-the-six">Compare the six<a class="headerlink" href="#compare-the-six" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -4591,14 +4621,20 @@
 <td>the column</td>
 <td>nothing on the card; shown on the column header and when a card enters</td>
 </tr>
+<tr>
+<td><a href="../entry-requirements/">Entry requirements</a></td>
+<td>the server checks a card's custom fields before it may enter</td>
+<td>the column</td>
+<td>a notice when a move is refused, or flagged in Warn mode</td>
+</tr>
 </tbody>
 </table>
 <h2 id="the-two-question-rule">The two-question rule<a class="headerlink" href="#the-two-question-rule" title="Permanent link">&para;</a></h2>
 <ol>
-<li><strong>Is it about this one card, or every card in the column?</strong> One card: a checklist or a child card. Every card: sub-columns, tracks or entry criteria.</li>
+<li><strong>Is it about this one card, or every card in the column?</strong> One card: a checklist or a child card. Every card: sub-columns, tracks, entry criteria or entry requirements.</li>
 <li><strong>Does it need its own flow, or just done / not done?</strong><ul>
 <li>For one card: its own flow (an owner on another team, its own columns, its own history) is a child card. Done / not done is a checklist item.</li>
-<li>For every card in the column: steps that must happen in order are sub-columns. Checks that can finish in any order are tracks. A reminder of what "ready" means before a card comes in is entry criteria.</li>
+<li>For every card in the column: steps that must happen in order are sub-columns. Checks that can finish in any order are tracks. A reminder of what "ready" means before a card comes in is entry criteria. A condition the server checks on the card's custom fields before it may enter is an entry requirement.</li>
 </ul>
 </li>
 </ol>
@@ -4608,6 +4644,7 @@
 <p><strong>Sub-columns.</strong> Every card in <strong>Build</strong> goes through "Doing", then "Review", then "Ready". The order matters, and time in "Ready" is waiting. Split <strong>Build</strong> into those three sub-columns in its <strong>Stage</strong> tab. Cards move through them left to right, and analytics counts the last one as wait time.</p>
 <p><strong>Tracks.</strong> Every card in <strong>Review</strong> needs a Legal sign-off and a Security sign-off, in either order. Add two tracks, "Legal" and "Security", in the <strong>Stage</strong> tab instead of typing them into each card's checklist. Each card shows a chip per track, and its value is set in the card's <strong>Custom fields</strong>. A swimlane where Legal does not apply can mark that track not applicable for all its cards.</p>
 <p><strong>Entry criteria.</strong> Before a card enters <strong>Review</strong>, the mover should confirm "Tests pass" and "Description is complete". Write those as the column policy's entry criteria and choose <strong>Ask the mover to confirm</strong>. Nothing changes on the card; the criteria show on the column header and when a card is dropped in. They are a prompt in the web app, not a rule the server enforces.</p>
+<p><strong>Entry requirements.</strong> A card may only enter <strong>Review</strong> once its "Estimate" field is filled and its "Legal" dimension is satisfied. Pick this over entry criteria when the check must hold no matter who moves the card or how (the API and MCP included), and over a gated stage when the check is about the card's data, not the order of steps. Set the conditions per column in <strong>Board settings</strong> and choose Warn, Block or Hard. See <a href="../entry-requirements/">Entry requirements</a>.</p>
 <p>For a one-line definition of each term used here and the rest of 1.3's vocabulary, see <a href="../concepts/">Concepts at a glance</a>.</p>
 
 
