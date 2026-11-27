@@ -102,7 +102,7 @@ Admins can double-click the swimlane band, or choose **Edit swimlane…** from i
 
 ### Sort swimlanes
 
-Swimlanes appear in one shared **board order** for everyone. To see them another way without changing the board for your team, sort your own view with the **Lanes** control in the row above the board.
+Swimlanes appear in one shared **board order** for everyone. To see them another way without changing the board for your team, sort your own view with the **Lanes** control in the row above the board. (The control is not offered on phone-width screens yet.)
 
 - The control always says what you are looking at: **Lanes: Board order**, or for example **Lanes: Sorted by Priority ↓** or **Lanes: Sorted by Name A→Z**. While a sort is on, the control is tinted and the sentence beside it reads "Not saved as board order. Only you see this sort." with **Reset to board order**. When extra rules apply (a tie-breaker, pinned lanes, or lanes with no value shown first), the summary ends with **+N**; hover it, or listen to its name with a screen reader, for the full rule.
 - **Applying, changing or clearing a sort never changes the board order.** Nothing is saved to the server or to your browser. The sort is part of the board's address, so it survives a reload and switching between Board, Summary and History, and a copied link opens the same sorted view for whoever opens it, still personal to them. Opening the board from the board list starts on the board order.

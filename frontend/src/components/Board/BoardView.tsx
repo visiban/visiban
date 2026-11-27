@@ -3854,8 +3854,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </button>
         </div>
       )}
-      {/* #2698 — the Lanes control: this viewer's lane order (board order or a personal sort). */}
-      {view === "board" && !childrenMode && board.columns.length > 0 && board.swimlanes.length > 1 && (
+      {/* #2698 — the Lanes control: this viewer's lane order (board order or a personal sort).
+          Not on phones yet: the phone sheet is #2702, and the row would push the first card below the fold. */}
+      {view === "board" && !childrenMode && !isPhone && board.columns.length > 0 && board.swimlanes.length > 1 && (
         <LaneOrderControl state={laneSort} lanes={board.swimlanes} isAdmin={isAdmin} hiddenLaneCount={hiddenLaneTotal} />
       )}
       {/* #2205 — every lane filtered out; takes precedence over the card empty state. */}

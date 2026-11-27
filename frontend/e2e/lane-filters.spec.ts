@@ -179,7 +179,7 @@ test.describe('lane filters', () => {
       await page.getByRole('button', { name: /^filters/i }).click()
       // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
       await page.getByRole('button', { name: /show filter bar/i }).click()
-      await page.getByRole('button', { name: 'Lanes, 12 active' }).click()
+      await page.getByRole('button', { name: 'Lane filters, 12 active' }).click()
       const dialog = page.getByRole('dialog', { name: 'Lane filters' })
       await expect(dialog).toBeVisible()
       const box = (await dialog.boundingBox())!
@@ -227,7 +227,7 @@ test.describe('lane filters', () => {
     await page.getByRole('button', { name: /^filters/i }).click()
     // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
     await page.getByRole('button', { name: /show filter bar/i }).click()
-    await page.getByRole('button', { name: 'Lanes, 4 active' }).click()
+    await page.getByRole('button', { name: 'Lane filters, 4 active' }).click()
     const dialog = page.getByRole('dialog', { name: 'Lane filters' })
     await dialog.getByRole('button', { name: '+ Add filter' }).click()
     await dialog.getByRole('button', { name: /^Filter 5 field/ }).click()
