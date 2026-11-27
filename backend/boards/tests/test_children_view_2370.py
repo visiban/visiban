@@ -203,6 +203,15 @@ class ChildrenViewReadTests(_ViewFixture, TestCase):
         with_done = next(r for r in self._view(self.viewer, "?done=true")["rows"] if r["id"] == self.parent.pk)
         self.assertIn(self.done.pk, {c["id"] for c in with_done["children"]})
         self.assertNotIn(self.archived.pk, {c["id"] for c in with_done["children"]})
+        # A manual block carries its reason (#2370 A13); a relation block and a blank reason carry null.
+        kids = {c["id"]: c for c in row["children"]}
+        self.assertIsNone(kids[self.manual.pk]["blocked_reason"])
+        self.assertIsNone(kids[self.by_rel.pk]["blocked_reason"])
+        Card.objects.filter(pk=self.manual.pk).update(blocked_reason="IdP access")
+        Card.objects.filter(pk=self.by_rel.pk).update(blocked_reason="stale text, not blocked manually")
+        again = {c["id"]: c for c in next(r for r in self._view(self.viewer)["rows"] if r["id"] == self.parent.pk)["children"]}
+        self.assertEqual(again[self.manual.pk]["blocked_reason"], "IdP access")
+        self.assertIsNone(again[self.by_rel.pk]["blocked_reason"])
         self.assertEqual([b["id"] for b in body["child_boards"]], [self.cboard.pk])
         board = body["child_boards"][0]
         self.assertEqual(board["role"], "viewer")
@@ -367,7 +376,7 @@ class ChildrenViewPagingTests(_ViewFixture, TestCase):
 
     def test_malformed_params_are_400_invalid_query_param(self):
         for query in ("?lane=abc", "?lane=-1", "?lane=1.5", "?lane=" + "9" * 19, "?lane=١",
-                      "?done=maybe", "?cursor=", "?cursor=!!!", "?cursor=bnVsbA",
+                      "?done=maybe", "?counts_only=maybe", "?cursor=", "?cursor=!!!", "?cursor=bnVsbA",
                       "?cursor=" + "A" * 300):
             res = self._get(self.viewer, query)
             self.assertEqual(res.status_code, 400, query)
@@ -376,6 +385,19 @@ class ChildrenViewPagingTests(_ViewFixture, TestCase):
         for bad in ([1, 2, 3], [True] * 7, ["a"] * 7, [1.5] * 7, {"a": 1}):
             raw = children_view.encode_cursor(bad) if isinstance(bad, list) else "eyJhIjoxfQ"
             self.assertEqual(self._get(self.viewer, f"?cursor={raw}").status_code, 400, bad)
+
+    def test_counts_only_returns_the_rollups_without_a_page(self):
+        full = self._view(self.viewer)
+        with CaptureQueriesContext(connection) as ctx:
+            counts = self._view(self.viewer, "?counts_only=true&cursor=ignored")
+        self.assertEqual(counts["lanes"], full["lanes"])
+        self.assertEqual(counts["board_total"], full["board_total"])
+        self.assertEqual((counts["rows"], counts["child_boards"], counts["next_cursor"]), ([], [], None))
+        with CaptureQueriesContext(connection) as full_ctx:
+            self._view(self.viewer)
+        # The page's five queries (parents, children, blockers, live counts, columns) are skipped.
+        self.assertEqual(len(ctx.captured_queries), len(full_ctx.captured_queries) - 5)
+        self.assertEqual(self._view(self.viewer, "?counts_only=0")["rows"], full["rows"])
 
     def test_query_count_is_flat_in_parents_lanes_and_children(self):
         def count():

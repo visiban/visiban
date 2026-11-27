@@ -1117,7 +1117,7 @@ describe('CardChildrenTab: All children in the lane (#2370 way in 2)', () => {
     render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lane={{ id: 3, name: 'Acme Corp' }} />)
     const link = await screen.findByRole('link', { name: 'All children in Acme Corp (12 in progress)' })
     expect(link).toHaveAttribute('href', '/boards/1?show=children&lane=3')
-    expect(getChildrenView).toHaveBeenCalledWith(1, { lane: 3 }, expect.anything())
+    expect(getChildrenView).toHaveBeenCalledWith(1, { lane: 3, countsOnly: true }, expect.anything())
     const history = screen.getByRole('link', { name: 'Movement history of these children' })
     expect(history.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })

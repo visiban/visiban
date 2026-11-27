@@ -4304,6 +4304,10 @@ class ChildrenViewChildSerializer(serializers.Serializer):
     assignee = BoardUserSerializer(allow_null=True)
     blocked = serializers.BooleanField()
     blocked_at = serializers.DateTimeField(allow_null=True)
+    blocked_reason = serializers.CharField(
+        allow_null=True,
+        help_text="Since 1.3 (#2370): the manual block's reason; null without a manual block or reason.",
+    )
     planned = serializers.BooleanField(
         help_text="Planned for a later parent stage (#2371); never true for a done or blocked child, which beat planned.",
     )

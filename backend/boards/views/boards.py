@@ -1263,12 +1263,19 @@ class BoardViewSet(
                 "done", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False,
                 description="Also list done children in `rows[].children` (default false). Counts always include them.",
             ),
+            OpenApiParameter(
+                "counts_only", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False,
+                description=(
+                    "Since 1.3 (#2370): only `board_total` and `lanes`; `rows` and `child_boards` are empty and "
+                    "`next_cursor` is null (default false). `cursor` is ignored."
+                ),
+            ),
         ],
         responses={
             200: ChildrenViewSerializer,
             400: OpenApiResponse(
                 description=(
-                    "`lane`, `cursor` or `done` is malformed (`invalid_query_param`), or this "
+                    "`lane`, `cursor`, `done` or `counts_only` is malformed (`invalid_query_param`), or this "
                     "board's cards cannot have children (`children_not_enabled`)."
                 ),
                 response=CHILDREN_VIEW_400_SCHEMA,
@@ -1301,9 +1308,12 @@ class BoardViewSet(
         done = params.get("done", "false").lower()
         if done not in ("true", "false", "1", "0"):
             raise CodedValidationError(INVALID_QUERY_PARAM, "done must be true or false.")
+        counts_only = params.get("counts_only", "false").lower()
+        if counts_only not in ("true", "false", "1", "0"):
+            raise CodedValidationError(INVALID_QUERY_PARAM, "counts_only must be true or false.")
         return Response(_children_view.children_view_for_viewer(
             board, request.user, lane_id=lane_id, cursor=params.get("cursor"),
-            include_done=done in ("true", "1"),
+            include_done=done in ("true", "1"), counts_only=counts_only in ("true", "1"),
         ))
 
     @extend_schema(

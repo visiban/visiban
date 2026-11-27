@@ -64,6 +64,7 @@ import OverflowMenu from "../Layout/OverflowMenu";
 import type { OverflowItem } from "../Layout/OverflowMenu";
 import { formatShortcut, formatAriaKeyshortcuts } from "../../utils/platform";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
+import ActiveMark from "../Common/ActiveMark";
 import { OverlayIcon, PresetIcon } from "./toolbarIcons";
 import BoardViewMenu from "./BoardViewMenu";
 import FilterBar, { countActiveFilters, EMPTY_FILTER } from "./FilterBar";
@@ -383,7 +384,9 @@ const FIRST_OPEN_RESYNC_MS = 1000;
  * changing here are the rest. Not `card.updated`: it fires on every comment and changes no count.
  */
 const CHILDREN_VIEW_EVENTS = new Set([
-  "card.children_changed", "card.children_bulk_changed", "card.parent_changed", "card.created", "card.moved",
+  // Not `card.created`: a new card has no children yet, so it changes no count (#2370 fix A12). `card.moved`
+  // counts only for a card with children (it can change lanes); see `movesChildrenCount`.
+  "card.children_changed", "card.children_bulk_changed", "card.parent_changed", "card.moved",
   "card.archived", "card.unarchived", "card.deleted", "swimlane.created", "swimlane.updated", "swimlane.deleted", "swimlane.reordered",
 ]);
 /** At most one children-view re-read per this many ms, trailing: a burst of pings is one read (#2370 item 9). */
@@ -766,6 +769,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const { message: bulkAnnouncement, announce: announceBulk } = useLiveAnnouncer();
   const allExpandedRef = useRef(allExpanded);
   allExpandedRef.current = allExpanded;
+  // Children mode (#2370 fix A9): the grid's collapse and filter-bar shortcuts act on a hidden grid, so they are off.
+  const childrenModeRef = useRef(false);
 
 
   const {
@@ -968,7 +973,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, [bumpChildrenView]);
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
-    if (CHILDREN_VIEW_EVENTS.has(event.event)) bumpChildrenView();
+    if (CHILDREN_VIEW_EVENTS.has(event.event)) {
+      // A card without children moving changes no Children count: no re-read for it (#2370 fix A12). A card
+      // whose rollup is unknown (absent) is read as a parent, never skipped.
+      const movedId = event.event === "card.moved" ? (d as unknown as CardMovedEventPayload).card?.id : undefined;
+      const rollup = movedId != null ? (boardRef.current?.cards.find((c) => c.id === movedId)?.children_rollup ?? (d as unknown as CardMovedEventPayload).card?.children_rollup) : undefined;
+      if (movedId == null || rollup == null || rollup.total > 0) bumpChildrenView();
+    }
     // Order matters: notify the archived panel BEFORE the branches below evict
     // or archive the card from board.cards. Its card.deleted guard checks
     // board.cards to tell an active card (not its concern) from an archived
@@ -2291,6 +2302,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         e.preventDefault();
         setView("lens");
         return;
+      } else if (childrenModeRef.current && (e.key === "e" || e.key === "c" || e.key === "f" || e.key === "/")) {
+        // Children mode never honors the grid's collapse state or the filter bar (#2370 fix A8, A9).
+        return;
       } else if (e.key === "e") {
         // `e` collapses/expands everything — mirrors the SplitButton primary
         // (onCollapsePrimary) so there is a single source of "what does the
@@ -2582,7 +2596,27 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // children; BoardView never renders on a public share link, so a shared board has no Show control.
   const childrenModeAvailable = board.cards_can_have_children === true;
   const showParam = searchParams.get("show");
-  const childrenMode = childrenModeAvailable && showParam === "children";
+  // The remembered mode is restored by the effect below; until it lands, this render is already Children mode, so
+  // the Cards-mode lane counts never read once for nothing (#2370 fix A12).
+  // Picking Cards clears the stored mode, so this is true only until the restore below lands.
+  const restoringChildren = useMemo(
+    () => childrenModeAvailable && showParam === null && loadShowMode(board.id) === "children",
+    [childrenModeAvailable, showParam, board.id],
+  );
+  const childrenMode = childrenModeAvailable && (showParam === "children" || restoringChildren);
+  childrenModeRef.current = childrenMode;
+  // Focus (the band's Focus, the View menu's Lanes) is the board's `?focus=` lane filter, honored by Children mode
+  // too; it never touches the grid's collapse state. `?lane=` only picks the lane that opens expanded (#2370 fix A1).
+  const setChildrenFocus = useCallback((laneId: number | null) => {
+    setSearchParams((prev) => {
+      if (laneId === null) prev.delete("focus");
+      else { prev.set("focus", String(laneId)); prev.delete("lane"); }
+      return prev;
+    }, { replace: true });
+  }, [setSearchParams]);
+  // The Children lane action's lane: scrolled to, with focus on its collapse button (#2370 fix A2).
+  const [childrenLaneFocus, setChildrenLaneFocus] = useState<number | null>(null);
+  const clearChildrenLaneFocus = useCallback(() => setChildrenLaneFocus(null), []);
   // A `?lane=` that names no lane the viewer was served (deleted, another board's) is simply absent (#2370 item 1).
   const childrenLane = resolveLaneParam(searchParams.get("lane"), board.swimlanes.map((l) => l.id));
   // The Children lane action's counts (#2370 way in 1), read only in Cards mode on the Board tab.
@@ -2607,17 +2641,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       return prev;
     }, { replace: true });
   }, [board.id, setSearchParams]);
-  const setChildrenLane = useCallback((laneId: number | null) => {
-    setSearchParams((prev) => {
-      if (laneId === null) prev.delete("lane");
-      else prev.set("lane", String(laneId));
-      return prev;
-    }, { replace: true });
-  }, [setSearchParams]);
   // The Children lane action: Children mode at that lane (`?show=children&lane=<id>`), remembered like the switch.
   const openChildrenLane = useCallback((laneId: number) => {
     saveShowMode(board.id, "children");
-    setSearchParams((prev) => { prev.set("show", "children"); prev.set("lane", String(laneId)); return prev; }, { replace: true });
+    setChildrenLaneFocus(laneId);
+    // The link opens that lane expanded with the others collapsed, every lane still drawn: Focus is cleared.
+    setSearchParams((prev) => { prev.set("show", "children"); prev.set("lane", String(laneId)); prev.delete("focus"); return prev; }, { replace: true });
   }, [board.id, setSearchParams]);
   const showChipCountsValue = useMemo(
     () => showChipCounts(board.cards, board.columns),
@@ -3452,7 +3481,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onClick={() => setShowMode(m)}
                     className={`text-sm px-3 h-11 sm:[@media(pointer:fine)]:h-8 ${i ? "border-l border-line-strong" : ""} ${(m === "children") === childrenMode ? "bg-primary text-on-primary font-medium" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"} focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis`}
                   >
-                    {m === "cards" ? "Cards" : "Children"}
+                    <span className="inline-flex items-center gap-1"><ActiveMark active={(m === "children") === childrenMode} />{m === "cards" ? "Cards" : "Children"}</span>
                   </button>
                 ))}
               </div>
@@ -3460,7 +3489,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           )}
           <div className="flex-1 max-sm:hidden" />
           <div className="flex items-center gap-2 flex-wrap max-sm:order-2 max-sm:flex-nowrap max-sm:gap-1 max-sm:shrink-0">
+            {childrenMode ? (
+              // Children mode honors none of the Filter panel's rows (its options live in View), so the panel and
+              // its chips are absent (#2370 fix A8). On phones the Filters button stays the route to View
+              // options, as the design ruling says, and opens them directly.
+              isPhone && (
+                <button
+                  type="button"
+                  data-filters-trigger
+                  aria-haspopup="dialog"
+                  aria-label="View options"
+                  onClick={(e) => openViewFromFilter(e.currentTarget)}
+                  className="inline-flex items-center justify-center h-11 min-w-11 rounded border border-line-strong text-fg hover:bg-surface-hover shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  {FilterIcon}
+                </button>
+              )
+            ) : (
             <FilterPanel
+              phoneOrder={isPhone}
               board={board}
               filters={effectiveFilters}
               onChange={(next) => { setActiveFilterId(null); setFilters(next); }}
@@ -3477,6 +3524,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               userDateFormat={userDateFormat}
               onOpenViewOptions={isPhone ? openViewFromFilter : undefined}
             />
+            )}
             <span ref={presetPickerRef} className="contents">
               <BoardViewMenu
                 icon={ViewMenuIcon}
@@ -3491,8 +3539,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       className="w-full"
                       escapePriority={26}
                       options={[{ value: 0, label: "All lanes" }, ...board.swimlanes.map((l) => ({ value: l.id, label: l.name }))]}
-                      selected={childrenLane ?? 0}
-                      onChange={(v) => setChildrenLane(v ? v : null)}
+                      selected={focusedSwimlaneId ?? 0}
+                      onChange={(v) => setChildrenFocus(v ? v : null)}
                     />
                     <label className="flex items-center gap-2 text-sm text-fg min-h-11 sm:[@media(pointer:fine)]:min-h-8">
                       <input type="checkbox" className="accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis" checked={childrenOptions.showDone} onChange={(e) => setChildrenOptions({ ...childrenOptions, showDone: e.target.checked })} />
@@ -3647,8 +3695,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       </nav>
 
-      {/* Filter row — own row so it doesn't compress the toolbar */}
-      {showFilters && (
+      {/* Filter row — own row so it doesn't compress the toolbar. Children mode never honors it (#2370 fix A8). */}
+      {showFilters && !childrenMode && (
         <>
           {/* Preset tab pills — one-click load of saved filters, above the chip row */}
           {savedFilters.length > 0 && (
@@ -3784,7 +3832,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       {/* Focus mode banner — sits outside the scroll container so it does not scroll away */}
-      {focusedSwimlaneId !== null && !childrenMode && (
+      {focusedSwimlaneId !== null && (
         <div className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info-on-tint transition-opacity duration-150">
           <svg className="w-3.5 h-3.5 text-info-on-tint shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="8" cy="8" r="3" />
@@ -3832,13 +3880,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <ChildrenModeView
             boardId={board.id}
             laneId={childrenLane}
+            focusLaneId={focusedSwimlaneId}
+            laneFocusRequest={childrenLaneFocus}
+            onLaneFocusDone={clearChildrenLaneFocus}
             options={childrenOptions}
             onOptionsChange={setChildrenOptions}
             onOpenParent={(id) => { const c = board.cards.find((x) => x.id === id); if (c) handleCardClick(c); }}
             phone={isPhone}
             laneColors={isPhone ? Object.fromEntries(board.swimlanes.map((s) => [s.id, s.color])) : undefined}
             boardName={board.name}
-            onFocusLane={setChildrenLane}
+            onFocusLane={setChildrenFocus}
             onEditLane={isAdmin ? setChildrenEditLaneId : undefined}
             onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
             refreshKey={childrenViewTick}

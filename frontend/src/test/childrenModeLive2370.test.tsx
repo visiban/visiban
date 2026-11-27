@@ -14,7 +14,7 @@ vi.mock('../api/cards', () => ({
 }))
 
 const kid = (id: number, title: string, column_id: number) => ({
-  id, title, column_id, swimlane_id: 12, position: 0, state: 'todo' as const, assignee: null, blocked: false, blocked_at: null, planned: false,
+  id, title, column_id, swimlane_id: 12, position: 0, state: 'todo' as const, assignee: null, blocked: false, blocked_at: null, blocked_reason: null, planned: false,
 })
 const row = (id: number, title: string, children: ReturnType<typeof kid>[], extra: Partial<ChildrenViewRow> = {}): ChildrenViewRow => ({
   id, title, swimlane_id: 3, column_id: 9, column_name: 'Discovery', assignee: null,

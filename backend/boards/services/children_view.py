@@ -121,7 +121,7 @@ def _empty_lane(lane_id, name, position):
 
 
 def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_done=False,
-                             page_size=CHILDREN_VIEW_PAGE_SIZE):
+                             counts_only=False, page_size=CHILDREN_VIEW_PAGE_SIZE):
     """The Children mode read of ``board`` for ``user`` (#2370). Computed per viewer.
 
     The caller has authorized ``board`` for ``user`` (any role) and checked
@@ -129,7 +129,10 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
     404) limits the rows, never the lane rollups: a collapsed band still shows
     its total. ``cursor`` is a ``next_cursor`` from the previous page.
     ``include_done`` adds done children to ``rows[].children``; the counts
-    always include them.
+    always include them. ``counts_only`` returns the rollups (``board_total``
+    and ``lanes``) with no page: ``rows`` and ``child_boards`` are empty and
+    ``next_cursor`` is ``null``, so a caller that needs only the counts (the
+    Children lane action) skips the page's five queries (#2370 perf).
 
     A parent is a row when it is live and has at least one live child; its
     rollup reads only the board of its first live link (one child board per
@@ -224,7 +227,7 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
     for pk, lane in lane_out.items():
         lane["child_boards"] = len(lane_boards[pk])
 
-    after = decode_cursor(cursor) if cursor is not None else None
+    after = decode_cursor(cursor) if cursor is not None and not counts_only else None
     ordered = sorted(
         (
             (_sort_key(e, lane_order), e) for e in entries.values()
@@ -234,8 +237,8 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
     )
     if after is not None:
         ordered = [pair for pair in ordered if pair[0] > after]
-    page = ordered[:page_size]
-    next_cursor = encode_cursor(page[-1][0]) if len(ordered) > page_size else None
+    page = [] if counts_only else ordered[:page_size]
+    next_cursor = encode_cursor(page[-1][0]) if page and len(ordered) > page_size else None
     lane_list = list(lane_out.values())
     for lane in lane_list:
         moved = lane["last_moved_at"]
@@ -313,6 +316,8 @@ def _page_rows(page, boards, roles, first_position, *, include_done):
                 "assignee": BoardUserSerializer(c.assignee).data if c.assignee_id else None,
                 "blocked": state == "blocked",
                 "blocked_at": _datetime.to_representation(c.blocked_at) if c.blocked_at else None,
+                # A manual block's reason, for the card's accessible name (#2370 A13); additive, null otherwise.
+                "blocked_reason": (c.blocked_reason or None) if c.blocked_at else None,
                 "planned": card_links.is_planned_state(state, c._needed_at, c._released_at),
             })
     board_ids = sorted(set(visible.values()))

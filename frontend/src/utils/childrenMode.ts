@@ -245,11 +245,18 @@ export function visibleChildren(children: ChildrenViewChild[], options: Children
   });
 }
 
-/** A compact child card's accessible name: "title, column, owner, blocked". */
-export function childCardName(child: ChildrenViewChild, columnName: string): string {
+/**
+ * A compact child card's accessible name: "title, column, owner, blocked", and for a manual block its age and reason
+ * as the card draws them ("4d, blocked: IdP access", #2370 fix A13). A relation block has no reason and no age.
+ */
+export function childCardName(child: ChildrenViewChild, columnName: string, now: number = Date.now()): string {
   const parts = [child.title, columnName];
   if (child.assignee) parts.push(child.assignee.display_name || child.assignee.username);
-  if (child.blocked) parts.push("blocked");
+  if (child.blocked) {
+    const days = blockedDays(child, now);
+    const reason = child.blocked_reason?.trim();
+    parts.push(`${days != null ? `${days}d, ` : ""}blocked${reason ? `: ${reason}` : ""}`);
+  }
   if (child.planned) parts.push("planned");
   return parts.join(", ");
 }
@@ -311,15 +318,50 @@ export function blockedDays(child: ChildrenViewChild, now: number = Date.now()):
 }
 
 /**
- * Rows never re-sort under the viewer (#2370 "Live updates"): while focus is in the grid, keep the previous order
- * and append rows that are new, dropping rows that left. Returns the order to draw and how many rows would move.
+ * One lane's loaded parent rows in Children mode (#2370 fix A1/A5): rows are read per lane, so a collapsed lane can
+ * open later and a lane past the first board-wide page still loads. `cursor` is the `next_cursor` that continues this
+ * lane (null when every row is loaded). `owner` says which read keeps it fresh on a live re-read: "page" lanes come
+ * from the main read (board-wide, or the focused or linked lane), "lane" lanes from their own `?lane=` read.
  */
-export function stableOrder(previous: number[], next: number[]): { order: number[]; changes: number } {
-  const present = new Set(next);
-  const kept = previous.filter((id) => present.has(id));
-  const known = new Set(kept);
-  const order = [...kept, ...next.filter((id) => !known.has(id))];
-  let changes = 0;
-  order.forEach((id, i) => { if (next[i] !== id) changes += 1; });
-  return { order, changes };
+export interface LaneRows { rows: ChildrenViewRow[]; cursor: string | null; owner: "page" | "lane" }
+export type LaneStore = Readonly<Record<number, LaneRows>>;
+
+/**
+ * Adds one page of `children-view` rows (server order) to the store. A read limited to `scope` fills that lane. A
+ * board-wide page fills every lane from `fromLane` (the lane its cursor continued, or the first lane) to the lane of
+ * its last row: lanes it passed are complete, the last one keeps the cursor, and with no next cursor every later lane
+ * is complete too. Lanes with their own read ("lane") are left to it. Rows already loaded are never added twice.
+ */
+export function addPage(
+  store: LaneStore, laneIds: readonly number[], page: { rows: ChildrenViewRow[]; next_cursor: string | null },
+  scope: number | null, owner: LaneRows["owner"], fromLane: number | null = null,
+): LaneStore {
+  const out: Record<number, LaneRows> = { ...store };
+  const add = (id: number, rows: ChildrenViewRow[], cursor: string | null) => {
+    const prev = out[id]?.rows ?? [];
+    const seen = new Set(prev.map((r) => r.id));
+    out[id] = { rows: [...prev, ...rows.filter((r) => !seen.has(r.id))], cursor, owner };
+  };
+  if (scope != null) {
+    add(scope, page.rows, page.next_cursor);
+    return out;
+  }
+  const last = page.rows.length ? page.rows[page.rows.length - 1].swimlane_id : null;
+  const start = fromLane != null ? Math.max(0, laneIds.indexOf(fromLane)) : 0;
+  const end = page.next_cursor == null ? laneIds.length - 1 : laneIds.indexOf(last as number);
+  for (let i = start; i <= end; i++) {
+    const id = laneIds[i];
+    if (out[id]?.owner === "lane") continue;
+    add(id, page.rows.filter((r) => r.swimlane_id === id), i === end ? page.next_cursor : null);
+  }
+  return out;
 }
+
+/** The lane the main board-wide read continues from ("+N more parents" there reads the next board-wide page). */
+export function frontierLane(store: LaneStore): number | null {
+  for (const [id, v] of Object.entries(store)) if (v.owner === "page" && v.cursor != null) return Number(id);
+  return null;
+}
+
+/** How many rows the main read had loaded: a live re-read follows next_cursor until it covers them again. */
+export const pageRowCount = (store: LaneStore) => Object.values(store).reduce((n, v) => n + (v.owner === "page" ? v.rows.length : 0), 0);

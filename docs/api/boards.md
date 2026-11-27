@@ -2871,8 +2871,9 @@ this.
 | `lane` | A lane id of this board. Only that lane's parent rows are returned; `lanes` still covers every lane. A lane of another board, or an unknown id, is `404`. |
 | `cursor` | The previous page's `next_cursor`. |
 | `done` | `true` (or `1`) also lists done children in `rows[].children`; `false` (or `0`) is the default. Counts always include done children. |
+| `counts_only` | Since 1.3 (#2370). `true` (or `1`) returns only the counts: `board_total` and `lanes` as usual, with `rows` and `child_boards` empty and `next_cursor` `null`, and `cursor` ignored. It skips the page's reads; the Board tab's Children lane action uses it. `false` (or `0`) is the default. |
 
-A malformed `lane`, `cursor` or `done` is `400` with `code: "invalid_query_param"`.
+A malformed `lane`, `cursor`, `done` or `counts_only` is `400` with `code: "invalid_query_param"`.
 
 ```json
 {"board_total": {"in_progress": 4, "total": 5, "blocked": 2, "hidden": 4,
@@ -2894,6 +2895,7 @@ A malformed `lane`, `cursor` or `done` is `400` with `code: "invalid_query_param
                          "state": "blocked", "assignee": null,
                          "blocked": true,
                          "blocked_at": "2026-11-14T09:00:00Z",
+                         "blocked_reason": "IdP access",
                          "planned": false}]},
           {"id": 41, "title": "Data migration", "swimlane_id": 3,
            "column_id": 9, "column_name": "Proposal", "assignee": null,
@@ -2916,7 +2918,7 @@ The example lists one of row 40's four not-done children, for brevity.
 | `board_total` | `in_progress`, `total`, `blocked`, `hidden` and `planned` summed over every lane. |
 | `lanes[]` | Every lane of the board, in lane order: `id`, `name`, `position`; `parents` (parent rows, locked rows included); `child_boards` (distinct child boards you can open); `total` (live children you can open); `in_progress` (`todo + doing + blocked`); `done`, `doing`, `todo`, `blocked`; `hidden` (live children on boards you can't open); `folded` (parents you can open with nothing in progress); `planned` (children planned for a later parent stage, #2371: a bucket of its own, so `total` is `done + doing + todo + blocked + planned` and `planned` is never in `in_progress`); `planned_only` (of `folded`, parents with nothing in progress and at least one planned child); `last_moved_at` (the most recent move of any child you can open under the lane, `null` when none; a hidden child's move never changes it). |
 | `rows[]` | `id`, `title`, `swimlane_id`, `column_id`, `column_name` (the parent's own), `assignee` (or `null`), `rollup` (the card's `children_rollup` shape), `in_progress` (`null` on a locked row), `folded` (always `false` on a locked row), `planned` (planned children, never in `in_progress`; `null` on a locked row), `planned_only` (nothing in progress and at least one planned child, so also `folded`; always `false` on a locked row), `child_board_id` (`null` on a locked row), `children[]`. |
-| `rows[].children[]` | `id`, `title`, `column_id`, `swimlane_id`, `position`, `state` (`todo`, `doing`, `blocked` or `done`), `assignee` (or `null`), `blocked`, `blocked_at` (the manual block's start, else `null`), `planned` (planned for a later parent stage; never `true` for a done or blocked child, which beat planned; `state` is still the column state, `todo` or `doing`). Not-done children, plus done ones with `done=true`, ordered by column then position. |
+| `rows[].children[]` | `id`, `title`, `column_id`, `swimlane_id`, `position`, `state` (`todo`, `doing`, `blocked` or `done`), `assignee` (or `null`), `blocked`, `blocked_at` (the manual block's start, else `null`), `blocked_reason` (since 1.3, #2370: the manual block's reason; `null` without a manual block, or when it has no reason; a block by relation has none), `planned` (planned for a later parent stage; never `true` for a done or blocked child, which beat planned; `state` is still the column state, `todo` or `doing`). Not-done children, plus done ones with `done=true`, ordered by column then position. |
 | `child_boards[]` | `id`, `name`, `role` (your role there: `admin`, `member`, `collaborator`, `viewer` or `site_admin`), `enforce_wip_limits`, `enforce_wip_hard`, `columns[]` (`id`, `name`, `color`, `wip_limit` or `null`, `is_done`, `card_count`). |
 | `next_cursor` | Opaque: send it back as `cursor` for the next page; `null` on the last page. Don't parse it; its format may change. |
 
@@ -2924,7 +2926,7 @@ The example lists one of row 40's four not-done children, for brevity.
 
 | Status | Body | Condition |
 |---|---|---|
-| `400 Bad Request` | `{"detail": "...", "code": "invalid_query_param"}` | `lane` is not a numeric id, `done` is not `true`, `false`, `1` or `0`, or `cursor` is not a cursor this endpoint issued |
+| `400 Bad Request` | `{"detail": "...", "code": "invalid_query_param"}` | `lane` is not a numeric id, `done` or `counts_only` is not `true`, `false`, `1` or `0`, or `cursor` is not a cursor this endpoint issued |
 | `400 Bad Request` | `{"detail": "...", "code": "children_not_enabled"}` | This board's `cards_can_have_children` is `false` |
 | `401 Unauthorized` | `{"detail": "..."}` | Not authenticated |
 | `404 Not Found` | `{"detail": "..."}` | No such board, no access, or `lane` is not a lane of this board |

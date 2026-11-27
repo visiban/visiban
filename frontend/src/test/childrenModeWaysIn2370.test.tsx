@@ -30,8 +30,8 @@ const view = (): ChildrenView => ({
     rollup: { visible: true, total: 4, done: 1, doing: 1, todo: 2, blocked: 0, last_moved_at: null },
     in_progress: 3, folded: false, planned: 0, planned_only: false, child_board_id: 7,
     children: [
-      { id: 1, title: 'Scope', column_id: 30, swimlane_id: 12, position: 0, state: 'todo', assignee: null, blocked: false, blocked_at: null, planned: false },
-      { id: 2, title: 'Build', column_id: 31, swimlane_id: 12, position: 0, state: 'doing', assignee: null, blocked: false, blocked_at: null, planned: false },
+      { id: 1, title: 'Scope', column_id: 30, swimlane_id: 12, position: 0, state: 'todo', assignee: null, blocked: false, blocked_at: null, blocked_reason: null, planned: false },
+      { id: 2, title: 'Build', column_id: 31, swimlane_id: 12, position: 0, state: 'doing', assignee: null, blocked: false, blocked_at: null, blocked_reason: null, planned: false },
     ],
   }],
   child_boards: [{
@@ -113,8 +113,11 @@ describe('Children mode ways in and band (#2370 items 1, 2, 3, 8, 10)', () => {
     expect(onFocusLane).toHaveBeenCalledWith(3)
     expect(screen.queryByRole('button', { name: 'Actions for swimlane "Acme Corp"' })).toBeNull()
     unmount()
-    render(<ChildrenModeView {...base} laneId={3} onFocusLane={onFocusLane} onEditLane={onEditLane} onEditFieldOrder={onEditFieldOrder} />)
+    // Focus is its own prop, never the shared ?lane= link (#2370 fix A1).
+    render(<ChildrenModeView {...base} laneId={null} focusLaneId={3} onFocusLane={onFocusLane} onEditLane={onEditLane} onEditFieldOrder={onEditFieldOrder} />)
     const pressed = await screen.findByRole('button', { name: 'Focus on Acme Corp' })
+    expect(screen.queryByRole('region', { name: 'Globex lane' })).toBeNull()
+    expect(getChildrenView).toHaveBeenLastCalledWith(4, { lane: 3, done: false }, expect.anything())
     expect(pressed).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(pressed)
     expect(onFocusLane).toHaveBeenLastCalledWith(null)
@@ -153,6 +156,8 @@ describe('Children mode ways in and band (#2370 items 1, 2, 3, 8, 10)', () => {
     getChildrenView.mockResolvedValueOnce({ lanes: [{ id: 3, in_progress: 12, planned: 2 }] })
     const { result } = renderHook(() => useChildrenLaneCounts(4, true))
     await waitFor(() => expect(result.current.get(3)).toBe(12))
+    // Counts only (#2370 perf): the server skips the page of rows the lane action never draws.
+    expect(getChildrenView).toHaveBeenCalledWith(4, { lane: null, countsOnly: true }, expect.anything())
     getChildrenView.mockClear()
     const off = renderHook(() => useChildrenLaneCounts(4, false))
     expect(off.result.current.size).toBe(0)
@@ -238,5 +243,29 @@ describe('Parent lane filter (#2370 way in 3)', () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ parentLaneFilter: 4 }))
     await u.click(within(group).getByRole('radio', { name: 'Any' }))
     expect(onChange.mock.calls.at(-1)![0]).not.toHaveProperty('parentLaneFilter')
+  })
+
+  it('Filter panel on phones: Assignee, Parent, Parent lane, Planned, Due date come first (#2370 fix A10)', async () => {
+    const u = userEvent.setup()
+    const order = async (phoneOrder: boolean) => {
+      const { unmount } = render(
+        <FilterPanel
+          board={board()} filters={EMPTY_FILTER} onChange={vi.fn()} activeCount={0} icon={null} phoneOrder={phoneOrder}
+          savedFilters={[]} activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown={false} onToggleFilterBar={vi.fn()}
+          onOpenLaneFilters={vi.fn()}
+        />,
+      )
+      await u.click(screen.getByRole('button', { name: /^Filters/ }))
+      const labels = within(screen.getByTestId('filter-panel')).getAllByRole('button').map((b) => b.textContent ?? '')
+      const at = (re: RegExp) => labels.findIndex((t) => re.test(t))
+      const out = [/^Assignee/, /^Parent(?! lane)/, /^Parent lane/, /^Due date/, /^Label/].map((re) => at(re))
+      unmount()
+      return out
+    }
+    const [assignee, parent, parentLane, due, label] = await order(true)
+    expect(assignee).toBeGreaterThanOrEqual(0)
+    expect(assignee < parent && parent < parentLane && parentLane < due && due < label).toBe(true)
+    const desktop = await order(false)
+    expect(desktop[4]).toBeLessThan(desktop[3])
   })
 })

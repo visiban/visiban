@@ -12,7 +12,7 @@ vi.mock('../api/cards', () => ({ getChildrenView: (...a: unknown[]) => getChildr
 
 const child = (o: Partial<ChildrenViewChild>): ChildrenViewChild => ({
   id: 50, title: 'Child', column_id: 30, swimlane_id: 12, position: 0, state: 'todo', assignee: null,
-  blocked: false, blocked_at: null, planned: false, ...o,
+  blocked: false, blocked_at: null, blocked_reason: null, planned: false, ...o,
 })
 const row = (o: Partial<ChildrenViewRow>): ChildrenViewRow => ({
   id: 40, title: 'Parent', swimlane_id: 3, column_id: 9, column_name: 'Discovery', assignee: null,

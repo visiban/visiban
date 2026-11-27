@@ -8,7 +8,8 @@
  * open branches editing that file; the mock setup below is copied from it.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, act, screen } from '@testing-library/react'
+import { render, act, screen, within, fireEvent } from '@testing-library/react'
+import { boardStateMessage } from '../hooks/useLiveAnnouncer'
 import BoardView from '../components/Board/BoardView'
 import * as cardsApi from '../api/cards'
 import type { BoardEvent } from '../hooks/useBoardSocket'
@@ -67,6 +68,8 @@ vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/', search: '', hash: '', state: mockLocationState.current, key: 'default' }),
   useSearchParams: () => [mockSearchParams, vi.fn()],
   useNavigate: () => vi.fn(),
+  useInRouterContext: () => false,
+  Link: ({ to, children, ...rest }: { to: string; children?: React.ReactNode }) => <a href={to} {...rest}>{children}</a>,
 }))
 vi.mock('../api/boards', () => ({
   exportBoardCsv: vi.fn(),
@@ -392,6 +395,37 @@ describe('BoardView — Children lane counts re-read live, throttled (#2370 item
     }
   })
 
+  it('a card without children moving, or a new card, reads nothing; a parent moving reads once (#2370 fix A12)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
+    const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
+    vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
+    try {
+      const leaf = makeCard({ id: 7, children_rollup: { visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null } })
+      const parent = makeCard({ id: 8, children_rollup: { visible: true, total: 2, done: 0, doing: 1, todo: 1, blocked: 0, last_moved_at: null } })
+      mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: true, cards: [leaf, parent] }) })
+      render(<BoardView />)
+      await act(async () => {})
+      const before = spy.mock.calls.length
+      // The Cards-mode lane counts read counts only.
+      expect(spy.mock.calls[0][1]).toEqual({ lane: null, countsOnly: true })
+      await act(async () => {
+        getOnEvent.dispatch({ event: 'card.moved', data: { card: leaf, movement: {} } as never })
+        getOnEvent.dispatch({ event: 'card.created', data: makeCard({ id: 9 }) as never })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+      expect(spy.mock.calls.length).toBe(before)
+      await act(async () => { getOnEvent.dispatch({ event: 'card.moved', data: { card: parent, movement: {} } as never }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+      expect(spy.mock.calls.length).toBe(before + 1)
+    } finally {
+      vi.useRealTimers()
+      spy.mockRestore()
+      random.mockRestore()
+    }
+  })
+
   it('a hidden tab reads nothing until it is shown again, then reads once', async () => {
     const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
     const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
@@ -447,6 +481,51 @@ describe('BoardView — Children mode shows only the controls it honors (#2370 r
     } finally {
       spy.mockRestore()
       mockSearchParams = new URLSearchParams()
+    }
+  })
+
+  it('hides the Filters button, the filter row and the grid shortcuts in Children mode; the Show control carries ActiveMark (#2370 fix A8, A9, A11)', async () => {
+    const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
+    const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
+    vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
+    const board = makeBoard({ cards_can_have_children: true, cards: [makeCard({ id: 7 })] })
+    const collapsedAll = boardStateMessage(true, board.swimlanes.length, board.columns.length)
+    try {
+      mockBoardContextValue = makeContext({ board })
+      const { unmount } = render(<BoardView />)
+      await act(async () => {})
+      expect(screen.getByRole('button', { name: /^Filters/ })).toBeInTheDocument()
+      unmount()
+      mockSearchParams = new URLSearchParams('show=children')
+      render(<BoardView />)
+      await act(async () => {})
+      expect(screen.queryByRole('button', { name: /^Filters/ })).toBeNull()
+      expect(within(within(screen.getByTestId('show-mode')).getByRole('button', { name: 'Children' })).getByTestId('active-mark')).toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'e' })
+      fireEvent.keyDown(document, { key: 'c' })
+      await act(async () => {})
+      expect(screen.queryByText(collapsedAll)).toBeNull()
+    } finally {
+      spy.mockRestore()
+      mockSearchParams = new URLSearchParams()
+    }
+  })
+
+  it('a remembered Children mode renders Children mode at once and never reads the Cards-mode counts (#2370 fix A12)', async () => {
+    const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
+    const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
+    vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
+    const board = makeBoard({ cards_can_have_children: true, cards: [makeCard({ id: 7 })] })
+    localStorage.setItem(`board:${board.id}:show-mode`, 'children')
+    try {
+      mockBoardContextValue = makeContext({ board })
+      render(<BoardView />)
+      await act(async () => {})
+      expect(screen.getByTestId('children-mode')).toBeInTheDocument()
+      expect(spy.mock.calls.some((c) => (c[1] as { countsOnly?: boolean }).countsOnly)).toBe(false)
+    } finally {
+      localStorage.clear()
+      spy.mockRestore()
     }
   })
 })

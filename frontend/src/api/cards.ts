@@ -333,7 +333,7 @@ export const getCardChildren = (boardId: number, cardId: number, offset = 0, sig
 /** Children mode on the Board tab (#2370): lane rollups and 20 parent rows a page, all per viewer. */
 export const getChildrenView = (
   boardId: number,
-  params: { lane?: number | null; cursor?: string | null; done?: boolean },
+  params: { lane?: number | null; cursor?: string | null; done?: boolean; countsOnly?: boolean },
   signal?: AbortSignal,
 ) =>
   client.get<ChildrenView>(`/api/v1/boards/${boardId}/children-view/`, {
@@ -341,6 +341,8 @@ export const getChildrenView = (
       ...(params.lane != null ? { lane: params.lane } : {}),
       ...(params.cursor ? { cursor: params.cursor } : {}),
       ...(params.done ? { done: "true" } : {}),
+      // Lane counts only (#2370 perf): the server skips the page of rows.
+      ...(params.countsOnly ? { counts_only: "true" } : {}),
     },
     signal,
   }).then((r) => r.data);

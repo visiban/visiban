@@ -1197,6 +1197,8 @@ export interface ChildrenViewChild {
   assignee: BoardUser | null;
   blocked: boolean;
   blocked_at: string | null;
+  /** Since 1.3 (#2370): the manual block's reason; null without a manual block or reason. */
+  blocked_reason: string | null;
   /** Planned for a later parent stage (#2371); never true for a done or blocked child. */
   planned: boolean;
 }

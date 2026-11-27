@@ -24,9 +24,9 @@ const view = {
       assignee: null, rollup: { visible: true, total: 6, done: 1, doing: 1, todo: 2, blocked: 1, last_moved_at: null },
       in_progress: 4, folded: false, planned: 1, planned_only: false, child_board_id: 7,
       children: [
-        { id: 20, title: 'Usage export spec', column_id: 100, swimlane_id: 1, position: 0, state: 'todo', assignee: null, blocked: false, blocked_at: null, planned: false },
-        { id: 21, title: 'Proposal workshop', column_id: 100, swimlane_id: 1, position: 1, state: 'todo', assignee: null, blocked: false, blocked_at: null, planned: true },
-        { id: 22, title: 'SSO for analytics', column_id: 101, swimlane_id: 1, position: 0, state: 'blocked', assignee: null, blocked: true, blocked_at: '2026-11-20T09:00:00Z', planned: false },
+        { id: 20, title: 'Usage export spec', column_id: 100, swimlane_id: 1, position: 0, state: 'todo', assignee: null, blocked: false, blocked_at: null, blocked_reason: null, planned: false },
+        { id: 21, title: 'Proposal workshop', column_id: 100, swimlane_id: 1, position: 1, state: 'todo', assignee: null, blocked: false, blocked_at: null, blocked_reason: null, planned: true },
+        { id: 22, title: 'SSO for analytics', column_id: 101, swimlane_id: 1, position: 0, state: 'blocked', assignee: null, blocked: true, blocked_at: '2026-11-20T09:00:00Z', blocked_reason: 'IdP access', planned: false },
       ],
     },
     {
@@ -131,9 +131,11 @@ for (const scheme of ['light', 'dark'] as const) {
     const mode = page.getByTestId('children-mode')
     await expect(mode).toBeVisible()
 
-    // Band: Focus (pressed for the linked lane), Copy link, the admin menu.
+    // The lane action lands on its lane: focus on the lane's collapse button (#2370 fix A2).
+    await expect(mode.getByRole('button', { name: `Collapse ${laneName}` })).toBeFocused()
+    // Band: Focus (a filter of its own, not pressed by the link: #2370 fix A1), Copy link, the admin menu.
     const focus = mode.getByRole('button', { name: `Focus on ${laneName}` })
-    await expect(focus).toHaveAttribute('aria-pressed', 'true')
+    await expect(focus).toHaveAttribute('aria-pressed', 'false')
     await expectText(focus, 'Focus')
     await expectText(mode.getByRole('button', { name: `Copy link to ${laneName}` }), 'Copy link')
     await mode.getByRole('button', { name: `Actions for swimlane "${laneName}"` }).click()
@@ -236,14 +238,14 @@ const phoneView = {
     {
       ...view.rows[0], id: 901, title: 'Acme: platform renewal',
       rollup: { visible: true, total: 1, done: 0, doing: 1, todo: 0, blocked: 0, last_moved_at: null }, in_progress: 1, planned: 0,
-      children: [{ id: 30, title: 'Migrate to v4 tenant', column_id: 100, swimlane_id: 1, position: 2, state: 'todo', assignee: null, blocked: false, blocked_at: null, planned: false }],
+      children: [{ id: 30, title: 'Migrate to v4 tenant', column_id: 100, swimlane_id: 1, position: 2, state: 'todo', assignee: null, blocked: false, blocked_at: null, blocked_reason: null, planned: false }],
     },
     {
       ...view.rows[0], id: 902, title: 'Acme: training pack', child_board_id: 8,
       rollup: { visible: true, total: 2, done: 0, doing: 1, todo: 1, blocked: 0, last_moved_at: null }, in_progress: 2, planned: 0,
       children: [
-        { id: 40, title: 'Kickoff deck', column_id: 200, swimlane_id: 1, position: 0, state: 'todo', assignee: null, blocked: false, blocked_at: null, planned: false },
-        { id: 41, title: 'Trainer booked', column_id: 201, swimlane_id: 1, position: 0, state: 'doing', assignee: null, blocked: false, blocked_at: null, planned: false },
+        { id: 40, title: 'Kickoff deck', column_id: 200, swimlane_id: 1, position: 0, state: 'todo', assignee: null, blocked: false, blocked_at: null, blocked_reason: null, planned: false },
+        { id: 41, title: 'Trainer booked', column_id: 201, swimlane_id: 1, position: 0, state: 'doing', assignee: null, blocked: false, blocked_at: null, blocked_reason: null, planned: false },
       ],
     },
     view.rows[1],

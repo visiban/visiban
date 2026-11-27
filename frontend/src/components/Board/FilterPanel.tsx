@@ -52,10 +52,18 @@ interface Props {
    * which the View panel anchors to and returns focus to.
    */
   onOpenViewOptions?: (trigger: HTMLButtonElement) => void;
+  /**
+   * Phones (#2370 fix A10, canvas 2f g): the rows a child board's phone user reaches most come first, in this order:
+   * Assignee, Parent, Parent lane, Planned, Due date; every other row keeps its place after them.
+   */
+  phoneOrder?: boolean;
 }
 
 const PANEL_WIDTH = 520;
 const FOCUSABLE = 'button:not([disabled]),select:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/** The phone Filter panel's leading rows (#2370 fix A10). */
+const PHONE_ROW_ORDER: readonly RowId[] = ["assignee", "parent", "parentLane", "planned", "dueDate"];
 
 type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "planned" | "blocked" | "parent" | "parentLane" | "subColumn" | "trackState" | "lanes" | `cf:${number}`;
 interface Row {
@@ -83,7 +91,7 @@ function ScopeTag({ scope }: { scope: "card" | "lane" }) {
  */
 export default function FilterPanel({
   board, filters, onChange, activeCount, icon, savedFilters, savedFiltersLoading = false, activeFilterId, onLoadSaved,
-  filterBarShown, onToggleFilterBar, onOpenLaneFilters, onSaveFilter, userDateFormat = "MM/DD/YYYY", onOpenViewOptions,
+  filterBarShown, onToggleFilterBar, onOpenLaneFilters, onSaveFilter, userDateFormat = "MM/DD/YYYY", onOpenViewOptions, phoneOrder = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
@@ -266,6 +274,12 @@ export default function FilterPanel({
   if (parentFilterAvailable(board, filters.parentLaneFilter)) {
     const laneValue = parentLaneFilterLabel(filters.parentLaneFilter, board.cards);
     rows.push({ id: "parentLane", label: "Parent lane", value: laneValue, ariaLabel: `Parent lane filter: ${laneValue ?? "Any"}` });
+  }
+  if (phoneOrder) {
+    // A stable sort: the five ranked rows first (after Search), the rest in their desktop order.
+    const rank = (id: RowId) => { const i = PHONE_ROW_ORDER.indexOf(id); return i < 0 ? PHONE_ROW_ORDER.length : i; };
+    const head = rows.splice(1).sort((a, b) => rank(a.id) - rank(b.id));
+    rows.push(...head);
   }
   // #2367 — sub-column and Track state rows exist only when the board has a split stage / tracks.
   if (hasSubColumns) {

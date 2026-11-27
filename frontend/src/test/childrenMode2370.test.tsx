@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import ChildrenModeView from '../components/Board/ChildrenModeView'
 import { CHILDREN_BOARD_ESCAPE_PRIORITY, WIDE_MIN_PX } from '../components/Card/cardChildren'
 import { MAXIMIZE_ESCAPE_PRIORITY } from '../components/Card/FieldSetBlocks'
@@ -8,7 +9,7 @@ import {
   CHILDREN_MODE_ESCAPE_PRIORITY, DEFAULT_CHILDREN_OPTIONS, blockedDays, cellName, childCardName, compactRowLabel,
   foldLabel, isFoldedRow, laneBandName, laneBlockedLabel, laneLink, laneSubtitle, laneTotalLabel, loadChildrenOptions,
   loadShowMode, lockedRowText, moreParentsLabel, parseLaneParam, rowDoneLabel, saveChildrenOptions, saveShowMode,
-  stableOrder, visibleChildren,
+  visibleChildren, addPage, frontierLane, pageRowCount,
 } from '../utils/childrenMode'
 import type { ChildrenView, ChildrenViewChild, ChildrenViewLane, ChildrenViewRow } from '../types'
 
@@ -21,7 +22,7 @@ const lane = (o: Partial<ChildrenViewLane> = {}): ChildrenViewLane => ({
 })
 const child = (o: Partial<ChildrenViewChild> = {}): ChildrenViewChild => ({
   id: 51, title: 'SSO for analytics', column_id: 30, swimlane_id: 12, position: 0, state: 'todo', assignee: null,
-  blocked: false, blocked_at: null, planned: false, ...o,
+  blocked: false, blocked_at: null, blocked_reason: null, planned: false, ...o,
 })
 const row = (o: Partial<ChildrenViewRow> = {}): ChildrenViewRow => ({
   id: 40, title: 'Acme: analytics module', swimlane_id: 3, column_id: 9, column_name: 'Discovery', assignee: null,
@@ -107,6 +108,12 @@ describe('Children mode rules (#2370, #2550)', () => {
   it('names cards and cells, and reads block age', () => {
     const owner = { id: 1, username: 'dk', display_name: 'Dana K' } as ChildrenViewChild['assignee']
     expect(childCardName(child({ assignee: owner, blocked: true }), 'Doing')).toBe('SSO for analytics, Doing, Dana K, blocked')
+    // A manual block carries its age and reason, as the card draws "⊘ 4d" (#2370 fix A13).
+    const at = Date.parse('2026-11-20T00:00:00Z')
+    expect(childCardName(child({ blocked: true, blocked_at: '2026-11-16T00:00:00Z', blocked_reason: 'IdP access' }), 'Blocked', at))
+      .toBe('SSO for analytics, Blocked, 4d, blocked: IdP access')
+    expect(childCardName(child({ blocked: true, blocked_at: '2026-11-16T00:00:00Z', blocked_reason: '  ' }), 'Blocked', at))
+      .toBe('SSO for analytics, Blocked, 4d, blocked')
     expect(cellName('Acme: analytics module', 'Blocked', 2)).toBe('Acme: analytics module, Blocked, 2 cards')
     expect(cellName('A', 'To do', 1)).toBe('A, To do, 1 card')
     const now = Date.parse('2026-11-20T00:00:00Z')
@@ -114,10 +121,6 @@ describe('Children mode rules (#2370, #2550)', () => {
     expect(blockedDays(child(), now)).toBeNull()
   })
 
-  it('never re-sorts rows under focus: keeps the old order and counts the changes', () => {
-    expect(stableOrder([1, 2, 3], [3, 1, 2])).toEqual({ order: [1, 2, 3], changes: 3 })
-    expect(stableOrder([1, 2], [2, 4])).toEqual({ order: [2, 4], changes: 0 })
-  })
 })
 
 const view = (o: Partial<ChildrenView> = {}): ChildrenView => ({
@@ -144,6 +147,31 @@ const view = (o: Partial<ChildrenView> = {}): ChildrenView => ({
   }] as ChildrenView['child_boards'],
   next_cursor: 'abc',
   ...o,
+})
+
+describe('per-lane row store (#2370 fix A1, A5)', () => {
+  const r = (id: number, lane: number) => row({ id, swimlane_id: lane })
+  it('a board-wide page completes the lanes it passed and leaves the cursor on its last lane', () => {
+    const st = addPage({}, [3, 4, 5], { rows: [r(1, 3), r(2, 4)], next_cursor: 'c1' }, null, 'page')
+    expect(st[3]).toEqual({ rows: [r(1, 3)], cursor: null, owner: 'page' })
+    expect(st[4].cursor).toBe('c1')
+    expect(st[5]).toBeUndefined()
+    expect(frontierLane(st)).toBe(4)
+    // Continuing from lane 4 fills it and, with no next cursor, completes every later lane.
+    const more = addPage(st, [3, 4, 5], { rows: [r(2, 4), r(3, 4)], next_cursor: null }, null, 'page', 4)
+    expect(more[4].rows.map((x) => x.id)).toEqual([2, 3])
+    expect(more[5]).toEqual({ rows: [], cursor: null, owner: 'page' })
+    expect(frontierLane(more)).toBeNull()
+    expect(pageRowCount(more)).toBe(3)
+  })
+  it('a lane read fills only its lane, and a board-wide page leaves a lane with its own read alone', () => {
+    const st = addPage({}, [3, 4], { rows: [r(9, 4)], next_cursor: 'c2' }, 4, 'lane')
+    expect(st[4]).toEqual({ rows: [r(9, 4)], cursor: 'c2', owner: 'lane' })
+    const both = addPage(st, [3, 4], { rows: [r(1, 3), r(8, 4)], next_cursor: null }, null, 'page')
+    expect(both[4]).toBe(st[4])
+    expect(pageRowCount(both)).toBe(1)
+    expect(addPage({}, [3], { rows: [], next_cursor: null }, null, 'page')[3]).toEqual({ rows: [], cursor: null, owner: 'page' })
+  })
 })
 
 describe('ChildrenModeView', () => {
@@ -203,26 +231,55 @@ describe('ChildrenModeView', () => {
     expect(document.activeElement).toHaveAccessibleName('Collapse Acme Corp')
   })
 
-  it('opens a linked lane expanded with the others collapsed, loads more, and copies the lane link', async () => {
-    getChildrenView.mockResolvedValueOnce(view()).mockResolvedValueOnce(view({ rows: [row({ id: 43, title: 'Acme: more' })], next_cursor: null }))
+  it('opens a linked lane expanded with every other lane drawn and collapsed; a collapsed lane reads its rows when opened (#2370 fix A1)', async () => {
+    const linked = view({ rows: [row({ id: 50, title: 'Globex: rollout', swimlane_id: 4 })], next_cursor: null })
+    getChildrenView.mockResolvedValueOnce(linked).mockResolvedValueOnce(view({ next_cursor: null }))
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.assign(navigator, { clipboard: { writeText } })
-    render(<ChildrenModeView boardId={4} laneId={null} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} phone />)
-    fireEvent.click(await screen.findByRole('button', { name: '+1 more parent · load 20' }))
-    await screen.findByRole('button', { name: 'Acme: more' })
-    expect(getChildrenView).toHaveBeenLastCalledWith(4, { lane: null, cursor: 'abc', done: false })
+    render(<ChildrenModeView boardId={4} laneId={4} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} />)
+    await screen.findByRole('button', { name: 'Globex: rollout' })
+    // The main read is the linked lane's; the other lane is drawn, collapsed, with its band.
+    expect(getChildrenView).toHaveBeenCalledWith(4, { lane: 4, done: false }, expect.anything())
+    expect(screen.getByRole('button', { name: 'Collapse Globex' })).toHaveAttribute('aria-expanded', 'true')
+    const acme = screen.getByRole('button', { name: 'Expand Acme Corp' })
+    expect(acme).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('region', { name: 'Acme Corp lane' })).toBeInTheDocument()
+    // Opening it reads that lane's own rows.
+    fireEvent.click(acme)
+    await screen.findByRole('button', { name: 'Acme: analytics module' })
+    expect(getChildrenView).toHaveBeenLastCalledWith(4, { lane: 3, cursor: null, done: false })
     fireEvent.click(screen.getAllByRole('button', { name: /^Copy link/ })[0])
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/boards/4?show=children&lane=3`))
-    expect(screen.getByRole('button', { name: 'Collapse lane Acme Corp, 4 in progress of 8' })).toBeInTheDocument()
   })
 
-  it('a live re-read keeps the pages Load more added, following next_cursor (#2370 perf-check, ux-review)', async () => {
+  it("every lane pages on its own: a lane past the loaded page has its load button, the board-wide read's last lane continues it (#2370 fix A5)", async () => {
+    // The continuation still has a cursor (Globex's row is on a later page), so Globex stays unread.
+    getChildrenView.mockResolvedValueOnce(view()).mockResolvedValueOnce(view({ rows: [row({ id: 43, title: 'Acme: more' })], next_cursor: 'def' }))
+    render(<ChildrenModeView boardId={4} laneId={null} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} phone />)
+    const acme = await screen.findByRole('region', { name: 'Acme Corp lane' })
+    const globex = screen.getByRole('region', { name: 'Globex lane' })
+    // Globex (no rows in the first page) is not empty: it offers its own load, even with the last lane collapsed.
+    fireEvent.click(within(acme).getByRole('button', { name: /^Collapse lane Acme Corp/ }))
+    expect(within(globex).getByRole('button', { name: '+1 more parent · load 20' })).toBeInTheDocument()
+    fireEvent.click(within(acme).getByRole('button', { name: /^Expand lane Acme Corp/ }))
+    fireEvent.click(within(acme).getByRole('button', { name: '+1 more parent · load 20' }))
+    await screen.findByRole('button', { name: 'Acme: more' })
+    expect(getChildrenView).toHaveBeenLastCalledWith(4, { lane: null, cursor: 'abc', done: false })
+    // Then Globex reads its own lane.
+    getChildrenView.mockResolvedValueOnce(view({ rows: [row({ id: 60, title: 'Globex: pilot', swimlane_id: 4 })], next_cursor: null }))
+    fireEvent.click(within(globex).getByRole('button', { name: '+1 more parent · load 20' }))
+    await within(globex).findByRole('button', { name: 'Globex: pilot' })
+    expect(getChildrenView).toHaveBeenLastCalledWith(4, { lane: 4, cursor: null, done: false })
+  })
+
+  it('a live re-read keeps the pages Load more added, following next_cursor, and re-reads lanes opened on their own (#2370 perf-check, ux-review)', async () => {
     getChildrenView
       .mockResolvedValueOnce(view())
       .mockResolvedValueOnce(view({ rows: [row({ id: 43, title: 'Acme: more' })], next_cursor: null }))
     const props = { boardId: 4, laneId: null, options: DEFAULT_CHILDREN_OPTIONS, onOptionsChange: vi.fn(), onOpenParent: vi.fn(), phone: true }
     const { rerender } = render(<ChildrenModeView {...props} refreshKey={0} />)
-    fireEvent.click(await screen.findByRole('button', { name: '+1 more parent · load 20' }))
+    const acme = await screen.findByRole('region', { name: 'Acme Corp lane' })
+    fireEvent.click(within(acme).getByRole('button', { name: '+1 more parent · load 20' }))
     await screen.findByRole('button', { name: 'Acme: more' })
     // The board event: page 1 comes back with its cursor, and the view reads page 2 again before replacing rows.
     getChildrenView
@@ -235,14 +292,112 @@ describe('ChildrenModeView', () => {
     expect(await screen.findByRole('button', { name: 'Acme: more' })).toBeInTheDocument()
   })
 
-  it('a linked lane shows only that lane, and a failed read says so', async () => {
+  it('one read in flight: a board event during a slow read waits for it, then re-reads once (#2370 fix A12)', async () => {
+    let release: (v: ChildrenView) => void = () => {}
+    getChildrenView.mockResolvedValueOnce(view({ next_cursor: null }))
+    const props = { boardId: 4, laneId: null, options: DEFAULT_CHILDREN_OPTIONS, onOptionsChange: vi.fn(), onOpenParent: vi.fn() }
+    const { rerender } = render(<ChildrenModeView {...props} refreshKey={0} />)
+    await screen.findByRole('region', { name: 'Acme Corp lane' })
+    getChildrenView.mockClear()
+    getChildrenView.mockImplementationOnce(() => new Promise<ChildrenView>((r) => { release = r }))
+    rerender(<ChildrenModeView {...props} refreshKey={1} />)
+    rerender(<ChildrenModeView {...props} refreshKey={2} />)
+    rerender(<ChildrenModeView {...props} refreshKey={3} />)
+    expect(getChildrenView).toHaveBeenCalledTimes(1)
+    const signal = getChildrenView.mock.calls[0][2] as AbortSignal
+    getChildrenView.mockResolvedValue(view({ next_cursor: null }))
+    release(view({ next_cursor: null }))
+    await waitFor(() => expect(getChildrenView).toHaveBeenCalledTimes(2))
+    expect(signal.aborted).toBe(false)
+  })
+
+  it('Focus draws only that lane; a failed read says so', async () => {
     getChildrenView.mockResolvedValueOnce(view())
-    const { unmount } = render(<ChildrenModeView boardId={4} laneId={4} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} />)
+    const { unmount } = render(<ChildrenModeView boardId={4} laneId={null} focusLaneId={4} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} />)
     await screen.findByRole('region', { name: 'Globex lane' })
     expect(screen.queryByRole('region', { name: 'Acme Corp lane' })).toBeNull()
     unmount()
     getChildrenView.mockRejectedValueOnce(new Error('boom'))
     render(<ChildrenModeView boardId={4} laneId={null} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} />)
     expect(await screen.findByRole('alert')).toHaveTextContent("Children didn't load")
+  })
+
+  it('says once when no card on the board has children (#2370 fix A6)', async () => {
+    getChildrenView.mockResolvedValueOnce(view({
+      board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 },
+      lanes: [lane({ parents: 0, total: 0, in_progress: 0, done: 0, hidden: 0 }), lane({ id: 4, name: 'Globex', parents: 0, hidden: 0 })],
+      rows: [], child_boards: [], next_cursor: null,
+    }))
+    render(<ChildrenModeView boardId={4} laneId={null} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} />)
+    expect(await screen.findByTestId('children-empty')).toHaveTextContent('No cards on this board have children yet.')
+    expect(screen.queryByRole('region')).toBeNull()
+  })
+
+  it('the lane action scrolls to its lane and puts focus on its collapse button (#2370 fix A2)', async () => {
+    getChildrenView.mockResolvedValueOnce(view({ next_cursor: null }))
+    const scrolled = vi.fn()
+    const proto = HTMLElement.prototype as unknown as { scrollIntoView?: unknown }
+    const prev = proto.scrollIntoView
+    proto.scrollIntoView = scrolled
+    const done = vi.fn()
+    try {
+      render(<ChildrenModeView boardId={4} laneId={4} laneFocusRequest={4} onLaneFocusDone={done} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} />)
+      await waitFor(() => expect(document.activeElement).toHaveAccessibleName('Collapse Globex'))
+      expect(scrolled).toHaveBeenCalledWith({ block: 'start' })
+      expect(done).toHaveBeenCalled()
+    } finally {
+      proto.scrollIntoView = prev
+    }
+  })
+
+  it('"N done · Show" keeps focus in its cell; the planned fold opens and folds back with aria-expanded (#2370 fix A3)', async () => {
+    getChildrenView.mockResolvedValue(view({ next_cursor: null }))
+    const { rerender } = render(<ChildrenModeView boardId={4} laneId={null} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} />)
+    const planned = await screen.findByRole('button', { name: '1 planned · Show' })
+    planned.focus()
+    fireEvent.click(planned)
+    expect(planned).toHaveAttribute('aria-expanded', 'true')
+    expect(planned).toHaveTextContent('1 planned · Hide')
+    expect(planned).toHaveAttribute('tabindex', '0')
+    expect(document.activeElement).toBe(planned)
+    expect(screen.getByRole('link', { name: 'Plan workshop, To do, planned' })).toBeInTheDocument()
+    fireEvent.click(planned)
+    expect(planned).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('link', { name: /Plan workshop/ })).toBeNull()
+    // Done: the button unmounts under the press, focus stays in the cell, then lands on the first done card.
+    const show = screen.getAllByRole('button', { name: '1 done. Show done cards' })[0]
+    fireEvent.click(show)
+    const withDone = view({ next_cursor: null })
+    withDone.rows[0].children.push(child({ id: 9, title: 'Kickoff', column_id: 32, state: 'done' }))
+    getChildrenView.mockResolvedValue(withDone)
+    rerender(<ChildrenModeView boardId={4} laneId={null} options={{ ...DEFAULT_CHILDREN_OPTIONS, showDone: true }} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} />)
+    await waitFor(() => expect(document.activeElement).toHaveAccessibleName('Kickoff, Done'))
+  })
+
+  it("a large lane's Open is reached with Down from the row title (#2370 fix A4)", async () => {
+    const many = Array.from({ length: 9 }, (_, i) => row({ id: 70 + i, title: `P${i}`, children: [child({ id: 100 + i, title: `K${i}` })] }))
+    getChildrenView.mockResolvedValue(view({ lanes: [lane({ parents: 9 })], rows: many, next_cursor: null }))
+    render(<ChildrenModeView boardId={4} laneId={null} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} />)
+    const p0 = await screen.findByRole('button', { name: 'P0' })
+    p0.focus()
+    fireEvent.keyDown(p0, { key: 'ArrowDown' })
+    expect(document.activeElement).toHaveAccessibleName('Open P0')
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(document.activeElement).toHaveAccessibleName('P1')
+  })
+
+  it('Move is an icon action inside the card, named for it and never visible text; Copy link failure shows on screen (#2370 fix A7, A11)', async () => {
+    getChildrenView.mockResolvedValue(view({ next_cursor: null }))
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } })
+    render(<MemoryRouter><ChildrenModeView boardId={4} laneId={null} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} /></MemoryRouter>)
+    const move = await screen.findByRole('button', { name: 'Move Pen-test call' })
+    expect(move).toHaveTextContent('')
+    expect(screen.queryByText('Move', { selector: 'button' })).toBeNull()
+    // The card is a router link, and its Move sits inside the card's own box.
+    const card = screen.getByRole('link', { name: 'Pen-test call, Doing, blocked' })
+    expect(card).toHaveAttribute('href', '/boards/7?card=2&from_parent=40')
+    expect(card.parentElement).toContainElement(move)
+    fireEvent.click(screen.getAllByRole('button', { name: /^Copy link/ })[0])
+    expect(await screen.findByText("Couldn't copy the link", { selector: 'span.text-danger' })).toBeInTheDocument()
   })
 })
