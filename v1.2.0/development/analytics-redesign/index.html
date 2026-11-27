@@ -4807,7 +4807,7 @@
 <p><strong>Watch out:</strong> Every number in the screenshots is sample data. The screenshots approximate charts with plain boxes; build the real charts on <code>components/Common/Chart.tsx</code>.</p>
 <h2 id="what-wins-when-sources-disagree">What wins when sources disagree<a class="headerlink" href="#what-wins-when-sources-disagree" title="Permanent link">&para;</a></h2>
 <ol>
-<li><code>frontend/CLAUDE.md</code>, including § Charts. The design follows it, with the three color exceptions that § Charts now lists for this tab; if another conflict remains, the rule wins and the conflict is a bug in this page.</li>
+<li><code>frontend/CLAUDE.md</code> and its topic files, including <code>frontend/ui-conventions/analytics-and-history.md</code> § Charts. The design follows it, with the three color exceptions that § Charts now lists for this tab; if another conflict remains, the rule wins and the conflict is a bug in this page.</li>
 <li>This page.</li>
 <li>The screenshots in <code>docs/development/analytics-redesign/</code>.</li>
 <li>The artboard sources in <code>docs/development/analytics-redesign/artboards/</code>, for exact copy, order and spacing.</li>
@@ -5279,7 +5279,7 @@
 </table>
 <p>Smallest text is 12px everywhere.</p>
 <h3 id="chart-colors">Chart colors<a class="headerlink" href="#chart-colors" title="Permanent link">&para;</a></h3>
-<p><code>frontend/CLAUDE.md</code> § Charts keeps one hue as the default and lists three exceptions for this tab. This table is the full mapping.</p>
+<p><code>frontend/ui-conventions/analytics-and-history.md</code> § Charts keeps one hue as the default and lists three exceptions for this tab. This table is the full mapping.</p>
 <table>
 <thead>
 <tr>
@@ -5481,7 +5481,7 @@
 <ul>
 <li><code>docs/features/analytics.md</code>: it describes the heatmap, the Age/Throughput toggle, the 7/30/90 pills, the stalled table and the blocked table, and uses "Throughput" for dwell time. After the change "Throughput" means cards finished per week everywhere.</li>
 <li><code>docs/api/</code>: every added field and parameter.</li>
-<li><code>frontend/CLAUDE.md</code> § Charts: any new rule <code>ux-review</code> surfaces. It already lists this tab's three color exceptions and points here.</li>
+<li><code>frontend/ui-conventions/analytics-and-history.md</code> § Charts: any new rule <code>ux-review</code> surfaces. It already lists this tab's three color exceptions and points here.</li>
 </ul>
 <h2 id="decisions">Decisions<a class="headerlink" href="#decisions" title="Permanent link">&para;</a></h2>
 <p>Settled by the project owner on 2026-11-14.</p>
@@ -5505,7 +5505,7 @@
 <li>[ ] All four states render as in <code>states.png</code></li>
 <li>[ ] No sideways page scroll at 390px</li>
 <li>[ ] Light and dark themes both pass the contrast rules in <code>frontend/CLAUDE.md</code></li>
-<li>[ ] <code>docs/features/analytics.md</code>, <code>docs/api/</code> and <code>frontend/CLAUDE.md</code> § Charts are updated in the same MR</li>
+<li>[ ] <code>docs/features/analytics.md</code>, <code>docs/api/</code> and <code>frontend/ui-conventions/analytics-and-history.md</code> § Charts are updated in the same MR</li>
 </ul>
 <h2 id="artboard-sources">Artboard sources<a class="headerlink" href="#artboard-sources" title="Permanent link">&para;</a></h2>
 <p><code>docs/development/analytics-redesign/artboards/</code> holds the design canvas files as published: <code>Main.dc.html</code> is the Overview, <code>Lanes.dc.html</code> the Swimlanes tab, and <code>States.dc.html</code> the states. The other four files load <code>Main.dc.html</code> with different settings. They are reference material for copy, order and spacing, not code to port: they are excluded from the docs site, need the canvas runtime to render, and draw charts with plain boxes.</p>

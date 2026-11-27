@@ -4849,7 +4849,7 @@
 <li>The screenshots in <code>docs/development/board-redesign/</code>.</li>
 <li>The artboard sources in <code>docs/development/board-redesign/artboards/</code>, for exact copy, order and spacing.
    Note: the swimlane band's <code>+N</code>/<code>Less</code> expansion in these artboards is superseded by #2354 (the "N fields" toggle and aligned grid).</li>
-<li><code>frontend/CLAUDE.md</code>. Its token, contrast, focus, motion and accessibility rules still apply in full. Its board layout sections listed under <a href="#rules-to-rewrite">Rules to rewrite</a> describe the board being replaced; each child issue rewrites its section in the same MR.</li>
+<li><code>frontend/CLAUDE.md</code> and the <code>frontend/ui-conventions/</code> topic files it indexes. Their token, contrast, focus, motion and accessibility rules still apply in full. Their board layout sections listed under <a href="#rules-to-rewrite">Rules to rewrite</a> describe the board being replaced; each child issue rewrites its section in the same MR.</li>
 </ol>
 <p>An older board issue that describes a different look, including #871, follows this page.</p>
 <h2 id="screenshots">Screenshots<a class="headerlink" href="#screenshots" title="Permanent link">&para;</a></h2>
@@ -4907,14 +4907,14 @@
 <h2 id="page-structure">Page structure<a class="headerlink" href="#page-structure" title="Permanent link">&para;</a></h2>
 <p>Top to bottom:</p>
 <ol>
-<li>App header (Row 1): the menu button (opens the navigation drawer, <code>[</code>), the breadcrumb rooted at "Home" whose last crumb is the page's only <code>h1</code> (on a board, a button with the board name and a chevron that opens the board switcher), star, board status pill, board search, notifications, account. There is no sidebar (#2473): navigation is the on-demand drawer described in <code>frontend/CLAUDE.md</code> § App shell.</li>
+<li>App header (Row 1): the menu button (opens the navigation drawer, <code>[</code>), the breadcrumb rooted at "Home" whose last crumb is the page's only <code>h1</code> (on a board, a button with the board name and a chevron that opens the board switcher), star, board status pill, board search, notifications, account. There is no sidebar (#2473): navigation is the on-demand drawer described in <code>frontend/ui-conventions/shell-and-navigation.md</code> § App shell.</li>
 <li>Board toolbar (Row 2): view tabs on the left; Filter, View, Activity, overflow menu and the connection status on the right.</li>
 <li>Filter chip row: only when a filter is active.</li>
 <li>Show chips, with the board totals and "Collapse all lanes" on the right.</li>
 <li>Column headers, one grid row.</li>
 <li>One section per swimlane: a header band, then one cell per column.</li>
 </ol>
-<p>The landmarks in <code>frontend/CLAUDE.md</code> § Top chrome do not change: <code>banner</code>, <code>navigation: Breadcrumb</code>, <code>navigation: Board toolbar</code>, <code>search: Board filters</code>, <code>main</code>.</p>
+<p>The landmarks in <code>frontend/ui-conventions/shell-and-navigation.md</code> § Top chrome do not change: <code>banner</code>, <code>navigation: Breadcrumb</code>, <code>navigation: Board toolbar</code>, <code>search: Board filters</code>, <code>main</code>.</p>
 <p>The column grid is one CSS grid template shared by the header row, every lane's cells and every collapsed strip: one <code>minmax(0, 1fr)</code> track per column and one column's width per sub-column for a split stage (<code>minmax(0, 2fr)</code> for two, <code>3fr</code> for three, <code>4fr</code> for four; #2531). Gap 8px. Below 1240px of board width the grid scrolls sideways inside its own box; the page does not.</p>
 <h2 id="toolbar-and-header">Toolbar and header<a class="headerlink" href="#toolbar-and-header" title="Permanent link">&para;</a></h2>
 <p>Screenshots: <code>board-dark.png</code>, <code>menus.png</code>.</p>
@@ -5294,7 +5294,7 @@
 <li><strong>#871</strong> is implemented as drawn here.</li>
 </ul>
 <h2 id="rules-to-rewrite">Rules to rewrite<a class="headerlink" href="#rules-to-rewrite" title="Permanent link">&para;</a></h2>
-<p>Each child issue rewrites the <code>frontend/CLAUDE.md</code> section it replaces, in the same MR as the code:</p>
+<p>Each child issue rewrites the frontend UI conventions section it replaces (in <code>frontend/CLAUDE.md</code> or the <code>frontend/ui-conventions/</code> topic file its index line names), in the same MR as the code:</p>
 <table>
 <thead>
 <tr>
@@ -5375,7 +5375,7 @@
 <li>[ ] Every drag state renders as in <code>components.png</code></li>
 <li>[ ] No sideways page scroll at 390px; targets are at least 44px there</li>
 <li>[ ] Light and dark themes pass the contrast rules in <code>frontend/CLAUDE.md</code></li>
-<li>[ ] The replaced <code>frontend/CLAUDE.md</code> section is rewritten in the same MR</li>
+<li>[ ] The replaced frontend UI conventions section (<code>frontend/CLAUDE.md</code> or its topic file) is rewritten in the same MR</li>
 </ul>
 <h2 id="artboard-sources">Artboard sources<a class="headerlink" href="#artboard-sources" title="Permanent link">&para;</a></h2>
 <p><code>docs/development/board-redesign/artboards/</code> holds the design canvas files as published. <code>Main.dc.html</code> is the board; <code>Peek</code>, <code>Light</code>, <code>Overview</code> and <code>Activity</code> load it with different settings. <code>Mobile</code>, <code>Components</code>, <code>Menus</code>, <code>BoardStates</code> and <code>Stages</code> stand alone. They are reference material for copy, order and spacing, not code to port: they are excluded from the docs site and need the canvas runtime to render.</p>

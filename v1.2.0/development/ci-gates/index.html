@@ -4926,6 +4926,11 @@ self-test, add a member function and a <code>fold_member</code> line rather than
 <td>#2591: <code>--self-test</code> builds a throwaway docs tree and proves a missing anchor (named by topic key, path and anchor), a missing page, and an unparseable registry each fail, a heading inside a code fence is not an anchor, and the Concepts reverse check only warns. See <a href="../help-link-anchors/">Help link anchors</a>.</td>
 </tr>
 <tr>
+<td><code>scripts/check-frontend-claude-md.py</code></td>
+<td><code>frontend-claude-md-size</code></td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2681">#2681</a>: caps the always-loaded <code>frontend/CLAUDE.md</code> index at 64 KiB and its index lines at 300 characters, and fails on an index line whose topic file or section is missing or a <code>frontend/ui-conventions/</code> section with no index line. <code>--self-test</code> covers each of those, a fenced <code>##</code> line that is not a section, and the <code>--lossless &lt;old-file&gt;</code> move proof: a verbatim move passes (a relative link rebased one level deeper counts as unchanged) and a dropped, reworded or missing-heading line fails.</td>
+</tr>
+<tr>
 <td><code>scripts/check-gate-selftest-parity.sh</code></td>
 <td><code>gate-selftest-parity</code> (member of <code>lint-selftests-alpine</code>)</td>
 <td>The meta-gate itself — see above.</td>

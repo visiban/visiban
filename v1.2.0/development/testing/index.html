@@ -5003,7 +5003,7 @@ far was a real defect that a loaded CI runner exposed, not test noise: a compone
   from a resolved promise (outside <code>act()</code>), call <code>stallEventLoopAfterWaitFor()</code> from
   <code>src/test/eventLoopStall.ts</code> inside the <code>waitFor</code> that finds the input, assert the mount effects
   haven't run yet, then type. <code>customFieldValueInput.test.tsx</code> and <code>lensFilterBar.test.tsx</code> show
-  it. The component rule this protects is in <code>frontend/CLAUDE.md</code> § Local input buffers and timers.</li>
+  it. The component rule this protects is in <code>frontend/ui-conventions/controls-and-settings.md</code> § Local input buffers and timers.</li>
 <li>[ ] <strong>No timer that can outlive its component.</strong> Hold a delayed timer's id in a ref, clear it
   on unmount, and add a test that unmounts with the timer pending. ESLint <code>no-restricted-syntax</code>
   catches only a call whose id is visibly discarded (a whole statement, an arrow's expression
