@@ -36,7 +36,6 @@ from collections.abc import Mapping
 from typing import Annotated
 
 import pydantic_core
-from asgiref.sync import sync_to_async
 from django.conf import settings
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ResourceError
@@ -47,6 +46,7 @@ from accounts.models import SCOPE_MCP_WRITE, get_maintenance_message, get_mainte
 from visiban.demo import DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_DETAIL
 
 from . import throttling, tools
+from .asgi_mount import request_sync_to_async
 from .context import get_current_scopes, get_current_user
 
 logger = logging.getLogger(__name__)
@@ -202,13 +202,13 @@ async def _deny_write():
     Every gate runs through this one helper so a future write tool cannot
     accidentally pick up the scope check and miss the demo fence (#1179) or
     the maintenance check. The
-    maintenance check is wrapped in ``sync_to_async`` because it reads the
+    maintenance check is wrapped in ``request_sync_to_async`` because it reads the
     Django cache (and, on a cold cache, the database), which is blocking.
     """
     denial = _require_write_scope() or _require_demo_off()
     if denial is not None:
         return denial
-    return await sync_to_async(_require_maintenance_off, thread_sensitive=True)()
+    return await request_sync_to_async(_require_maintenance_off)()
 
 
 def _sent_arguments(ctx):
@@ -364,11 +364,11 @@ def build_mcp_server():
     @_throttled()
     async def list_boards() -> _TOOL_RESULT:
         # The tool surface is async (the MCP server runs on the event loop),
-        # but the implementation is sync ORM code. thread_sensitive=True keeps
-        # it on the sync worker thread that owns Django's DB connection, and
-        # sync_to_async propagates the contextvars the auth middleware set, so
+        # but the implementation is sync ORM code. request_sync_to_async runs
+        # it on the request's own sync thread, which owns its DB connection
+        # (#2586), and propagates the contextvars the auth middleware set, so
         # get_current_user() still resolves inside the thread.
-        return await sync_to_async(tools.list_boards, thread_sensitive=True)()
+        return await request_sync_to_async(tools.list_boards)()
 
     # ── Read tools (#512) — all board roles, no extra scope beyond mcp:read ──
 
@@ -383,7 +383,7 @@ def build_mcp_server():
     )
     @_throttled()
     async def list_columns(board_id: int) -> _TOOL_RESULT:
-        return await sync_to_async(tools.list_columns, thread_sensitive=True)(board_id=board_id)
+        return await request_sync_to_async(tools.list_columns)(board_id=board_id)
 
     @mcp.tool(
         name="list_swimlanes",
@@ -401,7 +401,7 @@ def build_mcp_server():
     )
     @_throttled()
     async def list_swimlanes(board_id: int) -> _TOOL_RESULT:
-        return await sync_to_async(tools.list_swimlanes, thread_sensitive=True)(board_id=board_id)
+        return await request_sync_to_async(tools.list_swimlanes)(board_id=board_id)
 
     @mcp.tool(
         name="list_cards",
@@ -435,7 +435,7 @@ def build_mcp_server():
         # structuredContent stays the unchanged {"result": [...]} (#1762).
         # An untruncated call returns the plain list, which the SDK renders
         # byte-identically to before.
-        out = await sync_to_async(tools.list_cards, thread_sensitive=True)(
+        out = await request_sync_to_async(tools.list_cards)(
             board_id=board_id, column_id=column_id, swimlane_id=swimlane_id,
             assignee=assignee, priority=priority, label=label,
             include_archived=include_archived, limit=limit, offset=offset,
@@ -484,7 +484,7 @@ def build_mcp_server():
     async def board_flow_metrics(
         board_id: int, window_days: int = 90, swimlane_id: int | None = None,
     ) -> _TOOL_RESULT:
-        return await sync_to_async(tools.board_flow_metrics, thread_sensitive=True)(
+        return await request_sync_to_async(tools.board_flow_metrics)(
             board_id=board_id, window_days=window_days, swimlane_id=swimlane_id,
         )
 
@@ -501,7 +501,7 @@ def build_mcp_server():
     )
     @_throttled(compute=True)
     async def aging_cards(board_id: int, percentile: int = 85) -> _TOOL_RESULT:
-        return await sync_to_async(tools.aging_cards, thread_sensitive=True)(
+        return await request_sync_to_async(tools.aging_cards)(
             board_id=board_id, percentile=percentile,
         )
 
@@ -532,7 +532,7 @@ def build_mcp_server():
     @_throttled(compute=True, as_resource=True)
     async def board_resource(board_id: int) -> dict:
         try:
-            return await sync_to_async(tools.board_snapshot, thread_sensitive=True)(board_id=board_id)
+            return await request_sync_to_async(tools.board_snapshot)(board_id=board_id)
         except ValueError as exc:
             # tools.py stays SDK-free and raises ValueError; MCP 2.x only
             # preserves the message for ResourceError.
@@ -552,7 +552,7 @@ def build_mcp_server():
     @_throttled(as_resource=True)
     async def card_resource(card_id: int) -> dict:
         try:
-            return await sync_to_async(tools.card_detail, thread_sensitive=True)(card_id=card_id)
+            return await request_sync_to_async(tools.card_detail)(card_id=card_id)
         except ValueError as exc:
             raise ResourceError(str(exc)) from None
 
@@ -592,7 +592,7 @@ def build_mcp_server():
         denial = await _deny_write() or tools.reject_removed_arguments(_sent_arguments(ctx))
         if denial is not None:
             return denial
-        return await sync_to_async(tools.create_card, thread_sensitive=True)(
+        return await request_sync_to_async(tools.create_card)(
             board_id=board_id, column_id=column_id, swimlane_id=swimlane_id, title=title,
             description=description, priority=priority, assignee=assignee,
             labels=labels, due_date=due_date, position=position,
@@ -622,7 +622,7 @@ def build_mcp_server():
         denial = await _deny_write()
         if denial is not None:
             return denial
-        return await sync_to_async(tools.move_card, thread_sensitive=True)(
+        return await request_sync_to_async(tools.move_card)(
             card_id=card_id, to_column_id=to_column_id, to_swimlane_id=to_swimlane_id,
             position=position, version=version, gates_passed=gates_passed,
         )
@@ -653,7 +653,7 @@ def build_mcp_server():
         denial = await _deny_write() or tools.reject_removed_arguments(_sent_arguments(ctx))
         if denial is not None:
             return denial
-        return await sync_to_async(tools.update_card, thread_sensitive=True)(
+        return await request_sync_to_async(tools.update_card)(
             card_id=card_id, title=title, description=description, priority=priority,
             assignee=assignee, labels=labels, due_date=due_date, version=version,
         )
@@ -672,7 +672,7 @@ def build_mcp_server():
         denial = await _deny_write()
         if denial is not None:
             return denial
-        return await sync_to_async(tools.block_card, thread_sensitive=True)(
+        return await request_sync_to_async(tools.block_card)(
             card_id=card_id, reason=reason,
         )
 
@@ -690,7 +690,7 @@ def build_mcp_server():
         denial = await _deny_write()
         if denial is not None:
             return denial
-        return await sync_to_async(tools.unblock_card, thread_sensitive=True)(
+        return await request_sync_to_async(tools.unblock_card)(
             card_id=card_id, resolution=resolution,
         )
 
@@ -706,6 +706,6 @@ def build_mcp_server():
         denial = await _deny_write()
         if denial is not None:
             return denial
-        return await sync_to_async(tools.archive_card, thread_sensitive=True)(card_id=card_id)
+        return await request_sync_to_async(tools.archive_card)(card_id=card_id)
 
     return mcp

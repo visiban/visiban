@@ -58,13 +58,14 @@ check" when its input is absent or malformed):
   "unlimited" is exactly the silent degradation #1075 was about.
 """
 import logging
+import threading
 import time
 
-from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 
+from .asgi_mount import request_sync_to_async
 from .context import get_current_token_id
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,8 @@ class McpTokenBucket:
         self.bucket_name = bucket_name
         self.setting_name = setting_name
         self.default_rate = default_rate
+        # Guards the read-modify-write in check(); see its docstring.
+        self._lock = threading.Lock()
         # Validate once at construction too — for every real deployment this
         # IS the startup check described in the module docstring, since these
         # are built as module-level singletons below. Not cached onto self:
@@ -150,18 +153,24 @@ class McpTokenBucket:
         """Return a structured ``{"error": {...}}`` denial, or ``None`` to allow.
 
         Synchronous and cache-only — callers on the event loop must run this
-        via ``sync_to_async(..., thread_sensitive=True)`` (see
+        via ``asgi_mount.request_sync_to_async`` (see
         :func:`check_read`/:func:`check_compute` below), matching
         ``server._require_maintenance_off``'s existing pattern for blocking
         cache access from an async tool.
 
-        Not atomic across concurrent daphne workers hitting the same key in
-        the same instant — read-modify-write against the cache has the same
-        narrow race DRF's own ``SimpleRateThrottle`` accepts. Acceptable here
-        for the same reason: the bound this exists to enforce is "roughly
-        this many calls per window," not an exact ceiling, and the alternative
-        (a cache backend transaction) is not something ``django.core.cache``
-        exposes portably across the locmem/Redis backends this project runs.
+        Atomic within a process: each MCP request runs its sync work on a
+        thread of its own (#2586), so checks for one token can run in
+        parallel, and ``self._lock`` keeps each read-modify-write whole. The
+        lock is held only for the cache read and write, never across an
+        ``await``.
+
+        Not atomic across daphne workers hitting the same key in the same
+        instant — read-modify-write against the cache has the same narrow
+        race DRF's own ``SimpleRateThrottle`` accepts. Acceptable here for the
+        same reason: the bound this exists to enforce is "roughly this many
+        calls per window," not an exact ceiling, and the alternative (a cache
+        backend transaction) is not something ``django.core.cache`` exposes
+        portably across the locmem/Redis backends this project runs.
         """
         token_id = get_current_token_id()
         if token_id is None:
@@ -180,18 +189,19 @@ class McpTokenBucket:
 
         num_requests, duration = self._current_rate()
         key = self._cache_key(token_id)
-        now = time.time()
-        # Oldest-first: entries are appended in call order below, so a simple
-        # age filter keeps the list sorted without needing to re-sort it.
-        history = [ts for ts in cache.get(key, []) if ts > now - duration]
+        with self._lock:
+            now = time.time()
+            # Oldest-first: entries are appended in call order below, so a
+            # simple age filter keeps the list sorted without re-sorting it.
+            history = [ts for ts in cache.get(key, []) if ts > now - duration]
 
-        if len(history) >= num_requests:
-            oldest = history[0]
-            retry_after = max(1, round(duration - (now - oldest)))
-            return self._denial(retry_after)
+            if len(history) >= num_requests:
+                oldest = history[0]
+                retry_after = max(1, round(duration - (now - oldest)))
+                return self._denial(retry_after)
 
-        history.append(now)
-        cache.set(key, history, duration)
+            history.append(now)
+            cache.set(key, history, duration)
         return None
 
     def _denial(self, retry_after):
@@ -226,7 +236,7 @@ async def check_read():
 
     See :meth:`McpTokenBucket.check` for the algorithm and fail-closed rules.
     """
-    return await sync_to_async(read_bucket.check, thread_sensitive=True)()
+    return await request_sync_to_async(read_bucket.check)()
 
 
 async def check_compute():
@@ -234,7 +244,7 @@ async def check_compute():
 
     See :meth:`McpTokenBucket.check` for the algorithm and fail-closed rules.
     """
-    return await sync_to_async(compute_bucket.check, thread_sensitive=True)()
+    return await request_sync_to_async(compute_bucket.check)()
 
 
 class PreAuthFailureLimiter:
@@ -260,14 +270,18 @@ class PreAuthFailureLimiter:
     Cache outage: ``cache.get``/``cache.set`` are deliberately NOT guarded,
     exactly like :class:`McpTokenBucket`. A backend error propagates and the
     request fails (fail closed) rather than silently disabling the limiter.
-    The budget is approximate: the read-modify-write is not atomic, so
-    concurrent failures (or failures spread across replicas) can exceed it or
-    lose counts.
+    The budget is approximate across replicas: each worker's read-modify-write
+    is kept whole by ``self._lock`` (MCP requests in one process run their
+    sync work on threads of their own, #2586), but failures spread across
+    replicas can exceed it or lose counts.
     """
 
     def __init__(self, setting_name, default_rate):
         self.setting_name = setting_name
         self.default_rate = default_rate
+        # Guards blocked()/record_failure()'s cache read and write; held only
+        # around those calls, never across an await.
+        self._lock = threading.Lock()
         # Fail at import/boot on a typo, like McpTokenBucket.__init__.
         self._rate()
 
@@ -309,8 +323,9 @@ class PreAuthFailureLimiter:
     def blocked(self, ip):
         """Return seconds to retry after if ``ip`` is over budget, else None."""
         num_requests, duration = self._rate()
-        now = time.time()
-        history = [ts for ts in cache.get(self._key(ip), []) if ts > now - duration]
+        with self._lock:
+            now = time.time()
+            history = [ts for ts in cache.get(self._key(ip), []) if ts > now - duration]
         if len(history) >= num_requests:
             return max(1, round(duration - (now - history[0])))
         return None
@@ -318,10 +333,11 @@ class PreAuthFailureLimiter:
     def record_failure(self, ip):
         _, duration = self._rate()
         key = self._key(ip)
-        now = time.time()
-        history = [ts for ts in cache.get(key, []) if ts > now - duration]
-        history.append(now)
-        cache.set(key, history, duration)
+        with self._lock:
+            now = time.time()
+            history = [ts for ts in cache.get(key, []) if ts > now - duration]
+            history.append(now)
+            cache.set(key, history, duration)
 
 
 preauth_limiter = PreAuthFailureLimiter(
