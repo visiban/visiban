@@ -20,7 +20,7 @@ from .serializers import (
     BROADCAST_PAYLOAD_CONTEXT_KEY, BoardMembershipSerializer, BoardSerializer, ColumnSerializer, LabelSerializer,
     SwimlaneSerializer,
 )
-from .permissions import SITE_ADMIN
+from .permissions import SITE_ADMIN, group_derived_board_role
 from .admin_mixins import ContainerChangedAdminMixin
 from .services import setting_changes
 from visiban.colors import ColorAdminFormMixin
@@ -46,7 +46,7 @@ from .services.errors import (
 from .views._helpers import (
     _refetched_card_data, blocked_peers_of, missing_limit_columns, publish_blocked_peers,
 )
-from .views.boards import _broadcast_board_group_change
+from .views.boards import GROUP_ADMIN_FLOOR_MESSAGE, _broadcast_board_group_change
 
 
 def _record_board_and_group_event(board_id, group_id, event_type, payload, *, actor_id):
@@ -1602,6 +1602,32 @@ class BoardMembershipAdminForm(RowVersionFormMixin, forms.ModelForm):
     class Meta:
         model = BoardMembership
         fields = "__all__"
+
+    def clean(self):
+        """Apply the board membership role floor (#1942), as the REST endpoint does.
+
+        A stored role below ``admin`` is refused for a user whose group already
+        makes them admin of the board. Saving a row with its role, user and
+        board unchanged is not a change, so a row stored before this rule can
+        still have other fields edited. A blank role, user or board is left to
+        the field's own required error.
+        """
+        cleaned = super().clean()
+        role = cleaned.get("role")
+        user = cleaned.get("user")
+        board = cleaned.get("board")
+        if not (role and user and board) or role == BoardMembership.Role.ADMIN:
+            return cleaned
+        instance = self.instance
+        unchanged = (
+            instance.pk is not None
+            and instance.role == role
+            and instance.user_id == user.pk
+            and instance.board_id == board.pk
+        )
+        if not unchanged and group_derived_board_role(user, board) == BoardMembership.Role.ADMIN:
+            raise ValidationError({"role": GROUP_ADMIN_FLOOR_MESSAGE})
+        return cleaned
 
 
 @admin.register(BoardMembership)

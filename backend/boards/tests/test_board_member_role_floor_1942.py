@@ -12,6 +12,9 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
+from django.forms.models import model_to_dict
+
+from boards.admin import BoardMembershipAdminForm
 from boards.models import Board, BoardEvent, BoardMembership
 from boards.permissions import get_board_role, group_derived_board_role
 from boards.views import boards as board_views
@@ -198,6 +201,59 @@ class BoardMemberRoleFloorTests(TestCase):
         self.board.save()
         r = self._post(self.group_admin, role="viewer")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class BoardMembershipAdminFormFloorTests(TestCase):
+    """The Django admin membership form applies the same role floor (#1942)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.group_admin = User.objects.create_user(username="gadmin", password="pass")
+        self.outsider = User.objects.create_user(username="outsider", password="pass")
+        self.group = Group.objects.create(name="G", owner=self.owner)
+        GroupMembership.objects.create(group=self.group, user=self.group_admin, role=GroupMembership.Role.ADMIN)
+        self.board = Board.objects.create(name="B", owner=self.owner, group=self.group)
+
+    def _form(self, instance=None, **data):
+        base = model_to_dict(instance) if instance else {"board": self.board.pk, "is_moderator": False}
+        base.update(data)
+        base = {k: v for k, v in base.items() if v is not None}
+        return BoardMembershipAdminForm(data=base, instance=instance)
+
+    def test_new_row_below_admin_is_invalid(self):
+        for role in ("member", "collaborator", "viewer"):
+            with self.subTest(role=role):
+                form = self._form(user=self.group_admin.pk, role=role)
+                self.assertFalse(form.is_valid())
+                self.assertIn("role", form.errors)
+
+    def test_existing_row_cannot_be_lowered(self):
+        row = BoardMembership.objects.create(board=self.board, user=self.group_admin, role="admin")
+        form = self._form(row, role="viewer")
+        self.assertFalse(form.is_valid())
+        self.assertIn("role", form.errors)
+
+    def test_admin_unchanged_and_unrelated_rows_stay_valid(self):
+        self.assertTrue(self._form(user=self.group_admin.pk, role="admin").is_valid())
+        stored = BoardMembership.objects.create(board=self.board, user=self.group_admin, role="viewer")
+        self.assertTrue(self._form(stored, role="viewer", is_moderator=False).is_valid())
+        self.assertTrue(self._form(stored, role="admin").is_valid())
+        self.assertTrue(self._form(user=self.outsider.pk, role="viewer").is_valid())
+
+    def test_moving_a_row_to_the_group_admin_is_a_change(self):
+        row = BoardMembership.objects.create(board=self.board, user=self.outsider, role="viewer")
+        form = self._form(row, user=self.group_admin.pk)
+        self.assertFalse(form.is_valid())
+        self.assertIn("role", form.errors)
+
+    def test_blank_role_or_user_is_invalid(self):
+        for missing in ("role", "user"):
+            with self.subTest(missing=missing):
+                data = {"user": self.group_admin.pk, "role": "viewer"}
+                data[missing] = ""
+                form = self._form(**data)
+                self.assertFalse(form.is_valid())
+                self.assertIn(missing, form.errors)
 
 
 class GroupDerivedRoleAbsentInputTests(TestCase):
