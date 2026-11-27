@@ -597,7 +597,7 @@ test.describe('board phone layout', () => {
     await expect(page.getByLabel(/New card title/)).toBeVisible()
   })
 
-  test('lane band second line: fields, N fields grid, lane WIP; one 44px collapse target (#2329)', async ({ page }) => {
+  test('lane band second line: fields, Show N more details, lane WIP; one 44px collapse target (#2329, #2658)', async ({ page }) => {
     const def = (id: number, name: string, field_type = 'text') => ({
       id, uid: `sfd0000${id}x`, name, field_type, choices: [], position: id, show_on_row: false,
       is_admin_only: false, choice_colors: {}, number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01T00:00:00Z',
@@ -606,9 +606,9 @@ test.describe('board phone layout', () => {
       ...SWIMLANE,
       name: 'North America with a long lane name that wraps on a phone',
       wip_limit: 0,
-      custom_field_values: [{ field_definition: 1, value: 'Avery Brooks' }, { field_definition: 2, value: '600000' }, { field_definition: 3, value: 'West' }],
+      custom_field_values: [{ field_definition: 1, value: 'Avery Brooks' }, { field_definition: 2, value: '600000' }, { field_definition: 3, value: 'West' }, { field_definition: 4, value: 'Enterprise' }],
     }
-    const board = { ...BOARD_FULL, swimlanes: [lane], swimlane_custom_field_definitions: [def(1, 'Owner'), def(2, 'Quota', 'number'), def(3, 'Region')] }
+    const board = { ...BOARD_FULL, swimlanes: [lane], swimlane_custom_field_definitions: [def(1, 'Owner'), def(2, 'Quota', 'number'), def(3, 'Region'), def(4, 'Segment')] }
     await routeBoard(page, board as unknown as typeof BOARD_FULL)
     await page.goto(`/boards/${BOARD_FULL.id}`)
     const band = page.getByTestId('phone-lane-band')
@@ -622,19 +622,22 @@ test.describe('board phone layout', () => {
     await expect(band.getByRole('button', { name: /(Collapse|Expand) lane/ })).toHaveCount(1)
     expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
     await expect(toggle.getByTestId('phone-lane-band-details')).toHaveCount(0)
-    const more = band.getByRole('button', { name: /^\d+ fields:/ })
+    // A board with no tiers set resolves them by position (#2658): the first two are Band, the rest Details.
+    // The accessible name turns into "Hide details for …" once open, so hold it by test id.
+    const more = band.getByTestId('phone-lane-fields-toggle')
+    await expect(more).toHaveAccessibleName(/^Show 2 more fields for/)
     const box = (await more.boundingBox())!
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(43.5)
     await more.click()
     await expect(details).toContainText('West')
-    await expect(band.getByRole('button', { name: /^\d+ fields:/ })).toHaveAttribute('aria-expanded', 'true')
-    // Measured, not just a class string: at 390px the grid is one column (all values share one left edge, stacked).
+    await expect(more).toHaveAttribute('aria-expanded', 'true')
+    await expect(more).toHaveAccessibleName(/^Hide details for/)
+    // Measured, not just a class string: at 390px the Details grid is one column (all values share one left edge, stacked).
     const values = band.getByTestId('swimlane-field-grid').locator('dd')
-    await expect(values).toHaveCount(3)
+    await expect(values).toHaveCount(2)
     const boxes = await values.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: Math.round(r.x), y: r.y, right: r.right } }))
     expect(new Set(boxes.map((b) => b.x)).size).toBe(1)
     expect(boxes[1].y).toBeGreaterThan(boxes[0].y)
-    expect(boxes[2].y).toBeGreaterThan(boxes[1].y)
     expect(Math.max(...boxes.map((b) => b.right))).toBeLessThanOrEqual(390)
     // The long name wraps rather than pushing the page sideways.
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)

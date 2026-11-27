@@ -1581,9 +1581,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  // Set only by the lane band shortcuts that open Board settings on the Swimlane fields tab: the legacy "N fields" grid's
-  // "Change field order" link (#1458), the lane menu's "Change field order…", and the tiered details' manage link
-  // (#2439); every other opener
+  // Set only by the lane band shortcuts that open Board settings on the Swimlane fields tab: the lane menu's
+  // "Change field order…" (#1458) and the lane details' manage link (#2439; the "N fields" grid's link went in #2658); every other opener
   // leaves it undefined so Board settings opens on Members as before.
   const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | "field-sets" | "rules" | undefined>(undefined);
   // #1923: the column ⋮ "Entry requirements…" item opens Rules & limits with that column selected.

@@ -1,4 +1,4 @@
-import LaneFieldGrid, { LaneTierDetails } from "./LaneFieldGrid";
+import { LaneTierDetails } from "./LaneFieldGrid";
 import { inProgressChip } from "../../utils/childrenMode";
 import { useState, useId, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { cardSubColumnIndex, getTrackStates, stageSubColumns } from "../../utils/stages";
@@ -13,7 +13,7 @@ import EditColumnModal from "./EditColumnModal";
 import ActiveMark from "../Common/ActiveMark";
 import type { BoardColor } from "../../utils/boardColors";
 import type { LimitFlags } from "../../utils/placementLimits";
-import { BAND_DEFAULT_COUNT, DEFAULT_LANE_DETAILS_CAP, laneBandFields, laneBandLimit, laneGridFields, laneTierFields, type LaneBandField } from "../../utils/laneBand";
+import { BAND_DEFAULT_COUNT, DEFAULT_LANE_DETAILS_CAP, laneBandLimit, laneTierFields, type LaneBandField } from "../../utils/laneBand";
 import { laneRollup } from "../../utils/laneRollup";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
@@ -56,7 +56,7 @@ interface Props {
   customFieldDefinitions?: CustomFieldDefinition[];
   /** Editing surfaces (#2277): the same gates and modals as the grid, so phones lose no controls. */
   isAdmin?: boolean;
-  /** #2439 — `Board.lane_details_cap`; only a board with a null tier row on a tiered board reads it. */
+  /** #2439 — `Board.lane_details_cap`, for `resolveLaneTiers` (a board with no tiers set grows it to fit, #2658). */
   laneDetailsCap?: number;
   allColumns?: Column[];
   /** Admin shortcut from the open field grid to Board settings -> Swimlane fields, as on the grid band. */
@@ -507,15 +507,13 @@ export default function PhoneBoard({
           const stale = allLane.filter((c) => statusOf(c) === "stale").length;
           // Second line (#2329): the grid band's fields, limit line and rollup, from the
           // same helpers, so a lane reads the same at every width.
-          const fields = laneBandFields(lane, swimlaneFieldDefinitions);
-          const gridFields = laneGridFields(lane, swimlaneFieldDefinitions, !!isAdmin);
-          // #2439: a board with tiers shows its Band fields, and "Show N more" opens Details plus
-          // Hidden on band. Null (a legacy board) keeps the pre-#2439 band exactly. A missing
-          // role is a non-admin (`!!isAdmin`), so admin-only fields stay out of every count.
+          // #2439 / #2658: every board shows its Band fields, and "Show N more" opens Details plus
+          // Hidden on band; a board with no tiers set resolves them by position. A missing role is
+          // a non-admin (`!!isAdmin`), so admin-only fields stay out of every count.
           const tiers = laneTierFields(lane, swimlaneFieldDefinitions, !!isAdmin, laneDetailsCap, BAND_DEFAULT_COUNT); // a phone always shows two (#2663)
-          const moreCount = tiers ? tiers.details.length + tiers.hidden.length : gridFields.length;
-          const showFieldToggle = tiers ? moreCount > 0 : gridFields.length > BAND_DEFAULT_COUNT; // per board, so every lane shows the toggle or none does
-          const bandFields = tiers ? tiers.band : fields.inline;
+          const moreCount = tiers.details.length + tiers.hidden.length;
+          const showFieldToggle = moreCount > 0; // per board, so every lane shows the toggle or none does
+          const bandFields = tiers.band;
           const fieldsOpen = showFieldToggle && openFieldLanes.has(lane.id);
           const laneLimit = laneBandLimit(lane, allColumns ?? columns, allLane, limitFlags ?? NO_FLAGS, collapsed);
           const rollup = laneRollup(lane.id, rollupField, allColumns ?? columns, allLane);
@@ -536,7 +534,7 @@ export default function PhoneBoard({
             <section key={lane.id} aria-label={lane.name} data-testid="phone-lane" className="flex flex-col gap-2">
               {/* The band: tinted, one collapse target (the first line, 44px), then a second
                   line of fields and stats. The second line sits outside the button because a
-                  URL field is a link and the "N fields" toggle is a button, and neither may nest in a button. */}
+                  URL field is a link and the "Show N more" toggle is a button, and neither may nest in a button. */}
               <div
                 data-testid="phone-lane-band"
                 style={columnTintStyle(lane.color)}
@@ -557,7 +555,7 @@ export default function PhoneBoard({
                 </button>
                 {hasSecondLine && (
                   // Order and tiers as the grid band (frontend/CLAUDE.md § Swimlane bands): the
-                  // "N fields", the first two fields, then overdue, stale, the limit line and the rollup.
+                  // "Show N more", the Band fields, then overdue, stale, the limit line and the rollup.
                   // A link in a URL field is lifted to 44px, as every phone target is.
                   <div data-testid="phone-lane-band-details" className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-9 pr-3 pb-2.5 text-sm [&_a]:inline-flex [&_a]:items-center [&_a]:min-h-11">
                     {showFieldToggle && (
@@ -566,16 +564,16 @@ export default function PhoneBoard({
                         onClick={() => toggleLaneFields(lane.id)}
                         aria-expanded={fieldsOpen}
                         aria-controls={fieldsOpen ? extraId : undefined}
-                        aria-label={tiers ? (fieldsOpen ? `Hide details for ${lane.name}` : `Show ${moreCount} more fields for ${lane.name}`) : `${gridFields.length} fields: show all field values for ${lane.name}`}
+                        aria-label={fieldsOpen ? `Hide details for ${lane.name}` : `Show ${moreCount} more fields for ${lane.name}`}
                         data-testid="phone-lane-fields-toggle"
                         className={`inline-flex items-center gap-1 min-h-11 text-xs px-2 py-0.5 rounded-full border shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${fieldsOpen ? "bg-info/10 text-info-on-tint border-info/40" : "border-line-strong text-fg-secondary hover:text-fg"}`}
                       >
-                        {tiers ? (fieldsOpen ? "Hide details" : `Show ${moreCount} more`) : `${gridFields.length} fields`}
-                        <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${tiers ? (fieldsOpen ? "rotate-180" : "") : fieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
+                        {fieldsOpen ? "Hide details" : `Show ${moreCount} more`}
+                        <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${fieldsOpen ? "rotate-180" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
                       </button>
                     )}
-                    {/* Legacy: open hides the inline pair (the grid repeats it). Tiered: Band fields stay. */}
-                    {(tiers || !fieldsOpen) && bandFields.map((bandField) => renderField(bandField))}
+                    {/* Band fields stay while the details are open. */}
+                    {bandFields.map((bandField) => renderField(bandField))}
                     {overdue > 0 && <span className="font-semibold text-danger-on-tint whitespace-nowrap">{overdue} {STATUS_LABEL.overdue}</span>}
                     {stale > 0 && <span className="font-semibold text-warning-on-tint whitespace-nowrap">{stale} {STATUS_LABEL.stale}</span>}
                     {laneLimit !== null && (
@@ -588,22 +586,8 @@ export default function PhoneBoard({
                         <span className="sr-only">{rollup.fieldName}: </span>{rollup.text} open
                       </span>
                     )}
-                    {fieldsOpen && tiers && (
+                    {fieldsOpen && (
                       <LaneTierDetails id={extraId} laneColor={lane.color} tiers={tiers} userDateFormat={userDateFormat} onManage={isAdmin ? onManageSwimlaneFields : undefined} touch />
-                    )}
-                    {fieldsOpen && !tiers && (
-                      <>
-                        <LaneFieldGrid id={extraId} laneName={lane.name} laneColor={lane.color} fields={gridFields} userDateFormat={userDateFormat} />
-                        {isAdmin && onEditFieldOrder && (
-                          <button
-                            type="button"
-                            onClick={onEditFieldOrder}
-                            className="inline-flex items-center min-h-11 text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                          >
-                            Change field order
-                          </button>
-                        )}
-                      </>
                     )}
                   </div>
                 )}

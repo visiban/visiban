@@ -1,5 +1,5 @@
 {
-  "_comment": "Swimlane field tier resolution (#2439). Shared by backend boards/tests/test_lane_field_tiers_2439.py (resolve_tiers in boards/services/lane_field_tiers.py) and frontend src/test/laneFieldTiersParity.test.ts (resolveLaneTiers in src/utils/laneBand.ts), so a rule change on one side fails CI until the other follows. Each case lists definitions as [id, position, band_visibility] and the expected tier per id.",
+  "_comment": "Swimlane field tier resolution (#2439). Shared by backend boards/tests/test_lane_field_tiers_2439.py (resolve_tiers in boards/services/lane_field_tiers.py) and frontend src/test/laneFieldTiersParity.test.ts (resolveLaneTiers in src/utils/laneBand.ts), so a rule change on one side fails CI until the other follows. Each case lists definitions as [id, position, band_visibility] and the expected tier per id. Since #2658 a case may also give effective_cap, the cap the definitions resolve with (effective_cap / effectiveLaneDetailsCap): an unset board grows its cap to fit.",
   "cases": [
     {
       "name": "empty board",
@@ -8,34 +8,442 @@
       "expected": {}
     },
     {
-      "name": "legacy: first two by position are band, the rest details, uncapped",
+      "name": "unset: first two by position are band, the rest details, the cap grown to fit",
       "cap": 4,
-      "defs": [[3, 2, null], [1, 0, null], [2, 1, null], [4, 3, null], [5, 4, null], [6, 5, null], [7, 6, null]],
-      "expected": {"1": "band", "2": "band", "3": "details", "4": "details", "5": "details", "6": "details", "7": "details"}
+      "defs": [
+        [
+          3,
+          2,
+          null
+        ],
+        [
+          1,
+          0,
+          null
+        ],
+        [
+          2,
+          1,
+          null
+        ],
+        [
+          4,
+          3,
+          null
+        ],
+        [
+          5,
+          4,
+          null
+        ],
+        [
+          6,
+          5,
+          null
+        ],
+        [
+          7,
+          6,
+          null
+        ]
+      ],
+      "expected": {
+        "1": "band",
+        "2": "band",
+        "3": "details",
+        "4": "details",
+        "5": "details",
+        "6": "details",
+        "7": "details"
+      },
+      "effective_cap": 6
+    },
+    {
+      "name": "unset: 9 fields grow the cap from 6 to 9, none hidden (#2658)",
+      "cap": 6,
+      "defs": [
+        [
+          1,
+          0,
+          null
+        ],
+        [
+          2,
+          1,
+          null
+        ],
+        [
+          3,
+          2,
+          null
+        ],
+        [
+          4,
+          3,
+          null
+        ],
+        [
+          5,
+          4,
+          null
+        ],
+        [
+          6,
+          5,
+          null
+        ],
+        [
+          7,
+          6,
+          null
+        ],
+        [
+          8,
+          7,
+          null
+        ],
+        [
+          9,
+          8,
+          null
+        ]
+      ],
+      "expected": {
+        "1": "band",
+        "2": "band",
+        "3": "details",
+        "4": "details",
+        "5": "details",
+        "6": "details",
+        "7": "details",
+        "8": "details",
+        "9": "details"
+      },
+      "effective_cap": 9
+    },
+    {
+      "name": "unset: 20 fields keep 16 in details and 2 hidden (#2658)",
+      "cap": 6,
+      "defs": [
+        [
+          1,
+          0,
+          null
+        ],
+        [
+          2,
+          1,
+          null
+        ],
+        [
+          3,
+          2,
+          null
+        ],
+        [
+          4,
+          3,
+          null
+        ],
+        [
+          5,
+          4,
+          null
+        ],
+        [
+          6,
+          5,
+          null
+        ],
+        [
+          7,
+          6,
+          null
+        ],
+        [
+          8,
+          7,
+          null
+        ],
+        [
+          9,
+          8,
+          null
+        ],
+        [
+          10,
+          9,
+          null
+        ],
+        [
+          11,
+          10,
+          null
+        ],
+        [
+          12,
+          11,
+          null
+        ],
+        [
+          13,
+          12,
+          null
+        ],
+        [
+          14,
+          13,
+          null
+        ],
+        [
+          15,
+          14,
+          null
+        ],
+        [
+          16,
+          15,
+          null
+        ],
+        [
+          17,
+          16,
+          null
+        ],
+        [
+          18,
+          17,
+          null
+        ],
+        [
+          19,
+          18,
+          null
+        ],
+        [
+          20,
+          19,
+          null
+        ]
+      ],
+      "expected": {
+        "1": "band",
+        "2": "band",
+        "3": "details",
+        "4": "details",
+        "5": "details",
+        "6": "details",
+        "7": "details",
+        "8": "details",
+        "9": "details",
+        "10": "details",
+        "11": "details",
+        "12": "details",
+        "13": "details",
+        "14": "details",
+        "15": "details",
+        "16": "details",
+        "17": "details",
+        "18": "details",
+        "19": "hidden",
+        "20": "hidden"
+      },
+      "effective_cap": 16
+    },
+    {
+      "name": "unset: an admin's larger cap is never lowered (#2658)",
+      "cap": 12,
+      "defs": [
+        [
+          1,
+          0,
+          null
+        ],
+        [
+          2,
+          1,
+          null
+        ],
+        [
+          3,
+          2,
+          null
+        ]
+      ],
+      "expected": {
+        "1": "band",
+        "2": "band",
+        "3": "details"
+      },
+      "effective_cap": 12
     },
     {
       "name": "materialized: explicit tiers win over position",
       "cap": 6,
-      "defs": [[1, 0, "hidden"], [2, 1, "details"], [3, 2, "band"], [4, 3, "band"]],
-      "expected": {"1": "hidden", "2": "details", "3": "band", "4": "band"}
+      "defs": [
+        [
+          1,
+          0,
+          "hidden"
+        ],
+        [
+          2,
+          1,
+          "details"
+        ],
+        [
+          3,
+          2,
+          "band"
+        ],
+        [
+          4,
+          3,
+          "band"
+        ]
+      ],
+      "expected": {
+        "1": "hidden",
+        "2": "details",
+        "3": "band",
+        "4": "band"
+      },
+      "effective_cap": 6
     },
     {
       "name": "mixed: a null row is never band and fills details up to the cap",
       "cap": 4,
-      "defs": [[1, 0, null], [2, 1, "band"], [3, 2, "details"], [4, 3, "details"], [5, 4, null], [6, 5, null]],
-      "expected": {"1": "details", "2": "band", "3": "details", "4": "details", "5": "details", "6": "hidden"}
+      "defs": [
+        [
+          1,
+          0,
+          null
+        ],
+        [
+          2,
+          1,
+          "band"
+        ],
+        [
+          3,
+          2,
+          "details"
+        ],
+        [
+          4,
+          3,
+          "details"
+        ],
+        [
+          5,
+          4,
+          null
+        ],
+        [
+          6,
+          5,
+          null
+        ]
+      ],
+      "expected": {
+        "1": "details",
+        "2": "band",
+        "3": "details",
+        "4": "details",
+        "5": "details",
+        "6": "hidden"
+      },
+      "effective_cap": 4
     },
     {
       "name": "mixed: details already full sends a null row to hidden",
       "cap": 4,
-      "defs": [[1, 0, "details"], [2, 1, "details"], [3, 2, "details"], [4, 3, "details"], [5, 4, null]],
-      "expected": {"1": "details", "2": "details", "3": "details", "4": "details", "5": "hidden"}
+      "defs": [
+        [
+          1,
+          0,
+          "details"
+        ],
+        [
+          2,
+          1,
+          "details"
+        ],
+        [
+          3,
+          2,
+          "details"
+        ],
+        [
+          4,
+          3,
+          "details"
+        ],
+        [
+          5,
+          4,
+          null
+        ]
+      ],
+      "expected": {
+        "1": "details",
+        "2": "details",
+        "3": "details",
+        "4": "details",
+        "5": "hidden"
+      },
+      "effective_cap": 4
     },
     {
       "name": "materialized: six band fields stay band and a null row is still never band",
       "cap": 6,
-      "defs": [[1, 0, "band"], [2, 1, "band"], [3, 2, "band"], [4, 3, "band"], [5, 4, "band"], [6, 5, "band"], [7, 6, null]],
-      "expected": {"1": "band", "2": "band", "3": "band", "4": "band", "5": "band", "6": "band", "7": "details"}
+      "defs": [
+        [
+          1,
+          0,
+          "band"
+        ],
+        [
+          2,
+          1,
+          "band"
+        ],
+        [
+          3,
+          2,
+          "band"
+        ],
+        [
+          4,
+          3,
+          "band"
+        ],
+        [
+          5,
+          4,
+          "band"
+        ],
+        [
+          6,
+          5,
+          "band"
+        ],
+        [
+          7,
+          6,
+          null
+        ]
+      ],
+      "expected": {
+        "1": "band",
+        "2": "band",
+        "3": "band",
+        "4": "band",
+        "5": "band",
+        "6": "band",
+        "7": "details"
+      },
+      "effective_cap": 6
     }
   ]
 }

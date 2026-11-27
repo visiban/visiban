@@ -16,7 +16,7 @@ interface Props {
 }
 
 /**
- * The aligned definition grid a lane band opens under its "N fields" toggle
+ * The aligned definition grid a lane band opens under its "Show N more" toggle
  * (#2354), shared by the grid band and the phone band. Labels sit in a fixed
  * `w-36` column and are always shown (even when the board hides row chip field
  * names), and an unset value is "—", so the same field sits in the same slot on

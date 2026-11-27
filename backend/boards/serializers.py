@@ -5655,7 +5655,8 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
     def recheck_lane_details_cap_under_lock(self, board):
         """Apply a ``lane_details_cap`` change under the board row lock (#2439).
 
-        Materializes a legacy board's tiers with the new cap, then refuses a cap
+        Materializes an unset board's tiers (its cap grown to fit, #2658, but
+        never past the new cap without a 400), then refuses a cap
         below the Details count. Under the lock because a definition PATCH
         moving a field into Details takes the same board row first, so the
         count read here cannot change before ``save()``. A failure is a 400 and

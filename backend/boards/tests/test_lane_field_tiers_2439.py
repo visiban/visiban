@@ -39,11 +39,20 @@ class ResolveTiersFixtureTests(TestCase):
             defs = [SimpleNamespace(id=i, position=p, band_visibility=bv) for i, p, bv in case["defs"]]
             got = {str(k): v for k, v in tiers.resolve_tiers(defs, case["cap"]).items()}
             self.assertEqual(got, case["expected"], case["name"])
+            if "effective_cap" in case:
+                self.assertEqual(tiers.effective_cap(defs, case["cap"]), case["effective_cap"], case["name"])
 
-    def test_materialized_tiers_caps_a_legacy_board(self):
+    def test_an_unset_board_resolves_with_its_cap_grown_to_fit(self):
+        # #2658 "Grow cap to fit": nothing goes to Hidden until 2 + 16 fields.
         defs = [{"id": i, "position": i, "band_visibility": None} for i in range(9)]
-        out = tiers.materialized_tiers(defs, 4)
-        self.assertEqual([out[i] for i in range(9)], ["band"] * 2 + ["details"] * 4 + ["hidden"] * 3)
+        out = tiers.resolve_tiers(defs, 4)
+        self.assertEqual([out[i] for i in range(9)], ["band"] * 2 + ["details"] * 7)
+        self.assertEqual(tiers.effective_cap(defs, 4), 9)
+
+    def test_cap_options_match_the_model_choices(self):
+        self.assertEqual(
+            list(tiers.LANE_DETAILS_CAP_OPTIONS), [n for n, _ in Board.LANE_DETAILS_CAP_CHOICES]
+        )
 
 
 class _Base(TestCase):
@@ -83,21 +92,24 @@ class ValidationAndMaterializationTests(_Base):
         self.assertEqual(full["lane_details_cap"], 6)
         self.assertIsNone(d.band_visibility)
 
-    def test_first_tier_patch_materializes_every_null_row(self):
+    def test_first_tier_patch_materializes_every_null_row_and_grows_the_cap(self):
+        # Replaces the #2439 test that sent fields past 2 + 6 to Hidden (#2658).
         defs = [_defn(self.board, f"F{i}", i) for i in range(10)]
-        r = self._patch(defs[9], band_visibility="details")
-        # The 10th field was Hidden after materializing (2 band + 6 details);
-        # moving it to Details now would put 7 in details: a 400.
-        self.assertEqual(r.status_code, 400, r.data)
-        self.assertEqual(r.data["band_visibility"][0], tiers.details_full_message(6))
-        # The failed request rolled the materialization back with it.
-        self.assertEqual(self._tiers(), [None] * 10)
         r = self._patch(defs[2], band_visibility="hidden")
         self.assertEqual(r.status_code, 200, r.data)
-        self.assertEqual(
-            self._tiers(),
-            ["band", "band", "hidden", "details", "details", "details", "details", "details", "hidden", "hidden"],
-        )
+        self.assertEqual(self._tiers(), ["band", "band", "hidden"] + ["details"] * 7)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.lane_details_cap, 9)
+
+    def test_a_failed_first_tier_patch_rolls_back_the_tiers_and_the_cap(self):
+        defs = [_defn(self.board, f"F{i}", i, is_admin_only=False) for i in range(20)]
+        # 16 in Details after materializing at the largest cap: one more is a 400.
+        r = self._patch(defs[19], band_visibility="details")
+        self.assertEqual(r.status_code, 400, r.data)
+        self.assertEqual(r.data["band_visibility"][0], tiers.details_full_message(16))
+        self.assertEqual(self._tiers(), [None] * 20)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.lane_details_cap, 6)
 
     def test_a_sixth_band_field_is_accepted_and_a_seventh_rejected(self):
         defs = [_defn(self.board, f"F{i}", i, "band" if i < 5 else "details") for i in range(7)]
@@ -109,10 +121,11 @@ class ValidationAndMaterializationTests(_Base):
     def test_ten_legacy_rows_materialize_to_two_band_fields(self):
         # #2663 raised the limit, not the default: materializing a legacy board still puts two on the band.
         defs = [_defn(self.board, f"F{i}", i) for i in range(10)]
+        resolved = tiers.resolve_tiers([{"id": i, "position": i, "band_visibility": None} for i in range(10)], 6)
         r = self._patch(defs[9], band_visibility="hidden")
         self.assertEqual(r.status_code, 200, r.data)
-        self.assertEqual(self._tiers(), ["band"] * 2 + ["details"] * 6 + ["hidden"] * 2)
-        resolved = tiers.resolve_tiers([{"id": i, "position": i, "band_visibility": None} for i in range(10)], 6)
+        self.assertEqual(self._tiers(), ["band"] * 2 + ["details"] * 7 + ["hidden"])
+        # What the read resolved is what the write stored, but for the one field moved.
         self.assertEqual(list(resolved.values()), ["band"] * 2 + ["details"] * 8)
 
     def test_reorder_never_moves_a_field_between_tiers(self):
@@ -124,11 +137,27 @@ class ValidationAndMaterializationTests(_Base):
         b.refresh_from_db()
         self.assertEqual((a.band_visibility, b.band_visibility), ("band", "hidden"))
 
-    def test_create_without_a_tier_stays_null_on_a_legacy_board(self):
-        _defn(self.board, "A", 0)
-        r = self.client.post(self.url, {"name": "B", "field_type": "text"}, format="json")
+    def test_create_without_a_tier_on_a_legacy_board_is_explicit(self):
+        # #2658: the create materializes the board, and the new row gets a tier too.
+        for i in range(3):
+            _defn(self.board, f"F{i}", i)
+        r = self.client.post(self.url, {"name": "New", "field_type": "text"}, format="json")
         self.assertEqual(r.status_code, 201, r.data)
-        self.assertIsNone(r.data["band_visibility"])
+        self.assertEqual(r.data["band_visibility"], "details")
+        self.assertEqual(self._tiers(), ["band", "band", "details", "details"])
+
+    def test_the_first_two_fields_on_an_empty_board_are_band(self):
+        # The position default a board with no tiers set derives, now stored.
+        got = [
+            self.client.post(self.url, {"name": f"N{i}", "field_type": "text"}, format="json").data["band_visibility"]
+            for i in range(3)
+        ]
+        self.assertEqual(got, ["band", "band", "details"])
+
+    def test_a_board_an_admin_shaped_never_gets_a_new_band_field(self):
+        _defn(self.board, "A", 0, "details")
+        r = self.client.post(self.url, {"name": "New", "field_type": "text"}, format="json")
+        self.assertEqual(r.data["band_visibility"], "details")
 
     def test_create_without_a_tier_on_a_materialized_board_is_details_then_hidden(self):
         self.board.lane_details_cap = 4
@@ -180,9 +209,15 @@ class ValidationAndMaterializationTests(_Base):
     def test_a_cap_change_materializes_a_legacy_board(self):
         for i in range(8):
             _defn(self.board, f"F{i}", i)
+        # 6 fields resolve to Details, so a cap of 4 would hide two: a 400 that rolls back (#2658).
         r = self.client.patch(self.board_url, {"lane_details_cap": 4}, format="json")
+        self.assertEqual(r.status_code, 400, r.data)
+        self.assertEqual(self._tiers(), [None] * 8)
+        r = self.client.patch(self.board_url, {"lane_details_cap": 9}, format="json")
         self.assertEqual(r.status_code, 200, r.data)
-        self.assertEqual(self._tiers(), ["band"] * 2 + ["details"] * 4 + ["hidden"] * 2)
+        self.assertEqual(self._tiers(), ["band"] * 2 + ["details"] * 6)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.lane_details_cap, 9)
 
     def test_mixed_board_null_row_is_never_band(self):
         _defn(self.board, "A", 0)  # left NULL by an older pod
@@ -248,6 +283,147 @@ class ValidationAndMaterializationTests(_Base):
         self.assertEqual(c.patch(f"{self.url}{d.id}/", {"band_visibility": "band"}, format="json").status_code, 403)
         self.assertEqual(c.patch(self.board_url, {"lane_details_cap": 4}, format="json").status_code, 403)
         self.assertIsNotNone(SwimlaneSerializer)
+
+
+class GrowCapToFitTests(_Base):
+    """#2658 owner decision "Grow cap to fit": the first tier write on an unset board."""
+
+    def _first_write(self, n):
+        defs = [_defn(self.board, f"F{i}", i) for i in range(n)]
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self._patch(defs[0], band_visibility="band")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.board.refresh_from_db()
+        return self._tiers(), self.board.lane_details_cap
+
+    def test_cap_to_fit(self):
+        cases = {0: 6, 3: 6, 4: 6, 6: 6, 7: 9, 9: 9, 10: 12, 13: 16, 16: 16, 18: 16}
+        self.assertEqual({n: tiers.cap_to_fit(n, 6) for n in cases}, cases)
+        self.assertEqual(tiers.cap_to_fit(3, 4), 4)
+        self.assertEqual(tiers.cap_to_fit(2, 12), 12)
+
+    def test_three_fields_keep_the_default_cap(self):
+        self.assertEqual(self._first_write(3), (["band"] * 2 + ["details"], 6))
+        self.assertFalse(any(c.args[1] == "board.updated" for c in self.broadcast.call_args_list))
+
+    def test_eight_fields_keep_the_default_cap(self):
+        self.assertEqual(self._first_write(8), (["band"] * 2 + ["details"] * 6, 6))
+
+    def test_nine_fields_grow_the_cap_to_nine(self):
+        self.assertEqual(self._first_write(9), (["band"] * 2 + ["details"] * 7, 9))
+
+    def test_twelve_fields_grow_the_cap_to_twelve(self):
+        self.assertEqual(self._first_write(12), (["band"] * 2 + ["details"] * 10, 12))
+
+    def test_twenty_fields_keep_sixteen_in_details_and_two_hidden(self):
+        self.assertEqual(self._first_write(20), (["band"] * 2 + ["details"] * 16 + ["hidden"] * 2, 16))
+
+    def test_a_grown_cap_broadcasts_board_updated_on_commit(self):
+        defs = [_defn(self.board, f"F{i}", i) for i in range(12)]
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            r = self._patch(defs[0], band_visibility="band")
+        self.assertEqual(r.status_code, 200, r.data)
+        # Nothing is sent before the commit.
+        self.assertFalse(any(c.args[1] == "board.updated" for c in self.broadcast.call_args_list))
+        for cb in callbacks:
+            cb()
+        sent = [(c.args[1], c.args[2]) for c in self.broadcast.call_args_list]
+        self.assertTrue(any(e == "board.updated" and p.get("lane_details_cap") == 12 for e, p in sent), sent)
+
+    def test_board_updated_is_recorded_before_the_row_events(self):
+        # Another client applies each frame as it arrives: the grown cap has to be there
+        # before the first row leaves the unset state, or fields past the old cap read Hidden.
+        defs = [_defn(self.board, f"F{i}", i) for i in range(12)]
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self._patch(defs[0], band_visibility="band")
+        self.assertEqual(r.status_code, 200, r.data)
+        names = [c.args[1] for c in self.broadcast.call_args_list]
+        self.assertIn("board.updated", names)
+        first_row = next(i for i, n in enumerate(names) if n == "swimlane_custom_field.updated")
+        self.assertEqual(names.index("board.updated"), first_row - 1, names)
+        self.assertEqual(names.count("board.updated"), 1)
+
+    def test_a_cap_patch_sends_the_new_cap_before_the_row_events(self):
+        # 8 unset fields with stored cap 4: the admin picks 9. A client applies each
+        # frame as it arrives, so the first event carrying cap 9 must precede the first row event.
+        self.board.lane_details_cap = 4
+        self.board.save(update_fields=["lane_details_cap"])
+        for i in range(8):
+            _defn(self.board, f"F{i}", i)
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.client.patch(self.board_url, {"lane_details_cap": 9}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        sent = [(c.args[1], c.args[2]) for c in self.broadcast.call_args_list]
+        first_cap = next(i for i, (e, p) in enumerate(sent) if e == "board.updated" and p.get("lane_details_cap") == 9)
+        first_row = next(i for i, (e, _p) in enumerate(sent) if e == "swimlane_custom_field.updated")
+        self.assertLess(first_cap, first_row, [e for e, _p in sent])
+
+    def test_a_create_on_an_unset_board_grows_the_cap_and_broadcasts_on_commit(self):
+        for i in range(11):
+            _defn(self.board, f"F{i}", i)
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.client.post(self.url, {"name": "New", "field_type": "text"}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        self.board.refresh_from_db()
+        # 11 fields put 9 in Details, so the cap grows to 9 before the new row, which then finds Details full.
+        self.assertEqual(self.board.lane_details_cap, 9)
+        self.assertEqual(r.data["band_visibility"], "hidden")
+        sent = [(c.args[1], c.args[2]) for c in self.broadcast.call_args_list]
+        self.assertTrue(any(e == "board.updated" and p.get("lane_details_cap") == 9 for e, p in sent), sent)
+
+    def test_a_failed_write_after_growing_sends_and_keeps_nothing(self):
+        from boards.models import BoardEvent
+
+        for i in range(20):
+            _defn(self.board, f"F{i}", i)
+        before = BoardEvent.objects.filter(board_id=self.board.id).count()
+        with self.captureOnCommitCallbacks(execute=True):
+            # Materializing grows the cap to 16 with 16 in Details, so a 17th is a 400 after the growth.
+            r = self.client.post(
+                self.url, {"name": "X", "field_type": "text", "band_visibility": "details"}, format="json"
+            )
+        self.assertEqual(r.status_code, 400, r.data)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.lane_details_cap, 6)
+        self.assertEqual(self._tiers(), [None] * 20)
+        self.assertEqual(BoardEvent.objects.filter(board_id=self.board.id).count(), before)
+        self.assertFalse(any(c.args[1] == "board.updated" for c in self.broadcast.call_args_list))
+
+    def test_an_explicit_admin_cap_is_never_lowered(self):
+        self.board.lane_details_cap = 12
+        self.board.save(update_fields=["lane_details_cap"])
+        self.assertEqual(self._first_write(3), (["band"] * 2 + ["details"], 12))
+
+    def test_a_cap_raised_after_the_board_was_read_is_kept(self):
+        # materialize() re-reads the cap under the lock: a stale instance must not lower it.
+        defs = [_defn(self.board, f"F{i}", i) for i in range(9)]
+        stale = Board.objects.get(pk=self.board.pk)
+        Board.objects.filter(pk=self.board.pk).update(lane_details_cap=16)
+        with transaction.atomic():
+            tiers.materialize(stale)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.lane_details_cap, 16)
+        self.assertEqual(self._tiers(), ["band"] * 2 + ["details"] * 7)
+        self.assertEqual(len(defs), 9)
+
+    def test_a_non_admin_never_sees_an_admin_only_field_after_materialization(self):
+        defs = [_defn(self.board, f"F{i}", i) for i in range(10)]
+        secret = defs[1]
+        secret.is_admin_only = True
+        secret.save(update_fields=["is_admin_only"])
+        SwimlaneCustomFieldValue.objects.create(swimlane=self.lane, field_definition=secret, value="TOP-SECRET")
+        SwimlaneCustomFieldValue.objects.create(swimlane=self.lane, field_definition=defs[0], value="EMEA")
+        self.assertEqual(self._patch(defs[0], band_visibility="band").status_code, 200)
+        self.assertEqual(self._tiers()[1], "band")
+        member = _make_user("tier_member_2658")
+        _make_membership(self.board, member, role=BoardMembership.Role.MEMBER)
+        c = APIClient()
+        c.force_authenticate(member)
+        full = c.get(f"{self.board_url}full/").data
+        lane = next(s for s in full["swimlanes"] if s["id"] == self.lane.id)
+        values = [v["value"] for v in lane["custom_field_values"]]
+        self.assertIn("EMEA", values)
+        self.assertNotIn("TOP-SECRET", values)
 
 
 class AbsentInputGuardTests(TestCase):

@@ -8,19 +8,26 @@ follow fails a test on each side.
 ``band_visibility`` is NULL on every row written before #2439. Three board
 states follow from that:
 
-* **Legacy** (every row NULL): the band keeps today's per-lane rule (the first
-  two non-empty values), so an existing board renders identically. For the
-  settings panel the tiers are derived from position: the first two are Band and
-  the rest Details, with no cap, since nothing has been capped yet.
+* **Unset** (every row NULL, #2658): tiers derive from position, the first two
+  Band and the rest Details. The owner decided on !1979 ("Yes, switch now") that
+  such a board shows the tiered band at once, not the pre-#2439 band, and ("Grow
+  cap to fit") that nothing goes to Hidden on the way: the cap it resolves with is
+  :func:`effective_cap`, the smallest of ``LANE_DETAILS_CAP_OPTIONS`` that holds
+  every field past the first two (never below the stored cap). Only past 2 + 16
+  fields does the rest go to Hidden.
 * **Materialized** (no row NULL): every row says where it goes, and a reorder
   never moves a field between tiers.
 * **Mixed** (an older pod created a NULL row on a materialized board during a
   rolling deploy): a NULL row is never Band, because that could silently push the
   band without an admin choosing it. It fills Details in position order up to the cap, then Hidden.
 
-The first write that affects tiers (a ``band_visibility`` PATCH or a cap change)
-calls :func:`materialize` under the board row lock, writing an explicit tier to
-every NULL row, so the board leaves the legacy state exactly once.
+#2658 resolves an unset board at read time (approach b) rather than with a data
+migration: there is no lock on any table, no migration, and ``band_visibility``
+and ``lane_details_cap`` keep their types. The first write that affects tiers (a
+``band_visibility`` PATCH, a field create or a cap change) calls
+:func:`materialize` under the board row lock, which writes exactly what the read
+resolved (every NULL row's tier, and the grown cap), so the board leaves the
+unset state once and looks the same before and after.
 """
 
 from __future__ import annotations
@@ -41,6 +48,10 @@ BAND_DEFAULT = 2
 #: frontend. How many of them a screen shows is a client-side, width-based
 #: choice that never changes a stored tier.
 BAND_MAX = 6
+
+#: The lane details cap choices, ``Board.LANE_DETAILS_CAP_CHOICES``;
+#: ``LANE_DETAILS_CAP_OPTIONS`` on the frontend.
+LANE_DETAILS_CAP_OPTIONS = (4, 6, 9, 12, 16)
 
 BAND_FULL_MESSAGE = f"The band holds {BAND_MAX} fields. Move one to Details first."
 
@@ -64,15 +75,42 @@ def is_legacy(defs: Iterable[Any]) -> bool:
     return all(_get(d, "band_visibility") is None for d in defs)
 
 
+def cap_to_fit(details_count: int, cap: int) -> int:
+    """The smallest cap option that holds *details_count*, never below *cap* (#2658).
+
+    Past the largest option the largest one: the rest go to Hidden. The cap only
+    grows here, so a cap an admin set higher is kept.
+    """
+    fit = next((o for o in LANE_DETAILS_CAP_OPTIONS if o >= details_count), LANE_DETAILS_CAP_OPTIONS[-1])
+    return max(cap, fit)
+
+
+def effective_cap(defs: Iterable[Any], cap: int) -> int:
+    """The cap *defs* resolve with: grown to fit on an unset board, else *cap*.
+
+    ``effectiveLaneDetailsCap`` on the frontend. Counts every definition, admin
+    only or not, so every viewer resolves the same tiers.
+    """
+    defs = list(defs)
+    if not is_legacy(defs):
+        return cap
+    return cap_to_fit(max(0, len(defs) - BAND_DEFAULT), cap)
+
+
 def resolve_tiers(defs: Iterable[Any], cap: int) -> dict[Any, str]:
     """The effective tier of every definition, keyed by id.
 
-    Read-only: what the settings panel and a materialized band show. See the
-    module docstring for the legacy and mixed rules.
+    Read-only, and exactly what :func:`materialize` writes. An unset board: the
+    first two Band, the next :func:`effective_cap` Details, the rest Hidden. See
+    the module docstring for the mixed rule.
     """
     ordered = _ordered(defs)
     if is_legacy(ordered):
-        return {_get(d, "id"): (BAND if i < BAND_DEFAULT else DETAILS) for i, d in enumerate(ordered)}
+        grown = effective_cap(ordered, cap)
+        return {
+            _get(d, "id"): (BAND if i < BAND_DEFAULT else DETAILS if i < BAND_DEFAULT + grown else HIDDEN)
+            for i, d in enumerate(ordered)
+        }
     details_used = sum(1 for d in ordered if _get(d, "band_visibility") == DETAILS)
     out: dict[Any, str] = {}
     for d in ordered:
@@ -88,24 +126,6 @@ def resolve_tiers(defs: Iterable[Any], cap: int) -> dict[Any, str]:
     return out
 
 
-def materialized_tiers(defs: Iterable[Any], cap: int) -> dict[Any, str]:
-    """The tiers :func:`materialize` writes: unlike :func:`resolve_tiers`, a
-    legacy board is capped (first two Band, the next up to *cap* Details, the
-    rest Hidden), because once tiers are explicit the cap is enforced."""
-    ordered = _ordered(defs)
-    if not is_legacy(ordered):
-        return resolve_tiers(ordered, cap)
-    out = {}
-    for i, d in enumerate(ordered):
-        if i < BAND_DEFAULT:
-            out[_get(d, "id")] = BAND
-        elif i < BAND_DEFAULT + cap:
-            out[_get(d, "id")] = DETAILS
-        else:
-            out[_get(d, "id")] = HIDDEN
-    return out
-
-
 def materialize(board, *, cap: int | None = None, actor_id=None) -> list:
     """Write an explicit tier to every NULL row of *board*; return the changed rows.
 
@@ -116,15 +136,51 @@ def materialize(board, *, cap: int | None = None, actor_id=None) -> list:
     ``record_board_event``, which defers to ``on_commit``, so a request that
     materializes and then fails its own check (a 400 after this) rolls the
     writes and the events back together.
+
+    "Grow cap to fit" (#2658): on an unset board the tiers are resolved with
+    :func:`effective_cap`, and when that is above the stored cap this writes it
+    to ``Board.lane_details_cap`` and sends ``board.updated`` on commit, so the
+    cap the board read with is the cap it keeps. ``board.updated`` is recorded
+    before the row events, so a client applies the grown cap before its first
+    row event. That does not remove every Hidden flash: once the first row
+    event makes the board mixed, the still-unset Band fields take Details slots,
+    and where the grown cap only just fits (4/6/9/12/16, or more than 18 fields)
+    the last field can show as Hidden for one event, until its own row event
+    arrives. Tracked in #2712. With *cap* given (a cap change, whose caller
+    saves *cap* itself) a cap above the stored one is written and announced the
+    same way, ahead of the row events; a lower one is left to the caller, whose
+    Details-count recheck refuses it or lets it through. A 400 afterwards rolls
+    the write back and sends nothing.
     """
     from boards import broadcast as _broadcast
-    from boards.models import SwimlaneCustomFieldDefinition
+    from boards.models import Board, SwimlaneCustomFieldDefinition
     from boards.serializers import SwimlaneCustomFieldDefinitionSerializer
 
     defs = list(SwimlaneCustomFieldDefinition.objects.filter(board=board))
     if not any(d.band_visibility is None for d in defs):
         return []
-    tiers = materialized_tiers(defs, board.lane_details_cap if cap is None else cap)
+    # Re-read under the caller's lock: *board* may predate it, and growing from
+    # a stale cap could lower one an admin raised meanwhile.
+    stored = Board.objects.filter(pk=board.pk).values_list("lane_details_cap", flat=True).get()
+    board.lane_details_cap = stored
+    tiers = resolve_tiers(defs, stored if cap is None else cap)
+    # Read before the rows get their tiers: grows only on an unset board; a
+    # cap change announces its own higher cap here too.
+    grown = effective_cap(defs, stored) if cap is None else max(cap, stored)
+    if grown > stored:
+        # Before the row events: a client applies each frame as it arrives, so the
+        # grown cap is there when the first row leaves the unset state. This
+        # shortens the Hidden window; it does not close it (see the docstring).
+        from .board_events import record_board_updated, system_board_payload
+
+        # A queryset update: no save() side effects, and the instance follows
+        # so a later check (assert_band_tiers) counts against the grown cap.
+        Board.objects.filter(pk=board.pk).update(lane_details_cap=grown)
+        board.lane_details_cap = grown
+        record_board_updated(
+            board.pk, system_board_payload(board.pk),
+            old_group_id=board.group_id, new_group_id=board.group_id, actor_id=actor_id,
+        )
     changed = []
     for d in defs:
         if d.band_visibility is None:
@@ -169,32 +225,39 @@ def assert_band_tiers(board, *, instance, band_visibility) -> None:
         raise serializers.ValidationError(
             {"band_visibility": "A board is required to check swimlane field tiers."}
         )
+    if band_visibility is None:
+        return
     rows = [
         {"id": d.pk, "position": d.position, "band_visibility": d.band_visibility}
         for d in SwimlaneCustomFieldDefinition.objects.filter(board=board)
-        if instance is None or d.pk != instance.pk
     ]
-    cap = board.lane_details_cap
-    projected = materialized_tiers(rows, cap)
-    if band_visibility is None:
-        return
-    check_tier_counts([*projected.values(), band_visibility], cap)
+    # Project every row as materialize() would (an unset board's cap grows to
+    # fit, #2658), then let *instance* take the new tier.
+    cap = effective_cap(rows, board.lane_details_cap)
+    projected = resolve_tiers(rows, cap)
+    others = [t for pk, t in projected.items() if instance is None or pk != instance.pk]
+    check_tier_counts([*others, band_visibility], cap)
 
 
-def default_tier_for_create(board) -> str | None:
-    """The tier a create that sends none gets (#2439).
+def default_tier_for_create(board) -> str:
+    """The tier a create that sends none gets (#2439, #2658).
 
-    NULL on a legacy board (the board stays legacy). On a materialized board,
-    Details while there is room, else Hidden: never a 400, so an older client
-    that does not know the field can still add one.
+    Never NULL: the caller has just materialized the board, so the new row is
+    explicit too. Band while the board is still in its default shape, fewer than
+    ``BAND_DEFAULT`` fields and all of them Band (an empty board's first two
+    fields, which position would make Band); otherwise Details while there is
+    room, else Hidden: never a 400, so an older client that does not know the
+    field can still add one. The rule is the board's current shape only: a board
+    with fewer than ``BAND_DEFAULT`` fields that are all Band gets Band, even if
+    an admin made it so; it cannot tell that from the default shape.
     """
     from boards.models import SwimlaneCustomFieldDefinition
 
     rows = list(SwimlaneCustomFieldDefinition.objects.filter(board=board).values("id", "position", "band_visibility"))
-    if is_legacy(rows):
-        return None
-    tiers = resolve_tiers(rows, board.lane_details_cap)
-    return DETAILS if list(tiers.values()).count(DETAILS) < board.lane_details_cap else HIDDEN
+    tiers = list(resolve_tiers(rows, board.lane_details_cap).values())
+    if len(tiers) < BAND_DEFAULT and tiers.count(BAND) == len(tiers):
+        return BAND
+    return DETAILS if tiers.count(DETAILS) < board.lane_details_cap else HIDDEN
 
 
 def recheck_lane_details_cap(board, new_cap: int, *, actor_id=None) -> None:
