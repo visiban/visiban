@@ -69,7 +69,7 @@ File paths such as `--input` must resolve under the repo, cwd, or temp dir — s
 
 ### Parser grammar — looser than `.claude/skills/mr/SKILL.md` documents
 
-The `mr` skill's canonical line is `gate: <name> — <N> findings`. Real MRs
+The `mr` skill's canonical line is `gate: <name> — <N> findings (<model>; blocking <k>)`. Real MRs
 also use: en/em/plain dashes with variable spacing (including the
 fixed-width-aligned form inside a fenced code block), singular "finding",
 bare `n/a` with no parenthetical, and non-numeric "deliverable" outcomes
@@ -286,6 +286,8 @@ Report format:
 
 ### Gate ledger
 <full table: gate | runs | zero | >0 | n/a | skipped | unscored | yield | verdict>
+<blocking table: gate | runs carrying `blocking <k>` | blocking>0 | blocking-hit rate | blocking total,
+ preceded by "N of M numeric runs carried it"; runs without the field are excluded, never counted as 0>
 
 ### Rescues
 (reported of mrs; count by choice with outcomes, zeros included)
@@ -319,6 +321,11 @@ Never present this report's contents as user research or as a substitute for
   A line whose fields include `budget-stopped` (e.g. `0 findings (sonnet;
   budget-stopped)`) is an unfinished pass: it is read as unscored, never as a
   `0 findings` run, and never feeds yield or the zero streak.
+- **Report the blocking-hit rate beside yield (#2680).** A line's optional `blocking <k>`
+  counts the findings among those in `<N>` that the gate put in its own blocking tier; the report's
+  `blocking-hit rate` is the share of field-carrying runs with `k > 0`. Say how many runs
+  carried the field, and draw no severity verdict from a sample that is mostly pre-field
+  ledgers. A `blocking x` or `blocking` above the findings count is flagged, not scored.
 - **Always report adoption alongside yield**, every run, not just when it's
   low.
 - **A gate with fewer than 10 findings-bearing runs is inconclusive** —

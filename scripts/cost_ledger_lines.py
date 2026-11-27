@@ -347,6 +347,8 @@ def self_test():
               "budget-exceeded: 1 (implementer 1)")),
         ("/wave's full Gates tail with zero agents over budget (#2157)",
          wrap("subagent-tokens: 5", "orchestrator-tokens: 6", "est-cost-usd: 0.42 (prices 2026-11-03)", "budget-exceeded: 0")),
+        ("a gate line carrying `blocking <k>` is accepted beside the cost lines (#2680)",
+         wrap("- gate: security-review \u2014 3 findings (model: sonnet; blocking 1)", "subagent-tokens: 5")),
         ("a budget-stopped gate line beside budget-exceeded (#2157)",
          wrap("- gate: security-review — 1 findings (sonnet; medium; budget-stopped)",
               "budget-exceeded: 1 (gate 1)")),

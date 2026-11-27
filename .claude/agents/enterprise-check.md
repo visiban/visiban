@@ -83,6 +83,8 @@ State clearly:
 - If grey area: where the OSS/enterprise boundary sits and why
 - If the classification conflicts with the current plan: flag it explicitly and recommend reconsideration
 
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of classifications among the findings counted in `<N>` that conflict with the current plan (the feature, or part of it, would have to move between the OSS and enterprise repos) — its blocking outcome; a classification that matches the plan, or a grey area resolved by a documented boundary, is not blocking. It lands in the MR's `## Gates` line.
+
 ## Rules — non-negotiable
 
 - Never add enterprise code to the OSS repo — enterprise features live exclusively in `visiban/visiban-enterprise`

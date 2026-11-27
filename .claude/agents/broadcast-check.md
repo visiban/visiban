@@ -106,4 +106,6 @@ Produce a summary:
 - 🔴 Per-recipient field leak (REST strips field, broadcast does not)
 - 🔴 Group-scoped write with no `broadcast_group_event` call (sub-resources of a group are easy to miss)
 
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 findings, so it lands in the MR's `## Gates` line.
+
 For each issue, give the specific fix in the correct shape — closure captures dicts and integer IDs, broadcast deferred via `on_commit`, group-channel calls go to `broadcast_group_event` not `broadcast_board_event`.

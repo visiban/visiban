@@ -110,5 +110,7 @@ For design-level trust-boundary questions that precede code, see the `threat-mod
 - Give the concrete fix
 
 If there are no 🔴 findings, state that explicitly so the output is unambiguous.
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 findings, so it lands in the MR's `## Gates` line.
+
 
 **Deferring a finding:** if a security finding is deferred rather than fixed on the branch, it must be filed as an issue labeled `security::deferred` (in addition to `security`), assigned a milestone for planning (the pre-tag and `/pre-release` check scans all open `security::deferred` issues regardless of milestone), and named in the MR. `/pre-release` and the pre-tag `release.sh` check treat every open `security::deferred` issue as a 🔴 blocker unless it carries an `Accepted risk: accepted-by: @x; reason: y; expires: YYYY-MM-DD` note. See `docs/maintainers/security-deferred-label.md`.
