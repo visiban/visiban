@@ -140,12 +140,14 @@ function CheckboxDropdownInner<T extends string | number>(
 
   // #2659 — an inline menu sits in this wrapper's DOM, so Tab off its last
   // checkbox would leave the `fixed` menu open over whatever focus reaches.
-  // Close it when focus leaves the wrapper (a portaled menu handles Tab itself).
+  // Close it when focus moves to an element outside the wrapper (a portaled menu
+  // handles Tab itself). A null relatedTarget is NOT leaving: Safari does not focus a
+  // clicked checkbox, so focus drops to the dialog or nothing; an outside click closes
+  // through the mousedown listener above, and Escape through useDropdownEscape.
   const onWrapperBlur = (e: React.FocusEvent<HTMLDivElement>) => {
     if (menuMode !== "inline" || !open) return;
     const next = e.relatedTarget as Node | null;
-    if (next && ref.current?.contains(next)) return;
-    setOpen(false);
+    if (next && !ref.current?.contains(next)) setOpen(false);
   };
 
   return (

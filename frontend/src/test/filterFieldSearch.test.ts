@@ -219,6 +219,15 @@ describe('applyValueHit on a multi-select lane rule (#2659)', () => {
     expect(next.laneFilter.items).toHaveLength(1)
     expect(next.laneFilter.items[0]).toMatchObject({ field: 52, op: 'is', values: ['go', 'rust', 'zig'] })
   })
+  it('merged values follow the field choice order, not the pick order', () => {
+    const h = (raw: string) => ({ ...(hit(raw) as object), choices: ['A', 'B', 'C'] }) as never
+    const first = applyValueHit(EMPTY_FILTER, h('B'))
+    const next = applyValueHit(first, h('A')) as unknown as { laneFilter: { items: Array<Record<string, unknown>> } }
+    expect(next.laneFilter.items[0]).toMatchObject({ values: ['A', 'B'] })
+  })
+  it('searchFields carries the choice order on a choice-field hit', () => {
+    expect(searchFields('go', 'lane', ctx({ isAdmin: true })).values.find((v) => v.fieldId === 52)?.choices).toEqual(['go', 'rust'])
+  })
   it('a single-value rule becomes a values rule with two entries', () => {
     const next = applyValueHit(withRule({ value: 'go' }), hit('rust')) as unknown as { laneFilter: { items: Array<Record<string, unknown>> } }
     expect(next.laneFilter.items).toHaveLength(1)

@@ -77,6 +77,8 @@ export interface ValueHit {
   /** Loaded cards (card scope) or lanes (lane scope) holding the value. */
   count: number;
   hiddenOnBand: boolean;
+  /** The field's choices in definition order, for choice-type fields; lets a merge keep that order. */
+  choices?: string[];
 }
 
 export interface SearchResult {
@@ -188,7 +190,7 @@ function valueHits(ctx: SearchContext, c: Candidate, q: string): ValueHit[] {
     // A date or number also matches its stored text, so "2026-11" finds a date shown as 11/20/2026.
     const hit = matchRange(label, q) !== null || ((c.type === "date" || c.type === "number") && matchRange(raw, q) !== null);
     if (!hit) continue;
-    hits.push({ kind: "value", scope: c.scope, fieldId: c.id, fieldName: c.name, fieldType: c.type, raw, label, count: counts.get(raw) ?? 0, hiddenOnBand: c.hidden });
+    hits.push({ kind: "value", scope: c.scope, fieldId: c.id, fieldName: c.name, fieldType: c.type, raw, label, count: counts.get(raw) ?? 0, hiddenOnBand: c.hidden, ...(c.choices.length > 0 ? { choices: c.choices } : {}) });
     if (hits.length >= MAX_VALUES_PER_FIELD) break;
   }
   return hits;
@@ -257,7 +259,13 @@ export function applyValueHit(filters: FilterState, hit: ValueHit): FilterState 
     if (existing) {
       const cur = ruleValues(existing);
       if (cur.includes(hit.raw) || cur.length >= LANE_FILTER_MAX_VALUES) return filters;
-      const merged = items.map((it) => (it === existing ? { ...existing, ...withRuleValues([...cur, hit.raw]) } : it));
+      // Kept in the field's choice order (as the popover does), so the chip reads the same
+      // however the values were picked; a stored value no longer a choice sorts last.
+      const all = [...cur, hit.raw];
+      const order = hit.choices ?? [];
+      const rank = (v: string) => (order.includes(v) ? order.indexOf(v) : order.length);
+      const ordered = order.length > 0 ? all.map((v, i) => ({ v, i })).sort((a, b) => rank(a.v) - rank(b.v) || a.i - b.i).map((x) => x.v) : all;
+      const merged = items.map((it) => (it === existing ? { ...existing, ...withRuleValues(ordered) } : it));
       return { ...filters, laneFilter: withLaneItems(filters.laneFilter, merged) };
     }
   }

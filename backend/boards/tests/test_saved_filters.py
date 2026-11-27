@@ -692,11 +692,11 @@ class SavedFilterLaneFilterStateTests(TestCase):
         self.client.force_authenticate(self.user)
         self.url = f"/api/v1/boards/{self.board.id}/saved-filters/"
 
-    def _post(self, state):
-        return self.client.post(self.url, {"name": "Lanes", "state_json": state}, format="json")
+    def _post(self, state, name="Lanes"):
+        return self.client.post(self.url, {"name": name, "state_json": state}, format="json")
 
-    def _assert_400(self, lane_filter):
-        r = self._post({**EMPTY_FILTER_STATE, "laneFilter": lane_filter})
+    def _assert_400(self, lane_filter, name="Lanes"):
+        r = self._post({**EMPTY_FILTER_STATE, "laneFilter": lane_filter}, name=name)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
         self.assertIsInstance(r.data["detail"], str)
         return r
@@ -792,9 +792,13 @@ class SavedFilterLaneFilterStateTests(TestCase):
             "builtin enum field": vrule(field="health_status", values=["on_track", "at_risk"]),
             "no field": vrule(field=None),
         }
-        for label, lane_filter in cases.items():
+        # A unique name per case, and the detail must name the lane filter: a wrongly
+        # accepted case would otherwise leave every later one failing on the duplicate
+        # name and still pass a status-only check.
+        for i, (label, lane_filter) in enumerate(cases.items()):
             with self.subTest(label):
-                self._assert_400(lane_filter)
+                r = self._assert_400(lane_filter, name=f"Lanes {i}")
+                self.assertIn("laneFilter", r.data["detail"])
 
     def test_hide_unmatched_round_trips(self):
         # #2214 — an optional bool beside items; with no rules it keeps items: [].
@@ -849,9 +853,13 @@ class SavedFilterLaneFilterStateTests(TestCase):
             "unknown group key": {"items": [{"kind": "group", "id": 1, "join": "and", "rules": [], "x": 1}]},
             "group id missing": {"items": [{"kind": "group", "join": "and", "rules": []}]},
         }
-        for label, lane_filter in cases.items():
+        # A unique name per case, and the detail must name the lane filter: a wrongly
+        # accepted case would otherwise leave every later one failing on the duplicate
+        # name and still pass a status-only check.
+        for i, (label, lane_filter) in enumerate(cases.items()):
             with self.subTest(label):
-                self._assert_400(lane_filter)
+                r = self._assert_400(lane_filter, name=f"Lanes {i}")
+                self.assertIn("laneFilter", r.data["detail"])
 
     def test_builtin_field_rules_round_trip(self):
         """#2336 — rules on the built-in "name" and "contact_email" fields save
