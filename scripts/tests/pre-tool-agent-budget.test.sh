@@ -14,7 +14,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOOK="$ROOT/.claude/hooks/pre-tool-agent-budget.sh"
-READER="$ROOT/scripts/wave-agent-budget.py"
+READER="${WAVE_READER_OVERRIDE:-$ROOT/scripts/wave-agent-budget.py}" # override: bite-proof against an old copy
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -185,6 +185,47 @@ for args in "" "--stopped" "--stopped ../x" "--bogus a" "--stopped a --stopped b
 done
 python3 "$READER" --repo "$NOREPO" --stopped a >/dev/null 2>&1 && rc=0 || rc=$?
 check "reader outside a repository: exit 2" "$(ok test "$rc" -eq 2)"
+
+# 11b. --repo is validated before git sees it (#2676): a non-directory or an option-looking
+# value exits 2 and never reaches the subprocess.
+for bad in "$TMP/does-not-exist" "-x" "--help" "$TMP/repo/.git/HEAD"; do
+  python3 "$READER" --repo "$bad" --stopped a >/dev/null 2>&1 && rc=0 || rc=$?
+  check "reader --repo '${bad#"$TMP"/}': exit 2" "$(ok test "$rc" -eq 2)"
+done
+# A regular file and a non-repo directory fail with different messages.
+o="$(python3 "$READER" --repo "$REPO/.git/HEAD" --count w1 2>&1 >/dev/null)" && rc=0 || rc=$?
+check "reader --repo <file>: exit 2" "$(ok test "$rc" -eq 2)"
+check "reader --repo <file>: 'is not a directory' on stderr" "$(ok grep -q 'is not a directory' <<<"$o")"
+o="$(python3 "$READER" --repo "$NOREPO" --count w1 2>&1 >/dev/null)" && rc=0 || rc=$?
+check "reader --repo <non-repo dir>: exit 2" "$(ok test "$rc" -eq 2)"
+check "reader --repo <non-repo dir>: 'not inside a git repository' on stderr" \
+  "$(ok grep -q 'not inside a git repository' <<<"$o")"
+
+# The directory reaches git as its cwd, never as an argv token: a git shim logs argv and $PWD.
+REAL_GIT="$(command -v git)"
+SHIM="$TMP/shim"; mkdir -p "$SHIM"
+cat > "$SHIM/git" <<EOS
+#!/usr/bin/env bash
+{ printf 'ARGV:%s\n' "\$*"; printf 'CWD:%s\n' "\$PWD"; } >> "$TMP/git-shim.log"
+exec "$REAL_GIT" "\$@"
+EOS
+chmod +x "$SHIM/git"
+ln -s "$REPO" "$TMP/repo-link"
+REAL_REPO="$(cd "$REPO" && pwd -P)"
+for via in "$REPO" "$TMP/repo-link"; do
+  lbl="${via#"$TMP"/}"
+  : > "$TMP/git-shim.log"
+  o="$(PATH="$SHIM:$PATH" python3 "$READER" --repo "$via" --count w1 2>&1)" && rc=0 || rc=$?
+  check "reader --repo '$lbl': exit 0, count printed" "$(ok test "$rc" -eq 0 -a -n "$o")"
+  check "reader --repo '$lbl': git ran through the shim" "$(ok grep -q '^ARGV:' "$TMP/git-shim.log")"
+  argv="$(grep '^ARGV:' "$TMP/git-shim.log" || true)"
+  check "reader --repo '$lbl': git argv has no -C" "$(ok test -z "$(grep -E -e '(^|[ :])-C( |$)' <<<"$argv" || true)")"
+  check "reader --repo '$lbl': git argv has no repo path" "$(ok test -z "$(grep -F -e "$TMP" <<<"$argv" || true)")"
+  check "reader --repo '$lbl': git cwd is the realpath of the repo" \
+    "$(ok grep -qxF "CWD:$REAL_REPO" "$TMP/git-shim.log")"
+done
+(cd "$REPO" && python3 "$READER" --count w1 >/dev/null 2>&1) && rc=0 || rc=$?
+check "reader: default --repo (cwd) still works" "$(ok test "$rc" -eq 0)"
 
 # 12. The wiring: registered for every tool, and named by the skill's handoff.
 check "settings.json registers the hook on PreToolUse matcher *" "$(ok python3 -c '

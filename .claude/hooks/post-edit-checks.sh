@@ -28,13 +28,13 @@ if re.search(r"backend/.*/models\.py$", file_path):
     messages.append("⚠️  models.py modified — use the migration-check agent to verify migration safety")
 
 if re.search(r"backend/.*/views\.py$", file_path):
-    messages.append("⚠️  views.py modified — use the rbac-check and security-review agents")
+    messages.append("⚠️  views.py modified — use the rbac-check, security-review and api-docs agents")
 
 if re.search(r"backend/.*/serializers\.py$", file_path):
-    messages.append("⚠️  serializers.py modified — use the security-review agent")
+    messages.append("⚠️  serializers.py modified — use the security-review and api-docs agents")
 
 if re.search(r"backend/.*/permissions\.py$", file_path):
-    messages.append("⚠️  permissions.py modified — use the rbac-check and security-review agents")
+    messages.append("⚠️  permissions.py modified — use the rbac-check, security-review and api-docs agents")
 
 # Same-commit test reminder: backend production source edited (not tests/migrations/management)
 if (re.search(r"backend/", file_path)
@@ -51,7 +51,7 @@ if (re.search(r"frontend/src/", file_path)
         and re.search(r"\.(ts|tsx)$", file_path)
         and "/test/" not in file_path):
     messages.append(
-        "📋 Frontend source edited — run `cd frontend && npx tsc --noEmit` before committing\n"
+        "📋 Frontend source edited — run `cd frontend && npx tsc -p tsconfig.app.json --noEmit` before committing\n"
         "   to catch stale test fixtures and type drift."
     )
 

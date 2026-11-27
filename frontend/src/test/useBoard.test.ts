@@ -3779,3 +3779,72 @@ describe('useBoard — parent survives a wholesale replace (#1104 regression-che
     expect(result.current.board!.cards[0].parent).toEqual(parent)
   })
 })
+
+// ─── Entry requirements (#1923) ─────────────────────────────────────────────
+
+describe('useBoard entry requirements (#1923)', () => {
+  const unmet = [{ requirement_uid: 'r1', operator: 'filled', operand: null, field_uid: 'f1', field_name: 'Owner', field_set_uid: null, field_set_name: null }]
+
+  it('a Block refusal keeps the move for Move anyway and turns the server also into sentences', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    mockMoveCard.mockRejectedValueOnce({ response: { status: 409, data: {
+      code: 'entry_requirements_unmet', detail: 'x', column_name: 'To Do', mode: 'block', unmet,
+      also: [{ code: 'wip_limit_exceeded', column_name: 'To Do', current_count: 2, wip_limit: 2 }],
+    } } })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    await act(async () => { await result.current.moveCard(100, 10, 20, 0) })
+    expect(result.current.moveError).toMatchObject({
+      code: 'entry_requirements_unmet', mode: 'block', also: ['"To Do" is at its limit of 2 cards (2 active).'],
+    })
+    expect(result.current.pendingMoveCardId).toBe(100)
+  })
+
+  it('a Hard refusal offers no retry', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    mockMoveCard.mockRejectedValueOnce({ response: { status: 409, data: {
+      code: 'entry_requirements_unmet', detail: 'x', column_name: 'To Do', mode: 'hard', unmet, also: [],
+    } } })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    await act(async () => { await result.current.moveCard(100, 10, 20, 0) })
+    expect(result.current.moveError).toMatchObject({ code: 'entry_requirements_unmet', mode: 'hard', also: [] })
+    expect(result.current.pendingMoveCardId).toBeUndefined()
+  })
+
+  it('a hard WIP refusal carries the entry requirement the server put in also', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    mockMoveCard.mockRejectedValueOnce({ response: { status: 409, data: {
+      code: 'wip_hard_blocked', column_name: 'To Do', current_count: 1, wip_limit: 1,
+      also: [{ code: 'entry_requirements_unmet', column_name: 'To Do', unmet }],
+    } } })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    await act(async () => { await result.current.moveCard(100, 10, 20, 0) })
+    expect(result.current.moveError).toMatchObject({
+      code: 'wip_hard_blocked', also: ['"To Do" has 1 entry requirement this card doesn\'t meet.'],
+    })
+  })
+
+  it('a Warn move succeeds and exposes entry_unmet for the Warn toast', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockResolvedValueOnce({ card: { ...board.cards[0] }, entry_unmet: unmet })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    await act(async () => { await result.current.moveCard(100, 10, 20, 0) })
+    expect(result.current.entryWarning).toMatchObject({ cardId: 100, columnName: 'To Do', unmet })
+    act(() => { result.current.clearEntryWarning?.() })
+    expect(result.current.entryWarning).toBeNull()
+  })
+
+  it('a forced move into a Warn column also exposes entry_unmet for the Warn toast', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockResolvedValueOnce({ card: { ...board.cards[0] }, entry_unmet: unmet })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    await act(async () => { await result.current.forceMoveCardTo(100, 10, 20, 0) })
+    expect(result.current.entryWarning).toMatchObject({ cardId: 100, columnName: 'To Do', unmet })
+  })
+})

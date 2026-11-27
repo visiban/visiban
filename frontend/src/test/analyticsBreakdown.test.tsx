@@ -214,7 +214,7 @@ describe('Break down by control (#2268)', () => {
     await pick('swimlane')
     const chips = await screen.findAllByTestId('group-chip')
     expect(chips.map((c) => c.textContent)).toEqual(['Platform', 'Growth', 'Support', 'Mobile', 'Web', 'Other'])
-    const dot = (chip: HTMLElement) => (chip.querySelectorAll('span[aria-hidden]')[1] as HTMLElement).style.backgroundColor
+    const dot = (chip: HTMLElement) => (chip.querySelector('span[aria-hidden][style]') as HTMLElement).style.backgroundColor
     expect(dot(chips[5])).toBe('rgb(var(--fg-tertiary))')
     expect(dot(chips[0])).toBe('rgb(var(--chart-cat-1))')
   })

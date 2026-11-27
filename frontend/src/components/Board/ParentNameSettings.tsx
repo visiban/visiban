@@ -138,9 +138,11 @@ export default function ParentNameSettings({ board, onUpdate }: Props) {
               type="button"
               aria-pressed={pressed}
               onClick={() => choose(s, pressed)}
-              className={`inline-flex min-h-11 items-center gap-1.5 rounded border border-line-boundary px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${pressed ? "bg-primary-emphasis/15 text-fg-secondary" : "text-fg-tertiary hover:bg-surface-hover"}`}
+              className={`inline-flex min-h-11 items-center gap-1 rounded border border-line-boundary text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${pressed ? "px-3 bg-primary-emphasis/15 text-fg-secondary" : "px-5 text-fg-tertiary hover:bg-surface-hover"}`}
             >
-              <ActiveMark active={pressed} testId={`parent-name-mark-${s.singular}`} />
+              {/* Rendered only when pressed: the idle chip holds the check's room (w-3 + gap-1) as
+                  symmetric padding (px-5 vs px-3) so the name is centered and the width fixed (#2673). */}
+              {pressed && <ActiveMark active testId={`parent-name-mark-${s.singular}`} />}
               {s.singular}
             </button>
           );

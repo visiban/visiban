@@ -104,14 +104,19 @@ class ForceNotPermitted(CardServiceError):
     _DETAIL = {
         "wip": "Only board admins can override a WIP limit.",
         "weight": "Only board admins can override a weight limit.",
+        "entry_requirements": "Only board admins can override a column's entry requirements.",
     }
     # Used instead when the board's ``allow_assignee_override`` is on (#1923):
     # "only board admins" would not be true there.
+    _ASSIGNEE_ON_DETAIL_ENTRY = (
+        "Only board admins, or the card's assignee when someone else assigned it to "
+        "them, can override a column's entry requirements."
+    )
     _ASSIGNEE_ON_DETAIL = (
         "Only board admins, or the card's assignee when someone else assigned it to "
         "them, can override a {} limit."
     )
-    _LABEL = {"wip": "WIP", "weight": "weight"}
+    _LABEL = {"wip": "WIP", "weight": "weight", "entry_requirements": "entry requirement"}
     # #1923: the actor is the card's assignee and the board lets assignees
     # override, but they assigned the card to themselves.
     SELF_ASSIGNED_DETAIL = (
@@ -136,7 +141,10 @@ class ForceNotPermitted(CardServiceError):
                 "reason": "self_assigned",
             }
         if self.assignee_override:
-            detail = self._ASSIGNEE_ON_DETAIL.format(self._LABEL[self.limit])
+            detail = (
+                self._ASSIGNEE_ON_DETAIL_ENTRY if self.limit == "entry_requirements"
+                else self._ASSIGNEE_ON_DETAIL.format(self._LABEL[self.limit])
+            )
         else:
             detail = self._DETAIL[self.limit]
         return {"detail": detail, "code": "force_not_permitted"}
@@ -397,6 +405,41 @@ class WipLimitExceeded(CardServiceError):
         }
 
 
+class EntryRequirementsUnmet(CardServiceError):
+    """The card does not meet the target column's entry requirements (#1923).
+
+    ``mode`` is ``block`` (a board admin, or an eligible assignee, may retry
+    with ``?force=true`` and an ``override_reason``) or ``hard`` (no override
+    for any role), so the client knows whether to offer "Move anyway".
+    ``unmet`` names each requirement (ids, operator, operand and the field or
+    set name) and never a card's field value. ``also`` lists the bodies of the
+    other limits this placement trips, so one force covers them all; it is
+    present only on this error, which keeps every WIP-only and weight-only
+    409 body byte-identical.
+    """
+
+    status = 409
+
+    def __init__(self, *, column_name: str, mode: str, unmet: list, also: list | None = None):
+        self.column_name = column_name
+        self.mode = mode
+        self.unmet = unmet
+        self.also = also or []
+        super().__init__(column_name)
+
+    def body(self) -> dict:
+        n = len(self.unmet)
+        noun = "requirement" if n == 1 else "requirements"
+        return {
+            "code": "entry_requirements_unmet",
+            "detail": f'This card does not meet {n} entry {noun} of "{self.column_name}".',
+            "column_name": self.column_name,
+            "mode": self.mode,
+            "unmet": self.unmet,
+            "also": self.also,
+        }
+
+
 class WipHardBlocked(CardServiceError):
     """Hard WIP limit reached — no override exists for any role.
 
@@ -552,6 +595,8 @@ class SwimlaneWeightLimitExceeded(CardServiceError):
 LIMIT_ERRORS = (
     WipLimitExceeded, WipHardBlocked, WeightLimitExceeded,
     SwimlaneWipLimitExceeded, SwimlaneWipHardBlocked, SwimlaneWeightLimitExceeded,
+    # #1923: the admin form blocks on entry requirements too, with no override.
+    EntryRequirementsUnmet,
 )
 
 

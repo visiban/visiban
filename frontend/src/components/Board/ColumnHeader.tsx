@@ -34,6 +34,8 @@ interface Props {
   boardId: number;
   isAdmin: boolean;
   onColumnUpdated: (column: Column) => void;
+  /** #1923: opens Board settings › Rules & limits › Entry requirements with this column selected. Admins only. */
+  onOpenEntryRequirements?: (columnId: number) => void;
   onRequestDelete: (column: Column) => void;
   collapsed: boolean;
   hidden?: boolean;
@@ -56,7 +58,7 @@ interface Props {
   addCardLanes?: { id: number; name: string; color: string; collapsed: boolean }[];
 }
 
-export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, customFieldDefinitions, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, showWipAtLimit = false, onAddCard, addCardLanes, showSubColumns = true }: Props) {
+export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, customFieldDefinitions, column, cards, boardId, isAdmin, onColumnUpdated, onOpenEntryRequirements, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, showWipAtLimit = false, onAddCard, addCardLanes, showSubColumns = true }: Props) {
   // Which tab EditColumnModal opens on, or null when it is closed (#1101:
   // "Add policy…" and the popover's "Edit policy" open the Policy tab).
   const [editTab, setEditTab] = useState<EditColumnTab | null>(null);
@@ -170,6 +172,8 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
       ...(hasPolicy ? [] : [{ id: "add-policy", label: "Add policy…", onSelect: () => setEditTab("policy") }]),
       // #2278 spec § Stage settings: opens from the column menu.
       { id: "stage", label: "Stage settings…", onSelect: () => setEditTab("stage") },
+      // #1923: one editor, in Board settings (no EditColumnModal tab).
+      ...(onOpenEntryRequirements ? [{ id: "entry-requirements", label: "Entry requirements…", onSelect: () => onOpenEntryRequirements(column.id) }] : []),
       {
         id: "delete",
         label: "Delete column",
@@ -179,7 +183,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps -- startRenaming/setEditTab/onRequestDelete's closures are stable; only the fields read by the memoized items are listed
-    [column.id, column.name, onRequestDelete, hasPolicy],
+    [column.id, column.name, onRequestDelete, hasPolicy, onOpenEntryRequirements],
   );
 
   // Hidden by view prefs — render a narrow stub matching hidden cell width

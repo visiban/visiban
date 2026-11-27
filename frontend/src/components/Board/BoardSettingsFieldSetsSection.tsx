@@ -12,7 +12,7 @@ import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { BoardFull, CustomFieldDefinition, CustomFieldSet, FieldSetSize } from "../../types";
 import {
-  createFieldSet, deleteFieldSet, listCustomFieldDefinitions, listFieldSets,
+  createFieldSet, deleteFieldSet, listCustomFieldDefinitions, listFieldSets, previewDeleteFieldSet, previewUpdateFieldSet,
   reorderCustomFields, reorderFieldSets, updateFieldSet, type FieldSetWrite,
 } from "../../api/boards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
@@ -20,7 +20,7 @@ import { Button, EmptyState, InlineConfirm, buttonClasses } from "../Page";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
 import {
-  FIELD_SET_CONFIRM_ESCAPE_PRIORITY, FIELD_SET_MENU_ESCAPE_PRIORITY, SET_CAP, apiErrorMessage, deleteSetPrompt, fieldOrderWith, sortByPosition,
+  FIELD_SET_CONFIRM_ESCAPE_PRIORITY, FIELD_SET_MENU_ESCAPE_PRIORITY, SET_CAP, apiErrorMessage, deleteSetPrompt, widenedRequirementsSentence, fieldOrderWith, sortByPosition,
 } from "../../utils/fieldSetSettings";
 import CheckboxDropdown from "../Common/CheckboxDropdown";
 import HelpLink from "../Common/HelpLink";
@@ -64,6 +64,9 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
   /** What to do if the admin discards the dirty draft. */
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // #1923 owner Q3: entry requirements a delete or save would widen to every lane (server dry run).
+  const [widened, setWidened] = useState<string[]>([]);
+  const [confirmSave, setConfirmSave] = useState(false);
   const [error, setError] = useState<{ where: "section" | "editor"; text: string } | null>(null);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -144,9 +147,27 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
     // The copy dialog is on top of everything else here.
     if (copyOpen) { closeCopy(); return true; }
     if (confirmDelete) { cancelDelete(); return true; }
+    if (confirmSave) { setConfirmSave(false); return true; }
     if (pendingLeave) { cancelLeave(); return true; }
     return false;
   }, FIELD_SET_CONFIRM_ESCAPE_PRIORITY);
+
+  /** Save, first asking when the server says entry requirements would widen (#1923). */
+  const requestSave = async () => {
+    if (busy) return;
+    if (openSet && !confirmSave) {
+      const body: FieldSetWrite = { ...draft, name: draft.name.trim(), description: draft.description.trim() || null };
+      let affected: string[] = [];
+      try {
+        affected = widenedRequirementsSentence(await previewUpdateFieldSet(board.id, openSet.id, body));
+      } catch {
+        // The preview is advisory: a failed one never blocks the save, which validates on its own.
+      }
+      if (affected.length > 0) { setWidened(affected); setConfirmSave(true); return; }
+    }
+    setConfirmSave(false);
+    await save();
+  };
 
   const save = async () => {
     if (busy) return;
@@ -371,18 +392,27 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
                     otherSetOf={(fieldId) => elsewhere(fieldId)?.name}
                     onChange={(field_ids) => setDraft({ ...draft, field_ids })}
                   />
-                  {confirmDelete && openSet ? (
-                    <InlineConfirm message={deleteSetPrompt(openSet)} actionLabel="Delete set" busy={busy}
+                  {confirmSave && openSet ? (
+                    <InlineConfirm message={[`Save ${draft.name.trim() || openSet.name}?`, ...widened].join(" ")} actionLabel="Save set" busy={busy}
+                      onCancel={() => setConfirmSave(false)} onConfirm={() => { setConfirmSave(false); void save(); }} />
+                  ) : confirmDelete && openSet ? (
+                    <InlineConfirm message={deleteSetPrompt(openSet, widened)} actionLabel="Delete set" busy={busy}
                       onCancel={cancelDelete} onConfirm={() => void remove()} />
                   ) : (
                     <div className="flex items-center gap-2 flex-wrap">
-                      {openSet && <button ref={deleteButtonRef} type="button" className={BTN_DANGER_OUTLINE} onClick={() => setConfirmDelete(true)}>Delete set</button>}
+                      {openSet && <button ref={deleteButtonRef} type="button" className={BTN_DANGER_OUTLINE} onClick={() => {
+                        // #1923: list the entry requirements the delete widens; a failed preview just omits them.
+                        const id = openSet.id;
+                        setWidened([]);
+                        setConfirmDelete(true);
+                        void Promise.resolve(previewDeleteFieldSet(board.id, id)).then((a) => setWidened(widenedRequirementsSentence(a ?? [])), () => {});
+                      }}>Delete set</button>}
                       <span className="flex-1" />
                       {nameMissing && <span id="field-set-name-reason" className="text-xs text-fg-muted">Enter a name to save.</span>}
                       <Button variant="quiet" onClick={() => { focusNext.current = rowOf(openId); doOpen(null); }}>Cancel</Button>
                       <button type="button" className={BTN_PRIMARY} aria-disabled={busy || nameMissing}
                         aria-describedby={nameMissing ? "field-set-name-reason" : undefined}
-                        onClick={() => { if (!nameMissing) void save(); }}>Save field set</button>
+                        onClick={() => { if (!nameMissing) void requestSave(); }}>Save field set</button>
                     </div>
                   )}
                   {error?.where === "editor" && <p role="alert" className="text-xs text-danger">{error.text}</p>}

@@ -40,12 +40,13 @@ run '{"tool_name":"Edit","tool_input":{"file_path":"/r/backend/boards/models.py"
 expect_msg "models.py Edit -> migration-check reminder" "migration-check"
 run '{"tool_name":"Write","tool_input":{"file_path":"/r/backend/boards/views.py"}}'
 expect_msg "views.py Write -> rbac-check reminder" "rbac-check"
+expect_msg "views.py Write -> api-docs reminder" "api-docs"
 run '{"tool_name":"Edit","tool_input":{"file_path":"/r/backend/boards/serializers.py"}}'
 expect_msg "serializers.py -> security-review reminder" "security-review"
 run '{"tool_name":"Edit","tool_input":{"file_path":"/r/backend/boards/permissions.py"}}'
 expect_msg "permissions.py -> rbac-check reminder" "rbac-check"
 run '{"tool_name":"Edit","tool_input":{"file_path":"/r/frontend/src/components/A.tsx"}}'
-expect_msg "frontend tsx -> tsc reminder" "tsc --noEmit"
+expect_msg "frontend tsx -> tsc reminder" "npx tsc -p tsconfig.app.json --noEmit"
 run '{"tool_name":"NotebookEdit","tool_input":{"notebook_path":"/r/backend/boards/models.py"}}'
 expect_msg "notebook_path is read" "migration-check"
 run '{"tool_name":"Edit","tool_input":{"file_path":"/r/backend/boards/tests/test_a.py"}}'
