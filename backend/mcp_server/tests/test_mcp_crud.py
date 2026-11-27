@@ -1966,6 +1966,7 @@ class MaintenanceModeTests(CrudToolsTestCase):
             "archive_card": dict(card_id=card.id),
             "block_card": dict(card_id=card.id, reason="Nope"),
             "unblock_card": dict(card_id=card.id),
+            "set_dimension_plan": dict(card_id=card.id, field_id=0, next_action="Nope"),
         }
         for name, arguments in calls.items():
             with self.subTest(tool=name):
@@ -2029,6 +2030,7 @@ class DemoModeTests(CrudToolsTestCase):
             "archive_card": dict(card_id=card.id),
             "block_card": dict(card_id=card.id, reason="Nope"),
             "unblock_card": dict(card_id=card.id),
+            "set_dimension_plan": dict(card_id=card.id, field_id=0, next_action="Nope"),
         }
         with override_settings(DEMO_MODE=True):
             for name, arguments in calls.items():

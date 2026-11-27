@@ -200,3 +200,65 @@ class ExportImportChangedAtTests(_Base):
         self.assertIsNone(_imported_value_changed_at("not a date", now))
         self.assertIsNone(_imported_value_changed_at(None, now))
         self.assertEqual(_imported_value_changed_at(_OLD.isoformat(), now), _OLD)
+
+
+@mock.patch.object(BoardImportThrottle, "allow_request", return_value=True)
+@mock.patch.object(BoardExportThrottle, "allow_request", return_value=True)
+class DimensionPlanExportImportTests2704(_Base):
+    """Plans ride JSON export and import; owners resolve like assignees (#2704)."""
+
+    def _export(self):
+        exported = self.client.get(f"/api/v1/boards/{self.board.pk}/export/?format=json")
+        self.assertEqual(exported.status_code, 200)
+        return json.loads(b"".join(exported.streaming_content) if exported.streaming else exported.content)
+
+    def _import(self, data, user=None):
+        if user is not None:
+            self.client.force_authenticate(user)
+        f = io.BytesIO(json.dumps(data).encode())
+        f.name = "board.json"
+        resp = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
+        self.assertEqual(resp.status_code, 201, resp.data)
+        from boards.models import CardDimensionPlan  # noqa: PLC0415
+        return list(CardDimensionPlan.objects.filter(card__board_id=resp.data["id"]).select_related("owner"))
+
+    def _plan(self, **kw):
+        from boards.models import CardDimensionPlan  # noqa: PLC0415
+        defaults = {"owner": self.admin, "next_action": "Book review", "target_date": datetime.date(2026, 12, 1)}
+        defaults.update(kw)
+        return CardDimensionPlan.objects.create(card=self.card, field_definition=self.dim, **defaults)
+
+    def test_export_carries_plans_and_import_restores_them(self, *_):
+        self._plan()
+        data = self._export()
+        self.assertEqual(data["cards"][0]["dimension_plans"], {
+            "Security": {"owner": "admin2651", "next_action": "Book review", "target_date": "2026-12-01"},
+        })
+        (plan,) = self._import(data)
+        self.assertEqual((plan.owner, plan.next_action, plan.target_date),
+                         (self.admin, "Book review", datetime.date(2026, 12, 1)))
+        self.assertEqual(plan.updated_by, self.admin)
+
+    def test_owner_outside_the_importers_pool_imports_unassigned(self, *_):
+        self._plan()
+        data = self._export()
+        outsider = User.objects.create_user(username="outsider2651", password="pass")
+        (plan,) = self._import(data, user=outsider)
+        self.assertIsNone(plan.owner)
+        self.assertEqual(plan.next_action, "Book review")
+
+    def test_malformed_entries_are_dropped(self, *_):
+        self._plan()
+        data = self._export()
+        data["cards"][0]["dimension_plans"] = {
+            "Security": {"owner": None, "next_action": "x" * 201, "target_date": None},
+            "Notes": {"next_action": "not a dimension"},
+            "Nope": {"next_action": "no such field"},
+        }
+        self.assertEqual(self._import(data), [])
+        data["cards"][0]["dimension_plans"] = {"Security": {"next_action": 7, "target_date": "2026-13-45"}}
+        self.assertEqual(self._import(data), [])
+        data["cards"][0]["dimension_plans"] = {"Security": {"next_action": "", "target_date": "bad"}}
+        self.assertEqual(self._import(data), [])
+        data["cards"][0]["dimension_plans"] = "junk"
+        self.assertEqual(self._import(data), [])

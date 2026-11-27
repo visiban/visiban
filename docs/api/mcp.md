@@ -140,7 +140,7 @@ A token intended for both an agent and a script needs both sets of scopes, e.g. 
 
 > **Added in 1.2**
 
-`mcp:read` opens a session and is enough for every read tool below. Any **write** tool (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`) additionally requires **`mcp:write`** on the same token. Scopes are non-hierarchical: `mcp:read` does not grant `mcp:write`, and `mcp:write` alone does not even open a session (a token needs `mcp:read` to reach `/mcp` at all). A write-capable agent credential therefore needs **both**: `["mcp:read", "mcp:write"]`.
+`mcp:read` opens a session and is enough for every read tool below. Any **write** tool (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`, `set_dimension_plan`) additionally requires **`mcp:write`** on the same token. Scopes are non-hierarchical: `mcp:read` does not grant `mcp:write`, and `mcp:write` alone does not even open a session (a token needs `mcp:read` to reach `/mcp` at all). A write-capable agent credential therefore needs **both**: `["mcp:read", "mcp:write"]`.
 
 **Watch out:** Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a missing `mcp:write` is reported by the tool as a [tool error](#tool-errors): an `isError: true` result carrying `{"error": {"code": "missing_scope", "detail": "..."}}`, not a `401`. The session is valid; only that call was declined.
 
@@ -390,7 +390,7 @@ A successful call has `isError: false` and its payload in `structuredContent.res
 | `column_not_found` | `move_card` and `create_card`. The column id does not exist, or belongs to a different board than the one you named. Identical either way. At create time an unresolvable column id is normally a `validation_error` (`errors.column`) from input validation; this code occurs there only when the column, or its board, is deleted while the request is in flight. |
 | `swimlane_not_found` | `move_card` and `create_card`. Same, for a swimlane id (`errors.swimlane` at create time; this code only when the swimlane is deleted mid-request). |
 | `object_not_found` | Reserved generic not-found code for a lookup with no more specific code above. |
-| `permission_denied` | Your board role is `collaborator` or `viewer`; card writes require `admin` or `member`. Also returned by `update_card`, `archive_card`, `block_card` and `unblock_card` when your role only allows changing cards you created, and by `move_card` when the card is assigned to someone else and your role is below moderator. |
+| `permission_denied` | Your board role is `collaborator` or `viewer`; card writes require `admin` or `member`. Also returned by `update_card`, `archive_card`, `block_card`, `unblock_card` and `set_dimension_plan` when your role only allows changing cards you created, and by `move_card` when the card is assigned to someone else and your role is below moderator. |
 | `force_not_permitted` | Reserved: no tool currently exposes `force`. A `force` override of a WIP or weight limit was requested by someone who is not a board admin. |
 | `override_reason_required` | Reserved: no tool currently exposes `force`. An assignee override (#1923) was requested without a reason. |
 | `invalid_override_reason` | Reserved: no tool currently exposes `force`. The override reason was not a string, was over 500 characters, or held a NUL byte. |
@@ -409,7 +409,7 @@ A successful call has `isError: false` and its payload in `structuredContent.res
 | `internal_error` | A tool error with no registered code. Should not occur; report it as a bug. |
 | `demo_read_only` | The instance is a shared demo (`DEMO_MODE`) and every MCP write is refused. |
 | `missing_scope` | Your token lacks the `mcp:write` scope required for this tool — see above. |
-| `maintenance_mode` | The instance is in [maintenance mode](admin.md#maintenance-mode) and your token does not belong to a site admin. Only ever returned by the write tools below (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`) — the read tools (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `board_flow_metrics`, `aging_cards`) keep working regardless. Added in 1.2. |
+| `maintenance_mode` | The instance is in [maintenance mode](admin.md#maintenance-mode) and your token does not belong to a site admin. Only ever returned by the write tools below (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`, `set_dimension_plan`) — the read tools (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `board_flow_metrics`, `aging_cards`) keep working regardless. Added in 1.2. |
 | `throttled` | Your token has exceeded its per-token rate limit. Carries a `retry_after` (seconds) — see [Rate limiting](#rate-limiting). Added in 1.2. |
 | `validation_error` | A field failed validation — includes an `errors` object keyed by field name, e.g. an `assignee` username or label name that does not resolve to an assignable board member/label, or an `assignee`, `labels`, `label` or `priority` argument that contains a NUL (0x00) character (refused before any lookup, #2033), or any string argument of any tool that contains an unpaired UTF-16 surrogate such as `"\ud800"` (valid JSON that PostgreSQL cannot store; refused before the tool runs, with `errors` keyed by the argument, #2085). On the legacy transport a surrogate escape written directly in the request body is refused earlier by the MCP SDK, as a JSON-RPC parse error (`-32700`, HTTP 400). Every unresolved `assignee` returns the same message, whether the username does not exist, belongs to someone with no role on the board, or belongs to a `viewer` (who cannot be assigned). |
 | `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. Returned by `move_card` and, since 1.2 (#1428), `create_card`. Neither tool overrides either — there is no `force` option over MCP. |
@@ -600,6 +600,16 @@ Clears a card's manual block. Same roles and scope as `block_card`.
 **Arguments:** `card_id` (required); `resolution` (optional, up to 500 characters): how the block was resolved.
 
 **Returns:** the updated card with `blocked_at: null` and `blocked_reason: ""`. Closes the block record (keeping its reason and duration), writes an `unblocked` activity, and broadcasts `card.updated`. Returns `card_not_blocked` if the card has no open block. A `blocks` relation to another card is a separate signal (`blocker_count`) and is not cleared.
+
+### `set_dimension_plan`
+
+> **Added in 1.3** (#2704)
+
+Replaces a card's plan for one [dimension field](../features/custom-fields.md#dimension-plans-owner-next-action-target-date), the same write as `PUT /api/v1/boards/{board_id}/cards/{id}/dimension-plans/{field_id}/`. Requires `admin` or `member` board role (a member may plan only cards they created) and the `mcp:write` scope.
+
+**Arguments:** `card_id` and `field_id` (required); `owner_id` (optional): the user id of an assignable board member; `next_action` (optional, up to 200 characters); `target_date` (optional, `YYYY-MM-DD`). A full replace: an omitted argument is cleared, and all three empty removes the plan.
+
+**Returns:** the updated card, with the plan in `dimension_plans`. Each changed part of the plan is recorded in the card's history ([dimension plan edits](cards.md#card-activity-dimension-plan-edits-since-13)), `version` is bumped and `card.updated` is broadcast. Returns `object_not_found` when `field_id` is not a dimension field on the card's board, and `validation_error` (naming `owner_id`, `next_action` or `target_date`) for an owner who is not an assignable member, an over-long next action or a malformed date.
 
 ### `archive_card`
 

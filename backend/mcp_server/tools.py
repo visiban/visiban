@@ -1196,6 +1196,48 @@ def block_card(*, card_id, reason):
         return _error_payload(exc)
 
 
+def set_dimension_plan(*, card_id, field_id, owner_id=None, next_action="", target_date=None):
+    """Replace a card's plan for one dimension (#2704).
+
+    The same serializer and service as ``PUT .../cards/{id}/dimension-plans/
+    {field_id}/`` (#1922): the role and ownership gate, owner scoped to the
+    board's assignable members, the history rows (#2703), the version bump and
+    the ``card.updated`` frame. A full replace: an omitted argument is cleared,
+    and all three empty removes the plan. A field that is not a dimension on
+    the card's board is ``not_found``, never another board's field.
+    """
+    from boards.models import CustomFieldDefinition  # noqa: PLC0415
+    from boards.serializers import DimensionPlanWriteSerializer  # noqa: PLC0415
+
+    user = get_current_user()
+    try:
+        board, role, _card = _resolve_board_for_card(user, card_id)
+        role = card_services.require_mutation_role(actor=user, board=board, role=role)
+        field = CustomFieldDefinition.objects.filter(
+            pk=field_id, board=board, is_dimension=True,
+        ).first()
+        if field is None:
+            raise card_services.ObjectNotFound()
+        submitted = {"next_action": next_action or ""}
+        if owner_id is not None:
+            submitted["owner_id"] = owner_id
+        if target_date is not None:
+            submitted["target_date"] = target_date
+        body = DimensionPlanWriteSerializer(data=submitted, context={"board": board})
+        body.is_valid(raise_exception=True)
+        render = _BroadcastRender(board)
+        card_services.set_dimension_plan(
+            actor=user, board=board, role=role, card_id=card_id, field=field,
+            owner=body.validated_data.get("owner"),
+            next_action=body.validated_data.get("next_action", ""),
+            target_date=body.validated_data.get("target_date"),
+            render=render.card,
+        )
+        return render.tool_card
+    except (CardServiceError, ValidationFailed, _DRFValidationError) as exc:
+        return _error_payload(exc)
+
+
 def unblock_card(*, card_id, resolution=None):
     """Clear a card's manual block, with an optional resolution (#1149)."""
     user = get_current_user()
