@@ -6707,6 +6707,11 @@ deleted) carry no actor.</p>
 <td><code>planned_due_dates</code> (child data) and <code>needed_not_started</code> (names parent-board columns) are present only for a viewer who can open the child board; a viewer without access, and an absent or anonymous one, gets the count-only <code>{visible: false, total}</code> with neither key, failing closed. Tests: <code>test_planned_children_2549.py</code> <code>PlannedRollupTests.test_hidden_child_board_gets_the_count_only</code> and <code>test_absent_viewer_fails_closed_without_planned_keys</code></td>
 </tr>
 <tr>
+<td>Reads: Children mode (#2370)</td>
+<td><code>children_view.children_view_for_viewer</code> (REST <code>GET /boards/{id}/children-view/</code>)</td>
+<td><code>planned</code> and <code>planned_only</code> (rows, lanes, <code>board_total</code>) and each child's <code>planned</code> are computed only for rows whose child board the viewer can open (<code>get_board_roles</code> on every call); a locked row gets <code>planned: null</code> and <code>planned_only: false</code>, its children reach no lane or board count, an absent or anonymous viewer gets every row locked, failing closed, and share links carry none of it. Tests: <code>test_children_view_2370.py</code> <code>ChildrenViewPlannedTests.test_planned_children_on_a_hidden_board_never_reach_any_count</code> and <code>ChildrenViewAccessTests.test_absent_viewer_fails_closed</code></td>
+</tr>
+<tr>
 <td>History / activity feed</td>
 <td><code>CardActivitySerializer</code> (<code>GET .../cards/{id}/activity/</code>)</td>
 <td><code>planned_released</code> and <code>needed_changed</code> rows carry only a cause code (<code>parent_reached</code>, <code>pulled</code>, <code>created</code>, <code>manual</code>, <code>column_deleted</code>) and <code>planned</code>/<code>now</code> or the due date; no parent, board, column or person, except the actor of a manual or create write made on the child board itself</td>

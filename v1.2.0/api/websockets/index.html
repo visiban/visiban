@@ -5443,7 +5443,7 @@ written is absent from that row on every later read (#1677).</p>
 </tr>
 <tr>
 <td><code>card.children_changed</code></td>
-<td>Since 1.3 (#1104): a child was linked to or unlinked from a parent card on this board (including a child moved off its board in the Django admin), deleted, or (since #2210) moved to another column, archived or restored, blocked or unblocked, or gained or lost an open <code>blocks</code> relation (including by its blocker being archived, restored or deleted). Since #2500 a Django-admin card edit that changes a child's column or archived state sends it too. Sent on the <strong>parent's</strong> board only, one per parent</td>
+<td>Since 1.3 (#1104): a child was linked to or unlinked from a parent card on this board (including a child moved off its board in the Django admin), deleted, or (since #2210) moved to another column, archived or restored, blocked or unblocked, or gained or lost an open <code>blocks</code> relation (including by its blocker being archived, restored or deleted). Since #2370 a child's Needed being changed by hand (<code>POST .../cards/{id}/needed/</code>) sends it too. Since #2500 a Django-admin card edit that changes a child's column or archived state sends it too. Sent on the <strong>parent's</strong> board only, one per parent</td>
 <td><code>{ "parent_id": &lt;int&gt; }</code>, ids only. Refetch the parent card (<code>GET .../cards/{parent_id}/</code>, whose <a href="../cards/#children_rollup-since-13"><code>children_rollup</code></a> is computed for the reader) or <a href="../cards/#parent-and-children-since-13"><code>GET .../cards/{parent_id}/children/</code></a>. It never carries a count, state, title or board from the child board</td>
 </tr>
 <tr>

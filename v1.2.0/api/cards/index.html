@@ -6357,8 +6357,8 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </tr>
 <tr>
 <td><code>swimlane_id</code></td>
-<td>✓</td>
-<td>ID of the destination swimlane (must belong to this board)</td>
+<td></td>
+<td>ID of the destination swimlane (must belong to this board). <em>Optional since 1.3</em> (#2370): omitted or <code>null</code> keeps the card in its current swimlane, read under the move's lock, so a column-only move cannot put back a lane another user just changed. Earlier releases required it and answered <code>404</code> without it.</td>
 </tr>
 <tr>
 <td><code>position</code></td>
@@ -7440,6 +7440,8 @@ plans the child again. <code>200</code> returns
   Every refusal is <code>400</code> keyed <code>needed_at_column</code> and names no column.</li>
 <li>A card with no parent, or a missing key, is <code>400</code>. The card's due date is
   kept. A change records a <code>needed_changed</code> history row; a no-op records none.</li>
+<li><strong>Events:</strong> a change sends <code>card.parent_changed</code> <code>{card_ids}</code> on this card's board and, since #2370,
+  <code>card.children_changed</code> <code>{parent_id}</code> on the parent's board. A no-op sends neither.</li>
 </ul>
 <h4 id="planned-children-since-13">Planned children (since 1.3)<a class="headerlink" href="#planned-children-since-13" title="Permanent link">&para;</a></h4>
 <p>On the reads that carry <code>parent</code> (<code>/full/</code>, the card list, retrieve and
