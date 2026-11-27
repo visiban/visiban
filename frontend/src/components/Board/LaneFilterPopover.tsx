@@ -189,7 +189,9 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
       const existing = items.flatMap((it) => (it.kind === "rule" ? [it] : it.rules)).find((r) => r.field === want);
       if (existing) { setFocusTarget({ kind: "row", id: existing.id }); return; }
       if (canAdd) {
-        const r: LaneRule = { ...newRule("and"), field: want };
+        // The first operator of the field's own type: "is" is never valid on a number or date (isRuleComplete).
+        const wantType = fieldsById.get(want)?.field_type as RuleFieldType | undefined;
+        const r: LaneRule = { ...newRule("and"), field: want, op: wantType ? opsForFieldType(wantType)[0] : "is" };
         commit([...items, r]);
         setFocusTarget({ kind: "row", id: r.id });
         return;

@@ -669,9 +669,9 @@ describe('FilterPanel search (#2437)', () => {
   const searchBoard = (role: string | null = 'admin') => makeBoard({
     current_user_role: (role ?? undefined) as never,
     cards: [
-      { id: 1, custom_field_values: [cv(7, 'EMEA')] },
-      { id: 2, custom_field_values: [cv(7, 'EMEA')] },
-      { id: 3, custom_field_values: [cv(7, 'APAC')] },
+      { id: 1, title: '', description: '', assignee: null, labels: [], custom_field_values: [cv(7, 'EMEA')] },
+      { id: 2, title: '', description: '', assignee: null, labels: [], custom_field_values: [cv(7, 'EMEA')] },
+      { id: 3, title: '', description: '', assignee: null, labels: [], custom_field_values: [cv(7, 'APAC')] },
     ] as never,
     swimlanes: [
       { id: 1, name: 'Acme', custom_field_values: [cv(50, 'gold'), cv(51, 'hunter2')] },
@@ -788,6 +788,27 @@ describe('FilterPanel search (#2437)', () => {
       await u.clear(box())
       await u.type(box(), 'region')
       expect(screen.getByText('Dropdown')).toBeInTheDocument()
+    })
+
+    it('a checked checkbox lane rule reads Yes', async () => {
+      const u = userEvent.setup()
+      const filters = { ...EMPTY_FILTER, laneFilter: { items: [{ kind: 'rule', id: 1, join: 'and', field: 52, op: 'is', value: 'true' }] } } as unknown as FilterState
+      setup({ board: boardWith(), filters })
+      await open(u)
+      await u.type(box(), 'approved')
+      const row = screen.getByRole('button', { name: /Swimlane.*Approved lane/ })
+      expect(row).toHaveTextContent('Yes')
+      expect(row).not.toHaveTextContent('true')
+    })
+
+    it('the Title contains count uses the applied search predicate (description matches count)', async () => {
+      const u = userEvent.setup()
+      const b = boardWith() as unknown as { cards: Record<string, unknown>[] }
+      const board = { ...b, cards: [b.cards[0], b.cards[1], { ...b.cards[2], title: 'Other', description: 'about pricing' }] } as never
+      setup({ board })
+      await open(u)
+      await u.type(box(), 'pri')
+      expect(screen.getByRole('button', { name: /Title contains/ })).toHaveTextContent('3 cards')
     })
 
     it('selecting a lane field row opens that field and Enter on a name hit passes it too', async () => {

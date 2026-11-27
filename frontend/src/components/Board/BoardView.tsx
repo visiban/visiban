@@ -2593,7 +2593,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const openLaneFilters = useCallback((fieldId?: LaneFieldKey) => {
     setLanePreselect(typeof fieldId === "number" || typeof fieldId === "string" ? fieldId : null);
     setShowFilters(true);
-    setTimeout(() => lanesTriggerRef.current?.click(), 0);
+    setTimeout(() => {
+      lanesTriggerRef.current?.click();
+      // The request lives for one open attempt: a missing trigger or a no-op click must not leave it for the next plain Lanes open.
+      setLanePreselect(null);
+    }, 0);
   }, []);
 
   effectiveFiltersRef.current = effectiveFilters;
