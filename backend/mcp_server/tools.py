@@ -1072,9 +1072,8 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, ve
     """Move a card to a new column, swimlane, and/or position.
 
     At least one of ``to_column_id``/``to_swimlane_id`` is required; the other
-    defaults to the card's current value, matching how a client that only
-    wants to reorder within its current column calls the REST move endpoint
-    with an unchanged column/swimlane id.
+    keeps the value the card has when the move runs, not one this tool read
+    earlier: the service resolves it under its own lock (#2370, #2657).
 
     WIP/weight limits are enforced exactly as they are over REST, with no
     override: this tool never exposes ``force``, so a blocked move always
@@ -1104,14 +1103,15 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, ve
             "to_column_id": ["At least one of to_column_id or to_swimlane_id is required."],
         }))
     try:
-        board, role, card = _resolve_board_for_card(user, card_id)
-        target_column_id = to_column_id if to_column_id is not None else card.column_id
+        board, role, _card = _resolve_board_for_card(user, card_id)
         render = _BroadcastRender(board)
         result = card_services.move_card(
             actor=user, board=board, role=role, card_id=card_id,
-            target_column_id=target_column_id,
-            # Passed through: on None the service keeps the lane the card is in
-            # at move time, not one this tool read earlier (#2370).
+            # An omitted end is left to the service, which keeps the column
+            # (#2657) or lane (#2370) the card is in at move time.
+            target_column_id=(
+                to_column_id if to_column_id is not None else card_services.KEEP_COLUMN
+            ),
             target_swimlane_id=to_swimlane_id,
             position=position if position is not None else 0,
             render=render.moved, expected_version=version, gates_passed=gates_passed,

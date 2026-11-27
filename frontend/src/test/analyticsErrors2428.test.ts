@@ -46,6 +46,30 @@ describe('analyticsErrorKind (#2428)', () => {
   })
 })
 
+describe('analytics_timeout (#2645)', () => {
+  const timeout = refusal(503, 'analytics_timeout')
+
+  it('matches status 503 with the code, and ranks between too_large and busy', () => {
+    expect(analyticsErrorKind(timeout)).toBe('timeout')
+    expect(analyticsErrorKind(refusal(422, 'analytics_timeout'))).toBe('other')
+    expect(worstAnalyticsErrorKind([busy(), timeout])).toBe('timeout')
+    expect(worstAnalyticsErrorKind([timeout, tooLarge])).toBe('too_large')
+  })
+
+  it('has per-surface copy and is not retryable', () => {
+    expect(analyticsErrorMessage('timeout')).toBe(
+      'This took longer than the server allows. Try a shorter period, or ask your administrator.',
+    )
+    expect(analyticsErrorMessage('timeout', { wholeHistory: true })).toBe(
+      "This took longer than the server allows, so these cards can't be listed here. Ask your administrator.",
+    )
+    expect(analyticsErrorMessage('timeout', { noPeriod: true })).toBe(
+      'This took longer than the server allows. Ask your administrator.',
+    )
+    expect(analyticsErrorRetryable('timeout')).toBe(false)
+  })
+})
+
 describe('retryAfterDelayMs', () => {
   it('reads Retry-After in seconds, clamped to 1-60 s, with a default', () => {
     expect(retryAfterDelayMs(busy('10'), 5_000)).toBe(10_000)

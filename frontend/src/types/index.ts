@@ -3213,5 +3213,8 @@ export interface DefaultChildBoardOptions {
   boards_total?: number;
 }
 
-/** The analytics limits' refusal codes (#2428): 503 `analytics_busy`, 422 `analytics_too_large`. */
-export type AnalyticsErrorCode = "analytics_busy" | "analytics_too_large";
+/**
+ * The analytics limits' refusal codes: 503 `analytics_busy` and 422 `analytics_too_large` (#2428),
+ * and 503 `analytics_timeout` for a request that ran past the server's time limit (#2645).
+ */
+export type AnalyticsErrorCode = "analytics_busy" | "analytics_timeout" | "analytics_too_large";

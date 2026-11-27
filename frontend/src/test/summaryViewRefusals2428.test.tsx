@@ -26,6 +26,14 @@ describe('the Summary tab and the analytics limits (#2428)', () => {
     expect(summaryMock).toHaveBeenCalledTimes(1)
   })
 
+  it('explains a timed-out request with no period advice and no Retry (#2645)', async () => {
+    summaryMock.mockRejectedValue({ response: { status: 503, data: { code: 'analytics_timeout', detail: 'x' } } })
+    render(<SummaryView boardId={1} columns={[]} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('This took longer than the server allows. Ask your administrator.')
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(summaryMock).toHaveBeenCalledTimes(1)
+  })
+
   it('retries a busy server once, then explains it with a Retry that refetches', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     summaryMock.mockRejectedValueOnce(busy).mockRejectedValueOnce(busy).mockRejectedValueOnce(new Error('no'))

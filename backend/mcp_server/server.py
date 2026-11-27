@@ -604,7 +604,9 @@ def build_mcp_server():
         name="move_card",
         description=(
             "Move a card to a new column and/or swimlane and/or position. At least one of "
-            "to_column_id/to_swimlane_id is required. Enforces column and swimlane "
+            "to_column_id/to_swimlane_id is required; an omitted one means keep the card's current "
+            "column/lane as of the move itself (resolved under the move lock, so a concurrent change is "
+            "never written back). Enforces column and swimlane "
             "WIP/weight limits with no override, and a column's entry requirements: a forward move that "
             "leaves Block or Hard requirements unmet returns entry_requirements_unmet (Block acts as Hard "
             "over MCP). Optional version (the card's version from a prior read) rejects the "

@@ -45,6 +45,17 @@ class ColumnOnlyMoveKeepsCurrentLaneTests(PlannedFixture):
         self.child.refresh_from_db()
         self.assertEqual(self.child.swimlane_id, self.clane.pk)
 
+    def test_rest_move_without_column_id_is_still_404(self):
+        # "Keep the column" (#2657) is the service's sentinel, not an omitted REST field.
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            r = client_for(self.maya).post(
+                f"/api/v1/boards/{self.cboard.pk}/cards/{self.child.pk}/move/",
+                {"swimlane_id": self.other_lane.pk, "position": 0}, format="json",
+            )
+        self.assertEqual(r.status_code, 404, r.content)
+        self.child.refresh_from_db()
+        self.assertEqual(self.child.swimlane_id, self.clane.pk)
+
     def test_a_lane_on_another_board_is_still_404(self):
         with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
             r = client_for(self.maya).post(

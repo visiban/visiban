@@ -1046,6 +1046,76 @@ class MoveCardTests(CrudToolsTestCase):
             (self.other_swimlane.id, self.other_swimlane.id),
         )
 
+    def test_omitted_column_keeps_the_column_another_user_set(self):
+        from unittest.mock import patch
+
+        from boards.services import cards as card_services
+
+        card = _make_card(self.column, self.swimlane, title="Recolumned")
+        real_move = card_services.move_card
+
+        def move_after_another_user_recolumns(**kwargs):
+            # Lands after the tool read the card and before the service does.
+            Card.objects.filter(pk=card.pk).update(column=self.other_column)
+            return real_move(**kwargs)
+
+        with patch.object(card_services, "move_card", side_effect=move_after_another_user_recolumns):
+            result = self._call(
+                "move_card", self.write_token, card_id=card.id,
+                to_swimlane_id=self.other_swimlane.id,
+            )
+        self.assertNotIn("error", result, result)
+        card.refresh_from_db()
+        self.assertEqual(
+            (card.column_id, card.swimlane_id), (self.other_column.id, self.other_swimlane.id),
+        )
+        movement = CardMovement.objects.filter(card=card).latest("moved_at")
+        self.assertEqual(
+            (movement.from_column_id, movement.to_column_id),
+            (self.other_column.id, self.other_column.id),
+        )
+
+    def test_column_changed_between_read_and_lock_is_retried_not_written_back(self):
+        from unittest.mock import patch
+
+        from boards.services import cards as card_services
+
+        card = _make_card(self.column, self.swimlane, title="Raced")
+        real_lock = card_services._lock_move_cells
+        real_read = card_services._read_card_for_move
+        calls = []
+
+        def recolumn():
+            Card.objects.filter(pk=card.pk).update(column=self.other_column)
+
+        def lock_after_another_user_recolumns(**kwargs):
+            # The first attempt has already resolved the kept column.
+            if not calls:
+                recolumn()
+            calls.append(1)
+            return real_lock(**kwargs)
+
+        def read(*args):
+            # The retry rolled the first attempt back, which on this one
+            # connection also undid the other user's write: apply it again.
+            if len(calls) == 1:
+                recolumn()
+            return real_read(*args)
+
+        with patch.object(
+            card_services, "_lock_move_cells", side_effect=lock_after_another_user_recolumns,
+        ), patch.object(card_services, "_read_card_for_move", side_effect=read):
+            result = self._call(
+                "move_card", self.write_token, card_id=card.id,
+                to_swimlane_id=self.other_swimlane.id,
+            )
+        self.assertNotIn("error", result, result)
+        self.assertEqual(len(calls), 2)
+        card.refresh_from_db()
+        self.assertEqual(
+            (card.column_id, card.swimlane_id), (self.other_column.id, self.other_swimlane.id),
+        )
+
     def test_neither_target_given_is_a_validation_error(self):
         card = _make_card(self.column, self.swimlane, title="Stuck")
         result = self._call("move_card", self.write_token, card_id=card.id)
