@@ -260,5 +260,7 @@ class DimensionPlanExportImportTests2704(_Base):
         self.assertEqual(self._import(data), [])
         data["cards"][0]["dimension_plans"] = {"Security": {"next_action": "", "target_date": "bad"}}
         self.assertEqual(self._import(data), [])
+        data["cards"][0]["dimension_plans"] = {"Security": {"next_action": "a\x00b"}}
+        self.assertEqual(self._import(data), [])
         data["cards"][0]["dimension_plans"] = "junk"
         self.assertEqual(self._import(data), [])

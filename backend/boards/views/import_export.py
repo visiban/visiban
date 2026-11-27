@@ -2259,7 +2259,7 @@ def _imported_dimension_plans(raw, definitions_by_name, user_map):
         if not isinstance(action, str):
             continue
         action = action.strip()
-        if len(action) > CardDimensionPlan.NEXT_ACTION_MAX_LENGTH:
+        if "\x00" in action or len(action) > CardDimensionPlan.NEXT_ACTION_MAX_LENGTH:
             continue
         owner_name = plan.get("owner")
         owner = user_map.get(owner_name.lower()) if isinstance(owner_name, str) and owner_name else None
