@@ -3612,10 +3612,12 @@ script-tests:
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/osv-severity-gate.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/pre-tool-safety.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/post-edit-checks.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/setup-hooks-check.test.sh
     # pre-tool-agent-budget.sh is a Claude Code PreToolUse hook, not a CI gate (macrodream/blueprint#352, #2564).
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/pre-tool-agent-budget.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/resolve-docs-version.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/wt-doctor-drift.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/wt-hooks-check.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/ci-interruptible.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/refresh_test_durations.test.sh
     # Upgrade-drill and PG-matrix helpers (#2463).

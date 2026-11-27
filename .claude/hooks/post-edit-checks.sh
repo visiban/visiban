@@ -51,7 +51,7 @@ if (re.search(r"frontend/src/", file_path)
         and re.search(r"\.(ts|tsx)$", file_path)
         and "/test/" not in file_path):
     messages.append(
-        "📋 Frontend source edited — run `cd frontend && npx tsc --noEmit` before committing\n"
+        "📋 Frontend source edited — run `cd frontend && npx tsc -p tsconfig.app.json --noEmit` before committing\n"
         "   to catch stale test fixtures and type drift."
     )
 
