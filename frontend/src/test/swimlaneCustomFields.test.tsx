@@ -1717,6 +1717,9 @@ describe('BoardSettingsSwimlaneFieldsTab tiers (#2439)', () => {
     const { rerender } = render(tab(3))
     expect(screen.getByTestId('swimlane-band-counter')).toHaveTextContent('4 / 6 · 3 fit on this screen')
     expect(screen.getByText(helper)).toBeInTheDocument()
+    // The preview moves the same fields into "Show N more" as the lane does.
+    expect(screen.getByTestId('swimlane-tier-preview')).toHaveTextContent('Show 1 more')
+    expect(screen.getByTestId('swimlane-tier-preview')).toHaveTextContent('Details: F3')
     for (const slots of [4, undefined]) {
       rerender(tab(slots))
       expect(screen.getByTestId('swimlane-band-counter')).toHaveTextContent(/^4 \/ 6$/)

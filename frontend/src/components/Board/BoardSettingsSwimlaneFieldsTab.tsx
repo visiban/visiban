@@ -621,7 +621,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           <p className="mt-1 text-xs text-fg-muted">
             Hidden fields are left off the band and out of the details count. They are listed last in the lane details, under Hidden on band, and stay in filters and exports. Admin-only fields stay visible to admins only.
           </p>
-          <TierPreview board={board} fields={fields} tierOf={tierOf} />
+          <TierPreview board={board} fields={fields} tierOf={tierOf} bandSlots={bandSlots} />
         </>
       )}
 
@@ -749,15 +749,17 @@ function TierControl({ def, tier, blockedReason, onChange }: {
 }
 
 /** A live band built from the current settings (#2439): the name, the Band fields and "Show N more". */
-function TierPreview({ board, fields, tierOf }: {
-  board: BoardFull; fields: SwimlaneCustomFieldDefinition[]; tierOf: (f: SwimlaneCustomFieldDefinition) => LaneTier;
+function TierPreview({ board, fields, tierOf, bandSlots = BAND_MAX_COUNT }: {
+  board: BoardFull; fields: SwimlaneCustomFieldDefinition[]; tierOf: (f: SwimlaneCustomFieldDefinition) => LaneTier; bandSlots?: number;
 }) {
   const lane = board.swimlanes?.[0];
   const values = new Map((lane?.custom_field_values ?? []).map((v) => [v.field_definition, v.value]));
-  const band = fields.filter((f) => tierOf(f) === "band");
+  const onBand = fields.filter((f) => tierOf(f) === "band");
+  // #2663: as on the lane, fields past this screen's slots count in "Show N more".
+  const band = onBand.slice(0, bandSlots);
   const details = fields.filter((f) => tierOf(f) === "details");
   const hidden = fields.filter((f) => tierOf(f) === "hidden");
-  const more = details.length + hidden.length;
+  const more = onBand.length - band.length + details.length + hidden.length;
   return (
     <div className="mt-3" data-testid="swimlane-tier-preview">
       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1">Preview</p>
@@ -767,12 +769,12 @@ function TierPreview({ board, fields, tierOf }: {
           const v = values.get(f.id);
           // The band's own renderer, so a multi-select, date or number shows as it will on the lane.
           return v
-            ? <CustomFieldValueDisplay key={f.id} definition={f} value={v} variant="band" adminOnly={f.is_admin_only} />
+            ? <CustomFieldValueDisplay key={f.id} definition={f} value={v} variant="band" adminOnly={f.is_admin_only} singleLine />
             : <span key={f.id} className="text-fg-secondary">{f.name} <span className="text-fg font-medium">—</span></span>;
         })}
         {more > 0 && <span className="text-xs text-fg-secondary">Show {more} more</span>}
       </div>
-      <p className="mt-1 text-xs text-fg-muted">Details: {details.length ? details.map((f) => f.name).join(", ") : "none"}</p>
+      <p className="mt-1 text-xs text-fg-muted">Details: {more > hidden.length ? [...onBand.slice(band.length), ...details].map((f) => f.name).join(", ") : "none"}</p>
       <p className="text-xs text-fg-muted">Hidden on band: {hidden.length ? hidden.map((f) => f.name).join(", ") : "none"}</p>
     </div>
   );

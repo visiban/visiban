@@ -584,7 +584,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           {noMatch && <span className="text-sm text-fg-tertiary whitespace-nowrap" data-testid="swimlane-no-match">No matching cards</span>}
           {/* board-states.png: the no-match band is the name and "No matching cards" only, so the stats go. */}
           {!noMatch && (
-          <div className={`flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold ${tiers ? "shrink-0" : ""}`} data-testid="swimlane-band-stats">
+          <div className={`flex flex-wrap items-center justify-end gap-x-3 text-sm font-semibold ${tiers ? "shrink-0 max-w-full" : ""}`} data-testid="swimlane-band-stats">
             {overdueCount > 0 && <span className="text-danger-on-tint whitespace-nowrap" data-testid="swimlane-overdue-count">{overdueCount} {STATUS_LABEL.overdue}</span>}
             {staleCount > 0 && <span className="text-warning-on-tint whitespace-nowrap" data-testid="swimlane-stale-count">{staleCount} {STATUS_LABEL.stale}</span>}
             {limit !== null && (
