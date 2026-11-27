@@ -1655,6 +1655,13 @@ def update_card(
 # move
 # ---------------------------------------------------------------------------
 
+# ``move_card``'s ``target_column_id`` for "leave the card in its column"
+# (#2657). A sentinel object rather than ``None`` on purpose: the REST adapter
+# passes its raw body value, and a REST move without ``column_id`` must keep
+# answering 404. No request body can produce this object.
+KEEP_COLUMN = object()
+
+
 def move_card(
     *, actor, board, card_id, target_column_id, target_swimlane_id, position,
     render, expected_version=None, force=False, role=None, gates_passed=None,
@@ -1725,6 +1732,11 @@ def move_card(
     wherever it was put, and tidying archived history is a legitimate operation.
     A guard here would be a behavior change rather than a tightening —
     ``test_archived_cards_can_still_be_moved`` pins it.
+
+    ``target_swimlane_id=None`` keeps the card's lane (#2370) and
+    ``target_column_id=KEEP_COLUMN`` keeps its column (#2657). Both are
+    resolved inside each locked attempt, so a caller that only means to change
+    one of the two never writes back a stale copy of the other.
     """
     role = _resolve_role(actor, board, role)
     _require_mutation_role(role)
@@ -2392,7 +2404,13 @@ def _move_card_attempt(
         # column's sub-columns are read under its lock.
         gates_passed = _coerce_gates_passed(gates_passed)
 
-        target_column = _board_scoped(Column, target_column_id, board, ColumnNotFound)
+        # KEEP_COLUMN (#2657) resolves like the omitted lane below: from this
+        # read, never the caller's, with a change before the lock retried.
+        target_column = _board_scoped(
+            Column,
+            card.column_id if target_column_id is KEEP_COLUMN else target_column_id,
+            board, ColumnNotFound,
+        )
         if target_swimlane_id is None:
             # Omitted (since 1.3, #2370): the card stays in its lane. Taken
             # from this read, not the caller's copy, so a column-only move
