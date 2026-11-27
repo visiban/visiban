@@ -348,6 +348,11 @@ def _self_test_fetch() -> None:
         else:
             raise AssertionError("redirect was followed")
         assert seen["b"] == [], seen["b"]
+        # Env proxies are read when the opener is built (at import), so the dead proxy set above
+        # cannot prove this. An empty ProxyHandler({}) registers no <scheme>_open methods, so it
+        # never lands in .handlers; the default env-driven one (with http_open) does.
+        proxied = [h for h in _LOOPBACK_OPENER.handlers if isinstance(h, urllib.request.ProxyHandler)]
+        assert proxied == [], proxied
         assert seen["a"] == ["Token tok"], seen["a"]  # reached A directly, not via the proxy
 
         # _load_schema must hand _fetch_json the rebuilt URL, not the raw argument.
