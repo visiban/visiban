@@ -596,8 +596,11 @@ a swimlane-only move, a sub-column move or a weight update. The column's
 
 - `warn`: the write succeeds, and the `200`/`201` body gains an additive
   `entry_unmet` list (the same item shape as below). The movement stores it
-  (`CardMovement.entry_unmet`), but the API does not return it on movement
-  history yet (tracked in #2655). The key is absent when everything was met.
+  (`CardMovement.entry_unmet`), and since 1.3 (#2655) every movement read
+  returns it as `entry_unmet`: card and board movement history, the move
+  response's `movement`, a timeline `move` entry's `data`, the JSON export and
+  the MCP movement objects. It is `null` on a movement that recorded nothing.
+  The key is absent from the `200`/`201` body when everything was met.
 - `block`: `409`, unless an eligible actor (as for a soft WIP limit) retries
   with `?force=true` **and** an `override_reason`. A missing reason is
   `400 override_reason_required`, whoever the actor is.
@@ -890,7 +893,7 @@ One integer per `event_types` group, always every key (`gate` was added in 1.3 b
 | `actor` | object / null | User who triggered the event — `{ id, username, display_name, avatar_url }`. `null` for system-generated events |
 | `event_type` | string | Concrete event type (see group mapping table above). For `kind: "move"` entries this is the `movement_type` value (e.g. `"move"`, `"archived"`, `"unarchived"`) |
 | `imported_from_username` | string / null | *Since 1.2.* The underlying record's `imported_from_username` — `null` unless it came from a board import with history |
-| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (`from_gates_passed`, `from_gates_open`, `to_gates_passed`). `gate` entries carry the gate transition's REST shape (see [Gate entries](#timeline-gate-entries)). `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the activity's `item_text`: the field's name on `custom_field_changed`, #1921; `null` on entries recorded before 1.3), and since 1.3 `override_used` entries carry `item_text` (the reason) and `assigned_by` (#2594: the activity's `assigned_by` user object, `null` when there is none). |
+| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (`from_gates_passed`, `from_gates_open`, `to_gates_passed`) and the Warn record `entry_unmet` (#2655, `null` when nothing was unmet). `gate` entries carry the gate transition's REST shape (see [Gate entries](#timeline-gate-entries)). `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the activity's `item_text`: the field's name on `custom_field_changed`, #1921; `null` on entries recorded before 1.3), and since 1.3 `override_used` entries carry `item_text` (the reason) and `assigned_by` (#2594: the activity's `assigned_by` user object, `null` when there is none). |
 
 **Errors**
 
@@ -1723,6 +1726,7 @@ On an in-stage move the body has no `movement` key. Leaving a stage with gates o
 - Column: `sub_columns` (`[{id, uid, position, name}]`, `[]` on a plain column) and `tracks` (`[{id, field_id, field_uid, name, position}]`). Both are read-only on the column endpoints and are included on the public share view.
 - Swimlane: `not_applicable_field_ids` (integer list; not on the public share view).
 - Movement: `from_gates_passed`, `from_gates_open`, `to_gates_passed` (integer or null; null where that end's column is not a gated stage). "Left with gates open" is `from_gates_open > 0`.
+- Movement (#2655): `entry_unmet`, the [Warn record](#entry-requirements-since-13-1923), a list of unmet items (`requirement_uid`, `operator`, `operand`, `field_uid`, `field_name`, `field_set_uid`, `field_set_name`) or `null`. Read-only; never a card's value.
 
 ### `PUT /api/v1/boards/{board_id}/columns/{column_id}/stage/`
 

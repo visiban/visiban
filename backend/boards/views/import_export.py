@@ -42,7 +42,7 @@ from visiban.parsers import LimitedMultiPartParser
 
 
 from ..services.entry_requirements import (
-    EntryRequirementsInvalid, _clean_operand, format_operand, operators_for,
+    EntryRequirementsInvalid, _clean_operand, format_operand, operators_for, warn_record_items,
 )
 from ..models import (
     Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
@@ -309,6 +309,10 @@ def _movement_export_entry(mv):
         "from_gates_passed": mv.from_gates_passed,
         "from_gates_open": mv.from_gates_open,
         "to_gates_passed": mv.to_gates_passed,
+        # Additive (#2655): the Warn record (#1923), null unless the card
+        # entered a ``warn`` column with unmet requirements. Informational:
+        # its uids name the source board's requirements, so import ignores it.
+        "entry_unmet": warn_record_items(mv.entry_unmet),
     }
 
 

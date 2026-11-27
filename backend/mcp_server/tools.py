@@ -60,6 +60,7 @@ from boards.serializers import (
 )
 from boards.services import cards as card_services
 from boards.services import flow_metrics
+from boards.services.entry_requirements import warn_record_items
 from boards.services.analytics_admission import AnalyticsBusy, AnalyticsTimedOut, AnalyticsTooLarge, analytics_slot
 from groups.health import build_health_map, resolve_health_origin, valid_health_status
 from boards.services.errors import (
@@ -682,6 +683,9 @@ def _serialize_movement(movement):
         # Same as the REST field (#1675): the source file's username on a row
         # created by a board import with history, null otherwise.
         "imported_from_username": movement.imported_from_username,
+        # Same as the REST field (#2655): the Warn record of an entry into a
+        # ``warn`` column with unmet entry requirements, null otherwise.
+        "entry_unmet": warn_record_items(movement.entry_unmet),
     }
 
 
@@ -1083,8 +1087,8 @@ def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0, ve
     requirements (#1923) are unmet comes back as ``entry_requirements_unmet``
     (``mode``, ``unmet``, ``also``) in Block and Hard mode; Block acts as Hard
     here because there is no override argument. Warn moves the card and
-    records the unmet list on the movement (``entry_unmet``); the tool result
-    does not carry it.
+    records the unmet list on the movement; the result's ``movement`` carries
+    it as ``entry_unmet`` (#2655), the same list the REST movement serves.
 
     ``version`` (#1974) is the REST move endpoint's optional ``version`` body
     field, passed to the same service argument, so the two agree on what

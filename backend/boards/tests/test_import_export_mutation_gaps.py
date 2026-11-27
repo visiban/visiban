@@ -2069,6 +2069,7 @@ class ExportJsonShapeTests(ExportBase):
                     "from_gates_passed": None,
                     "from_gates_open": None,
                     "to_gates_passed": None,
+                    "entry_unmet": None,
                 },
                 {
                     "from_column": "Todo",
@@ -2083,6 +2084,7 @@ class ExportJsonShapeTests(ExportBase):
                     "from_gates_passed": None,
                     "from_gates_open": None,
                     "to_gates_passed": None,
+                    "entry_unmet": None,
                 },
             ],
         )
@@ -2101,6 +2103,7 @@ class ExportJsonShapeTests(ExportBase):
                 "from_gates_passed",
                 "from_gates_open",
                 "to_gates_passed",
+                "entry_unmet",
             ],
         )
         self.assertEqual(

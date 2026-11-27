@@ -169,6 +169,30 @@ def describe(requirement):
     }
 
 
+#: The keys of one ``describe()`` item, in order: the whole public shape of an
+#: ``unmet`` item and of the stored Warn record (``CardMovement.entry_unmet``).
+UNMET_ITEM_KEYS = (
+    "requirement_uid", "operator", "operand",
+    "field_uid", "field_name", "field_set_uid", "field_set_name",
+)
+
+
+def warn_record_items(record):
+    """A movement's stored Warn record as the public list, or None (#2655).
+
+    Every reader of ``CardMovement.entry_unmet`` (REST history, the card
+    timeline, MCP, the JSON export) goes through this, so each serves the same
+    seven keys of ``describe()`` and nothing else: the record holds ids,
+    operators and names, never a card's value, and a stray key written by some
+    future path cannot leak out through a transport that copied the JSON as-is.
+    A record that is not a list of objects reads as None.
+    """
+    if not isinstance(record, list) or not record:
+        return None
+    items = [{key: item.get(key) for key in UNMET_ITEM_KEYS} for item in record if isinstance(item, dict)]
+    return items or None
+
+
 def unmet_requirements(*, column, card, swimlane_id):
     """The requirements of ``column`` that ``card`` would not meet in lane
     ``swimlane_id``, as ``describe()`` items in requirement order.

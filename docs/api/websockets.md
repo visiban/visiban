@@ -351,7 +351,7 @@ and `card.updated`, which clients could not apply.*
 
 ### `entry_unmet` on card placement events (since 1.3)
 
-`card.moved`, `card.created` and `card.unarchived` carry an additive top-level `entry_unmet` list (#1923), present only when the card entered a Warn column with an unmet [entry requirement](cards.md#entry-requirements-since-13-1923). Every other payload is unchanged. It appears in the [change feed](events.md) and in webhook deliveries.
+`card.moved`, `card.created` and `card.unarchived` carry an additive top-level `entry_unmet` list (#1923), present only when the card entered a Warn column with an unmet [entry requirement](cards.md#entry-requirements-since-13-1923). Every other payload is unchanged. It appears in the [change feed](events.md) and in webhook deliveries. Since #2655 the `card.moved` payload's `movement` object also carries the same list as `entry_unmet` (`null` when nothing was unmet), because it is the REST movement shape.
 
 ```json
 [{ "requirement_uid": "…", "operator": "filled", "operand": null, "field_uid": "…", "field_name": "Amount", "field_set_uid": null, "field_set_name": null }]

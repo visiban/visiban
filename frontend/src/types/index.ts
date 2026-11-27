@@ -1471,6 +1471,13 @@ export interface CardMovement {
   from_gates_passed?: number | null;
   from_gates_open?: number | null;
   to_gates_passed?: number | null;
+  /**
+   * #2655 — the Warn record: the entry requirements (#1923) the card did not
+   * meet when it entered a `warn` column on this move, create or restore.
+   * Ids, operators and names only, never a card's value. `null` on every
+   * other row; absent from servers older than 1.3.
+   */
+  entry_unmet?: EntryUnmetItem[] | null;
 }
 
 export type CardActivityEventType =

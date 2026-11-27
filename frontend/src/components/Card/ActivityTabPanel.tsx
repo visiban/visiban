@@ -7,7 +7,7 @@ import { userDisplayName } from "../../types";
 import { formatRelativeTime, formatDateTimeUser } from "../../utils/date";
 import type { UserDatePrefs } from "../../utils/date";
 import { historyAttribution } from "../../utils/importedHistory";
-import { activityLabel, gateTransitionLabel, overrideAssignerSuffix } from "../../utils/cardTimelineLabels";
+import { activityLabel, gateTransitionLabel, movementEntryNote, overrideAssignerSuffix } from "../../utils/cardTimelineLabels";
 import ActiveMark from "../Common/ActiveMark";
 import { HISTORY_PAGE_LIMIT } from "./cardDetailTabMemory";
 
@@ -464,6 +464,10 @@ export default function ActivityTabPanel({
                         {/* #1102: the gate position recorded on the move (warn and record only). */}
                         {movementGateNote(m) && (
                           <span data-testid="history-gate-note" className="text-xs text-fg-tertiary ml-1">· {movementGateNote(m)}</span>
+                        )}
+                        {/* #2655: the Warn record, a move into a warn column with unmet entry requirements. */}
+                        {movementEntryNote(m) && (
+                          <span data-testid="history-entry-note" className="text-xs text-warning-on-tint ml-1">· {movementEntryNote(m)}</span>
                         )}
                       </span>
                       {attribution && (

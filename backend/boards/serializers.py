@@ -2948,6 +2948,35 @@ class _MovementCardField(serializers.CharField):
         return getattr(movement, f"card_{self._card_attr}")
 
 
+class EntryUnmetItemSerializer(serializers.Serializer):
+    """One unmet entry requirement (#1923): ids, operator, operand and names,
+    never a card's value. The shape of a 409's ``unmet``, a Warn write's
+    ``entry_unmet`` and a movement's stored Warn record (#2655). Read-only."""
+
+    requirement_uid = serializers.CharField(read_only=True)
+    operator = serializers.CharField(read_only=True)
+    operand = serializers.CharField(read_only=True, allow_null=True)
+    field_uid = serializers.CharField(read_only=True, allow_null=True)
+    field_name = serializers.CharField(read_only=True, allow_null=True)
+    field_set_uid = serializers.CharField(read_only=True, allow_null=True)
+    field_set_name = serializers.CharField(read_only=True, allow_null=True)
+
+
+@extend_schema_field(EntryUnmetItemSerializer(many=True, allow_null=True))
+class _MovementEntryUnmetField(serializers.Field):
+    """``CardMovement.entry_unmet`` through ``warn_record_items`` (#2655), so
+    the REST read serves exactly the documented keys. DRF skips
+    ``to_representation`` for a NULL column, which reads as null."""
+
+    def __init__(self, **kwargs):
+        super().__init__(read_only=True, allow_null=True, **kwargs)
+
+    def to_representation(self, value):
+        from .services.entry_requirements import warn_record_items
+
+        return warn_record_items(value)
+
+
 class CardMovementSerializer(serializers.ModelSerializer):
     # allow_null=True (#1108): moved_by is a SET_NULL FK — a movement made by
     # a since-deleted user must still serialize, and the schema must document
@@ -2966,6 +2995,7 @@ class CardMovementSerializer(serializers.ModelSerializer):
     # unchanged.
     card_uid = _MovementCardField("uid")
     card_title = _MovementCardField("title")
+    entry_unmet = _MovementEntryUnmetField()
 
     class Meta:
         model = CardMovement
@@ -2983,9 +3013,14 @@ class CardMovementSerializer(serializers.ModelSerializer):
             # Additive (#1102): gate position at each end, null where that
             # column is not a gated stage. Left with gates open = from_gates_open > 0.
             "from_gates_passed", "from_gates_open", "to_gates_passed",
+            # Additive (#2655): the Warn record of a move, create or restore
+            # into a ``warn`` column with unmet entry requirements (#1923);
+            # null on every other row. Ids, operators and names, never values.
+            "entry_unmet",
         ]
         read_only_fields = [
             "imported_from_username", "from_gates_passed", "from_gates_open", "to_gates_passed",
+            "entry_unmet",
         ]
 
 

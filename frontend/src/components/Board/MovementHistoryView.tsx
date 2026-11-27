@@ -8,6 +8,7 @@ import { formatDateTimeUser } from "../../utils/date";
 import { shouldIgnoreShortcut } from "../../utils/keyboard";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { movementGateNote } from "../../utils/stages";
+import { movementEntryNote } from "../../utils/cardTimelineLabels";
 import { importedNote } from "../../utils/importedHistory";
 import type { UserDatePrefs } from "../../utils/date";
 import ActiveMark from "../Common/ActiveMark";
@@ -515,6 +516,10 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
                               {/* #1102: the gate position recorded on the move (warn and record only). */}
                               {movementGateNote(m) && (
                                 <span data-testid="history-gate-note" className="text-xs text-fg-tertiary ml-1">· {movementGateNote(m)}</span>
+                              )}
+                              {/* #2655: the Warn record, a move into a warn column with unmet entry requirements. */}
+                              {movementEntryNote(m) && (
+                                <span data-testid="history-entry-note" className="text-xs text-warning-on-tint ml-1">· {movementEntryNote(m)}</span>
                               )}
                             </>
                           )}

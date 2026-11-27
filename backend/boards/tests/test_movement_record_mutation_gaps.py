@@ -330,7 +330,7 @@ class ExportedMovementHistoryTests(MovementGapBase):
             set(movements[0]),
             {"from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by",
              "moved_at", "notes", "movement_type", "imported_from_username",
-             "from_gates_passed", "from_gates_open", "to_gates_passed"},
+             "from_gates_passed", "from_gates_open", "to_gates_passed", "entry_unmet"},
         )
         self.assertEqual(movements[0]["from_column"], "A")
         self.assertEqual(movements[0]["to_column"], "B")

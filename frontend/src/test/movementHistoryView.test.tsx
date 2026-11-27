@@ -116,6 +116,12 @@ describe('MovementHistoryView — with data', () => {
     expect(screen.getAllByText('Done').length).toBeGreaterThan(0)
   })
 
+  it('shows the Warn note on a move with unmet entry requirements (#2655)', async () => {
+    mockGetMovements.mockResolvedValue({ results: [makeMovement({ entry_unmet: [{ requirement_uid: "r1", operator: "gt" as const, operand: "50000", field_uid: "f1", field_name: "Amount", field_set_uid: null, field_set_name: null }] })], count: 1 })
+    renderView()
+    expect(await screen.findByTestId('history-entry-note')).toHaveTextContent('1 entry requirement not met')
+  })
+
   it('shows the sub-column gate note on a move row (#1102, #2278)', async () => {
     mockGetMovements.mockResolvedValue({ results: [makeMovement({ from_gates_open: 2, to_gates_passed: 1 })], count: 1 })
     renderView()

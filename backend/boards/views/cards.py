@@ -39,6 +39,7 @@ from ..services import cards as card_services
 from ..services.notifications import (
     card_watcher_ids, create_notifications, notify_checklist_item_assigned, quoted_card_verb,
 )
+from ..services.entry_requirements import warn_record_items
 from ..services.errors import CardNotFound, CardServiceError
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
@@ -1997,6 +1998,9 @@ class CardViewSet(viewsets.ModelViewSet):
                     "from_gates_passed": m.from_gates_passed,
                     "from_gates_open": m.from_gates_open,
                     "to_gates_passed": m.to_gates_passed,
+                    # Additive (#2655): the Warn record, null unless the card
+                    # entered a ``warn`` column with unmet requirements.
+                    "entry_unmet": warn_record_items(m.entry_unmet),
                 },
             })
 

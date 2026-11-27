@@ -25,8 +25,9 @@ A column can have up to 10 requirements. All of them must be met.
 Each column chooses one mode. New requirements start in **Warn**.
 
 - **Warn**: the card moves in and a toast says which requirements were not
-  met. The movement stores what was not met, but the API and timeline do not
-  show it yet (tracked in #2655).
+  met. The move is recorded with what was not met: the card's History tab and
+  the board's History show "· N entry requirements not met" on that move, and
+  the record names the requirements, never the card's values.
 - **Block**: the move is refused. A board admin can move it anyway with a
   reason, and so can the card's assignee when the board allows
   [assignee overrides](board.md#letting-a-cards-assignee-move-it-anyway-since-13). The reason is visible to everyone on
