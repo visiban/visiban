@@ -64,6 +64,8 @@ Mark each as:
 - 🟡 **Important** — should be resolved before merging
 - 🟢 **Deferred** — acceptable to log as a follow-up
 
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 Blocking questions, so it lands in the MR's `## Gates` line.
+
 ### 6. Recommend an approach
 - Preferred implementation with rationale
 - Which existing components/patterns to reuse

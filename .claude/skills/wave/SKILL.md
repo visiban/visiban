@@ -349,7 +349,7 @@ gates hit a budget; add that to the `gate` count.
 
 **A gate that stopped at its budget has a partial finding count, so it is never recorded as a
 plain `N findings` line.** Record it as `gate: <name> — <N> findings (<model>; budget-stopped)`
-(`budget-stopped` is its own `;` field), or re-run the gate under the expanded budget and record
+(`budget-stopped` is its own `;` field and replaces `blocking <k>`, since the count is partial), or re-run the gate under the expanded budget and record
 that run. Never present a stopped gate's `0 findings` as a clean result.
 
 **What the harness enforces, and what it does not.** The read-only gate agent files and
@@ -696,11 +696,12 @@ Every agent finishes by, in order:
    Step 6 posts and checks record 1, because only the orchestrator holds the window end and split.
 7. Include `Closes #NNN` in the MR description, the `completeness-check`
    `## Requirements` table, and a `## Gates` section with one
-   `gate: <name> — <N> findings` line per gate run (including
-   `completeness-check — <N> findings (model: <sonnet|opus|fable>; causes: <tally>)`, plus
-   `completeness-check/fix-diff — <N> findings (model: <sonnet|opus|fable>)` when Step 5.4
+   `gate: <name> — <N> findings (<model>; blocking <k>)` line per gate run, `<k>` being the
+   count the gate itself reported as blocking (`blocking 0` is a real value; #2680) (including
+   `completeness-check — <N> findings (model: <sonnet|opus|fable>; blocking <k>; causes: <tally>)`, plus
+   `completeness-check/fix-diff — <N> findings (model: <sonnet|opus|fable>; blocking <k>)` when Step 5.4
    triggered the re-check, or — when Step 5.4 triggered round 2 instead —
-   `completeness-check — <N> findings (round 2; opus; causes: <tally>; overlap <k>/<M>)`
+   `completeness-check — <N> findings (round 2; opus; blocking <b>; causes: <tally>; overlap <k>/<M>)`
    with `completeness-check/fix-diff — n/a`). `0 findings` is a real
    outcome; never omit a zero, and never conflate `n/a` with `skipped`. A fix round
    that did not trigger the re-check records `completeness-check/fix-diff — n/a`;

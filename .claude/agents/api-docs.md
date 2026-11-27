@@ -91,3 +91,5 @@ List every doc change made, or needed if not yet made:
 - One-line description of the change
 
 If no doc changes are needed (e.g. internal refactor with no API surface change), state that explicitly so the reviewer knows it was checked.
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of required doc changes still missing from the branch (its blocking tier), so it lands in the MR's `## Gates` line.
+

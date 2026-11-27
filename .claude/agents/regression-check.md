@@ -137,6 +137,8 @@ Structure the output as:
 - ❌ Regressions found — do not merge until fixed: <list>
 ```
 
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of ❌ regressions (the blocking tier here; ⚠️ items are not blocking), so it lands in the MR's `## Gates` line.
+
 ## What NOT to do
 
 - Do not re-run tests just to clear a failure without a code fix

@@ -103,8 +103,8 @@ description`. Derive from the most significant commit or the branch name.
 
 ## Gates
 <!-- machine-readable; one line per gate. Format: `gate: <name> — <outcome>` -->
-- gate: <name> — <N> findings
-- gate: <name> — 0 findings
+- gate: <name> — <N> findings (<model>; blocking <k>)
+- gate: <name> — 0 findings (<model>; blocking 0)
 - gate: <name> — n/a (<why this gate does not apply to this diff>)
 - gate: <name> — skipped (<user's reason>)
 
@@ -175,6 +175,18 @@ Rules:
   name — it resolves to no agent and would be a phantom gate; the ledger parser
   (`scripts/kaizen_gate_ledger.py`) splits the two rounds by the marker and reports round 2
   as `completeness-check:r2`. Round 2 replaces fix-diff, so the fix-diff line is `n/a`.
+- **Record severity: `blocking <k>` (#2680).** A numeric outcome carries `blocking <k>` as
+  a `;`-separated item in its parenthetical, e.g.
+  `- gate: security-review — 3 findings (model: sonnet; blocking 1)`. `<k>` counts the
+  findings the gate itself put in its blocking tier (🔴 for `perf-check`, `rbac-check`,
+  `security-review`, `broadcast-check`, `migration-check`, `architect`, `ux-review`,
+  `ux-design`; BLOCKER for `completeness-check`; ❌ for `regression-check`; each agent file
+  names its tier and tells you to report the count). It is required on new lines with a
+  numeric outcome. `blocking 0` is a real value: record it, never omit it because nothing
+  was blocking. `<k>` is an integer no greater than `<N>`; `scripts/kaizen_gate_ledger.py`
+  flags `blocking x` and `blocking` above the findings count and keeps them out of the
+  rate. `n/a`, `skipped` and `budget-stopped` lines carry no field. Ledgers written before
+  this rule carry none and still parse; the kaizen report states how many runs carried it.
 - **Design-stage gates belong on the ledger too.** `architect`, `ux-design`, and
   `voc` already run before any code exists. Their `<N>` is the count of findings
   that **changed the design** — a gap closed before coding, a risk mitigated or

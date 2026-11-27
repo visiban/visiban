@@ -122,6 +122,8 @@ Produce a summary:
 - 🟡 Gaps that should be addressed before merge (list each)
 - 🔴 Security vulnerability — missing auth or permission check (list each with required fix)
 
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 findings, so it lands in the MR's `## Gates` line.
+
 For each gap, give the specific fix:
 ```python
 # Missing role check — add to view method

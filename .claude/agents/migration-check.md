@@ -71,3 +71,5 @@ Produce a clear summary:
 - ✅ Safe to merge as-is
 - ⚠️ Safe with acknowledgement of risk (list risks)
 - 🔴 Blocking issues found (list each with recommended fix)
+
+**Ledger:** report `blocking <k>` to the caller, where `<k>` is the number of 🔴 blocking issues, so it lands in the MR's `## Gates` line.
