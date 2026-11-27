@@ -36,11 +36,11 @@ export default function GroupLegend({ groups, noun, note, isolated, onIsolate }:
                 aria-pressed={active}
                 data-testid="group-chip"
                 onClick={() => onIsolate(active ? null : index)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                  active ? "border-primary-emphasis bg-surface-hover font-semibold" : "border-line-strong hover:bg-surface-hover"
+                className={`inline-flex items-center gap-1.5 rounded-full border py-1 text-xs text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                  active ? "px-2.5 border-primary-emphasis bg-surface-hover font-semibold" : "px-[1.1875rem] border-line-strong hover:bg-surface-hover"
                 }`}
               >
-                <ActiveMark active={active} />
+                {active && <ActiveMark active />}
                 <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorOfGroup(groups, index) }} />
                 <span className="truncate max-w-[12rem]">{groupName(group)}</span>
               </button>

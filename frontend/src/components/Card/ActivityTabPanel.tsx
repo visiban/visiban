@@ -314,11 +314,11 @@ export default function ActivityTabPanel({
                 aria-describedby={lastOn ? `history-filter-reason-${cardId}` : undefined}
                 title={lastOn ? LAST_ON_REASON : undefined}
                 onClick={() => toggleType(o.value)}
-                className={`max-sm:min-h-11 max-sm:min-w-11 inline-flex items-center gap-1 px-2 py-1 rounded border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                  on ? "bg-surface-hover border-line-strong text-fg font-medium" : "border-line text-fg-tertiary hover:text-fg"
+                className={`max-sm:min-h-11 max-sm:min-w-11 inline-flex items-center gap-1 py-1 rounded border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                  on ? "px-2 bg-surface-hover border-line-strong text-fg font-medium" : "px-4 border-line text-fg-tertiary hover:text-fg"
                 } ${lastOn ? "cursor-not-allowed" : ""}`}
               >
-                <ActiveMark active={on} />
+                {on && <ActiveMark active />}
                 <span>{o.label}</span>
                 {count !== undefined && " "}
                 {count !== undefined && <span className="text-fg-tertiary font-normal">{count}</span>}
