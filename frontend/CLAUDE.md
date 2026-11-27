@@ -2,7 +2,7 @@
 
 ## How this file works (#2681)
 
-This file is the always-loaded index of the frontend UI rules. The sections below it in full apply to almost every frontend edit. Every other section lives verbatim in a topic file under `frontend/ui-conventions/`, which is not auto-loaded: when a change touches an area in the [Topic index](#topic-index), read that topic file before writing code or reviewing it.
+This file is the always-loaded index of the frontend UI rules. The sections below it in full apply to almost every frontend edit. Every other section lives verbatim in a topic file under `frontend/ui-conventions/`, which is not auto-loaded: when a change touches an area in the [Topic index](#topic-index), read that topic file before writing code or reviewing it. A code comment or doc that cites `frontend/CLAUDE.md` § <title> resolves through the Topic index line of that title.
 
 - **A new rule goes into the topic file it belongs to**, inside its section, or as a new `## ` section there. A new section also gets one line in the Topic index: `` - **<Section title>** — <one-sentence rule summary> → `frontend/ui-conventions/<file>.md` ``. A new topic file gets a `### ` heading there.
 - **Only a rule that applies to almost every frontend edit goes here in full.** Moving a section between this file and a topic file moves its text unchanged.
