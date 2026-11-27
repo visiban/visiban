@@ -102,9 +102,9 @@ describe('laneTierFields band slots (#2663)', () => {
 
   it('with the cap grown first, no field goes Hidden on a board with spare Details capacity (#2658)', () => {
     // The server's first tier write on a 12-field unset board: board.updated (cap 12) first, then one row event per field.
-    // Known and tracked separately: where the grown cap only just fits (4/6/9/12/16, or more than 18 fields), the
-    // last field can still read Hidden for one event, so this case (12 fields, cap 12) leaves slack
-    // for the sequence it proves; do not read it as covering those sizes.
+    // Known, tracked in #2712: where the grown cap only just fits (4/6/9/12/16, or more than
+    // 18 fields), the last field can still read Hidden for one event. This case (12 fields, cap 12)
+    // has spare Details slots, so it does not cover those sizes.
     const unset = Array.from({ length: 12 }, (_, i) => def(i + 1, i, null))
     const final = unset.map((d, i) => def(d.id, d.position, i < 2 ? 'band' : 'details'))
     let rows = unset

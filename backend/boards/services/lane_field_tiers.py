@@ -146,7 +146,7 @@ def materialize(board, *, cap: int | None = None, actor_id=None) -> list:
     event makes the board mixed, the still-unset Band fields take Details slots,
     and where the grown cap only just fits (4/6/9/12/16, or more than 18 fields)
     the last field can show as Hidden for one event, until its own row event
-    arrives. Tracked separately. With *cap* given (a cap change, whose caller
+    arrives. Tracked in #2712. With *cap* given (a cap change, whose caller
     saves *cap* itself) a cap above the stored one is written and announced the
     same way, ahead of the row events; a lower one is left to the caller, whose
     Details-count recheck refuses it or lets it through. A 400 afterwards rolls
