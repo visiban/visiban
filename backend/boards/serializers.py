@@ -55,7 +55,8 @@ from .permissions import (
 )
 
 from .models import (
-    Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardPresetId, BoardTemplate, Column, Swimlane, Label, Card,
+    Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardPresetId, BoardTemplate, Column,
+    ColumnEntryRequirement, Swimlane, Label, Card,
     CardMovement, CardParentLink, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
     CardRelation, CardDimensionPlan, CustomFieldDefinition, CustomFieldSet, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
@@ -523,6 +524,42 @@ class StageTrackSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+def entry_requirements_prefetch(prefix=""):
+    """One query for every column's entry requirements and their targets
+    (#1923); a fresh ``Prefetch`` per call, since ``add_prefix`` mutates."""
+    from django.db.models import Prefetch
+
+    return Prefetch(
+        f"{prefix}entry_requirements",
+        queryset=ColumnEntryRequirement.objects.select_related("field_definition", "field_set"),
+    )
+
+
+class ColumnEntryRequirementSerializer(serializers.ModelSerializer):
+    """Read shape of one entry requirement (#1923). Written only through the
+    replace-all ``PUT .../columns/{id}/entry-requirements/``."""
+
+    field_uid = serializers.SerializerMethodField()
+    field_set_uid = serializers.SerializerMethodField()
+    operand = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ColumnEntryRequirement
+        fields = ["uid", "field_uid", "field_set_uid", "operator", "operand", "position"]
+        read_only_fields = fields
+
+    def get_field_uid(self, obj) -> str | None:
+        return obj.field_definition.uid if obj.field_definition_id else None
+
+    def get_field_set_uid(self, obj) -> str | None:
+        return obj.field_set.uid if obj.field_set_id else None
+
+    def get_operand(self, obj) -> str | None:
+        from .services.entry_requirements import format_operand
+
+        return format_operand(obj.operand)
+
+
 class ColumnSerializer(ColorValidationMixin, serializers.ModelSerializer):
     policy = ColumnPolicyField(
         required=False, allow_null=True, help_text=field_enforcement.COLUMN_POLICY,
@@ -532,18 +569,24 @@ class ColumnSerializer(ColorValidationMixin, serializers.ModelSerializer):
     # its 1.x shape. Empty on a column that is not a gated stage.
     sub_columns = SubColumnSerializer(many=True, read_only=True)
     tracks = StageTrackSerializer(source="stage_tracks", many=True, read_only=True)
+    # Additive (#1923). Read-only here: the replace-all
+    # PUT .../columns/{id}/entry-requirements/ is the only writer, so a column
+    # PATCH keeps its 1.x shape.
+    entry_requirements = ColumnEntryRequirementSerializer(many=True, read_only=True)
 
     class Meta:
         model = Column
         fields = [
             "id", "uid", "name", "position", "color", "wip_limit", "weight_limit",
             "allow_card_creation", "is_done", "policy", "sub_columns", "tracks",
+            "entry_enforcement", "entry_requirements",
         ]
-        read_only_fields = ["uid"]
+        read_only_fields = ["uid", "entry_enforcement"]
         # Schema-only (#1077): say which write paths the limits actually bind on.
         extra_kwargs = {
             "wip_limit": {"help_text": field_enforcement.COLUMN_WIP_LIMIT},
             "weight_limit": {"help_text": field_enforcement.COLUMN_WEIGHT_LIMIT},
+            "entry_enforcement": {"help_text": field_enforcement.COLUMN_ENTRY_ENFORCEMENT},
         }
 
     def validate(self, attrs):
@@ -600,7 +643,13 @@ class PublicColumnSerializer(ColumnSerializer):
     # board's structure, not team-written card content. Pinned in
     # ``test_stages.py``.
     class Meta(ColumnSerializer.Meta):
-        fields = [f for f in ColumnSerializer.Meta.fields if f != "policy"]
+        # Entry requirements (#1923) are the team's rules, not structure a
+        # share-link visitor needs; excluded by name like ``policy`` (pinned
+        # in test_entry_requirements_1923.py).
+        fields = [
+            f for f in ColumnSerializer.Meta.fields
+            if f not in ("policy", "entry_enforcement", "entry_requirements")
+        ]
 
 
 def _parent_instance(field, model):
@@ -2767,7 +2816,7 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
         required=False,
         help_text=(
             "Where the field shows on a lane band: 'band' (always visible, at "
-            "most 2), 'details' (behind Show N more, at most the board's "
+            "most 6), 'details' (behind Show N more, at most the board's "
             "lane_details_cap) or 'hidden' (listed last in lane details). "
             "null = derived from position; the first write that sets a tier "
             "materializes every null row on the board."
@@ -6636,7 +6685,14 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _LANE_ENUM_BUILTINS = {"health_status": frozenset(HealthStatus.values)}
     _LANE_ENUM_OPS = {"is", "is_not", "is_set", "is_empty"}
     _LANE_JOINS = {"and", "or"}
-    _LANE_RULE_KEYS = {"kind", "id", "join", "field", "op", "value", "min", "max"}
+    _LANE_RULE_KEYS = {"kind", "id", "join", "field", "op", "value", "values", "min", "max"}
+    # #2659: a multi-select ``is`` / ``is_not`` rule may name several values in
+    # an optional ``values`` list (any-of / none-of). Additive: a one-value rule
+    # keeps ``value``. Capped at the most choices a multi-select field may have
+    # (100, validate_definition_choices), so ticking every choice always saves; the
+    # 64 KB state_json cap bounds the total. Mirrored in laneFilter.ts.
+    _LANE_MAX_VALUES = 100
+    _LANE_VALUES_OPS = {"is", "is_not"}
     _LANE_GROUP_KEYS = {"kind", "id", "join", "rules"}
     _STATE_V1_PRIORITIES = {"low", "medium", "high", "urgent"}
 
@@ -6902,6 +6958,8 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 if not isinstance(v, str) or len(v) > cap:
                     raise err(f"state_json.laneFilter rule {key} must be a string of at most {cap} characters.")
                 self._reject_nul(v, f"state_json.laneFilter rule {key}")
+        if "values" in rule:
+            self._validate_lane_rule_values(rule, field, op)
         if op in self._LANE_TEXT_OPS:
             # #2226/#2227: a text match has one operand, the value string (the
             # cap above bounds it); range bounds would be silently ignored.
@@ -6909,6 +6967,28 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 raise err(f"state_json.laneFilter {op} rule needs a string value.")
             if "min" in rule or "max" in rule:
                 raise err(f"state_json.laneFilter {op} rule takes a value, not min or max.")
+
+    def _validate_lane_rule_values(self, rule, field, op):
+        """#2659 — ``values`` on a multi-select rule: 1 to _LANE_MAX_VALUES
+        non-empty strings, each bounded like ``value``. The validator has no
+        board context, so like ``value`` on a custom field it checks the
+        shape, not that each entry is one of the field's choices; the client
+        matches whole entries, so an unknown one simply matches no lane. It
+        only fits ``is`` / ``is_not`` on a custom field id and is never mixed
+        with ``value``, ``min`` or ``max``, so a rule has one reading."""
+        err = serializers.ValidationError
+        cap = self._CF_MAX_STRING
+        values = rule["values"]
+        if not isinstance(values, list) or not 1 <= len(values) <= self._LANE_MAX_VALUES:
+            raise err(f"state_json.laneFilter rule values must be a list of 1 to {self._LANE_MAX_VALUES} strings.")
+        for v in values:
+            if not isinstance(v, str) or v == "" or len(v) > cap:
+                raise err(f"state_json.laneFilter rule values must be non-empty strings of at most {cap} characters.")
+            self._reject_nul(v, "state_json.laneFilter rule values")
+        if not self._is_lane_id(field) or op not in self._LANE_VALUES_OPS:
+            raise err("state_json.laneFilter rule values is only valid with is or is_not on a swimlane field id.")
+        if "value" in rule or "min" in rule or "max" in rule:
+            raise err("state_json.laneFilter rule values cannot be combined with value, min or max.")
 
     def _validate_lane_filter(self, lf):
         """Shape check for ``laneFilter`` (#2205): {"items": [rule | group],

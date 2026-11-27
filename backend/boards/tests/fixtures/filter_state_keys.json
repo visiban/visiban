@@ -1,5 +1,5 @@
 {
-  "_comment": "Top-level keys of the frontend FilterState (frontend/src/components/Board/FilterBar.tsx; EMPTY_FILTER plus the optional laneFilter, #2205). Shared by backend test_saved_filters.py (pinned against SavedFilterSerializer._STATE_V1_KEYS) and frontend src/test/savedFilterKeysParity.test.ts so a key added on one side fails CI until the other follows (#2213). laneFilterLimits (#2205) pins the lane-filter bounds on both sides; laneBuiltinFields (#2336) pins the built-in lane rule fields. healthStatusValues (#2247) pins the health status enum against HealthStatus.values, and laneFilterOps (#2247) the lane rule op list against SavedFilterSerializer._LANE_OPS. laneFilterKeys (#2214) pins the keys of the laneFilter object itself. parentFilterMaxId (#2209) pins the Parent filter id bound. plannedFilterValues (#2550) pins the Planned filter enum. numberFilterOps / numberFilterValidEntries (#2357) pin the number custom-field operator enum and entries both sides must accept.",
+  "_comment": "Top-level keys of the frontend FilterState (frontend/src/components/Board/FilterBar.tsx; EMPTY_FILTER plus the optional laneFilter, #2205). Shared by backend test_saved_filters.py (pinned against SavedFilterSerializer._STATE_V1_KEYS) and frontend src/test/savedFilterKeysParity.test.ts so a key added on one side fails CI until the other follows (#2213). laneFilterLimits (#2205) pins the lane-filter bounds on both sides (maxValues, #2659, the most values one multi-select rule holds); laneBuiltinFields (#2336) pins the built-in lane rule fields. healthStatusValues (#2247) pins the health status enum against HealthStatus.values, and laneFilterOps (#2247) the lane rule op list against SavedFilterSerializer._LANE_OPS. laneFilterKeys (#2214) pins the keys of the laneFilter object itself. parentFilterMaxId (#2209) pins the Parent filter id bound. plannedFilterValues (#2550) pins the Planned filter enum. numberFilterOps / numberFilterValidEntries (#2357) pin the number custom-field operator enum and entries both sides must accept.",
   "keys": [
     "assigneeIds",
     "blockedOnly",
@@ -39,6 +39,7 @@
     "maxItems": 20,
     "maxRules": 50,
     "maxString": 500,
-    "maxId": 2147483647
+    "maxId": 2147483647,
+    "maxValues": 100
   }
 }

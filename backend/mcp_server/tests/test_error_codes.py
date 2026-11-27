@@ -53,6 +53,8 @@ FACTORIES = {
         "column", board_pk=1, card_pk=2),
     "CardAlreadyBlocked": lambda: service_errors.CardAlreadyBlocked(),
     "CardNotBlocked": lambda: service_errors.CardNotBlocked(),
+    "EntryRequirementsUnmet": lambda: service_errors.EntryRequirementsUnmet(
+        column_name="c", mode="hard", unmet=[]),
 }
 
 # Codes that do not come from a CardServiceError: built directly in
@@ -94,6 +96,7 @@ EXPECTED_SERVICE_CODES = {
     "UseMoveEndpoint": "use_move_endpoint",
     "CardAlreadyBlocked": "card_already_blocked",
     "CardNotBlocked": "card_not_blocked",
+    "EntryRequirementsUnmet": "entry_requirements_unmet",
 }
 
 # The complete public vocabulary. Adding to it means updating docs/api/mcp.md

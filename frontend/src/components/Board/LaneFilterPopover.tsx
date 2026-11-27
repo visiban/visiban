@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { SwimlaneCustomFieldDefinition } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
+import CheckboxDropdown from "../Common/CheckboxDropdown";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 import ActiveMark from "../Common/ActiveMark";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
@@ -12,6 +13,8 @@ import {
   isTextRuleType,
   opsForFieldType,
   ruleText,
+  ruleValues,
+  withRuleValues,
   type FieldRuleJoin,
   type FieldRuleOp,
   type RuleFieldType,
@@ -20,6 +23,7 @@ import {
   LANE_FILTER_MAX_ITEMS,
   LANE_FILTER_MAX_RULES,
   LANE_FILTER_MAX_STRING,
+  LANE_FILTER_MAX_VALUES,
   laneRuleCount,
   isLaneBuiltinField,
   nextLaneItemId,
@@ -73,6 +77,8 @@ interface Props {
   cardFilterActive?: boolean;
   /** #2337 — rules dropped because this viewer cannot use their field (countUnusableLaneRules). */
   ignoredCount?: number;
+  /** #2660 — focus this field's rule on open, adding one when the filter has none for it. */
+  preselectField?: LaneFieldKey | null;
 }
 
 type FocusTarget = { kind: "row"; id: number } | { kind: "add" };
@@ -100,7 +106,7 @@ function MenuUnmountGuard({ ruleId, onGone }: { ruleId: number; onGone: (key: st
  * closes. Inner menus are deliberately not portaled: a portaled menu would sit
  * outside the panel and the focusin-outside close would fire on it.
  */
-export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, fmt, id, textChoices, cardFilterActive = false, ignoredCount = 0 }: Props) {
+export default function LaneFilterPopover({ filter, fields, onChange, anchorRect, triggerRef, onClose, fmt, id, textChoices, cardFilterActive = false, ignoredCount = 0, preselectField = null }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // #2231 — the inner menus are in-flow (not portaled, see frontend/CLAUDE.md
@@ -177,9 +183,24 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
   const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
   const placed = top !== null;
   const openedRef = useRef(false);
+  // Captured at mount: the control clears the prop once the popover is open (#2660).
+  const preselectRef = useRef(preselectField);
   useEffect(() => {
     if (!placed || openedRef.current) return;
     openedRef.current = true;
+    const want = preselectRef.current;
+    if (want !== null && fieldsById.has(want)) {
+      const existing = items.flatMap((it) => (it.kind === "rule" ? [it] : it.rules)).find((r) => r.field === want);
+      if (existing) { setFocusTarget({ kind: "row", id: existing.id }); return; }
+      if (canAdd) {
+        // The first operator of the field's own type: "is" is never valid on a number or date (isRuleComplete).
+        const wantType = fieldsById.get(want)?.field_type as RuleFieldType | undefined;
+        const r: LaneRule = { ...newRule("and"), field: want, op: wantType ? opsForFieldType(wantType)[0] : "is" };
+        commit([...items, r]);
+        setFocusTarget({ kind: "row", id: r.id });
+        return;
+      }
+    }
     const first = items[0];
     setFocusTarget(first ? { kind: "row", id: first.kind === "rule" ? first.id : first.rules[0].id } : { kind: "add" });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on first placement
@@ -335,7 +356,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             if (fid === null || fid === r.field) return;
             const nt = fieldsById.get(fid)?.field_type as RuleFieldType;
             // A new field resets the operator and operands: they are typed.
-            updateRule(r.id, { field: fid, op: opsForFieldType(nt)[0], value: undefined, min: undefined, max: undefined });
+            updateRule(r.id, { field: fid, op: opsForFieldType(nt)[0], value: undefined, values: undefined, min: undefined, max: undefined });
           }}
         />
         {ops.length > 1 ? (
@@ -366,7 +387,32 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             />
           </div>
         )}
-        {(t === "dropdown" || t === "enum" || t === "multi_select") && def && !isPresenceOp(r.op) && (
+        {t === "multi_select" && def && (
+          <div className="flex-1 min-w-[10rem]">
+            {/* #2659 — several values, picked with the card multi-select filter's
+                checklist. The menu stays inline: a portaled one sits outside
+                the panel, and focus moving into it would close the popover. */}
+            <CheckboxDropdown<string>
+              label={`Filter ${n} values`}
+              placeholder="Choose values"
+              ariaLabel={`Filter ${n} value`}
+              menuMode="inline"
+              triggerClassName="w-full justify-between max-sm:min-h-11"
+              escapePriority={INNER_ESCAPE_PRIORITY}
+              // A stored value that is no longer a choice stays listed, and says so, so it can be removed.
+              options={[...def.choices, ...ruleValues(r).filter((v) => !def.choices.includes(v))].map((c) => ({ value: c, label: def.choices.includes(c) ? c : `${c} (not a choice)` }))}
+              // Kept in the field's choice order, so the chip reads the same however they were picked.
+              selected={ruleValues(r)}
+              onChange={(picked) => {
+                // A soft cap refuses the extra tick rather than letting the server reject the save.
+                if (picked.length > LANE_FILTER_MAX_VALUES && picked.length > ruleValues(r).length) return;
+                const order = [...def.choices, ...picked.filter((v) => !def.choices.includes(v))];
+                updateRule(r.id, withRuleValues(order.filter((v) => picked.includes(v))));
+              }}
+            />
+          </div>
+        )}
+        {(t === "dropdown" || t === "enum") && def && !isPresenceOp(r.op) && (
           <div className="flex-1 min-w-[10rem]">
             <SingleSelectDropdown<string>
               label="Choose a value"
@@ -375,7 +421,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
               className="w-full justify-between"
               labelClassName="truncate"
               escapePriority={INNER_ESCAPE_PRIORITY}
-              options={def.choices.map((c) => ({ value: c, label: t === "multi_select" ? c : laneValueLabel(def, c, fmt) }))}
+              options={def.choices.map((c) => ({ value: c, label: laneValueLabel(def, c, fmt) }))}
               selected={r.value ? r.value : null}
               onChange={(v) => updateRule(r.id, { value: v ?? "" })}
             />
@@ -646,16 +692,23 @@ interface ControlProps {
   cardFilterActive?: boolean;
   /** #2337 — rules ignored because the viewer cannot use their field. */
   ignoredCount?: number;
+  preselectField?: LaneFieldKey | null;
+  /** Called once the popover has opened, so a later plain click does not preselect again. */
+  onPreselectConsumed?: () => void;
 }
 
 /** The "Lanes" trigger in the filter strip plus its popover. */
-export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCount, triggerRef: externalRef, textChoices, cardFilterActive, ignoredCount }: ControlProps) {
+export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCount, triggerRef: externalRef, textChoices, cardFilterActive, ignoredCount, preselectField, onPreselectConsumed }: ControlProps) {
   const ownRef = useRef<HTMLButtonElement>(null);
   const triggerRef = externalRef ?? ownRef;
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const id = useId();
   const popoverId = `lane-filter-${id.replace(/:/g, "")}`;
   const open = anchor !== null;
+  useEffect(() => {
+    // The request is a one-shot: clear it so a later plain click on Lanes does not preselect again.
+    if (open && preselectField != null) onPreselectConsumed?.();
+  }, [open, preselectField, onPreselectConsumed]);
   const hasRules = (filter?.items.length ?? 0) > 0;
   const onClose = useRef((refocus: boolean) => {
     setAnchor(null);
@@ -701,6 +754,7 @@ export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCou
           textChoices={textChoices}
           cardFilterActive={cardFilterActive}
           ignoredCount={ignoredCount}
+          preselectField={preselectField}
         />
       )}
     </>

@@ -503,6 +503,7 @@ class SavedFilterCustomFieldStateTests(TestCase):
                 "maxRules": S._LANE_MAX_RULES,
                 "maxString": S._CF_MAX_STRING,
                 "maxId": S._LANE_MAX_ID,
+                "maxValues": S._LANE_MAX_VALUES,
             },
         )
 
@@ -691,11 +692,11 @@ class SavedFilterLaneFilterStateTests(TestCase):
         self.client.force_authenticate(self.user)
         self.url = f"/api/v1/boards/{self.board.id}/saved-filters/"
 
-    def _post(self, state):
-        return self.client.post(self.url, {"name": "Lanes", "state_json": state}, format="json")
+    def _post(self, state, name="Lanes"):
+        return self.client.post(self.url, {"name": name, "state_json": state}, format="json")
 
-    def _assert_400(self, lane_filter):
-        r = self._post({**EMPTY_FILTER_STATE, "laneFilter": lane_filter})
+    def _assert_400(self, lane_filter, name="Lanes"):
+        r = self._post({**EMPTY_FILTER_STATE, "laneFilter": lane_filter}, name=name)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
         self.assertIsInstance(r.data["detail"], str)
         return r
@@ -739,6 +740,65 @@ class SavedFilterLaneFilterStateTests(TestCase):
         self.assertEqual(r.data["state_json"], state)
         self._assert_400({"items": [_lane_rule(1, field=20, op="is_set")]})
         self._assert_400({"items": [_lane_rule(1, field=21, op="is_empty")]})
+
+    def test_multi_select_several_values_round_trip(self):
+        # #2659 — a multi-select rule may name several values in ``values``
+        # beside the one-value shape, which still saves unchanged. The server
+        # checks the shape, not the field's choices (no board context).
+        lane_filter = {
+            "items": [
+                _lane_rule(1, field=21, value="EMEA"),
+                {"kind": "rule", "id": 2, "join": "or", "field": 21, "op": "is", "values": ["EMEA", "APAC"]},
+                {"kind": "rule", "id": 3, "join": "and", "field": 21, "op": "is_not", "values": ["web", "ios"]},
+                {
+                    "kind": "group", "id": 4, "join": "or",
+                    "rules": [{"kind": "rule", "id": 5, "join": "and", "field": 21, "op": "is", "values": [f"v{i}" for i in range(100)]}],
+                },
+            ]
+        }
+        state = {**EMPTY_FILTER_STATE, "laneFilter": lane_filter}
+        r = self._post(state)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["state_json"], state)
+        listed = self.client.get(self.url)
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        self.assertEqual(next(f for f in listed.data if f["id"] == r.data["id"])["state_json"], state)
+
+    def test_multi_select_values_rejected_shapes(self):
+        # #2659 — bounded, typed, only on is / is_not over a swimlane field id,
+        # and never mixed with value, min or max. Always a 400, never a 500.
+        def vrule(**kw):
+            base = {"kind": "rule", "id": 1, "join": "and", "field": 21, "op": "is", "values": ["EMEA", "APAC"]}
+            return {"items": [{**base, **kw}]}
+
+        cases = {
+            "not a list": vrule(values="EMEA"),
+            "dict": vrule(values={"a": 1}),
+            "empty": vrule(values=[]),
+            "too many": vrule(values=[f"v{i}" for i in range(101)]),
+            "non-string entry": vrule(values=["EMEA", 5]),
+            "unhashable entry": vrule(values=[["EMEA"]]),
+            "empty entry": vrule(values=["EMEA", ""]),
+            "entry too long": vrule(values=["x" * 501]),
+            "long entries over the cap": vrule(values=["x" * 500] * 101),
+            "nul entry": vrule(values=["EM\u0000EA"]),
+            "with value": vrule(value="EMEA"),
+            "with empty value": vrule(value=""),
+            "with min": vrule(min="1"),
+            "between op": vrule(op="between"),
+            "contains op": vrule(op="contains", value="E"),
+            "presence op": vrule(op="is_set"),
+            "builtin text field": vrule(field="name"),
+            "builtin enum field": vrule(field="health_status", values=["on_track", "at_risk"]),
+            "no field": vrule(field=None),
+        }
+        # A unique name per case, and the detail must name the lane filter: a wrongly
+        # accepted case would otherwise leave every later one failing on the duplicate
+        # name and still pass a status-only check.
+        for i, (label, lane_filter) in enumerate(cases.items()):
+            with self.subTest(label):
+                r = self._assert_400(lane_filter, name=f"Lanes {i}")
+                self.assertIn("laneFilter", r.data["detail"])
 
     def test_hide_unmatched_round_trips(self):
         # #2214 — an optional bool beside items; with no rules it keeps items: [].
@@ -793,9 +853,13 @@ class SavedFilterLaneFilterStateTests(TestCase):
             "unknown group key": {"items": [{"kind": "group", "id": 1, "join": "and", "rules": [], "x": 1}]},
             "group id missing": {"items": [{"kind": "group", "join": "and", "rules": []}]},
         }
-        for label, lane_filter in cases.items():
+        # A unique name per case, and the detail must name the lane filter: a wrongly
+        # accepted case would otherwise leave every later one failing on the duplicate
+        # name and still pass a status-only check.
+        for i, (label, lane_filter) in enumerate(cases.items()):
             with self.subTest(label):
-                self._assert_400(lane_filter)
+                r = self._assert_400(lane_filter, name=f"Lanes {i}")
+                self.assertIn("laneFilter", r.data["detail"])
 
     def test_builtin_field_rules_round_trip(self):
         """#2336 — rules on the built-in "name" and "contact_email" fields save

@@ -997,14 +997,14 @@ The server rejects unknown top-level keys and type-checks each known key, but do
 | `blockedOnly` | boolean | *Added in 1.3* (#1149). `true` shows only blocked cards (manual or relation). Absent means `false` |
 | `customFields` | object | Custom-field filter values keyed by numeric field id (digit string), at most 50 entries. Each value is `{kind: "text", query}`, `{kind: "number" \| "date", equals}` (strings), or `{kind: "choice" \| "multi_choice", values}` (at most 50 strings). Strings are capped at 500 characters. *Added in 1.3* (#2357): a `number` value may also carry `op`, one of `eq` (the default when absent), `between`, `empty` or `not_empty`, and `min` / `max` strings. A `between` needs a non-blank `min` or `max`; one empty bound means "at least" or "at most", both bounds are inclusive, and `min` greater than `max` is accepted (it matches no card). Every number value still carries `equals`, and clients write `equals: ""` for any op other than `eq`. An unknown `op` returns `400`. `date` values are unchanged: `equals` only. |
 | `visibleCustomFieldFilterIds` | integer[] | IDs of custom-field filters shown in the filter bar, at most 50 |
-| `laneFilter` | object | *Added in 1.3* (#2205). Rules that hide swimlanes by swimlane field values: `{items: [...]}`, at most 20 items and 50 rules in all. A rule is `{kind: "rule", id, join, field, op, value?, min?, max?}`: `id` a non-negative integer, `join` `"and"` or `"or"` (ignored on the first), `field` a swimlane field id, `"name"`, `"contact_email"` (*added in 1.3*, #2336: the lane's built-in name and contact email, matched as text; they take no `between`, `min` or `max`) or `"health_status"` (*added in 1.3*, #2247: the lane's effective health status; it takes `is` / `is_not` with a `value` of `on_track`, `at_risk` or `off_track`, or `is_set` / `is_empty` with no `value`, `min` or `max`; any other op or value is rejected, except that an absent or `""` `value` on `is` / `is_not` is accepted as a rule not finished yet, which the client ignores), or `null` (not chosen yet), `op` one of `is`, `is_not`, `between`, `contains` (*added in 1.3*, #2226, for text and URL fields), `is_set` and `is_empty` (*added in 1.3*, #2247, valid only on `health_status`), `not_contains` and `wildcard` (*added in 1.3*, #2227, text and URL fields: a case-insensitive negative substring match, and a match of any part of the value where `*` is any run of characters and `?` one character), and `value` / `min` / `max` strings of at most 500 characters. A `contains`, `not_contains` or `wildcard` rule must carry a `value` string (empty while the user has not typed yet) and no `min` or `max`. *Added in 1.3* (#2438): a rule on a **checkbox** swimlane field uses `is` with a `value` of `"true"` or `"false"` (a lane with no stored value counts as `"false"`); a rule on a **multi-select** field uses `is` or `is_not` with a `value` holding one entry (any-of is an `or` chain of single entries). The shape is unchanged, the server checks the shape and not the field's type, and neither type takes `is_set` or `is_empty`. A client that does not know these types treats such a rule as unusable and ignores it. The op list only grows; a client drops a rule whose op it does not know. A group is `{kind: "group", id, join, rules: [rule, ...]}`; groups do not nest. `hideUnmatched` (*added in 1.3*, #2214) is an optional boolean beside `items`: hide lanes with no matching card while a card filter is active; it is a setting, not a rule, so `{items: [], hideUnmatched: true}` is valid. Unknown keys are rejected. Absent means no lane filter |
+| `laneFilter` | object | *Added in 1.3* (#2205). Rules that hide swimlanes by swimlane field values: `{items: [...]}`, at most 20 items and 50 rules in all. A rule is `{kind: "rule", id, join, field, op, value?, values?, min?, max?}`: `id` a non-negative integer, `join` `"and"` or `"or"` (ignored on the first), `field` a swimlane field id, `"name"`, `"contact_email"` (*added in 1.3*, #2336: the lane's built-in name and contact email, matched as text; they take no `between`, `min` or `max`) or `"health_status"` (*added in 1.3*, #2247: the lane's effective health status; it takes `is` / `is_not` with a `value` of `on_track`, `at_risk` or `off_track`, or `is_set` / `is_empty` with no `value`, `min` or `max`; any other op or value is rejected, except that an absent or `""` `value` on `is` / `is_not` is accepted as a rule not finished yet, which the client ignores), or `null` (not chosen yet), `op` one of `is`, `is_not`, `between`, `contains` (*added in 1.3*, #2226, for text and URL fields), `is_set` and `is_empty` (*added in 1.3*, #2247, valid only on `health_status`), `not_contains` and `wildcard` (*added in 1.3*, #2227, text and URL fields: a case-insensitive negative substring match, and a match of any part of the value where `*` is any run of characters and `?` one character), and `value` / `min` / `max` strings of at most 500 characters. A `contains`, `not_contains` or `wildcard` rule must carry a `value` string (empty while the user has not typed yet) and no `min` or `max`. *Added in 1.3* (#2438): a rule on a **checkbox** swimlane field uses `is` with a `value` of `"true"` or `"false"` (a lane with no stored value counts as `"false"`); a rule on a **multi-select** field uses `is` or `is_not` with a `value` holding one entry. The server checks the shape and not the field's type, and neither type takes `is_set` or `is_empty`. A client that does not know these types treats such a rule as unusable and ignores it. *Added in 1.3* (#2659): a multi-select rule may instead name several entries in `values`, a list of 1 to 100 non-empty strings (the most choices a multi-select field may have) of at most 500 characters each. `is` matches a lane holding any of them and `is_not` a lane holding none of them; a lane with no value fails `is` and passes `is_not`. `values` is valid only with `is` or `is_not` on a swimlane field id (not a built-in or `null`) and never together with `value`, `min` or `max`; any other use is a `400`. As with `value` on a custom field, the server does not check entries against the field's choices; an entry no lane holds matches nothing. Clients write a one-entry rule as `value`, so a single-value rule keeps its shape, and `value` is never removed. A client released before #2659 reads only `value`, so it sees a `values` rule as unfinished and ignores it rather than applying part of it. The op list only grows; a client drops a rule whose op it does not know. A group is `{kind: "group", id, join, rules: [rule, ...]}`; groups do not nest. `hideUnmatched` (*added in 1.3*, #2214) is an optional boolean beside `items`: hide lanes with no matching card while a card filter is active; it is a setting, not a rule, so `{items: [], hideUnmatched: true}` is valid. Unknown keys are rejected. Absent means no lane filter |
 | `subColumnIds` | integer[] | *Added in 1.3* (#2367). Show only cards in these sub-columns (ids from a column's `sub_columns`); at most 50 integers. Absent means no sub-column filter |
 | `trackStates` | string[] | *Added in 1.3* (#2367). Show only cards with at least one track on their own stage in one of these states: `done`, `open`, `not_applicable`. Absent means no track-state filter |
 | `parentFilter` | string \| integer | *Added in 1.3* (#2209). The Parent filter on a child board: `"any"` (cards with a parent), `"none"` (cards without one) or a parent card's id (a positive integer). The server checks the shape only; the client matches it on each card's `parent`, so an id that names a card the viewer cannot open matches nothing. Absent means any card |
 | `parentLaneFilter` | integer | *Added in 1.3* (#2370). The Parent lane filter on a child board: a lane id on a parent board (a positive integer). The server checks the shape only; the client matches it on each card's `parent.swimlane_id`, so a lane of a parent the viewer cannot open matches nothing. Absent means any card. Any other value is a `400` |
 | `plannedFilter` | string | *Added in 1.3* (#2550). The Planned filter on a child board: `"hide"` (leave planned children out) or `"only"` (only planned children). Optional; absent means Any. Matched in the browser on each card's own `planned` field, so it names no column. Any other value is a `400` |
 
-All keys are optional. The total serialized size of `state_json` must not exceed 64 KB. String values (`search`, custom-field `query`, `equals`, `min`, `max` and `values` entries, and lane-rule `value`, `min`, and `max`) must not contain NUL (0x00) characters; they return `400`.
+All keys are optional. The total serialized size of `state_json` must not exceed 64 KB. String values (`search`, custom-field `query`, `equals`, `min`, `max` and `values` entries, and lane-rule `value`, `values` entries, `min`, and `max`) must not contain NUL (0x00) characters; they return `400`.
 
 **Compatibility (#2357):** the number `op`, `min` and `max` keys are additive and follow the 1.0+ API stability rules: the op list only grows, and `equals` is never removed or retyped. A client released before 1.3 reads only `equals`, so it treats a range, "is empty" or "has a value" entry (whose `equals` is `""`) as no filter on that field; it keeps the `op`, `min` and `max` keys when it saves a preset again, unless the user edits that field's filter in the old client, which rewrites the entry as `equals` only.
 
@@ -1673,7 +1673,7 @@ In `mapping.columns`, `position` is `null` for a list that will not be imported 
 
 The board comes back as `board`, with a `summary`. `board` has the shape of `GET /api/v1/boards/{id}/`; `summary` repeats the preview's `counts`, `result`, `warnings`, and `unmappable`. The OpenAPI document names these `TrelloImportPreview` (the `dry_run=true` 200) and `TrelloImportConfirm` (this 201).
 
-*Changed in 1.3 (#1903):* the body also carries the native import's envelope: the board's fields at the top level and the summary again as `import_summary`, so both imports return the same four keys (`board`, `summary`, `import_summary`, and the board's fields). Nothing was removed. The summary's contents still differ by source: a Trello summary has `counts`, `result`, `warnings` (objects) and `unmappable`; a native one has `options_applied`, `skipped` and, for CSV, `warnings` (strings). Error bodies carry a `code` (see [Import error codes](#import-error-codes)).
+*Changed in 1.3 (#1903):* the body also carries the native import's envelope: the board's fields at the top level and the summary again as `import_summary`, so both imports return the same four keys (`board`, `summary`, `import_summary`, and the board's fields). Nothing was removed. The summary's contents still differ by source: a Trello summary has `counts`, `result`, `warnings` (objects) and `unmappable`; a native one has `options_applied`, `skipped` and `warnings` (strings; always for CSV, and for JSON only when an entry requirement was skipped, since 1.3). Error bodies carry a `code` (see [Import error codes](#import-error-codes)).
 
 ```json
 {
@@ -2121,6 +2121,44 @@ rule as checklist-item reorder, #1292.)*
 *(1.3+, #2500)* A reorder that changes which column is first sends the same `card.children_bulk_changed` to each parent board whose cards have live children in the old or new first column; a reorder that keeps the first column sends none. See [WebSockets](websockets.md).
 
 ---
+
+### `PUT /api/v1/boards/{id}/columns/{col_id}/entry-requirements/` (since 1.3, #1923)
+
+Replace a column's entry requirements. **Board admin or site admin only**
+(`403` otherwise). Replace-all: the `requirements` list becomes the column's
+whole list, in order (at most 10). Emits `column.updated`.
+
+```json
+{
+  "entry_enforcement": "block",
+  "requirements": [
+    {"field_uid": "a1b2c3", "operator": "gt", "operand": "50000"},
+    {"field_set_uid": "d4e5f6", "operator": "set_complete"}
+  ]
+}
+```
+
+| Field | Notes |
+|---|---|
+| `entry_enforcement` | Optional. `warn`, `block`, `hard` or `null`. When omitted, a column's first requirements start in `warn` and a column that already has requirements keeps its current mode (including `null`); `null` keeps the rows but stops evaluating them. An empty list always sets `null`. |
+| `requirements[].field_uid` / `field_set_uid` | Exactly one, on this board. A set takes only `set_complete`. |
+| `requirements[].operator` | `filled` (any type but checkbox), `gt` / `gte` (number), `min_count` (multi-select, whole number of at least 1), `satisfied` (dimension), `set_complete` (field set). Checkbox fields can't be required. |
+| `requirements[].operand` | Required for `gt`, `gte`, `min_count`; refused otherwise. |
+
+Returns the column. `ColumnSerializer` gains two read-only fields:
+`entry_enforcement` and `entry_requirements` (`[{uid, field_uid, field_set_uid,
+operator, operand, position}]`; `operand` is a decimal string or `null`). A
+column `PATCH` cannot write them. The public share endpoint omits both.
+
+**Field sets, dry run.** `DELETE .../field-sets/{id}/?dry_run=true`
+and `PATCH .../field-sets/{id}/?dry_run=true` validate, write nothing, and
+return `{"affected_requirements": [{requirement_uid, column_uid, column_name,
+operator, field_uid, field_name, field_set_name}]}`: the requirements whose
+lane scope would widen to every lane. A `PATCH` reports them for a membership
+change and for a `scope` change from `swimlanes` to `all`; a scope change also
+lists the set's own `set_complete` requirements (`field_uid` and `field_name`
+`null`, `field_set_name` set), because the set survives it. A delete does not
+list them, since they are deleted with the set.
 
 ## Swimlanes
 
@@ -2697,6 +2735,24 @@ the API does (cap, names, one set per field) and returns `400` naming the bad en
 lane-scoped set whose lane list is empty (its last swimlane was deleted) stays
 `scope: "swimlanes"` with no lanes, so a round-trip does not change where it shows.
 
+**Entry requirements (since 1.3, #1923).** Each column in the JSON export also carries
+`entry_enforcement` (`null`, `"warn"`, `"block"` or `"hard"`) and `entry_requirements`, an
+array in position order of `{field, field_set, operator, operand}`. A requirement names its
+target by custom field name (`field`) or field set name (`field_set`), never both, so the
+file carries no ids. `operand` is a decimal string, or `null` for the operators that take
+none. The top level gains `allow_assignee_override` (the board's "let a card's assignee move
+it anyway" switch). All three keys are additive: `schema_version` stays `2`, an older
+importer ignores them, and a file without them imports with enforcement off and the switch
+off.
+
+On import, a malformed entry (an unknown `operator`, both or neither target, an operand the
+operator ignores or lacks, more than 10 entries, an unknown mode, a non-boolean switch) is a
+`400` naming the column. A `field` or `field_set` that matches nothing in the same file is
+skipped, and `import_summary.warnings` lists each skip (the key is present only when
+something was skipped). A column left with no requirement imports with `entry_enforcement`
+`null`. Imports are exempt from enforcement, so a card that sits past an unmet Block column
+imports where it was. The override log (`CardOverride`) is not exported or imported.
+
 ---
 
 ## Swimlane custom fields (since 1.2)
@@ -2743,7 +2799,7 @@ model docstring for the reasoning; do not assume they track each other.
 
 `band_visibility` says where a swimlane field shows on each lane band (#2439):
 
-- `"band"`: always visible on the band. **At most 2** per board.
+- `"band"`: on the band. **At most 6** per board (2 before #2663). A client may show fewer when the screen is narrow; that never changes the stored value. The web app shows 2 to 6 by board width, and 2 on a phone.
 - `"details"`: behind the band's **Show N more** toggle. At most the board's [`lane_details_cap`](#get-apiv1boardsid) (4, 6, 9, 12 or 16; default 6).
 - `"hidden"`: off the band and out of the details count; listed last in the lane details under **Hidden on band**. Still filterable and exported.
 - `null`: derived from position. Every field created before 1.3 is `null`, and a board whose fields are all `null` renders as before 1.3: the first two non-empty values on the band. PATCHing `band_visibility: null` is allowed, including on a board that already has tiers: it means "derive from position", and on such a board the resolver treats a `null` field as `"details"` while there is room, else `"hidden"`, never `"band"`. Send an explicit tier to put a field on the band.
@@ -2752,7 +2808,9 @@ model docstring for the reasoning; do not assume they track each other.
 
 A create that sends no `band_visibility` stays `null` on a board without tiers, and gets `"details"` (or `"hidden"` when the details are full) on a board with tiers, so an older client never gets a `400` for leaving it out.
 
-**Errors** (`400`, keyed `band_visibility`): `"The band holds 2 fields. Move one to Details first."` for a third band field, and `"Lane details hold N fields. Move one to Hidden first, or raise the limit."` past the cap.
+**Errors** (`400`, keyed `band_visibility`): `"The band holds 6 fields. Move one to Details first."` for a seventh band field, and `"Lane details hold N fields. Move one to Hidden first, or raise the limit."` past the cap.
+
+**Mixed versions:** a server without #2663 rejects a JSON import with 3 or more `"band"` fields, and during a rolling deploy its pods answer `400` to a tier PATCH on a board that already has 3 or more. A browser tab loaded before the upgrade shows two Band fields until it is reloaded.
 
 **Stability:** `band_visibility` and `lane_details_cap` follow the 1.0 API rules: the values are only ever added to, `null` stays a valid value, and the field is never required on write.
 

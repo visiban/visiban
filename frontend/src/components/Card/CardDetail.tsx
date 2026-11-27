@@ -17,7 +17,7 @@ import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
 import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
 import AutosaveIndicator from "../Common/AutosaveIndicator";
 import ActiveMark from "../Common/ActiveMark";
-import { isHardLimit, limitBlockedMessage, limitCounts, limitRefusal } from "../Board/moveBlockedMessages";
+import { entryRefusal, isHardLimit, limitBlockedMessage, limitCounts, limitRefusal } from "../Board/moveBlockedMessages";
 import type { LimitRefusal } from "../Board/moveBlockedMessages";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
@@ -923,6 +923,11 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
     // carries is only the target cell's.
     if (isLimitFailure(err) && typeof body?.swimlane_name === "string") {
       return `Card could not be moved — swimlane "${body.swimlane_name}" has reached its limit.`;
+    }
+    // An entry refusal carries column_name too and counts as a limit failure;
+    // it must not read as a full column.
+    if (entryRefusal(err) && typeof body?.column_name === "string") {
+      return `Card could not be moved — "${body.column_name}" has entry requirements this card doesn't meet.`;
     }
     if (isLimitFailure(err) && typeof body?.column_name === "string") {
       return `Card could not be moved — "${body.column_name}" has reached its limit.`;

@@ -490,6 +490,13 @@ class BoardSettingChangeTests(_Fixture, TestCase):
                 ForceNotPermitted(kind).body()["detail"],
                 f"Only board admins can override a {label} limit.",
             )
+        detail = ForceNotPermitted("entry_requirements", assignee_override=True).body()["detail"]
+        self.assertEqual(
+            detail,
+            "Only board admins, or the card's assignee when someone else assigned it "
+            "to them, can override a column's entry requirements.",
+        )
+        self.assertNotIn("a entry", detail)
 
 
 class AdminSettingAuditTests(_Fixture, TestCase):

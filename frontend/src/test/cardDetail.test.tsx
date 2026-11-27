@@ -2442,6 +2442,15 @@ describe('CardDetail', () => {
       expectNotMoved()
     })
 
+    it('words an entry-requirements refusal as unmet requirements, not a limit (#1923)', async () => {
+      const onMoveCard = vi.fn().mockResolvedValue({ ok: false, error: axiosFailure(409, { code: 'entry_requirements_unmet', column_name: 'Proposal', unmet: [] }) })
+      await submitMove(onMoveCard)
+      await waitFor(() => {
+        expect(screen.getByText('Card could not be moved — "Proposal" has entry requirements this card doesn\'t meet.')).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/has reached its limit/)).not.toBeInTheDocument()
+    })
+
     it('names the column when the limit body carries column_name', async () => {
       const onMoveCard = vi.fn().mockResolvedValue({ ok: false, error: axiosFailure(409, { code: 'wip_limit_exceeded', column_name: 'In Progress' }) })
       await submitMove(onMoveCard)

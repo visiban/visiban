@@ -4625,3 +4625,16 @@ describe('BoardSettingsModal docs links by section (#2593)', () => {
     expect(link).toHaveAttribute('href', docsUrl(topic))
   })
 })
+
+describe('BoardSettingsModal — band slots wiring (#2663)', () => {
+  it('passes bandSlots through to the Swimlane fields tab', () => {
+    const defs = [1, 2, 3].map((id) => ({
+      id, uid: `sfuid000000${id}`, name: `Lane field ${id}`, field_type: 'text', choices: [], position: id,
+      show_on_row: false, is_admin_only: false, is_required: false, help_text: '', band_visibility: 'band',
+      number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {}, created_at: '',
+    }))
+    const board = { ...fakeBoard, swimlane_custom_field_definitions: defs } as unknown as BoardFull
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} initialTab="swimlane-fields" bandSlots={2} />)
+    expect(screen.getByTestId('swimlane-band-counter')).toHaveTextContent('3 / 6 · 2 fit on this screen')
+  })
+})

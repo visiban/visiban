@@ -569,7 +569,9 @@ def build_mcp_server():
             "move_card does, with no override: a create into a full column or swimlane "
             "returns a structured wip_limit_exceeded/wip_hard_blocked/weight_limit_exceeded "
             "(or swimlane_wip_limit_exceeded/swimlane_wip_hard_blocked/"
-            "swimlane_weight_limit_exceeded) error. "
+            "swimlane_weight_limit_exceeded) error, or an entry_requirements_unmet error "
+            "when the column's Warn/Block/Hard entry requirements are not met (Block acts as "
+            "Hard here: no override argument exists). "
             "assignee is the username of an assignable board member."
         ),
     )
@@ -603,7 +605,9 @@ def build_mcp_server():
         description=(
             "Move a card to a new column and/or swimlane and/or position. At least one of "
             "to_column_id/to_swimlane_id is required. Enforces column and swimlane "
-            "WIP/weight limits with no override. Optional version (the card's version from a prior read) rejects the "
+            "WIP/weight limits with no override, and a column's entry requirements: a forward move that "
+            "leaves Block or Hard requirements unmet returns entry_requirements_unmet (Block acts as Hard "
+            "over MCP). Optional version (the card's version from a prior read) rejects the "
             "move with version_conflict if the card changed since. Optional gates_passed sets the "
             "sub-column on a gated stage (omitted: kept within the column, 0 in a new one). "
             "Requires admin or member "
