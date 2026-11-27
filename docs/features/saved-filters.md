@@ -12,7 +12,7 @@ Set your filters, open the **Saved** dropdown next to the filter bar, and click 
 
 ## Saving a filter
 
-1. Open the board and set your filters with the filter bar (press `f`, or click **Filters** and choose **Show filter bar** in the panel footer).
+1. Open the board and set your filters with the filter bar (press `f`, or click **Filters** and turn on the **Filter bar** switch in the panel header).
 2. Click the **Saved** dropdown to the right of the filter controls.
 3. Click **Save current filters**, enter a descriptive name, and confirm.
 

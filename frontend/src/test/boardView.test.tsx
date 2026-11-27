@@ -711,11 +711,13 @@ describe('BoardView', () => {
     expect(dot?.className).not.toMatch(/animate-pulse/)
   })
 
-  // #2301 — the Filter button opens the Filter panel; its footer reveals the full filter bar.
+  // #2301 — the Filter button opens the Filter panel; its header Filter bar switch (#2691) reveals the
+  // full filter bar and keeps the panel open, so Escape closes the panel before the bar is queried.
   async function showFilterBar() {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /^Filters/ }))
-    await user.click(screen.getByRole('button', { name: /Show filter bar/ }))
+    await user.click(screen.getByRole('button', { name: 'Filter bar' }))
+    await user.keyboard('{Escape}')
   }
 
   it('FilterBar renders in its own row below the toolbar', async () => {
@@ -1145,7 +1147,7 @@ describe('BoardView', () => {
     it('single-key shortcuts do not fire from inside the open Filter panel (#2301)', async () => {
       render(<BoardView {...defaultProps()} />)
       fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
-      const panel = screen.getByRole('dialog', { name: 'Filter' })
+      const panel = screen.getByRole('dialog', { name: 'Filters' })
       const row = within(panel).getByRole('button', { name: /^Label/ })
       row.focus()
       fireEvent.keyDown(row, { key: 's' })
@@ -4547,7 +4549,7 @@ describe('BoardView lane filters (#2205)', () => {
     const preset = { id: 5, name: 'High only', state_json: {}, state_version: 1, created_at: '' }
     const openPanel = async (user: ReturnType<typeof userEvent.setup>) => {
       await user.click(screen.getByRole('button', { name: /^Filters/ }))
-      return screen.getByRole('dialog', { name: 'Filter' })
+      return screen.getByRole('dialog', { name: 'Filters' })
     }
     beforeEach(() => {
       mockSavedFilters = [preset]
@@ -4564,7 +4566,7 @@ describe('BoardView lane filters (#2205)', () => {
       let panel = await openPanel(user)
       await user.click(within(panel).getByRole('button', { name: 'High only' }))
       expect(mockHydrateFilter).toHaveBeenCalledWith(preset)
-      expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
+      expect(screen.queryByRole('dialog', { name: 'Filters' })).toBeNull()
       panel = await openPanel(user)
       expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'true')
       expect(within(panel).getByRole('button', { name: /^Priority/ })).toHaveTextContent('High')
@@ -4594,7 +4596,7 @@ describe('BoardView lane filters (#2205)', () => {
       expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
       const panel = await openPanel(user)
       await user.click(within(panel).getByRole('button', { name: /^Lanes/ }))
-      expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
+      expect(screen.queryByRole('dialog', { name: 'Filters' })).toBeNull()
       expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
     })
   })
