@@ -554,6 +554,20 @@ report_pinned_drift() {
 # Subcommands
 # ---------------------------------------------------------------------------
 
+# #2686: run `<script> --check` quietly. Returns 2 (script not usable: missing,
+# not executable, or predates --check, which would INSTALL hooks as a side
+# effect if run), so the caller can try a fallback copy. Otherwise returns 0
+# and prints the check output plus a warning only when --check fails.
+warn_if_hooks_missing() {
+  local script="$1" out
+  [[ -x "$script" ]] && grep -q -- '--check' "$script" || return 2
+  if ! out="$("$script" --check 2>&1)"; then
+    printf '%s\n' "$out" >&2
+    warn "git hooks are not fully installed (see above); worktree created anyway"
+  fi
+  return 0
+}
+
 cmd_new() {
   local input="" force=""
   while [[ $# -gt 0 ]]; do
@@ -667,9 +681,9 @@ cmd_new() {
   # #2686: warn (never fail) when the managed git hooks are missing from the
   # shared git common dir — a worktree commit/push otherwise skips gitleaks and
   # the issue-collision check with no sign anything is wrong.
-  if [[ -x "$REPO_ROOT/scripts/setup-hooks.sh" ]]; then
-    "$REPO_ROOT/scripts/setup-hooks.sh" --check >&2 || warn "git hooks are not fully installed (see above); worktree created anyway"
-  fi
+  # Prefer the new worktree's copy (from origin/main); fall back to this checkout's.
+  warn_if_hooks_missing "$target_path/scripts/setup-hooks.sh" \
+    || warn_if_hooks_missing "$REPO_ROOT/scripts/setup-hooks.sh" || true
   say ""
   dim "  cd $target_path"
   if command -v direnv >/dev/null 2>&1; then

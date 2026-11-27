@@ -3611,6 +3611,7 @@ script-tests:
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/pre-tool-agent-budget.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/resolve-docs-version.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/wt-doctor-drift.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/wt-hooks-check.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/ci-interruptible.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/refresh_test_durations.test.sh
     # Upgrade-drill and PG-matrix helpers (#2463).
