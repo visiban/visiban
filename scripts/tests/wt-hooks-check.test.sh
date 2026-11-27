@@ -27,6 +27,13 @@ source <(sed -n '/^warn_if_hooks_missing()/,/^}/p' "$REPO_ROOT/scripts/wt")
 
 mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$TMP/$1"; chmod +x "$TMP/$1"; }
 
+# Call site: the function tests above prove nothing if cmd_new never calls it. WT_SCRIPT
+# lets the negative control point at a copy with the calls deleted.
+WT_SCRIPT="${WT_SCRIPT:-$REPO_ROOT/scripts/wt}"
+cmd_new_body="$(sed -n '/^cmd_new()/,/^}/p' "$WT_SCRIPT")"
+check "cmd_new body extracted" -n "$cmd_new_body"
+check "cmd_new calls warn_if_hooks_missing" -n "$(grep 'warn_if_hooks_missing' <<<"$cmd_new_body")"
+
 # (i) predates --check: never executed
 mkstub old.sh 'touch "'"$TMP"'/old-ran"; echo installing'
 out="$(warn_if_hooks_missing "$TMP/old.sh" 2>&1)"; rc=$?

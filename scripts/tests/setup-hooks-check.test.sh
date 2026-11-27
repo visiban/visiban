@@ -40,6 +40,7 @@ expect "installed hooks -> rc 0" 0 "pre-push hook is managed" "pre-commit hook i
 
 new_repo
 printf '#!/bin/sh\n# Pre-push hook\necho "Running frontend lint..."\n' > "$TMP/r/.git/hooks/pre-push"
+chmod +x "$TMP/r/.git/hooks/pre-push"
 (cd "$TMP/r" && bash "$SCRIPT" >/dev/null 2>&1)
 before="$(cat "$TMP/r/.git/hooks/pre-push")"
 check
@@ -49,6 +50,7 @@ expect "legacy frontend-lint pre-push -> rc 1, chain/replace advice" 1 "pre-push
 
 new_repo
 printf '#!/bin/sh\necho custom\n' > "$TMP/r/.git/hooks/pre-commit"
+chmod +x "$TMP/r/.git/hooks/pre-commit"
 check
 expect "unmanaged non-legacy pre-commit -> rc 1" 1 "pre-commit hook is UNMANAGED" "gitleaks-precommit.sh" "pre-push hook is MISSING"
 
@@ -58,5 +60,33 @@ git -C "$TMP/r" worktree add -q "$TMP/wt" -b b2
 (cd "$TMP/r" && bash "$SCRIPT" >/dev/null 2>&1)
 (cd "$TMP/wt" && bash "$SCRIPT" --check >"$TMP/out" 2>&1); RC=$?
 expect "from a linked worktree resolves the common dir" 0 "pre-commit hook is managed"
+
+new_repo
+(cd "$TMP/r" && bash "$SCRIPT" >/dev/null 2>&1)
+mkdir "$TMP/empty-hooks"
+git -C "$TMP/r" config core.hooksPath "$TMP/empty-hooks"
+check
+expect "core.hooksPath elsewhere -> rc 1, both dirs named" 1 "will not run hooks installed in" "$TMP/r/.git/hooks" "$TMP/empty-hooks"
+
+new_repo
+(cd "$TMP/r" && bash "$SCRIPT" >/dev/null 2>&1)
+chmod -x "$TMP/r/.git/hooks/pre-push"
+check
+expect "non-executable managed hook -> rc 1" 1 "pre-push hook is NOT EXECUTABLE" "pre-commit hook is managed"
+
+new_repo
+printf '#!/bin/sh\necho "Running frontend lint..."\n' > "$TMP/r/.git/hooks/pre-push"
+chmod +x "$TMP/r/.git/hooks/pre-push"
+printf '"$(git rev-parse --show-toplevel)/scripts/check-issue-collision.sh" --hook "$@"\n' >> "$TMP/r/.git/hooks/pre-push"
+(cd "$TMP/r" && bash "$SCRIPT" >/dev/null 2>&1)
+check
+expect "legacy pre-push chained as advised -> chained, rc 0" 0 "pre-push hook is chained" "pre-commit hook is managed"
+grep -qF "pre-push hook is UNMANAGED" "$TMP/out" && { echo "  FAIL: chained hook still UNMANAGED"; fail=$((fail + 1)); }
+
+new_repo
+printf '#!/bin/sh\n# TODO call scripts/check-issue-collision.sh\necho custom\n' > "$TMP/r/.git/hooks/pre-push"
+chmod +x "$TMP/r/.git/hooks/pre-push"
+check
+expect "script name only in a comment -> still UNMANAGED" 1 "pre-push hook is UNMANAGED"
 
 [[ "$fail" -eq 0 ]] && echo "PASS" || { echo "FAILED: $fail"; exit 1; }
