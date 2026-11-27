@@ -26,7 +26,7 @@ export interface LaneBandField {
  * empty values included (`""`), so each lane's grid has the same rows in the same
  * places. The server ships every swimlane definition to every board reader (only
  * row values are filtered), so an admin-only definition is dropped here for a
- * non-admin: it would otherwise inflate the "N fields" count and render as an
+ * non-admin: it would otherwise inflate the "Show N more" count and render as an
  * unset row, which falsely says the field is empty. The length is the count.
  */
 export function laneGridFields(lane: Swimlane, definitions: SwimlaneCustomFieldDefinition[] | undefined, isAdmin: boolean): LaneBandField[] {

@@ -330,6 +330,37 @@ class GrowCapToFitTests(_Base):
         sent = [(c.args[1], c.args[2]) for c in self.broadcast.call_args_list]
         self.assertTrue(any(e == "board.updated" and p.get("lane_details_cap") == 12 for e, p in sent), sent)
 
+    def test_a_create_on_an_unset_board_grows_the_cap_and_broadcasts_on_commit(self):
+        for i in range(11):
+            _defn(self.board, f"F{i}", i)
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.client.post(self.url, {"name": "New", "field_type": "text"}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        self.board.refresh_from_db()
+        # 11 fields put 9 in Details, so the cap grows to 9 before the new row, which then finds Details full.
+        self.assertEqual(self.board.lane_details_cap, 9)
+        self.assertEqual(r.data["band_visibility"], "hidden")
+        sent = [(c.args[1], c.args[2]) for c in self.broadcast.call_args_list]
+        self.assertTrue(any(e == "board.updated" and p.get("lane_details_cap") == 9 for e, p in sent), sent)
+
+    def test_a_failed_write_after_growing_sends_and_keeps_nothing(self):
+        from boards.models import BoardEvent
+
+        for i in range(20):
+            _defn(self.board, f"F{i}", i)
+        before = BoardEvent.objects.filter(board_id=self.board.id).count()
+        with self.captureOnCommitCallbacks(execute=True):
+            # Materializing grows the cap to 16 with 16 in Details, so a 17th is a 400 after the growth.
+            r = self.client.post(
+                self.url, {"name": "X", "field_type": "text", "band_visibility": "details"}, format="json"
+            )
+        self.assertEqual(r.status_code, 400, r.data)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.lane_details_cap, 6)
+        self.assertEqual(self._tiers(), [None] * 20)
+        self.assertEqual(BoardEvent.objects.filter(board_id=self.board.id).count(), before)
+        self.assertFalse(any(c.args[1] == "board.updated" for c in self.broadcast.call_args_list))
+
     def test_an_explicit_admin_cap_is_never_lowered(self):
         self.board.lane_details_cap = 12
         self.board.save(update_fields=["lane_details_cap"])

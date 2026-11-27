@@ -716,10 +716,14 @@ class SwimlaneCustomFieldBroadcastTests(SwimlaneCustomFieldTestBase):
         """
         from boards.models import BoardEvent
 
+        from boards.models import SwimlaneCustomFieldDefinition
+
         before = BoardEvent.objects.count()
+        # #2658: a create materializes an unset board first, one updated event per NULL row.
+        nulls = SwimlaneCustomFieldDefinition.objects.filter(band_visibility__isnull=True).count()
         r = self.client.post(self.url, {"name": "Tier"}, format="json")
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(BoardEvent.objects.count(), before + 1)
+        self.assertEqual(BoardEvent.objects.count(), before + nulls + 1)
         self.assertEqual(
             BoardEvent.objects.latest("id").event, "swimlane_custom_field.created"
         )
