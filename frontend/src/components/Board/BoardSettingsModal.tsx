@@ -1294,7 +1294,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         <div className="flex flex-1 min-h-0">
         {!isPhone && (
         <div className="w-[232px] shrink-0 border-r border-line overflow-y-auto py-3 px-3">
-          <div role="tablist" aria-orientation="vertical" aria-label="Board settings sections" onKeyDown={onSidebarKeyDown} className="flex flex-col gap-0.5">
+          <div role="tablist" aria-orientation="vertical" aria-label="Settings sections" onKeyDown={onSidebarKeyDown} className="flex flex-col gap-0.5">
             {/* #863: Webhooks is omitted from the DOM in demo mode and for non-admins, never DemoInert. */}
             {SECTION_GROUPS.map((g) => {
               const sections = g.sections.filter((t) => availableSections.has(t));
@@ -2330,10 +2330,15 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           {/* ── Export section ── */}
           {tab === "export" && (
             <div className="flex flex-col gap-6">
+              <header>
+                <h2 className="text-base font-semibold text-fg">Export</h2>
+                <p className="text-sm text-fg-muted mt-0.5">Download this board, choose who may export it, and see past exports.</p>
+              </header>
               {canExport && (
               <section>
-                <div className="flex items-center gap-2 mb-2 min-w-0"><h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Export</h3><HelpLink topic="board.export" /></div>
-                <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 mb-2 min-w-0"><h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide">Export board</h3><HelpLink topic="board.export" /></div>
+                <fieldset className="flex flex-col gap-2 min-w-0 border-0 p-0 m-0">
+                  <legend className="sr-only">Export format</legend>
                   {(["json", "csv"] as const).map((fmt) => (
                     <label
                       key={fmt}
@@ -2361,7 +2366,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
                     </label>
                   ))}
-                </div>
+                </fieldset>
                 <button
                   onClick={() => { if (exportFormat === "json") { exportBoardJson(board.id); } else { exportBoardCsv(board.id); } onClose(); }}
                   className="w-full mt-3 bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -2380,6 +2385,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       Choose who can use the export action and download export files. This does not change what members can view on the board. Owners and site admins always bypass this threshold.
                     </p>
                     <SelectDropdown
+                      ariaLabel="Who can export"
                       value={exportMinRole}
                       onChange={(v) => handleExportMinRoleChange(v as BoardExportMinRole)}
                       options={[
@@ -2492,7 +2498,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               {(
                 <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
                 <section className="border-t border-line pt-5">
-                  <h3 className="text-xs font-semibold text-danger uppercase tracking-wide mb-3">Danger Zone</h3>
+                  <h3 className="text-xs font-semibold text-danger uppercase tracking-wide mb-3">Danger zone</h3>
                   {deleteError && (
                     <p role="alert" className="text-xs text-danger mb-2">{deleteError}</p>
                   )}

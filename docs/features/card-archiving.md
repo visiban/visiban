@@ -52,7 +52,7 @@ Archive when the card may be referenced later; delete when it is no longer neede
 
 ## Board deletion
 
-Deleting a board permanently deletes every card on it, including archived cards. Every board-delete confirmation says so (on the dashboard, in the board switcher, and in the **Danger Zone** of Board Settings), and when the board has archived cards it tells you how many.
+Deleting a board permanently deletes every card on it, including archived cards. Every board-delete confirmation says so (on the dashboard, in the board switcher, and in the **Danger zone** of Board Settings), and when the board has archived cards it tells you how many.
 
 Archived cards count toward the typed confirmation:
 

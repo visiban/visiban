@@ -3202,6 +3202,17 @@ describe('BoardSettingsModal — Export permission (#843)', () => {
     expect(screen.getByText('Anyone with read access (default)')).toBeInTheDocument()
   })
 
+  it('names the section, the export card, the format group and the permission select (#2661)', () => {
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    expect(screen.getByRole('heading', { level: 2, name: 'Export' })).toBeInTheDocument()
+    expect(screen.getByText('Download this board, choose who may export it, and see past exports.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Export board' })).toBeInTheDocument()
+    const group = screen.getByRole('group', { name: 'Export format' })
+    expect(within(group).getAllByRole('radio')).toHaveLength(2)
+    expect(screen.getByRole('combobox', { name: /^Who can export/ })).toBeInTheDocument()
+    expect(screen.getByRole('tablist', { name: 'Settings sections' })).toBeInTheDocument()
+  })
+
   it('non-admin sees a plain-English read-only sentence (no dropdown)', () => {
     const boardAdminOnly = { ...fakeBoard, export_min_role: 'admin' as const, current_user_role: 'member' as const }
     render(<BoardSettingsModal currentUserId={null} board={boardAdminOnly} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
@@ -3403,9 +3414,9 @@ describe('BoardSettingsModal — hosted demo (#1179)', () => {
   })
 })
 
-// ─── Danger Zone: archived cards (#1289) ────────────────────────────────────
+// ─── Danger zone: archived cards (#1289) ────────────────────────────────────
 
-describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => {
+describe('BoardSettingsModal — Danger zone and archived cards (#1289)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -3506,7 +3517,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
   })
 })
 
-describe('BoardSettingsModal — Danger Zone gate and failures (#2034)', () => {
+describe('BoardSettingsModal — Danger zone gate and failures (#2034)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
   const owned = { ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 0 } as BoardFull
@@ -3520,7 +3531,7 @@ describe('BoardSettingsModal — Danger Zone gate and failures (#2034)', () => {
 
   it('keeps the section for a non-owner admin but removes the delete control and says why', () => {
     renderDz({ ...owned, current_user_role: 'admin' }, { currentUserId: 999 })
-    expect(screen.getByText('Danger Zone')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Danger zone' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Delete board/ })).not.toBeInTheDocument()
     expect(screen.getByText(`Only the board owner (${fakeUser.display_name}) or a site administrator can delete this board.`)).toBeInTheDocument()
   })
@@ -4271,7 +4282,7 @@ describe('BoardSettingsModal — grouped sidebar (#2436)', () => {
     mount({ initialTab: 'data' })
     expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
     const heads = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
-    expect(heads).toEqual(['Export', 'Export permission', 'Export history'])
+    expect(heads).toEqual(['Export board', 'Export permission', 'Export history'])
     expect(screen.getByText(/Also on the board toolbar/)).toBeInTheDocument()
   })
 
