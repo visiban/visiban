@@ -8,7 +8,6 @@ import { parentFilterAvailable, parentFilterLabel, parentFilterOptions, parentLa
 import { plannedFilterAvailable, plannedFilterLabel, type PlannedFilter } from "../../utils/plannedFilter";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue, CUSTOM_FIELD_TYPE_LABEL } from "../../utils/customFieldValue";
 import { choiceColorBase } from "../../constants/choiceColors";
-import { ruleValues } from "../../utils/fieldRules";
 import { isLaneBuiltinField, laneValueLabel, type LaneFieldKey, isLaneFilterActive, laneFilterAvailable, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
 import Tooltip from "../Common/Tooltip";
 import ActiveMark from "../Common/ActiveMark";
@@ -21,7 +20,7 @@ import { DEFAULT_LANE_DETAILS_CAP } from "../../utils/laneBand";
 import { applyValueHit, matchRange, searchFields, type SearchScope, type ValueHit, type NameHit } from "../../utils/filterFieldSearch";
 import { isImeComposing } from "../../utils/imeComposition";
 import { removeLaneItem, laneFilterChipItems } from "../../utils/laneFilter";
-import { isRuleComplete, type RuleFieldType } from "../../utils/fieldRules";
+import { isRuleComplete, ruleValueText, type RuleFieldType } from "../../utils/fieldRules";
 import FilterChip from "./FilterChip";
 import NumberFilterEditor from "./NumberFilterEditor";
 import { numberFilterDisplay } from "../../utils/numberFilter";
@@ -400,7 +399,7 @@ export default function FilterPanel({
     // An incomplete rule (an auto-added one with no value yet) filters nothing, so the row reads "Any".
     const vals = (filters.laneFilter?.items ?? []).flatMap((it) => (it.kind === "rule" ? [it] : it.rules))
       .filter((r) => r.field === h.fieldId && isRuleComplete(r, h.fieldType as RuleFieldType))
-      .map((r) => (r.op === "between" ? [r.min, r.max].filter(Boolean).map((x) => show(x as string)).join(" to ") : ruleValues(r).map((x) => show(x)).join(", ")))
+      .map((r) => ruleValueText(r, h.fieldType as RuleFieldType, show))
       .filter((v) => v !== "");
     return vals.length ? vals.join(", ") : null;
   };

@@ -742,6 +742,25 @@ describe('FilterPanel search (#2437)', () => {
     expect(within(row).getByTestId('filter-row-mark')).toBeInTheDocument()
   })
 
+  it.each<[string, Record<string, unknown>, string]>([
+    ['is, one value', { op: 'is', value: 'gold' }, 'gold'],
+    ['is not, one value', { op: 'is_not', value: 'gold' }, 'not gold'],
+    ['is not, several values', { op: 'is_not', values: ['gold', 'silver'] }, 'none of gold, silver'],
+  ])('the lane row keeps the operator: %s (#2708)', async (_name, rule, text) => {
+    const u = userEvent.setup()
+    const base = searchBoard()
+    const board = { ...base, swimlane_custom_field_definitions: [
+      { ...(base.swimlane_custom_field_definitions as never[])[0] as object, id: 52, name: 'Tier', field_type: 'multi_select' },
+    ] } as never
+    const laneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 52, ...rule }] }
+    setup({ board, filters: { ...EMPTY_FILTER, laneFilter } as unknown as FilterState })
+    await open(u)
+    await u.type(box(), 'tier')
+    const row = screen.getByRole('button', { name: /Swimlane.*Tier/ })
+    expect(row.textContent).toContain(text)
+    if (rule.op === 'is') expect(row.textContent).not.toContain('not ')
+  })
+
   it('field:value applies with Enter', async () => {
     const u = userEvent.setup()
     const { onChange } = setup({ board: searchBoard() })
