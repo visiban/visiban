@@ -602,8 +602,10 @@ Every agent finishes by, in order:
    `python3 scripts/wave-agent-budget.py --count <agent_id>`. With fewer than about 20 calls left
    under `WAVE_AGENT_TOOL_CAP` (default 120; the 20 is a suggested figure) for the rebase,
    re-test, push and MR, do not resume: give that step to a fresh `wave-harness-worker` in the
-   same worktree, briefed with the Requirements table and the ledger lines the go-ahead would
-   have carried. This does not count as the one handoff (*Handoff at a stop*).
+   same worktree, briefed per *The brief* (including the issue number, branch and completion
+   contract), plus the Requirements table, the gate ledger from the implementer's Step 5.4 report
+   and the ledger lines the go-ahead would have carried. This does not count as the one handoff
+   (*Handoff at a stop*).
 
    **Measure the cost lines at the go-ahead (#2128, ported from Blueprint;
    [`docs/development/cost-ledger.md`](../../../docs/development/cost-ledger.md) is the contract).**
