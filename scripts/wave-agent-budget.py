@@ -30,8 +30,10 @@ def usage(msg):
 
 def store_dir(repo):
     try:
-        r = subprocess.run(["git", "-C", repo, "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                           capture_output=True, text=True, timeout=10)
+        # cwd=repo, not `git -C repo`: the directory is never an argv token, so a value that
+        # looks like an option cannot be parsed as one (pythonsecurity:S8705, #2676).
+        r = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                           capture_output=True, text=True, timeout=10, cwd=repo)
     except Exception:
         return None
     p = r.stdout.strip()
@@ -53,6 +55,10 @@ def main(argv):
             usage("unexpected argument %r" % a)
     if mode is None:
         usage("give --stopped <agent_id> or --count <agent_id>")
+    # An absolute, existing directory only: --repo is untrusted argv (#2676).
+    repo = os.path.realpath(repo)
+    if not os.path.isdir(repo):
+        usage("--repo %r is not a directory" % repo)
     if not ID_RE.fullmatch(aid):
         usage("malformed agent ID %r (expected [A-Za-z0-9_-]+)" % aid)
     store = store_dir(repo)

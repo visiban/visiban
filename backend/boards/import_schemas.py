@@ -88,7 +88,11 @@ class ImportSummarySerializer(serializers.Serializer):
     skipped = ImportSkippedCountsSerializer()
     warnings = serializers.ListField(
         child=serializers.CharField(), required=False,
-        help_text="CSV import only: row-level warnings, capped with a trailing '...and N more' entry.",
+        help_text=(
+            "Row-level warnings, capped with a trailing '...and N more' entry. CSV imports always "
+            "carry the list; a JSON import carries it only when something was skipped, "
+            "e.g. an entry requirement naming a field or field set the file does not define (#1923)."
+        ),
     )
 
 

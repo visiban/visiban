@@ -372,9 +372,10 @@ def _broadcast_stage(board, column, remapped, changed_lanes, actor):
     ``record_board_event`` defers the WebSocket send to ``on_commit``.
     """
     from ..serializers import ColumnSerializer, SwimlaneSerializer, _swimlane_custom_field_prefetch
+    from ..serializers import entry_requirements_prefetch as _entry_requirements_prefetch
 
     fresh = Column.objects.prefetch_related(
-        "sub_columns", "stage_tracks__field_definition",
+        "sub_columns", "stage_tracks__field_definition", _entry_requirements_prefetch(),
     ).get(pk=column.pk)
     payload = {**ColumnSerializer(fresh).data, "remapped": remapped}
     _broadcast.record_board_event(

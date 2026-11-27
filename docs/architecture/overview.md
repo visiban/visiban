@@ -83,7 +83,7 @@ GitLab CI runs on every push, MR, and version tag. It lints, tests, scans for vu
 │                                                             │
 │  lint                                                       │
 │  │  backend-lint    (Ruff + CodeClimate report)             │
-│  │  frontend-lint   (ESLint + tsc --noEmit)                 │
+│  │  frontend-lint   (ESLint + tsc -p tsconfig.app.json)     │
 │  │  frontend-lint-typeaware (type-aware ESLint rule)        │
 │  │  changelog-check (changelog.d/ fragment required)        │
 │                                                             │

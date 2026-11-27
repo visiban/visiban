@@ -248,6 +248,11 @@ persisted in the MR's `## Gates` (Step 5); Step 7 only reports them.
 security" — a one-line permission-class fix with a named root cause is Sonnet
 work; `rbac-check` and `security-review` catch what Sonnet misses.
 
+**`api-docs` is the one writer in the batch.** When a view, viewset, serializer, or permission file
+changed, the implementer runs it in the same parallel batch as the read-only gates, with
+`model: "sonnet"` and `effort: "medium"`. It edits `docs/api/` in the implementer's worktree;
+the implementer reviews those edits and commits them with the branch (the gate never commits).
+
 **Read-only gates always run on Sonnet.** `regression-check`, `rbac-check`,
 `perf-check`, `security-review`, `broadcast-check`, `migration-check` read a diff and
 report findings. None needs Opus. Pass `model: "sonnet"` on the Agent call when you spawn
@@ -281,6 +286,7 @@ than calling the omission a defect.
 | Implementer, escalated (a criterion above, named in the report) | `opus` | `high` |
 | Rescue (after Opus failed; a *Rescue escalation* trigger and the user's answer, named in the report) | `fable` | `high` |
 | Read-only gates (`regression-check`, `rbac-check`, `perf-check`, `security-review`, `broadcast-check`, `migration-check`) | `sonnet` | `medium` |
+| `api-docs` (the one writer in the batch; edits `docs/api/`) | `sonnet` | `medium` |
 | `completeness-check` round 1 | `sonnet`, or `opus` on its own criteria | `high` |
 | `completeness-check` round 2 | `opus` | `high` |
 | `completeness-check/fix-diff` re-check | `sonnet`, or `opus` if round 1 escalated | `medium` |
@@ -303,7 +309,7 @@ Spend sits in a few long agents, and until #2157 the only stop was the agent fin
 (ported from Blueprint's `/wave`, macrodream/blueprint#247). Every agent gets a budget in
 its brief, counted in tool calls and wall-clock minutes. An agent with `Bash` (the
 implementer, `completeness-check`, `regression-check`, `security-review`, `perf-check`,
-`migration-check`) reads `date` at the start and every few calls. An agent without `Bash`
+`migration-check`, `api-docs`) reads `date` at the start and every few calls. An agent without `Bash`
 (`rbac-check`, `broadcast-check`, `ux-review`) has **only the tool-call cap**: its wall-clock
 limit is not enforced (short read-only passes; having the orchestrator watch a clock for them
 costs more than it saves). Tool calls are not the ledger's `turns:` unit; keep the two apart.
@@ -312,6 +318,7 @@ costs more than it saves). Tool calls are not the ledger's `turns:` unit; keep t
 |---|---|---|
 | Implementer | 80 | 45 min |
 | Read-only gate (`regression-check`, `perf-check`, `security-review`, `rbac-check`, ...) | 25 | 15 min |
+| `api-docs` (writer gate) | 25 | 15 min |
 | `completeness-check`, each pass | 40 | 30 min |
 
 **These numbers are PROVISIONAL.** They are judgment, not derived from this repo's ledger. The
@@ -352,8 +359,8 @@ plain `N findings` line.** Record it as `gate: <name> — <N> findings (<model>;
 (`budget-stopped` is its own `;` field), or re-run the gate under the expanded budget and record
 that run. Never present a stopped gate's `0 findings` as a clean result.
 
-**What the harness enforces, and what it does not.** The read-only gate agent files and
-`completeness-check` set `maxTurns` in their frontmatter (39 and 61: the expanded budget plus
+**What the harness enforces, and what it does not.** The read-only gate agent files,
+`api-docs` (a writer, so not read-only) and `completeness-check` set `maxTurns` in their frontmatter (39 and 61: the expanded budget plus
 one). `ux-review` and `ux-design` set none: their budget is the brief's alone. The ceiling is per run, not per agent (a resume restarts the count), and it counts turns,
 not tool calls, so an agent that batches can pass its call budget first. An agent still calling
 tools at the ceiling gets no last turn: a harness stop arrives as a `completed` result carrying
@@ -468,14 +475,17 @@ named. Include:
   and which are `n/a`, so the agent does not run the whole battery. The implementer spawns
   only the pre-MR batch, as one parallel batch, with `model: "sonnet"` and
   `effort: "medium"` on each call (see the table above), and tells you which values it
-  passed. It writes tests and docs itself.
+  passed. It writes tests and docs itself. When the diff changes a view, viewset, serializer,
+  or permission file, the batch also includes `api-docs` (root `CLAUDE.md`, "Pre-MR gate batch:
+  `api-docs` addition"); it writes `docs/api/` in the worktree, and the implementer commits
+  its edits.
 - The scoped test command — the affected test file, not the whole suite
   (`cd backend && pytest <path> -q`, or `cd frontend && npx vitest run <file>`,
   or `cd frontend && npx playwright test e2e/<spec>.spec.ts`).
 - The completion contract from Step 5.
 - **Its budget** from the table in *Per-agent budget*: tool calls and wall-clock minutes for its
   role, labeled provisional, and the instruction to stop and report at the limit. The
-  implementer's brief also carries the read-only-gate row (25 tool calls, 15 min, provisional)
+  implementer's brief also carries the read-only-gate row and the `api-docs` row (25 tool calls, 15 min, provisional)
   for each pre-MR batch agent it spawns, with the same stop-and-report instruction, to pass in
   each gate's prompt. It also says that a run cut off at a limit gets no last turn, so it
   commits each coherent step once its tests pass.

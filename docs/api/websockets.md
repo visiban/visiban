@@ -341,13 +341,23 @@ and `card.updated`, which clients could not apply.*
 
 ### `override` on card placement events (since 1.3)
 
-`card.moved`, `card.created` and `card.unarchived` carry an additive top-level `override` object (#1923), present only when the placement overrode a Block WIP or weight limit. Every other payload is unchanged.
+`card.moved`, `card.created` and `card.unarchived` carry an additive top-level `override` object (#1923), present only when the placement overrode a Block WIP limit, weight limit or entry requirement (`kinds` may include `entry_requirements`). Every other payload is unchanged.
 
 ```json
 { "kinds": ["wip"], "actor_basis": "assignee", "actor": { "id": 1, "username": "ada" }, "reason": "Customer deadline" }
 ```
 
 `actor_basis` is `admin`, `site_admin` or `assignee`. `reason` is `""` when an admin gave none. It is visible to every subscriber, viewers included, and appears in the [change feed](events.md) and in webhook deliveries.
+
+### `entry_unmet` on card placement events (since 1.3)
+
+`card.moved`, `card.created` and `card.unarchived` carry an additive top-level `entry_unmet` list (#1923), present only when the card entered a Warn column with an unmet [entry requirement](cards.md#entry-requirements-since-13-1923). Every other payload is unchanged. It appears in the [change feed](events.md) and in webhook deliveries.
+
+```json
+[{ "requirement_uid": "…", "operator": "filled", "operand": null, "field_uid": "…", "field_name": "Amount", "field_set_uid": null, "field_set_name": null }]
+```
+
+It names the requirement and field, and never contains a card's values.
 
 ### Sibling positions on `card.moved` (since 1.3)
 

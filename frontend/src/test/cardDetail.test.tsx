@@ -1600,9 +1600,14 @@ describe('CardDetail', () => {
       const toggle = screen.getByRole('button', { name: 'Hide completed' })
       expect(toggle).toHaveAttribute('aria-pressed', 'false')
       expect(within(toggle).queryByTestId('active-mark')).toBeNull()
+      // #2673: idle holds the check's room as symmetric padding
+      expect(toggle.className).toMatch(/\bpx-3\b/)
+      expect(toggle.className).not.toMatch(/\bpx-1\b/)
       fireEvent.click(toggle)
       expect(toggle).toHaveAttribute('aria-pressed', 'true')
       expect(within(toggle).getByTestId('active-mark')).toBeInTheDocument()
+      expect(toggle.className).toMatch(/\bpx-1\b/)
+      expect(toggle.className).not.toMatch(/\bpx-3\b/)
       expect(screen.getByText('1 completed hidden')).toBeInTheDocument()
       expect(screen.queryByText('Theirs')).toBeNull()
       fireEvent.click(toggle)
@@ -2435,6 +2440,15 @@ describe('CardDetail', () => {
         expect(screen.getByText('Card could not be moved — a column limit was reached.')).toBeInTheDocument()
       })
       expectNotMoved()
+    })
+
+    it('words an entry-requirements refusal as unmet requirements, not a limit (#1923)', async () => {
+      const onMoveCard = vi.fn().mockResolvedValue({ ok: false, error: axiosFailure(409, { code: 'entry_requirements_unmet', column_name: 'Proposal', unmet: [] }) })
+      await submitMove(onMoveCard)
+      await waitFor(() => {
+        expect(screen.getByText('Card could not be moved — "Proposal" has entry requirements this card doesn\'t meet.')).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/has reached its limit/)).not.toBeInTheDocument()
     })
 
     it('names the column when the limit body carries column_name', async () => {

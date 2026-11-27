@@ -636,6 +636,23 @@ describe('FilterBar — MyCardsButton', () => {
     expect(btn).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('My cards and Blocked only hold the check\'s room as symmetric idle padding (#2673)', () => {
+    const idle = render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} currentUser={fakeUser} />)
+    const my = screen.getByText('My cards').closest('button') as HTMLElement
+    const blocked = screen.getByRole('button', { name: /^Blocked only/ })
+    for (const b of [my, blocked]) {
+      expect(within(b).queryByTestId('active-mark')).toBeNull()
+      expect(b.className).toContain('px-[1.0625rem]')
+      expect(b.className).not.toMatch(/\bpx-2\b/)
+    }
+    idle.rerender(<FilterBar board={makeBoard()} filters={{ ...EMPTY_FILTER, assigneeIds: [fakeUser.id], blockedOnly: true }} onChange={vi.fn()} currentUser={fakeUser} />)
+    for (const b of [my, screen.getByRole('button', { name: /^Blocked only/ })]) {
+      expect(within(b).getByTestId('active-mark')).toBeInTheDocument()
+      expect(b.className).toMatch(/\bpx-2\b/)
+      expect(b.className).not.toContain('px-[1.0625rem]')
+    }
+  })
+
   it('My cards button has aria-pressed=false when filter is not active', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} currentUser={fakeUser} />)
     const btn = screen.getByText('My cards').closest('button')

@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import { useBoard } from "../hooks/useBoard";
-import type { MoveBlockedError, MoveOutcome } from "../hooks/useBoard";
+import type { EntryWarning, MoveBlockedError, MoveOutcome } from "../hooks/useBoard";
 import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, CustomFieldSet, SwimlaneCustomFieldDefinition } from "../types";
 import type { CardPlannedFields } from "../utils/plannedFields";
 
@@ -29,6 +29,9 @@ export interface BoardContextType {
   pendingMoveCardId?: number | null;
   moveError: MoveBlockedError | null;
   clearMoveError: () => void;
+  /** The last Warn-mode move with unmet entry requirements (#1923); optional so test mocks need not provide it. */
+  entryWarning?: EntryWarning | null;
+  clearEntryWarning?: () => void;
   addCard: (card: Card) => void;
   removeCard: (cardId: number) => void;
   archiveCard: (cardId: number) => void;

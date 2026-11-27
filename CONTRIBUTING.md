@@ -99,7 +99,7 @@ Every push triggers a GitLab CI pipeline that builds and validates the project. 
 | Stage | Job | What it does |
 |---|---|---|
 | **lint** | `backend-lint` | Ruff linter + CodeClimate quality report |
-| **lint** | `frontend-lint` | ESLint + TypeScript type checking (`tsc --noEmit`) |
+| **lint** | `frontend-lint` | ESLint + TypeScript type checking (`npx tsc -p tsconfig.app.json --noEmit` and `npx tsc -p tsconfig.e2e.json --noEmit`; a bare `tsc --noEmit` checks nothing) |
 | **test** | `backend-test` | Django test suite with coverage (90% minimum threshold) |
 | **test** | `backend-test-migrations` | Applies the full migration graph and runs `-m migrations` tests (blocking) |
 | **test** | `backend-test-slow` | Runs the `slow`-marked seed/sample tests on main, nightly and relevant MRs (blocking) |

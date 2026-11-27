@@ -1,0 +1,1 @@
+A garbage-collection pass during a long process could disconnect the User signal receivers, so a superuser silently stopped getting site-admin and all-content access flags; the receivers are now held by strong reference.

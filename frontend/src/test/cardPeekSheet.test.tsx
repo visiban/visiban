@@ -535,6 +535,17 @@ describe('CardPeekSheet', () => {
       return p
     }
 
+    it('words an entry-requirements refusal as unmet requirements, not a limit (#1923)', async () => {
+      await refuse({
+        onMoveCard: vi.fn().mockResolvedValue({
+          ok: false,
+          error: axiosRefusal({ code: 'entry_requirements_unmet', column_name: 'Proposal', unmet: [] }),
+        }),
+      })
+      expect(screen.getByRole('alert')).toHaveTextContent('"Proposal" has entry requirements this card doesn\'t meet.')
+      expect(screen.getByRole('alert')).not.toHaveTextContent(/has reached its limit/)
+    })
+
     it('offers Move anyway to an admin, forcing the form target, and closes on success', async () => {
       const onForceMoveCard = vi.fn().mockResolvedValue({ ok: true })
       await refuse({ onForceMoveCard })

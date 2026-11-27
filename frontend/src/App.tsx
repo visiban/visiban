@@ -22,6 +22,7 @@ import { MenuIcon, PencilIcon } from "./components/Layout/shellIcons";
 import InlineBoardName from "./components/Board/InlineBoardName";
 import BoardView from "./components/Board/BoardView";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
+import EntryWarnToast from "./components/Board/EntryWarnToast";
 import { overrideEligibility } from "./utils/forceOverride";
 import { BoardSkeleton, BoardLoadError } from "./components/Board/BoardStates";
 import ImportSkippedToast from "./components/Board/ImportSkippedToast";
@@ -329,7 +330,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   const navigate = useNavigate();
   const location = useLocation();
   const { id: routeBoardId } = useParams<{ id: string }>();
-  const { board, loading, error, unavailable, forceMoveCard, pendingMoveCardId, moveError, clearMoveError, updateBoardSettings, mergeBoardState, reload, updateSwimlane } = useBoardContext();
+  const { board, loading, error, unavailable, forceMoveCard, pendingMoveCardId, moveError, clearMoveError, entryWarning, clearEntryWarning, updateBoardSettings, mergeBoardState, reload, updateSwimlane } = useBoardContext();
 
   // Skipped-counts notice after a selective import (#119), handed over in the
   // navigation state by the import modal's caller. Captured once on mount and
@@ -539,6 +540,9 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onForce={forceMoveCard}
             onDismiss={clearMoveError}
           />
+        )}
+        {entryWarning && clearEntryWarning && (
+          <EntryWarnToast key={entryWarning.seq} warning={entryWarning} onDismiss={clearEntryWarning} />
         )}
         {importSummary && board && (
           <ImportSkippedToast summary={importSummary} onDismiss={dismissImportSummary} />
