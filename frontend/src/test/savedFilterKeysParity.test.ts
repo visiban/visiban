@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { sanitizeLaneFilter, LANE_FILTER_OPS, LANE_BUILTIN_FIELDS, LANE_FILTER_MAX_ID, LANE_FILTER_MAX_ITEMS, LANE_FILTER_MAX_RULES, LANE_FILTER_MAX_STRING } from '../utils/laneFilter'
+import { sanitizeLaneFilter, LANE_FILTER_OPS, LANE_BUILTIN_FIELDS, LANE_FILTER_MAX_ID, LANE_FILTER_MAX_ITEMS, LANE_FILTER_MAX_RULES, LANE_FILTER_MAX_STRING, LANE_FILTER_MAX_VALUES } from '../utils/laneFilter'
 import { EMPTY_FILTER, type FilterState } from '../components/Board/FilterBar'
 import { TRACK_STATES, STAGE_FILTER_MAX_IDS } from '../utils/stageFilter'
 import { HEALTH_STATUS_VALUES } from '../constants/healthStatus'
@@ -37,7 +37,7 @@ const FILTER_STATE_KEYS: Record<keyof FilterState, true> = {
 describe('FilterState keys parity with backend', () => {
   const fixture = JSON.parse(
     readFileSync(resolve(__dirname, '../../../backend/boards/tests/fixtures/filter_state_keys.json'), 'utf8'),
-  ) as { keys: string[]; numberFilterOps: string[]; numberFilterValidEntries: Record<string, unknown>[]; laneFilterKeys: string[]; trackStates: string[]; stageFilterMaxIds: number; laneBuiltinFields: string[]; healthStatusValues: string[]; laneFilterOps: string[]; laneFilterLimits: { maxItems: number; maxRules: number; maxString: number; maxId: number } }
+  ) as { keys: string[]; numberFilterOps: string[]; numberFilterValidEntries: Record<string, unknown>[]; laneFilterKeys: string[]; trackStates: string[]; stageFilterMaxIds: number; laneBuiltinFields: string[]; healthStatusValues: string[]; laneFilterOps: string[]; laneFilterLimits: { maxItems: number; maxRules: number; maxString: number; maxId: number; maxValues: number } }
 
   it('every FilterState key matches the shared fixture', () => {
     expect(Object.keys(FILTER_STATE_KEYS).sort()).toEqual([...fixture.keys].sort())
@@ -64,6 +64,7 @@ describe('FilterState keys parity with backend', () => {
       maxRules: LANE_FILTER_MAX_RULES,
       maxString: LANE_FILTER_MAX_STRING,
       maxId: LANE_FILTER_MAX_ID,
+      maxValues: LANE_FILTER_MAX_VALUES,
     }).toEqual(fixture.laneFilterLimits)
   })
 

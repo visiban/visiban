@@ -170,9 +170,75 @@ describe('LaneFilterPopover', () => {
     await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
     await user.click(within(dialog).getByRole('menuitem', { name: 'is not' }))
     await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
-    await user.click(within(dialog).getByRole('menuitem', { name: 'EMEA' }))
+    await user.click(within(dialog).getByRole('checkbox', { name: 'EMEA' }))
     expect(screen.getByText('Reads as: Pricing regions: not EMEA')).toBeInTheDocument()
     expect(onState.mock.calls.at(-1)![0].laneFilter.items[0]).toMatchObject({ field: 7, op: 'is_not', value: 'EMEA' })
+    // One value keeps the one-value shape (#2659).
+    expect(JSON.parse(JSON.stringify(onState.mock.calls.at(-1)![0].laneFilter.items[0]))).not.toHaveProperty('values')
+  })
+
+  it('a multi-select rule picks several values with the checklist, in choice order (#2659)', async () => {
+    const user = userEvent.setup()
+    const onState = vi.fn()
+    const MANY = def(7, 'Pricing regions', 'multi_select', { choices: ['EMEA', 'APAC', 'AMER'] })
+    render(<Harness board={makeBoard([MANY], 'member')} onState={onState} />)
+    const dialog = await openPopover(user)
+    await user.click(within(dialog).getByRole('button', { name: '+ Add filter' }))
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 field/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'Pricing regions' }))
+    const trigger = within(dialog).getByRole('button', { name: 'Filter 1 value: Choose values' })
+    await user.click(trigger)
+    // The checklist stays inside the popover, so picking in it never closes the popover.
+    const menu = within(dialog).getByRole('group', { name: 'Filter 1 values' })
+    await user.click(within(menu).getByRole('checkbox', { name: 'APAC' }))
+    await user.click(within(menu).getByRole('checkbox', { name: 'EMEA' }))
+    expect(screen.getByRole('dialog', { name: 'Lane filters' })).toBeInTheDocument()
+    expect(screen.getByText('Reads as: Pricing regions: EMEA, APAC')).toBeInTheDocument()
+    const saved = onState.mock.calls.at(-1)![0].laneFilter.items[0]
+    expect(saved).toMatchObject({ field: 7, op: 'is', values: ['EMEA', 'APAC'] })
+    expect(JSON.parse(JSON.stringify(saved))).not.toHaveProperty('value')
+    expect(within(dialog).getByRole('button', { name: 'Filter 1 value: EMEA, APAC' })).toBeInTheDocument()
+    // Escape closes only the checklist.
+    await user.keyboard('{Escape}')
+    expect(within(dialog).queryByRole('group', { name: 'Filter 1 values' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Lane filters' })).toBeInTheDocument()
+    // Unticking back to one value returns to the one-value shape.
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
+    await user.click(within(dialog).getByRole('checkbox', { name: 'APAC' }))
+    expect(onState.mock.calls.at(-1)![0].laneFilter.items[0]).toMatchObject({ value: 'EMEA' })
+    expect(JSON.parse(JSON.stringify(onState.mock.calls.at(-1)![0].laneFilter.items[0]))).not.toHaveProperty('values')
+    // Unticking the last one leaves a half-built rule that filters nothing.
+    await user.click(within(dialog).getByRole('checkbox', { name: 'EMEA' }))
+    expect(onState.mock.calls.at(-1)![0].laneFilter.items[0]).toMatchObject({ value: '' })
+    expect(screen.getByText(/1 incomplete filter ignored/)).toBeInTheDocument()
+  })
+
+  it('refuses a tick past the values cap and still allows unticking (#2659)', async () => {
+    const user = userEvent.setup()
+    const onState = vi.fn()
+    const choices = Array.from({ length: 101 }, (_, i) => `r${i}`)
+    const WIDE = def(7, 'Pricing regions', 'multi_select', { choices })
+    const lf: LaneFilter = { items: [rule(1, 7, 'is', { values: choices.slice(0, 100) })] }
+    render(<Harness initial={lf} board={makeBoard([WIDE], 'member')} onState={onState} />)
+    const dialog = await openPopover(user)
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
+    await user.click(within(dialog).getByRole('checkbox', { name: 'r100' }))
+    expect(onState).not.toHaveBeenCalled()
+    expect(within(dialog).getByRole('checkbox', { name: 'r100' })).not.toBeChecked()
+    await user.click(within(dialog).getByRole('checkbox', { name: 'r0' }))
+    expect(onState.mock.calls.at(-1)![0].laneFilter.items[0].values).toHaveLength(99)
+  })
+
+  it('shows a several-value lane rule as one Lanes chip, and keeps a stored value that is no longer a choice (#2659)', async () => {
+    const user = userEvent.setup()
+    const lf: LaneFilter = { items: [rule(1, 7, 'is_not', { values: ['EMEA', 'LATAM'] })] }
+    render(<Harness initial={lf} board={makeBoard([REGIONS], 'member')} />)
+    const chip = document.querySelector('[data-lane-chip]') as HTMLElement
+    expect(chip).toHaveTextContent('Pricing regions: not EMEA, LATAM')
+    const dialog = await openPopover(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Filter 1 value: EMEA, LATAM' }))
+    expect(within(dialog).getByRole('checkbox', { name: 'LATAM' })).toBeChecked()
+    expect(within(dialog).getByRole('checkbox', { name: 'APAC' })).not.toBeChecked()
   })
 
   it('shows a checkbox lane rule as a Lanes chip', () => {

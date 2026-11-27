@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { SwimlaneCustomFieldDefinition } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
+import CheckboxDropdown from "../Common/CheckboxDropdown";
 import AdminOnlyFieldGlyph from "../Common/AdminOnlyFieldGlyph";
 import ActiveMark from "../Common/ActiveMark";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
@@ -12,6 +13,8 @@ import {
   isTextRuleType,
   opsForFieldType,
   ruleText,
+  ruleValues,
+  withRuleValues,
   type FieldRuleJoin,
   type FieldRuleOp,
   type RuleFieldType,
@@ -20,6 +23,7 @@ import {
   LANE_FILTER_MAX_ITEMS,
   LANE_FILTER_MAX_RULES,
   LANE_FILTER_MAX_STRING,
+  LANE_FILTER_MAX_VALUES,
   laneRuleCount,
   isLaneBuiltinField,
   nextLaneItemId,
@@ -352,7 +356,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             if (fid === null || fid === r.field) return;
             const nt = fieldsById.get(fid)?.field_type as RuleFieldType;
             // A new field resets the operator and operands: they are typed.
-            updateRule(r.id, { field: fid, op: opsForFieldType(nt)[0], value: undefined, min: undefined, max: undefined });
+            updateRule(r.id, { field: fid, op: opsForFieldType(nt)[0], value: undefined, values: undefined, min: undefined, max: undefined });
           }}
         />
         {ops.length > 1 ? (
@@ -383,7 +387,32 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
             />
           </div>
         )}
-        {(t === "dropdown" || t === "enum" || t === "multi_select") && def && !isPresenceOp(r.op) && (
+        {t === "multi_select" && def && (
+          <div className="flex-1 min-w-[10rem]">
+            {/* #2659 — several values, picked with the card multi-select filter's
+                checklist. The menu stays inline: a portaled one sits outside
+                the panel, and focus moving into it would close the popover. */}
+            <CheckboxDropdown<string>
+              label={`Filter ${n} values`}
+              placeholder="Choose values"
+              ariaLabel={`Filter ${n} value`}
+              menuMode="inline"
+              triggerClassName="w-full justify-between"
+              escapePriority={INNER_ESCAPE_PRIORITY}
+              // A stored value that is no longer a choice stays listed, so it can be removed.
+              options={[...def.choices, ...ruleValues(r).filter((v) => !def.choices.includes(v))].map((c) => ({ value: c, label: c }))}
+              // Kept in the field's choice order, so the chip reads the same however they were picked.
+              selected={ruleValues(r)}
+              onChange={(picked) => {
+                // A soft cap refuses the extra tick rather than letting the server reject the save.
+                if (picked.length > LANE_FILTER_MAX_VALUES && picked.length > ruleValues(r).length) return;
+                const order = [...def.choices, ...picked.filter((v) => !def.choices.includes(v))];
+                updateRule(r.id, withRuleValues(order.filter((v) => picked.includes(v))));
+              }}
+            />
+          </div>
+        )}
+        {(t === "dropdown" || t === "enum") && def && !isPresenceOp(r.op) && (
           <div className="flex-1 min-w-[10rem]">
             <SingleSelectDropdown<string>
               label="Choose a value"
@@ -392,7 +421,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
               className="w-full justify-between"
               labelClassName="truncate"
               escapePriority={INNER_ESCAPE_PRIORITY}
-              options={def.choices.map((c) => ({ value: c, label: t === "multi_select" ? c : laneValueLabel(def, c, fmt) }))}
+              options={def.choices.map((c) => ({ value: c, label: laneValueLabel(def, c, fmt) }))}
               selected={r.value ? r.value : null}
               onChange={(v) => updateRule(r.id, { value: v ?? "" })}
             />
