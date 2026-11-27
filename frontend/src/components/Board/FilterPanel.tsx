@@ -400,7 +400,7 @@ export default function FilterPanel({
     // An incomplete rule (an auto-added one with no value yet) filters nothing, so the row reads "Any".
     const vals = (filters.laneFilter?.items ?? []).flatMap((it) => (it.kind === "rule" ? [it] : it.rules))
       .filter((r) => r.field === h.fieldId && isRuleComplete(r, h.fieldType as RuleFieldType))
-      .map((r) => (r.op === "between" ? [r.min, r.max].filter(Boolean).map((x) => show(x as string)).join(" to ") : ruleValues(r).map(show).join(", ")))
+      .map((r) => (r.op === "between" ? [r.min, r.max].filter(Boolean).map((x) => show(x as string)).join(" to ") : ruleValues(r).map((x) => show(x)).join(", ")))
       .filter((v) => v !== "");
     return vals.length ? vals.join(", ") : null;
   };
