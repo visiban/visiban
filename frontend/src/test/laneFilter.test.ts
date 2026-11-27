@@ -11,6 +11,8 @@ import {
   ruleText,
   runsOf,
   textChain,
+  ruleValues,
+  withRuleValues,
   type FieldRule,
 } from '../utils/fieldRules'
 import {
@@ -759,6 +761,114 @@ describe('laneFilter — checkbox and multi-select (#2438)', () => {
     expect(Object.keys(f!.items[0]).sort()).toEqual(['field', 'id', 'join', 'kind', 'op', 'value'])
     expect(parseLaneFilterParam(serializeLaneFilterParam(f))).toEqual(f)
     expect(pruneLaneFilter(f, fields)).toBe(f)
+  })
+
+  it('multi-select several values (#2659): is matches any of them, is not none of them', () => {
+    const lanes = [
+      lane({ 21: '["EMEA"]' }, 1),
+      lane({ 21: '["APAC","web"]' }, 2),
+      lane({ 21: '["web"]' }, 3),
+      lane({}, 4),
+      lane({ 21: 'not json' }, 5),
+    ]
+    const both = { values: ['EMEA', 'APAC'] }
+    // Hidden ids: `is` keeps lanes 1 and 2; `is not` keeps 3, 4 and 5.
+    expect([...run([rule(1, 21, 'is', both)], lanes)].sort()).toEqual([3, 4, 5])
+    expect([...run([rule(1, 21, 'is_not', both)], lanes)].sort()).toEqual([1, 2])
+  })
+
+  it('multi-select several values (#2659): a lane with no value fails is and passes is not', () => {
+    const empty = { id: 1, custom_field_values: [] }
+    expect(matchRule(rule(1, 21, 'is', { values: ['EMEA', 'APAC'] }), 'multi_select', undefined)).toBe(false)
+    expect(matchRule(rule(1, 21, 'is_not', { values: ['EMEA', 'APAC'] }), 'multi_select', undefined)).toBe(true)
+    expect(matchRule(rule(1, 21, 'is', { values: ['EMEA', 'APAC'] }), 'multi_select', '[]')).toBe(false)
+    expect(run([rule(1, 21, 'is', { values: ['EMEA', 'APAC'] })], [empty]).size).toBe(1)
+    expect(run([rule(1, 21, 'is_not', { values: ['EMEA', 'APAC'] })], [empty]).size).toBe(0)
+  })
+
+  it('multi-select (#2659): an old single-value rule still matches unchanged', () => {
+    const lanes = [lane({ 21: '["EMEA"]' }, 1), lane({ 21: '["APAC"]' }, 2)]
+    expect([...run([rule(1, 21, 'is', { value: 'EMEA' })], lanes)]).toEqual([2])
+    expect([...run([rule(1, 21, 'is_not', { value: 'EMEA' })], lanes)]).toEqual([1])
+    expect(ruleValues({ value: 'EMEA' })).toEqual(['EMEA'])
+    expect(ruleValues({ value: '' })).toEqual([])
+    expect(ruleValues({ value: 'x', values: ['EMEA', 'APAC'] })).toEqual(['EMEA', 'APAC'])
+  })
+
+  it('multi-select (#2659): withRuleValues keeps one value in value and several in values, never both', () => {
+    expect(withRuleValues([])).toEqual({ value: '', values: undefined })
+    expect(withRuleValues(['EMEA'])).toEqual({ value: 'EMEA', values: undefined })
+    expect(withRuleValues(['EMEA', 'APAC', 'EMEA', ''])).toEqual({ value: undefined, values: ['EMEA', 'APAC'] })
+  })
+
+  it('multi-select (#2659): completeness, the Filters badge and chip text with several values', () => {
+    expect(isRuleComplete(rule(1, 21, 'is', { values: ['EMEA', 'APAC'] }), 'multi_select')).toBe(true)
+    expect(isRuleComplete(rule(1, 21, 'is', { values: [] }), 'multi_select')).toBe(false)
+    // Several values are a multi-select shape only.
+    expect(isRuleComplete(rule(1, 1, 'is', { values: ['Priya', 'Sam'] }), 'dropdown')).toBe(false)
+    expect(isLaneFilterActive({ items: [rule(1, 21, 'is', { values: ['EMEA', 'APAC'] })] })).toBe(true)
+    const items = [rule(1, 21, 'is', { values: ['EMEA', 'APAC'] }), rule(2, 21, 'is_not', { values: ['web', 'APAC'] })]
+    expect(laneFilterChipItems({ items }, fields, fmt).map((c) => c.label)).toEqual([
+      'Pricing regions: EMEA, APAC',
+      'Pricing regions: not web, APAC',
+    ])
+    expect(summarizeLaneFilter({ items: items.slice(0, 1) }, fields, fmt).readsAs).toBe('Reads as: Pricing regions: EMEA, APAC')
+  })
+
+  it('multi-select (#2659): a saved filter and a shared link round-trip several values', () => {
+    const saved = {
+      items: [
+        { kind: 'rule', id: 1, field: 21, op: 'is', values: ['EMEA', 'APAC'] },
+        { kind: 'group', id: 2, join: 'or', rules: [{ kind: 'rule', id: 3, field: 21, op: 'is_not', values: ['web', 'ios'] }] },
+        { kind: 'rule', id: 4, join: 'or', field: 21, op: 'is', value: 'EMEA' },
+      ],
+    }
+    const f = sanitizeLaneFilter(saved)!
+    expect(f.items[0]).toEqual({ kind: 'rule', id: 1, join: 'and', field: 21, op: 'is', values: ['EMEA', 'APAC'] })
+    expect(Object.keys(f.items[2]).sort()).toEqual(['field', 'id', 'join', 'kind', 'op', 'value'])
+    // What is saved back is what was loaded (JSON drops nothing it needs).
+    expect(sanitizeLaneFilter(JSON.parse(JSON.stringify(f)))).toEqual(f)
+    const param = serializeLaneFilterParam(f)!
+    expect(param).toContain('"vs":["EMEA","APAC"]')
+    // The link form carries no ids (they are reassigned on load).
+    const noIds = (x: unknown) => JSON.stringify(x, (k, v) => (k === 'id' ? undefined : v))
+    expect(noIds(parseLaneFilterParam(param))).toBe(noIds(f))
+    expect(pruneLaneFilter(f, fields)).toBe(f)
+  })
+
+  it('multi-select (#2659): a one-entry values list reads back as value; malformed values drop the rule', () => {
+    const one = sanitizeLaneFilter({ items: [{ kind: 'rule', id: 1, field: 21, op: 'is', values: ['EMEA'], value: 'ignored' }] })!
+    expect(one.items[0]).toEqual({ kind: 'rule', id: 1, join: 'and', field: 21, op: 'is', value: 'EMEA' })
+    const bad: unknown[] = [
+      'EMEA',
+      [],
+      ['EMEA', 5],
+      ['EMEA', ''],
+      ['x'.repeat(501)],
+      Array.from({ length: L.LANE_FILTER_MAX_VALUES + 1 }, (_, i) => `v${i}`),
+    ]
+    for (const values of bad) {
+      expect(sanitizeLaneFilter({ items: [{ kind: 'rule', id: 1, field: 21, op: 'is', values }] })).toBeUndefined()
+    }
+    for (const extra of [{ op: 'contains' }, { op: 'between' }, { field: 'name' }, { field: null }, { min: '1' }]) {
+      expect(sanitizeLaneFilter({ items: [{ kind: 'rule', id: 1, field: 21, op: 'is', values: ['EMEA', 'APAC'], ...extra }] })).toBeUndefined()
+    }
+    expect(sanitizeLaneFilter({ items: [{ kind: 'rule', id: 1, field: 21, op: 'is', values: Array.from({ length: L.LANE_FILTER_MAX_VALUES }, (_, i) => `v${i}`) }] })).toBeDefined()
+  })
+
+  it('multi-select (#2659): several values on a field that is no longer a multi-select are pruned', () => {
+    const f: LaneFilter = { items: [rule(1, 21, 'is', { values: ['EMEA', 'APAC'] }), rule(2, 20, 'is', { value: 'true' })] }
+    const asDropdown = laneFilterFields([PCI, { ...REGIONS, field_type: 'dropdown' as const }], true)
+    expect(pruneLaneFilter(f, asDropdown)!.items.map((i) => i.id)).toEqual([2])
+  })
+
+  it('multi-select (#2659): an older client sees a several-value rule as incomplete, so it hides nothing', () => {
+    // What a client released before #2659 keeps of the rule: the keys it knows,
+    // so no `value`. That rule is incomplete, filters no lane and is not active.
+    const { values: _dropped, ...asOldClientReadsIt } = rule(1, 21, 'is', { values: ['EMEA', 'APAC'] })
+    expect(isRuleComplete(asOldClientReadsIt, 'multi_select')).toBe(false)
+    expect(run([asOldClientReadsIt], [lane({ 21: '["web"]' }, 1)]).size).toBe(0)
+    expect(isLaneFilterActive({ items: [asOldClientReadsIt] })).toBe(false)
   })
 
   it('prunes the rules a non-admin cannot use, and ones an older type map does not know', () => {

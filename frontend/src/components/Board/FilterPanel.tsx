@@ -8,6 +8,7 @@ import { parentFilterAvailable, parentFilterLabel, parentFilterOptions, parentLa
 import { plannedFilterAvailable, plannedFilterLabel, type PlannedFilter } from "../../utils/plannedFilter";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue, CUSTOM_FIELD_TYPE_LABEL } from "../../utils/customFieldValue";
 import { choiceColorBase } from "../../constants/choiceColors";
+import { ruleValues } from "../../utils/fieldRules";
 import { isLaneBuiltinField, laneValueLabel, type LaneFieldKey, isLaneFilterActive, laneFilterAvailable, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
 import Tooltip from "../Common/Tooltip";
 import ActiveMark from "../Common/ActiveMark";
@@ -395,11 +396,12 @@ export default function FilterPanel({
   const laneHitValue = (h: NameHit): string | null => {
     const def = laneFields.find((f) => f.id === h.fieldId);
     if (!def) return null;
-    const show = (raw: string) => (h.fieldType === "checkbox" ? (raw === "true" ? "Yes" : raw === "false" ? "No" : raw) : laneValueLabel(def, raw, laneValueFmt));
+    const show = (raw: string) => (h.fieldType === "checkbox" ? (raw === "true" ? "Yes" : raw === "false" ? "No" : raw) : h.fieldType === "multi_select" ? raw : laneValueLabel(def, raw, laneValueFmt));
     // An incomplete rule (an auto-added one with no value yet) filters nothing, so the row reads "Any".
     const vals = (filters.laneFilter?.items ?? []).flatMap((it) => (it.kind === "rule" ? [it] : it.rules))
       .filter((r) => r.field === h.fieldId && isRuleComplete(r, h.fieldType as RuleFieldType))
-      .map((r) => (r.op === "between" ? [r.min, r.max].filter(Boolean).map((x) => show(x as string)).join(" to ") : show(r.value ?? "")));
+      .map((r) => (r.op === "between" ? [r.min, r.max].filter(Boolean).map((x) => show(x as string)).join(" to ") : ruleValues(r).map((x) => show(x)).join(", ")))
+      .filter((v) => v !== "");
     return vals.length ? vals.join(", ") : null;
   };
   const titleCount = useMemo(() => {
