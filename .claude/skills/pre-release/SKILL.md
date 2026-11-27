@@ -125,7 +125,7 @@ Run in parallel:
 
 ### `frontend`
 Run in parallel:
-1. **ux-review** — Full frontend codebase review against the Visiban design system in `frontend/CLAUDE.md`. Check all components, layouts, modals, and pages for design system compliance.
+1. **ux-review** — Full frontend codebase review against the Visiban design system in `frontend/CLAUDE.md` and the `frontend/ui-conventions/` topic files it indexes. Check all components, layouts, modals, and pages for design system compliance.
 2. **broadcast-check** — Full audit of all write operations (create, update, delete, move) on board-scoped resources. Verify `broadcast_board_event()` is correctly wired, deferred with `transaction.on_commit()`, and that the frontend socket handler exists for every event type.
 
 ### `docs`

@@ -282,7 +282,7 @@ wait on nothing, and page-wide queries too slow for the timeout):
   from a resolved promise (outside `act()`), call `stallEventLoopAfterWaitFor()` from
   `src/test/eventLoopStall.ts` inside the `waitFor` that finds the input, assert the mount effects
   haven't run yet, then type. `customFieldValueInput.test.tsx` and `lensFilterBar.test.tsx` show
-  it. The component rule this protects is in `frontend/CLAUDE.md` § Local input buffers and timers.
+  it. The component rule this protects is in `frontend/ui-conventions/controls-and-settings.md` § Local input buffers and timers.
 - [ ] **No timer that can outlive its component.** Hold a delayed timer's id in a ref, clear it
   on unmount, and add a test that unmounts with the timer pending. ESLint `no-restricted-syntax`
   catches only a call whose id is visibly discarded (a whole statement, an arrow's expression

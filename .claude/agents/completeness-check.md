@@ -66,7 +66,7 @@ Spawn it as a **fresh** agent — never the implementing agent, never via `SendM
 - **Brief:** the worktree path, branch name, and the exact diff command
   (`git diff origin/main...HEAD`); the issue number(s) and the instruction to read them
   **with comments** (`glab issue view N --comments` — scope corrections live in comments);
-  the repo rules to check against (`CLAUDE.md`, and `frontend/CLAUDE.md` for UI work —
+  the repo rules to check against (`CLAUDE.md`, and for UI work `frontend/CLAUDE.md` plus the `frontend/ui-conventions/` topic files it indexes —
   backward compatibility from 1.0, tests and docs in the same commit, US English, changelog
   fragment naming, `Closes #NNN`, `SUPPRESSED-UNTIL(#NNNN)` markers, the OSS/enterprise
   boundary); two or three sentences of what the change does, so it does not re-derive it.

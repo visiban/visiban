@@ -1,7 +1,7 @@
 ---
 name: ux-review
 model: sonnet
-description: Use proactively before writing any frontend code that adds or changes UI components, layouts, modals, pages, or user flows. Reviews the change against the Visiban design system in frontend/CLAUDE.md. Do not start implementing UI changes until blocking questions are resolved.
+description: Use proactively before writing any frontend code that adds or changes UI components, layouts, modals, pages, or user flows. Reviews the change against the Visiban design system in frontend/CLAUDE.md (the always-loaded index) and the frontend/ui-conventions/ topic files it points to. Do not start implementing UI changes until blocking questions are resolved.
 tools: Read, Grep, Glob
 ---
 
@@ -18,7 +18,7 @@ Given the feature, issue, or UI change described in the current task or argument
 - Identify which surfaces are affected: board, navbar, cards, modals, settings, empty states, mobile, etc.
 
 ### 2. Design system audit
-Check the proposed change against the conventions in `frontend/CLAUDE.md` and flag any conflicts or gaps:
+Check the proposed change against the conventions in `frontend/CLAUDE.md` and flag any conflicts or gaps. That file is an index: the rules it carries in full apply everywhere, and its Topic index names the `frontend/ui-conventions/<topic>.md` file for every other section. Read each topic file whose area the change touches:
 
 - **Color tokens** — does it use `slate` throughout? Does it respect the three-level depth system (`bg-canvas` / `bg-surface` / `bg-sunken`/elevated)? Grep for `gray-` (should be `slate-`), and any raw `*-blue-NNN` / `*-red-NNN` / `*-amber-NNN` / `accent-blue-NNN` literals on touched files (the design system uses semantic tokens like `text-info`, `border-warning-emphasis`, `accent-primary` — raw Tailwind colors are token drift).
 - **Component reuse** — is there an existing component that should be used instead of a new one? (Button variants, SelectDropdown, OverflowMenu, SplitButton, modals, badges)
@@ -68,7 +68,7 @@ Mark each as:
 - Preferred implementation with rationale
 - Which existing components/patterns to reuse
 - What to defer without accruing visible design debt
-- Any new design rules that should be added to `frontend/CLAUDE.md` as a result of this change
+- Any new design rules this change should add, each with where it goes: inside an existing section of its `frontend/ui-conventions/<topic>.md` file, or as a new `## ` section there plus one Topic index line in `frontend/CLAUDE.md` (see that file's "How this file works"). Only a rule that applies to almost every frontend edit goes into `frontend/CLAUDE.md` in full
 
 ### 7. Design debt register
 If any known shortcuts are being taken, log them explicitly:

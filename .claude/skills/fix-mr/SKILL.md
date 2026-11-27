@@ -222,7 +222,7 @@ block the *other* branch contributed.
 
 **After the rebase, check what an integration commonly breaks:**
 - `ls changelog.d/` — a rebase can leave a **duplicate** fragment
-- Sequence-numbered files (migrations, ADRs, numbered rules in `frontend/CLAUDE.md`) — these collide only on the
+- Sequence-numbered files (migrations, ADRs, numbered rules in `frontend/CLAUDE.md` and `frontend/ui-conventions/*.md`) — these collide only on the
   *integrated* tree, so both sides were green alone
 
 Then re-run the scoped tests for the files the rebase touched and push with the lease

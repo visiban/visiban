@@ -29,7 +29,7 @@ Launch **3 sub-agents in parallel** (all with `model: "sonnet"`). Wait for all t
 > Return: a list of relevant existing components with file paths, the pattern they use, and screenshots-as-description of their layout structure.
 
 #### Agent 2: Design system inventory
-> Read `frontend/CLAUDE.md` and extract every design token and component spec that could apply to this feature:
+> Read `frontend/CLAUDE.md` (the index) and every `frontend/ui-conventions/<topic>.md` file its Topic index names for an area this feature touches, and extract every design token and component spec that could apply to this feature:
 > - Which button variants, input styles, dropdown patterns apply
 > - Which layout containers (modal, panel, page, inline) fit the content
 > - Color tokens for the content type (backgrounds, text, borders, states)

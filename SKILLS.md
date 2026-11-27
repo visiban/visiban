@@ -134,7 +134,7 @@ Audits new or modified code against the OWASP Top 10 and Visiban-specific patter
 Generates a well-structured test suite for new or modified code. Produces Django `TestCase` scaffolds (with `APIClient`, permission boundary tests, and atomic behaviour tests) for backend, and Vitest + React Testing Library scaffolds (with loading, error, and interaction tests) for frontend. Covers behaviour, not implementation.
 
 ### `ux-review`
-Reviews a UI or UX change against the design system in `frontend/CLAUDE.md`. Audits color token usage, component reuse, typography, interactive states, dark theme correctness, affordance, visual hierarchy, and information density. Runs a polish checklist and surfaces new design rules to add to `frontend/CLAUDE.md`.
+Reviews a UI or UX change against the design system in `frontend/CLAUDE.md` and the `frontend/ui-conventions/` topic files it indexes. Audits color token usage, component reuse, typography, interactive states, dark theme correctness, affordance, visual hierarchy, and information density. Runs a polish checklist and surfaces new design rules to add to `frontend/CLAUDE.md`.
 
 ---
 

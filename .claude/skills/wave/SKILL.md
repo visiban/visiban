@@ -101,8 +101,8 @@ Then filter, in this order:
 4. **Prefer independent issues.** Two agents touching the same file collide on
    the merged tree even when both are green alone — check the paths each issue
    implies before pairing them in one wave (`backend/boards/views.py`,
-   `frontend/src/components/**`, `changelog.d/*`, and `frontend/CLAUDE.md`'s
-   numbered rule list are the recurring hotspots in this repo).
+   `frontend/src/components/**`, `changelog.d/*`, and the numbered rule lists in
+   `frontend/CLAUDE.md` and its `frontend/ui-conventions/*.md` topic files are the recurring hotspots in this repo).
 5. **Respect any `release::` ordering** if the milestone uses those labels —
    committed before reserve before stretch, unless the user said otherwise.
 
