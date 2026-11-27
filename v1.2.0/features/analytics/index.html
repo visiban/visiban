@@ -1606,6 +1606,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#known-limits-on-old-boards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known limits on old boards
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#csv-export" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5181,6 +5192,12 @@
 <p>Every empty state names the next action, except <strong>Needs attention</strong> with nothing to list, which is good news and says so. When no block overlapped the period, <strong>Why cards get blocked</strong> stays on the page and says no blocked reasons were recorded, and that marking a card blocked with a reason on the board fills it. The other panels say how to get data into them (move cards between columns) or how to widen the view (a longer Date range, or <strong>Clear all filters</strong>).</p>
 <h3 id="empty-period">Empty period<a class="headerlink" href="#empty-period" title="Permanent link">&para;</a></h3>
 <p>When the selected window has no movement data at all (a new board, or a period before any activity), the view shows an informational message instead of an empty heatmap. Widen the period or add some card movements.</p>
+<h3 id="known-limits-on-old-boards">Known limits on old boards<a class="headerlink" href="#known-limits-on-old-boards" title="Permanent link">&para;</a></h3>
+<p>These limits show on a board with about three years of history and 12k active cards. They were measured with <code>ANALYTICS_MAX_CONCURRENT=1</code> on <code>daphne</code>.</p>
+<ul>
+<li><strong>Drill-down memory.</strong> One cumulative-flow day drill-down (<code>?date=</code>) peaks at about 676-720 MB of process memory. This is accepted for 1.3 and tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/2559">#2559</a>. The chart's default backend memory limit is <code>1Gi</code> for this reason. See <a href="../../administration/configuration/#backend-memory-and-cpu-sizing">Backend memory and CPU sizing</a>.</li>
+<li><strong>Overview and cumulative flow are refused.</strong> A board that old holds more movements than <code>ANALYTICS_MAX_MOVEMENTS</code> (150000 by default), so the Overview and the cumulative flow chart without a date return <code>422 analytics_too_large</code>. This is by design (#2622): the limit protects the backend from running out of memory. See <a href="../../administration/configuration/#analytics-limits">Analytics limits</a>.</li>
+</ul>
 <h3 id="csv-export">CSV export<a class="headerlink" href="#csv-export" title="Permanent link">&para;</a></h3>
 <p>Click <strong>Export CSV</strong>, at the right of the filter bar, to download the heatmap data for spreadsheets: the rows of the mode last chosen, in a file named <code>analytics-{mode}-{days}d.csv</code>. It includes all active columns, the velocity column, and a stalled card count per swimlane. The stalled count follows the same planned-child rule as Needs attention. The button is visible only to <strong>admin</strong> and <strong>site_admin</strong> users. Names in the export are quoted where needed, and leading <code>=</code>, <code>+</code>, <code>-</code> and <code>@</code> characters are removed, the same as the board CSV export.</p>
 <h3 id="api-reference">API reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h3>

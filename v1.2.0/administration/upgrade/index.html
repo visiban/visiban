@@ -5186,6 +5186,15 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 </ul>
 </div>
 <div class="admonition note">
+<p class="admonition-title">Helm: the backend memory limit default rose from 512Mi to 1Gi</p>
+<p>Since 1.3 the chart's default <code>backend.resources.limits.memory</code> is <code>1Gi</code> (#2431). A 3-year, 12k-card board peaked at 676-720 MB of process memory on one Analytics drill-down, which a 512 MB limit cannot hold.</p>
+<ul>
+<li><strong>Installs on the default.</strong> The backend pod may now use up to 1 GiB. <code>requests</code> is unchanged (<code>100m</code> CPU, <code>256Mi</code> memory), so scheduling is unchanged; the pod may now use up to 1 GiB before it is OOM-killed. If the namespace has a ResourceQuota on <code>limits.memory</code> or a LimitRange max below <code>1Gi</code>, raise it or pin <code>backend.resources.limits.memory: 512Mi</code>.</li>
+<li><strong>Keep the old limit.</strong> Set <code>backend.resources.limits.memory: 512Mi</code> in your values file. Installs that set <code>backend.resources.limits.memory</code> are not affected. An install that sets only part of <code>backend.resources</code> (for example only <code>requests</code>) still gets <code>1Gi</code> for any memory limit it leaves out.</li>
+<li><strong>Sizing.</strong> See <a href="../configuration/#backend-memory-and-cpu-sizing">Backend memory and CPU sizing</a>.</li>
+</ul>
+</div>
+<div class="admonition note">
 <p class="admonition-title">The board CSV export is now streamed: check a custom reverse proxy</p>
 <p>Since 1.3 the board CSV export is sent a chunk of cards at a time (#2585). The file is unchanged, and the JSON export is not streamed.</p>
 <ul>
