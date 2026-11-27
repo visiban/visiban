@@ -34,7 +34,8 @@ def _addrs(*values):
 class SmtpHostRefusedTests(TestCase):
     def test_refused_classes(self):
         for addr in ("127.0.0.1", "127.9.9.9", "::1", "169.254.1.1", "fe80::1",
-                     "169.254.169.254", "fd00:ec2::254", "0.0.0.0"):
+                     "169.254.169.254", "fd00:ec2::254",
+                     "0.0.0.0"):  # nosec B104 — SSRF test fixture, never bound
             with self.subTest(addr=addr), _addrs(addr):
                 self.assertTrue(smtp_host_refused("relay.test"))
 
