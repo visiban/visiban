@@ -141,9 +141,16 @@ def materialize(board, *, cap: int | None = None, actor_id=None) -> list:
     :func:`effective_cap`, and when that is above the stored cap this writes it
     to ``Board.lane_details_cap`` and sends ``board.updated`` on commit, so the
     cap the board read with is the cap it keeps. ``board.updated`` is recorded
-    before the row events, so other clients never apply a row with the old cap. With *cap* given (a cap change,
-    whose caller saves *cap* itself) the cap is not written here: either it
-    already fits, or the caller's Details-count recheck refuses it.
+    before the row events, so a client applies the grown cap before its first
+    row event. That does not remove every Hidden flash: once the first row
+    event makes the board mixed, the still-unset Band fields take Details slots,
+    and where the grown cap only just fits (4/6/9/12/16, or more than 18 fields)
+    the last field can show as Hidden for one event, until its own row event
+    arrives. Tracked separately. With *cap* given (a cap change, whose caller
+    saves *cap* itself) a cap above the stored one is written and announced the
+    same way, ahead of the row events; a lower one is left to the caller, whose
+    Details-count recheck refuses it or lets it through. A 400 afterwards rolls
+    the write back and sends nothing.
     """
     from boards import broadcast as _broadcast
     from boards.models import Board, SwimlaneCustomFieldDefinition
@@ -157,12 +164,13 @@ def materialize(board, *, cap: int | None = None, actor_id=None) -> list:
     stored = Board.objects.filter(pk=board.pk).values_list("lane_details_cap", flat=True).get()
     board.lane_details_cap = stored
     tiers = resolve_tiers(defs, stored if cap is None else cap)
-    # Read before the rows get their tiers: grows only on an unset board.
-    grown = effective_cap(defs, stored) if cap is None else stored
+    # Read before the rows get their tiers: grows only on an unset board; a
+    # cap change announces its own higher cap here too.
+    grown = effective_cap(defs, stored) if cap is None else max(cap, stored)
     if grown > stored:
         # Before the row events: a client applies each frame as it arrives, so the
-        # grown cap must already be there when the first row leaves the unset state,
-        # or the rows past the stored cap would show as Hidden in between.
+        # grown cap is there when the first row leaves the unset state. This
+        # shortens the Hidden window; it does not close it (see the docstring).
         from .board_events import record_board_updated, system_board_payload
 
         # A queryset update: no save() side effects, and the instance follows

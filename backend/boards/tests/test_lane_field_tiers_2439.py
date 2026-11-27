@@ -343,6 +343,21 @@ class GrowCapToFitTests(_Base):
         self.assertEqual(names.index("board.updated"), first_row - 1, names)
         self.assertEqual(names.count("board.updated"), 1)
 
+    def test_a_cap_patch_sends_the_new_cap_before_the_row_events(self):
+        # 8 unset fields with stored cap 4: the admin picks 9. A client applies each
+        # frame as it arrives, so the first event carrying cap 9 must precede the first row event.
+        self.board.lane_details_cap = 4
+        self.board.save(update_fields=["lane_details_cap"])
+        for i in range(8):
+            _defn(self.board, f"F{i}", i)
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.client.patch(self.board_url, {"lane_details_cap": 9}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        sent = [(c.args[1], c.args[2]) for c in self.broadcast.call_args_list]
+        first_cap = next(i for i, (e, p) in enumerate(sent) if e == "board.updated" and p.get("lane_details_cap") == 9)
+        first_row = next(i for i, (e, _p) in enumerate(sent) if e == "swimlane_custom_field.updated")
+        self.assertLess(first_cap, first_row, [e for e, _p in sent])
+
     def test_a_create_on_an_unset_board_grows_the_cap_and_broadcasts_on_commit(self):
         for i in range(11):
             _defn(self.board, f"F{i}", i)
