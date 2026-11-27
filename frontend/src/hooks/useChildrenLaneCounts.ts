@@ -11,12 +11,13 @@ import { shownInProgress } from "../utils/childrenMode";
 export function useChildrenLaneCounts(boardId: number, enabled: boolean, laneId: number | null = null, refreshKey = 0): Map<number, number> {
   const [counts, setCounts] = useState<Map<number, number>>(new Map());
   useEffect(() => {
-    if (!enabled) { setCounts(new Map()); return; }
+    // Keep the same empty Map when already empty, so a disabled hook never re-renders its board.
+    if (!enabled) { setCounts((p) => (p.size ? new Map() : p)); return; }
     const ctrl = new AbortController();
     // Started inside a promise so any failure, even a synchronous one, lands in the catch: a count is never worth a crash.
     Promise.resolve().then(() => getChildrenView(boardId, { lane: laneId }, ctrl.signal))
       .then((d) => setCounts(new Map(d.lanes.map((l) => [l.id, shownInProgress(l)]))))
-      .catch(() => { if (!ctrl.signal.aborted) setCounts(new Map()); });
+      .catch(() => { if (!ctrl.signal.aborted) setCounts((p) => (p.size ? new Map() : p)); });
     return () => ctrl.abort();
   }, [boardId, enabled, laneId, refreshKey]);
   return counts;

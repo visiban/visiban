@@ -216,6 +216,25 @@ describe('ChildrenModeView', () => {
     expect(screen.getByRole('button', { name: 'Collapse lane Acme Corp, 4 in progress of 8' })).toBeInTheDocument()
   })
 
+  it('a live re-read keeps the pages Load more added, following next_cursor (#2370 perf-check, ux-review)', async () => {
+    getChildrenView
+      .mockResolvedValueOnce(view())
+      .mockResolvedValueOnce(view({ rows: [row({ id: 43, title: 'Acme: more' })], next_cursor: null }))
+    const props = { boardId: 4, laneId: null, options: DEFAULT_CHILDREN_OPTIONS, onOptionsChange: vi.fn(), onOpenParent: vi.fn(), phone: true }
+    const { rerender } = render(<ChildrenModeView {...props} refreshKey={0} />)
+    fireEvent.click(await screen.findByRole('button', { name: '+1 more parent · load 20' }))
+    await screen.findByRole('button', { name: 'Acme: more' })
+    // The board event: page 1 comes back with its cursor, and the view reads page 2 again before replacing rows.
+    getChildrenView
+      .mockResolvedValueOnce(view())
+      .mockResolvedValueOnce(view({ rows: [row({ id: 43, title: 'Acme: more' })], next_cursor: null }))
+    getChildrenView.mockClear()
+    rerender(<ChildrenModeView {...props} refreshKey={1} />)
+    await waitFor(() => expect(getChildrenView).toHaveBeenCalledTimes(2))
+    expect(getChildrenView).toHaveBeenLastCalledWith(4, { lane: null, cursor: 'abc', done: false }, expect.anything())
+    expect(await screen.findByRole('button', { name: 'Acme: more' })).toBeInTheDocument()
+  })
+
   it('a linked lane shows only that lane, and a failed read says so', async () => {
     getChildrenView.mockResolvedValueOnce(view())
     const { unmount } = render(<ChildrenModeView boardId={4} laneId={4} options={DEFAULT_CHILDREN_OPTIONS} onOptionsChange={vi.fn()} onOpenParent={vi.fn()} />)

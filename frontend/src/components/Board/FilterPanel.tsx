@@ -264,7 +264,8 @@ export default function FilterPanel({
   }
   // #2370 — the Parent lane row: the same availability as Parent (or while it is active itself).
   if (parentFilterAvailable(board, filters.parentLaneFilter)) {
-    rows.push({ id: "parentLane", label: "Parent lane", value: parentLaneFilterLabel(filters.parentLaneFilter, board.cards) });
+    const laneValue = parentLaneFilterLabel(filters.parentLaneFilter, board.cards);
+    rows.push({ id: "parentLane", label: "Parent lane", value: laneValue, ariaLabel: `Parent lane filter: ${laneValue ?? "Any"}` });
   }
   // #2367 — sub-column and Track state rows exist only when the board has a split stage / tracks.
   if (hasSubColumns) {

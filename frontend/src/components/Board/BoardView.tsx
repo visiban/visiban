@@ -949,6 +949,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const wait = Math.max(0, childrenTickLast.current + CHILDREN_VIEW_REFETCH_MS - Date.now()) + Math.floor(Math.random() * 500);
     childrenTickTimer.current = setTimeout(() => {
       childrenTickTimer.current = null;
+      // Hidden since it was scheduled: read once when shown again instead.
+      if (typeof document !== "undefined" && document.hidden) { childrenTickMissed.current = true; return; }
       childrenTickLast.current = Date.now();
       setChildrenViewTick((n) => n + 1);
     }, wait);
@@ -961,6 +963,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
       if (childrenTickTimer.current) clearTimeout(childrenTickTimer.current);
+      childrenTickTimer.current = null;
     };
   }, [bumpChildrenView]);
   const handleSocketEvent = useCallback((event: BoardEvent) => {
@@ -1316,7 +1319,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const onReconnected = useCallback(() => {
     reconnectResync();
     setSocketReconnectSeq((n) => n + 1);
-  }, [reconnectResync]);
+    // Events missed while offline can change Children mode and the lane counts (#2370 perf-check).
+    bumpChildrenView();
+  }, [reconnectResync, bumpChildrenView]);
   const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected, onFirstConnected, onServerClose });
   // Access loss reaches the client as a 4001/4003 close (status "failed") or,
   // for a direct member removal, a server-sent 1000 (onServerClose above).
@@ -3489,11 +3494,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       selected={childrenLane ?? 0}
                       onChange={(v) => setChildrenLane(v ? v : null)}
                     />
-                    <label className="flex items-center gap-2 text-sm text-fg min-h-11 sm:min-h-8">
+                    <label className="flex items-center gap-2 text-sm text-fg min-h-11 sm:[@media(pointer:fine)]:min-h-8">
                       <input type="checkbox" className="accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis" checked={childrenOptions.showDone} onChange={(e) => setChildrenOptions({ ...childrenOptions, showDone: e.target.checked })} />
                       Show done cards
                     </label>
-                    <label className="flex items-center gap-2 text-sm text-fg min-h-11 sm:min-h-8">
+                    <label className="flex items-center gap-2 text-sm text-fg min-h-11 sm:[@media(pointer:fine)]:min-h-8">
                       <input type="checkbox" className="accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis" checked={childrenOptions.blockedOnly} onChange={(e) => setChildrenOptions({ ...childrenOptions, blockedOnly: e.target.checked })} />
                       Blocked only
                     </label>
@@ -3755,7 +3760,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {cardActionNotice}
 
       {/* Collapsed swimlanes strip — shows count and "Expand all swimlanes" button */}
-      {view === "board" && visibleCollapsedLaneCount > 0 && (
+      {/* Grid-only controls are absent in Children mode, which never honors them (#2370 regression-check). */}
+      {view === "board" && !childrenMode && visibleCollapsedLaneCount > 0 && (
         <div className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-1.5 flex items-center gap-3 text-sm text-info-on-tint shrink-0">
           <svg className="w-3.5 h-3.5 text-info-on-tint shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
             <line x1="2" y1="5" x2="14" y2="5" />
@@ -3778,7 +3784,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       {/* Focus mode banner — sits outside the scroll container so it does not scroll away */}
-      {focusedSwimlaneId !== null && (
+      {focusedSwimlaneId !== null && !childrenMode && (
         <div className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info-on-tint transition-opacity duration-150">
           <svg className="w-3.5 h-3.5 text-info-on-tint shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="8" cy="8" r="3" />
@@ -3807,7 +3813,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{dndAnnouncement}</div>
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{overlayAnnouncement}</div>
 
-      {board.columns.length > 0 && (
+      {board.columns.length > 0 && !childrenMode && (
         <ShowChips
           active={showChip}
           counts={showChipCountsValue}

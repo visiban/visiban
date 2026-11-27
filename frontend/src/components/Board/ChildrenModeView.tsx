@@ -164,7 +164,22 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
     const query = `${boardId}|${laneId}|${options.showDone}`;
     // A re-read of the same query (a board event, a Move) is live: it updates in place.
     const live = queryRef.current === query && dataRef.current != null;
-    getChildrenView(boardId, { lane: laneId, done: options.showDone }, ctrl.signal)
+    // A live re-read keeps every page "Load more" added (frontend/CLAUDE.md): it follows next_cursor until it covers
+    // as many rows as are on screen, so a board event never shrinks the view to page 1 or drops a focused card.
+    const loaded = live ? dataRef.current!.rows.length : 0;
+    const readAll = async () => {
+      let d = await getChildrenView(boardId, { lane: laneId, done: options.showDone }, ctrl.signal);
+      while (d.next_cursor && d.rows.length < loaded) {
+        const next = await getChildrenView(boardId, { lane: laneId, cursor: d.next_cursor, done: options.showDone }, ctrl.signal);
+        d = {
+          ...next,
+          rows: [...d.rows, ...next.rows],
+          child_boards: [...d.child_boards, ...next.child_boards.filter((b) => !d.child_boards.some((x) => x.id === b.id))],
+        };
+      }
+      return d;
+    };
+    readAll()
       .then((d) => {
         queryRef.current = query;
         const el = document.activeElement as HTMLElement | null;
@@ -365,7 +380,8 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
       const cells = cols.map((col, ci) => {
         const inCol = shown.filter((k) => k.column_id === col.id);
         const planned = col.id === firstColId && options.planned === "any" && !plannedOpen.has(row.id) ? inCol.filter((k) => k.planned) : [];
-        const kids = inCol.filter((k) => !planned.includes(k));
+        const plannedSet = new Set(planned);
+        const kids = inCol.filter((k) => !plannedSet.has(k));
         const n = Math.max(1, kids.length + (planned.length ? 1 : 0));
         for (let i = 0; i < n; i++) stops.push({ r, c: ci + 1, i, key: `${gridKey}:${r}:${ci + 1}:${i}` });
         return { col, kids, planned };
@@ -662,7 +678,7 @@ export default function ChildrenModeView({ boardId, laneId: laneProp, options, o
             {onEditLane && (
               <OverflowMenu
                 ariaLabel={`Actions for swimlane "${lane.name}"`}
-                triggerClassName={`${FOCUS} inline-flex items-center justify-center min-w-11 sm:min-w-8 ${tgt} rounded text-fg-secondary hover:text-fg hover:bg-surface-hover`}
+                triggerClassName={`${FOCUS} inline-flex items-center justify-center min-w-11 sm:[@media(pointer:fine)]:min-w-8 ${tgt} rounded text-fg-secondary hover:text-fg hover:bg-surface-hover`}
                 items={[
                   { id: "edit", label: "Edit swimlane…", onSelect: () => onEditLane(lane.id) },
                   ...(onEditFieldOrder ? [{ id: "field-order", label: "Change field order…", onSelect: onEditFieldOrder }] : []),

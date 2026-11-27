@@ -31,6 +31,7 @@ const { getOnEvent } = vi.hoisted(() => {
   }
 })
 
+let mockSearchParams = new URLSearchParams()
 vi.mock('../hooks/useBoardSocket', () => ({
   useBoardSocket: (_boardId: number, onEvent: (e: BoardEvent) => void, options?: { onReconnected?: () => void }) => {
     getOnEvent.capture(onEvent, options?.onReconnected)
@@ -64,7 +65,7 @@ const { mockLocationState } = vi.hoisted(() => ({ mockLocationState: { current: 
 vi.mock('react-router-dom', () => ({
   // BoardView reads navigation state for the board-invite joined notice (#1444).
   useLocation: () => ({ pathname: '/', search: '', hash: '', state: mockLocationState.current, key: 'default' }),
-  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  useSearchParams: () => [mockSearchParams, vi.fn()],
   useNavigate: () => vi.fn(),
 }))
 vi.mock('../api/boards', () => ({
@@ -423,5 +424,29 @@ describe('BoardView — Children lane counts re-read live, throttled (#2370 item
     await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
     expect(spy).not.toHaveBeenCalled()
     spy.mockRestore()
+  })
+})
+
+describe('BoardView — Children mode shows only the controls it honors (#2370 regression-check)', () => {
+  beforeEach(() => { vi.clearAllMocks(); mockSearchParams = new URLSearchParams() })
+
+  it('hides the Show chips in Children mode and keeps them in Cards mode', async () => {
+    const empty = { board_total: { in_progress: 0, total: 0, blocked: 0, hidden: 0, planned: 0 }, lanes: [], rows: [], child_boards: [], next_cursor: null }
+    const spy = vi.spyOn(cardsApi, 'getChildrenView').mockResolvedValue(empty)
+    vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue({ visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null })
+    try {
+      mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: true, cards: [makeCard({ id: 7 })] }) })
+      const { unmount } = render(<BoardView />)
+      await act(async () => {})
+      expect(screen.getByTestId('show-chips')).toBeInTheDocument()
+      unmount()
+      mockSearchParams = new URLSearchParams('show=children')
+      render(<BoardView />)
+      await act(async () => {})
+      expect(screen.queryByTestId('show-chips')).toBeNull()
+    } finally {
+      spy.mockRestore()
+      mockSearchParams = new URLSearchParams()
+    }
   })
 })
