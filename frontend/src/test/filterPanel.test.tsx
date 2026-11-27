@@ -1136,8 +1136,10 @@ describe('FilterPanel pinned shell and Filter bar switch (#2691)', () => {
     screen.getByRole('button', { name: /^Assignee/ }).focus()
     await u.keyboard('f')
     expect(onToggleFilterBar).toHaveBeenCalledTimes(2)
-    // A modifier chord is not the shortcut.
+    // A modifier chord is not the shortcut, nor is a key repeat.
     await u.keyboard('{Control>}f{/Control}')
+    expect(onToggleFilterBar).toHaveBeenCalledTimes(2)
+    fireEvent.keyDown(screen.getByRole('button', { name: /^Assignee/ }), { key: 'f', repeat: true })
     expect(onToggleFilterBar).toHaveBeenCalledTimes(2)
     // Text inside an open editor types too.
     await u.click(screen.getByRole('button', { name: /^Notes/ }))
@@ -1194,6 +1196,8 @@ describe('FilterPanel saved presets (#2695)', () => {
     expect(pills[1].className).toContain('text-info-on-tint')
     expect(within(pills[1]).getByTestId('saved-filter-mark')).toBeInTheDocument()
     expect(pills[0]).toHaveAttribute('aria-pressed', 'false')
+    // Truncated at 210px, so the full name is in the title.
+    expect(pills[0]).toHaveAttribute('title', 'My open work')
     expect(within(row).getByRole('list', { name: 'Saved filters' }).className).toContain('overflow-x-auto')
     // Tab from the Swimlane fields scope chip reaches the first pill, then the list.
     screen.getByRole('button', { name: 'Swimlane fields' }).focus()

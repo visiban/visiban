@@ -45,7 +45,6 @@ interface Props {
   /** Whether the full filter bar (search, scope, My cards, Lanes) is showing under the toolbar. */
   filterBarShown: boolean;
   onToggleFilterBar: () => void;
-  /** Opens the filter bar and then the Lanes popover (#2205). */
   /** Opens the Lanes popover; with a field id, preselects that field's rule (#2660). */
   onOpenLaneFilters: (fieldId?: LaneFieldKey) => void;
   /** The same save handler the filter bar's Saved dropdown uses; resolves with an error message on failure. */
@@ -204,7 +203,8 @@ export default function FilterPanel({
   // panel owns F itself: it toggles the bar from the switch, a row or an editor's checkbox, never from a
   // text field, because field names and values start with "f" (Forecast) and search must type them.
   const onPanelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== FILTER_BAR_SHORTCUT || e.metaKey || e.ctrlKey || e.altKey || isTextEntry(e.target)) return;
+    // Lowercase only, like BoardView's handler (`e.key === "f"`); a held key toggles once, not per repeat.
+    if (e.key !== FILTER_BAR_SHORTCUT || e.repeat || e.metaKey || e.ctrlKey || e.altKey || isTextEntry(e.target)) return;
     e.preventDefault();
     onToggleFilterBar();
   };
@@ -741,8 +741,9 @@ export default function FilterPanel({
                       <button
                         type="button"
                         aria-pressed={applied}
+                        title={sf.name}
                         onClick={() => { onLoadSaved(sf); close(); triggerRef.current?.focus(); }}
-                        className={`inline-flex items-center gap-1 max-w-[210px] text-xs rounded-full border px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${applied ? "bg-primary-emphasis/10 text-info-on-tint border-info/40 font-semibold" : "text-fg border-line-strong hover:bg-surface-hover"}`}
+                        className={`inline-flex items-center gap-1 max-w-[210px] text-xs rounded-full border px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${applied ? "bg-primary-emphasis/10 text-info-on-tint border-info/40 font-semibold" : "text-fg border-line-boundary hover:bg-surface-hover"}`}
                       >
                         <ActiveMark active={applied} testId="saved-filter-mark" />
                         <span className="truncate">{sf.name}</span>
@@ -755,7 +756,7 @@ export default function FilterPanel({
           </div>
         )}
       </div>
-      <div data-testid="filter-panel-body" className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2">
+      <div data-testid="filter-panel-body" className="flex-1 min-h-24 overflow-y-auto px-3 py-2 space-y-2">
       {chips.length + laneChips.length > 0 && (
         <div data-testid="filter-panel-chips" className="flex flex-col gap-1.5 pb-1">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-0.5">Filtered by</h3>
