@@ -203,11 +203,22 @@ def validate_schema_url(raw: str) -> str:
         host, port = parts.hostname, parts.port  # .port raises ValueError on garbage
     except ValueError:
         raise PartitionError(msg) from None
-    if parts.scheme != "http" or host not in LOOPBACK_HOSTS or port is None:
+    if parts.scheme != "http" or host not in LOOPBACK_HOSTS or port is None or port < 1:
         raise PartitionError(msg)
     if parts.username is not None or parts.password is not None or "@" in parts.netloc:
         raise PartitionError(msg)
     return urllib.parse.urlunsplit(("http", f"{host}:{port}", parts.path, parts.query, ""))
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect: urllib would replay the Authorization header to the new host."""
+
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+# ProxyHandler({}) ignores http_proxy so the token cannot be routed through an env proxy.
+_LOOPBACK_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
 
 
 def _load_schema(args) -> dict:
@@ -220,7 +231,7 @@ def _load_schema(args) -> dict:
     with open(resolve_within(cli_roots(), args.token_file), encoding="utf-8") as f:
         token = f.read().strip()
     req = urllib.request.Request(url, headers={"Authorization": "Token " + token})
-    with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 - http scheme and loopback host validated, URL rebuilt from parts
+    with _LOOPBACK_OPENER.open(req, timeout=60) as resp:  # noqa: S310 - http scheme and loopback host validated, URL rebuilt from parts
         return json.load(resp)
 
 
@@ -330,7 +341,7 @@ def _self_test() -> int:
     for bad in (
         "http://localhost:@evil.example/", "http://localhost:80.evil.example/",
         "https://localhost:8000/", "http://localhost/", "http://user:pw@localhost:8000/",
-        "http://localhost:abc/", "http://localhost:99999/", "http://evil.example:8000/",
+        "http://localhost:abc/", "http://localhost:99999/", "http://127.0.0.1:0/", "http://localhost:8000\\@evil.example/", "http://evil.example:8000/",
         "http://localhost.evil.example:8000/", "ftp://localhost:8000/", "", "localhost:8000",
     ):
         _expect_error(lambda bad=bad: validate_schema_url(bad), "--schema-url must be")
