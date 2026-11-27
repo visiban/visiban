@@ -42,7 +42,7 @@ All are 1440px wide unless noted, dark theme unless noted.
 
 Top to bottom:
 
-1. App header (Row 1): the menu button (opens the navigation drawer, `[`), the breadcrumb rooted at "Home" whose last crumb is the page's only `h1` (on a board, a button with the board name and a chevron that opens the board switcher), star, board status pill, board search, notifications, account. There is no sidebar (#2473): navigation is the on-demand drawer described in `frontend/CLAUDE.md` § App shell.
+1. App header (Row 1): the menu button (opens the navigation drawer, `[`), the breadcrumb rooted at "Home" whose last crumb is the page's only `h1` (on a board, a button with the board name and a chevron that opens the board switcher), star, board status pill, board search, notifications, account. There is no sidebar (#2473): navigation is the on-demand drawer described in `frontend/ui-conventions/shell-and-navigation.md` § App shell.
 2. Board toolbar (Row 2): view tabs on the left; Filter, View, Activity, overflow menu and the connection status on the right.
 3. Filter chip row: only when a filter is active.
 4. Show chips, with the board totals and "Collapse all lanes" on the right.
