@@ -664,6 +664,12 @@ cmd_new() {
   } > "$target_path/.envrc"
 
   ok "created worktree at $target_path on branch $branch"
+  # #2686: warn (never fail) when the managed git hooks are missing from the
+  # shared git common dir — a worktree commit/push otherwise skips gitleaks and
+  # the issue-collision check with no sign anything is wrong.
+  if [[ -x "$REPO_ROOT/scripts/setup-hooks.sh" ]]; then
+    "$REPO_ROOT/scripts/setup-hooks.sh" --check >&2 || warn "git hooks are not fully installed (see above); worktree created anyway"
+  fi
   say ""
   dim "  cd $target_path"
   if command -v direnv >/dev/null 2>&1; then

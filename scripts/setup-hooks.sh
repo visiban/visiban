@@ -2,7 +2,9 @@
 # scripts/setup-hooks.sh — installs Visiban's git hooks (#1096).
 #
 # Usage:
-#   scripts/setup-hooks.sh
+#   scripts/setup-hooks.sh           # install / reinstall managed hooks
+#   scripts/setup-hooks.sh --check   # read-only: exit 1 naming each managed hook
+#                                    # that is missing or unmanaged (#2686)
 #
 # Installs:
 #   - a pre-push hook that runs scripts/check-issue-collision.sh before every
@@ -103,6 +105,43 @@ setup_hook() { # setup_hook <name> <install-fn> <chain-hint-line>
     ok "installed $name hook at $hook_path"
   fi
 }
+
+# --check (#2686): report-only, writes nothing. A hook is "managed" iff it carries
+# MARKER. Exit 1 when any is missing or unmanaged, so a caller (scripts/wt new)
+# can warn instead of a session silently committing without gitleaks.
+check_hook() { # check_hook <name> <chain-hint-line>
+  local name="$1" chain_hint="$2" hook_path="$HOOKS_DIR/$1"
+  if [[ ! -e "$hook_path" ]]; then
+    warn "$name hook is MISSING ($hook_path) — run scripts/setup-hooks.sh"
+    return 1
+  fi
+  if [[ -f "$hook_path" ]] && grep -qF "$MARKER" "$hook_path" 2>/dev/null; then
+    ok "$name hook is managed"
+    return 0
+  fi
+  warn "$name hook is UNMANAGED ($hook_path) — setup-hooks.sh will not overwrite it"
+  # The pre-#1096 hook that ran only frontend lint is recognizable by its echo.
+  if grep -qF 'Running frontend lint...' "$hook_path" 2>/dev/null; then
+    warn "  legacy frontend-lint hook: either replace it (back it up, delete it, re-run scripts/setup-hooks.sh)"
+  else
+    warn "  back it up and re-run scripts/setup-hooks.sh, or"
+  fi
+  warn "  chain it by adding this line to the existing hook: $chain_hint"
+  return 1
+}
+
+if [[ "${1:-}" == "--check" ]]; then
+  check_status=0
+  # shellcheck disable=SC2016 # literal hint text, expanded later by the user's hook
+  check_hook pre-push \
+    '"$(git rev-parse --show-toplevel)/scripts/check-issue-collision.sh" --hook "$@"' \
+    || check_status=1
+  # shellcheck disable=SC2016
+  check_hook pre-commit \
+    '"$(git rev-parse --show-toplevel)/scripts/gitleaks-precommit.sh"' \
+    || check_status=1
+  exit "$check_status"
+fi
 
 status=0
 setup_hook pre-push install_prepush_hook \

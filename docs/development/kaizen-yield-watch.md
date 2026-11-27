@@ -42,6 +42,8 @@ For each **gate** and **diff shape** it tracks the current streak of consecutive
 - The job uses the file as its baseline and uploads the updated state as an artifact. Commit it in a chore MR to advance the baseline.
 - If nobody does, the next run re-derives the same result.
 
+**Role of the committed copy (settled in #2686).** It is live *baseline*, not a seed: `kaizen_yield_watch.py` reads it by default (`--state`, `DEFAULT_STATE`), as does `kaizen_fastpath_proposal.py`, and `scripts/tests/kaizen_yield_watch.test.sh` validates its shape, so it must not be deleted. It goes stale whenever nobody commits the artifact (its watermark was !925, 2026-09-26, while the schedule job kept passing). To refresh it, download the `kaizen-yield-state.json` artifact from the latest scheduled `kaizen-yield-watch` job, copy it over `.claude/kaizen-yield-state.json`, and commit it in a chore MR. Only the artifact reflects current state; do not read the committed copy for current streaks.
+
 ## Argument validation
 
 The kaizen scripts reject malformed arguments up front (#1377):
