@@ -7,6 +7,7 @@ import LaneTeamAssignee from "../Board/LaneTeamAssignee";
 import { assignableMembers, childCaption, memberName } from "../../utils/swimlaneDefaultTeam";
 import { linkErrorCopy } from "./cardParent";
 import { boardsCapLine } from "./childBoardOptionsCap";
+import UnavailableChildBoards from "./UnavailableChildBoards";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import HelpLink from "../Common/HelpLink";
@@ -70,6 +71,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const titleId = `${uid}-title`;
   const selectId = `${uid}-board`;
   const capId = `${uid}-cap`;
+  const unavailableId = `${uid}-unavailable`;
   const archivedReasonId = `${uid}-archived`;
   const titleFieldId = `${uid}-card-title`;
   const titleHintId = `${uid}-title-hint`;
@@ -138,6 +140,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
     ? team.member_ids.filter((id) => id !== assigneeId && byId.has(id)).map((id) => memberName(byId.get(id)!))
     : [];
   const capLine = options ? boardsCapLine(options.boards.length, options.boards_total) : null;
+  // #2719: boards the viewer can add cards to that fail the child-board rule, named with why instead of vanishing.
+  const unavailable = options?.unavailable ?? [];
+  const selectDescribedBy = [capLine ? capId : null, unavailable.length > 0 ? unavailableId : null].filter(Boolean).join(" ");
   const hasTitle = title.trim().length > 0;
   const ready = canPick && hasTitle && !submitting;
 
@@ -231,9 +236,16 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
             <p className="text-sm text-fg-secondary">
               This card's children are on <span className="font-medium text-fg">{fixedVisible.name}</span>. New children go there too.
             </p>
+          ) : options.boards.length === 0 && unavailable.length > 0 ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-fg-secondary">
+                No board can take new children from {boardName} yet. Fix one of these first, or ask a board admin there.
+              </p>
+              <UnavailableChildBoards id={unavailableId} boards={unavailable} />
+            </div>
           ) : options.boards.length === 0 ? (
             <p className="text-sm text-fg-secondary">
-              No board can take new children from {boardName}. A child board needs a first column that allows card creation, and you need member access to it.
+              No board can take new children from {boardName}. A child board needs a swimlane and a first column that allows card creation, and you need member access to it.
             </p>
           ) : (
             <div className="flex flex-col gap-1">
@@ -241,7 +253,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               <label htmlFor={selectId} className="text-sm text-fg-secondary">Child board</label>
               <SelectDropdown
                 id={selectId}
-                ariaDescribedBy={capLine ? capId : undefined}
+                ariaDescribedBy={selectDescribedBy || undefined}
                 value={chosen}
                 onChange={(v) => { setChosen(v); setMakeDefault(false); setUnassigned(false); }}
                 placeholder="Choose a board"
@@ -251,6 +263,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               {capLine && (
                 <p id={capId} className="text-xs text-fg-muted" data-testid="child-board-options-cap">{capLine}</p>
               )}
+              <UnavailableChildBoards id={unavailableId} boards={unavailable} className="mt-1" />
             </div>
           )}
 

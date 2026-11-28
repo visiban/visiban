@@ -654,7 +654,10 @@ class BoardViewSet(
     @extend_schema(
         responses={200: OpenApiResponse(response=DefaultChildBoardOptionsSerializer, description=(
             "`{boards: [{id, name}], boards_total}`: qualifying boards where the caller is "
-            "admin, by name, at most 100 (`boards_total` counts them all, since 1.3, #2449)."
+            "admin, by name, at most 100 (`boards_total` counts them all, since 1.3, #2449). "
+            "`unavailable` (since 1.3, #2719): boards the caller administers that cannot be a "
+            "child board yet, as `{id, name, reason}` (`no_column`, `no_swimlane` or "
+            "`first_column_closed`), at most 100, by name."
         ))},
         description=(
             "Boards the caller may choose as this board's default child board "

@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useInRouterContext } from "react-router-dom";
 import { getChildrenSettingBlockers, getDefaultChildBoardOptions } from "../../api/boards";
-import type { Board, ChildrenSettingBlockers } from "../../types";
+import type { Board, ChildrenSettingBlockers, UnavailableChildBoard } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
 import ParentNameSettings from "./ParentNameSettings";
 import { boardsCapLine } from "../Card/childBoardOptionsCap";
+import UnavailableChildBoards from "../Card/UnavailableChildBoards";
 import { buttonClasses } from "../Page/buttonClasses";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
@@ -46,6 +47,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   const defaultId = `${uid}-default`;
   const defaultHelpId = `${uid}-default-help`;
   const defaultCapId = `${uid}-default-cap`;
+  const defaultUnavailableId = `${uid}-default-unavailable`;
   const reasonsRef = useRef<HTMLDivElement>(null);
   const checked = board.cards_can_have_children;
   // The reason link is router navigation (no full page load); a bare render with no
@@ -58,6 +60,8 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   const [options, setOptions] = useState<{ id: number; name: string }[]>([]);
   // How many boards qualify in all (#2449): the list holds at most 100.
   const [optionsTotal, setOptionsTotal] = useState<number | undefined>(undefined);
+  // #2719: boards this admin could pick once they qualify, named with why they're missing from the select.
+  const [unavailable, setUnavailable] = useState<UnavailableChildBoard[]>([]);
   // A failed blockers read must not leave the switch looking usable with no explanation (#2448).
   // For turning ON the server still refuses a bad flip on save, so this only explains. Turning OFF
   // is never refused since #2446, so there the turn-off confirm is the only guard: an unknown
@@ -102,8 +106,8 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
     if (!checked) return;
     let live = true;
     getDefaultChildBoardOptions(board.id)
-      .then((o) => { if (live) { setOptions(o.boards); setOptionsTotal(o.boards_total); } })
-      .catch(() => { if (live) { setOptions([]); setOptionsTotal(undefined); } });
+      .then((o) => { if (live) { setOptions(o.boards); setOptionsTotal(o.boards_total); setUnavailable(o.unavailable ?? []); } })
+      .catch(() => { if (live) { setOptions([]); setOptionsTotal(undefined); setUnavailable([]); } });
     return () => { live = false; };
   }, [board.id, checked]);
 
@@ -346,10 +350,11 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
             <p className="text-xs text-fg-muted mt-0.5">
               Only boards you administer are listed (setting a default needs admin on both boards). Changing this affects parents with no children yet.
             </p>
+            <UnavailableChildBoards id={defaultUnavailableId} boards={unavailable} className="mt-1" />
           </div>
           <SelectDropdown
             id={defaultId}
-            ariaDescribedBy={capLine ? `${defaultHelpId} ${defaultCapId}` : defaultHelpId}
+            ariaDescribedBy={[defaultHelpId, capLine ? defaultCapId : null, unavailable.length > 0 ? defaultUnavailableId : null].filter(Boolean).join(" ")}
             value={board.default_child_board != null ? String(board.default_child_board) : "none"}
             onChange={(v) => save({ default_child_board: v === "none" ? null : Number(v) })}
             options={selectOptions}

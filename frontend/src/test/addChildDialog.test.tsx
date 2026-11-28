@@ -378,3 +378,61 @@ describe('AddChildDialog lane default team (#2211)', () => {
     expect(screen.queryByRole('group', { name: 'Assignees' })).toBeNull()
   })
 })
+
+describe('AddChildDialog unavailable boards (#2719)', () => {
+  const UNAVAILABLE: ChildBoardOptions['unavailable'] = [
+    { id: 20, name: 'Archive', reason: 'first_column_closed' },
+    { id: 21, name: 'Blank', reason: 'no_column' },
+    { id: 22, name: 'Child Board test', reason: 'no_swimlane' },
+  ]
+
+  it('names each board that cannot take a child, with why, below the select, and never offers it', async () => {
+    const { user } = setup({ ...BASE, unavailable: UNAVAILABLE })
+    const list = await screen.findByTestId('unavailable-child-boards')
+    expect(list).toHaveTextContent("Can't take children yet:")
+    expect(list).toHaveTextContent('Child Board test: add a swimlane first')
+    expect(list).toHaveTextContent("Archive: its first column doesn't allow new cards")
+    expect(list).toHaveTextContent('Blank: add a column first')
+    const select = screen.getByRole('combobox', { name: /Child board/ })
+    expect(select.getAttribute('aria-describedby')).toContain(list.id)
+    await user.click(select)
+    expect(await screen.findByRole('option', { name: 'Delivery' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Child Board test' })).toBeNull()
+    expect(screen.queryByRole('option', { name: 'Archive' })).toBeNull()
+  })
+
+  it('wires both the cap line and the list into the select description', async () => {
+    setup({ ...BASE, boards_total: 150, unavailable: UNAVAILABLE.slice(0, 1) })
+    const list = await screen.findByTestId('unavailable-child-boards')
+    const cap = screen.getByTestId('child-board-options-cap')
+    const describedBy = screen.getByRole('combobox', { name: /Child board/ }).getAttribute('aria-describedby')
+    expect(describedBy?.split(' ')).toEqual([cap.id, list.id])
+  })
+
+  it('shows no list and no extra description when every board qualifies', async () => {
+    setup({ ...BASE, unavailable: [] })
+    const select = await screen.findByRole('combobox', { name: /Child board/ })
+    expect(screen.queryByTestId('unavailable-child-boards')).toBeNull()
+    expect(select).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('explains an empty chooser when unavailable boards are the only reason it is empty', async () => {
+    setup({ ...BASE, boards: [], unavailable: UNAVAILABLE.slice(2) })
+    expect(await screen.findByText(/No board can take new children from Pipeline yet\. Fix one of these first/)).toBeInTheDocument()
+    expect(screen.getByTestId('unavailable-child-boards')).toHaveTextContent('Child Board test: add a swimlane first')
+    expect(screen.queryByRole('combobox', { name: /Child board/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Add child' })).toBeDisabled()
+  })
+
+  it('an older server with no unavailable key keeps the plain empty state', async () => {
+    setup({ ...BASE, boards: [] })
+    expect(await screen.findByText(/A child board needs a swimlane and a first column/)).toBeInTheDocument()
+    expect(screen.queryByTestId('unavailable-child-boards')).toBeNull()
+  })
+
+  it('a fixed children board hides the list (new children must go there)', async () => {
+    setup({ ...BASE, fixed_board: { hidden: false, id: 8, name: 'Ops', can_add: true }, unavailable: UNAVAILABLE })
+    await screen.findByText(/New children go there too/)
+    expect(screen.queryByTestId('unavailable-child-boards')).toBeNull()
+  })
+})
