@@ -49,6 +49,7 @@ import argparse
 import json
 import re
 import sys
+import urllib.parse
 import urllib.request
 
 from _paths import cli_roots, resolve_within
@@ -185,19 +186,63 @@ def filter_baseline(baseline: dict, regex: str) -> dict:
     return out
 
 
+LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1"})
+
+
+def validate_schema_url(raw: str) -> str:
+    """Return a URL rebuilt from validated parts, or raise PartitionError.
+
+    The request carries the API token, so the target must really be the job's own
+    loopback server. A `startswith("http://localhost:")` prefix check is bypassable
+    (`http://localhost:@evil.example/`, `http://localhost:80.evil.example/`);
+    parsing and rebuilding from the validated components is not (#2675).
+    """
+    msg = "--schema-url must be the job's own http://localhost:<port> server"
+    try:
+        parts = urllib.parse.urlsplit(raw)
+        host, port = parts.hostname, parts.port  # .port raises ValueError on garbage
+    except ValueError:
+        raise PartitionError(msg) from None
+    if parts.scheme != "http" or host not in LOOPBACK_HOSTS or port is None or port < 1:
+        raise PartitionError(msg)
+    if parts.username is not None or parts.password is not None or "@" in parts.netloc:
+        raise PartitionError(msg)
+    return urllib.parse.urlunsplit(("http", f"{host}:{port}", parts.path, parts.query, ""))
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect: urllib would replay the Authorization header to the new host."""
+
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+# ProxyHandler({}) ignores http_proxy so the token cannot be routed through an env proxy.
+def _build_loopback_opener():
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
+
+
+_LOOPBACK_OPENER = _build_loopback_opener()
+
+
+def _fetch_json(url: str, token: str) -> dict:
+    """GET `url` (already validated and rebuilt) with the token, no redirects, no env proxy."""
+    req = urllib.request.Request(url, headers={"Authorization": "Token " + token})
+    # noqa rationale: http scheme and loopback host validated, URL rebuilt from parts
+    with _LOOPBACK_OPENER.open(req, timeout=60) as resp:  # noqa: S310
+        return json.load(resp)
+
+
 def _load_schema(args) -> dict:
     if args.schema:
         with open(resolve_within(cli_roots(), args.schema), encoding="utf-8") as f:
             return json.load(f)
     if not (args.schema_url and args.token_file):
         raise PartitionError("check needs --schema, or --schema-url with --token-file")
-    if not args.schema_url.startswith("http://localhost:"):
-        raise PartitionError("--schema-url must be the job's own http://localhost: server")
+    url = validate_schema_url(args.schema_url)
     with open(resolve_within(cli_roots(), args.token_file), encoding="utf-8") as f:
         token = f.read().strip()
-    req = urllib.request.Request(args.schema_url, headers={"Authorization": "Token " + token})
-    with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 - localhost only, checked above
-        return json.load(resp)
+    return _fetch_json(url, token)
 
 
 def main(argv: list[str]) -> int:
@@ -260,6 +305,82 @@ def _expect_error(fn, *needles):
     raise AssertionError("expected PartitionError containing %r" % (needles,))
 
 
+def _self_test_fetch() -> None:
+    """Prove the token fetch ignores env proxies and redirects, and uses the rebuilt URL (#2675)."""
+    import http.server
+    import os
+    import tempfile
+    import threading
+    import urllib.error
+
+    seen: dict[str, list] = {"a": [], "b": []}
+    ports: dict[str, int] = {}
+
+    def make_handler(name):
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                seen[name].append(self.headers.get("Authorization"))
+                if name == "a":
+                    self.send_response(302)
+                    self.send_header("Location", "http://127.0.0.1:%d/target" % ports["b"])
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+            def log_message(self, *args):
+                pass
+
+        return Handler
+
+    servers = {n: http.server.HTTPServer(("127.0.0.1", 0), make_handler(n)) for n in ("a", "b")}
+    ports.update({n: s.server_address[1] for n, s in servers.items()})
+    for s in servers.values():
+        threading.Thread(target=s.serve_forever, daemon=True).start()
+    proxy_keys = ("http_proxy", "HTTP_PROXY")
+    saved = {k: os.environ.get(k) for k in proxy_keys}
+    real_fetch = globals()["_fetch_json"]
+    try:
+        for k in proxy_keys:
+            os.environ[k] = "http://127.0.0.1:1"  # dead: any proxied request fails
+        try:
+            real_fetch("http://127.0.0.1:%d/redir" % ports["a"], "tok")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 302, exc.code
+        else:
+            raise AssertionError("redirect was followed")
+        assert seen["b"] == [], seen["b"]
+        # Env proxies are read when an opener is built, not per request, so rebuild one now with
+        # the dead proxy set. An empty ProxyHandler({}) registers no <scheme>_open methods and so
+        # never lands in .handlers; the default env-driven one (with http_open) does.
+        proxied = [h for h in _build_loopback_opener().handlers if isinstance(h, urllib.request.ProxyHandler)]
+        assert proxied == [], proxied
+        assert seen["a"] == ["Token tok"], seen["a"]  # reached A directly, not via the proxy
+
+        # _load_schema must hand _fetch_json the rebuilt URL, not the raw argument.
+        got = []
+        globals()["_fetch_json"] = lambda url, token: got.append((url, token)) or {}
+        with tempfile.TemporaryDirectory() as d:
+            tok = os.path.join(d, "tok")
+            with open(tok, "w", encoding="utf-8") as f:
+                f.write("secret\n")
+            ns = argparse.Namespace(schema=None, schema_url="http://localhost:8000/s/?format=json#frag", token_file=tok)
+            _load_schema(ns)
+        assert got == [("http://localhost:8000/s/?format=json", "secret")], got
+    finally:
+        globals()["_fetch_json"] = real_fetch
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        for s in servers.values():
+            s.shutdown()
+            s.server_close()
+
+
 def _self_test() -> int:
     def schema(*paths):
         return {"paths": {p: {"get": {}, "post": {}} for p in paths}}
@@ -298,6 +419,27 @@ def _self_test() -> int:
     _expect_error(lambda: check_schema({"paths": {}}), "no operations")
     _expect_error(lambda: check_schema({"paths": {"/api/v1/x/": {"parameters": []}}}), "no operations")
     _expect_error(lambda: check_schema(None), "no operations")
+
+    # --schema-url guard (#2675): the token must only ever reach the job's own loopback server.
+    assert validate_schema_url("http://localhost:8000/api/schema/?format=json") == \
+        "http://localhost:8000/api/schema/?format=json"
+    assert validate_schema_url("http://127.0.0.1:8000/x") == "http://127.0.0.1:8000/x"
+    for bad in (
+        "http://localhost:@evil.example/", "http://localhost:80.evil.example/",
+        "https://localhost:8000/", "http://localhost/", "http://user:pw@localhost:8000/",
+        "http://localhost:abc/",
+        "http://localhost:99999/",
+        "http://127.0.0.1:0/",
+        "http://localhost:8000\\@evil.example/",
+        "http://evil.example:8000/",
+        "http://localhost.evil.example:8000/",
+        "ftp://localhost:8000/",
+        "",
+        "localhost:8000",
+    ):
+        _expect_error(lambda bad=bad: validate_schema_url(bad), "--schema-url must be")
+
+    _self_test_fetch()
 
     # CI matrix must list exactly the partitions.
     names = [n for n, _ in PARTITIONS]
