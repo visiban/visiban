@@ -9,6 +9,7 @@ parent-tier board, never the parent's own board.
 """
 from unittest import mock
 
+from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
 
 from accounts.models import User
@@ -98,6 +99,15 @@ class ChildBoardOptionsUnavailableTests(AddChildFixture):
         self.assertEqual(out["boards"], [])
         self.assertEqual(out["unavailable"], [{"id": self.child.pk, "name": "Delivery", "reason": "first_column_closed"}])
 
+    def test_a_fixed_board_that_stopped_qualifying_is_also_listed_unavailable(self):
+        """Harmless overlap, pinned: the viewer can already open it (``fixed_board`` names it), and the
+        dialog shows only the fixed-board line, never the list, once a card has children."""
+        CardParentLink.objects.create(parent=self.parent_card, child=add_card(self.child), created_by=self.admin)
+        Column.objects.filter(board=self.child, position=0).update(allow_card_creation=False)
+        out = self.options(self.member)
+        self.assertEqual(out["fixed_board"], {"hidden": False, "id": self.child.pk, "name": "Delivery", "can_add": False})
+        self.assertEqual(out["unavailable"], [{"id": self.child.pk, "name": "Delivery", "reason": "first_column_closed"}])
+
     def test_the_post_refuses_every_board_listed_unavailable(self):
         """Unavailable is exactly the write's refusal, so a disabled option is never a working target."""
         boards = [
@@ -120,10 +130,12 @@ class ChildBoardOptionsUnavailableTests(AddChildFixture):
         self.assertEqual([b["name"] for b in out["unavailable"]], ["Lane-less 0", "Lane-less 1", "Lane-less 2"])
 
     def test_absent_user_fails_closed_with_an_empty_list(self):
-        lane_less_board(self.admin, "Hidden")
-        out = card_links.child_board_options_for_viewer(self.parent_card, None)
-        self.assertEqual(out["boards"], [])
-        self.assertEqual(out["unavailable"], [])
+        self.grant(lane_less_board(self.admin, "Hidden"))
+        for user in (None, AnonymousUser()):
+            with self.subTest(user=user):
+                out = card_links.child_board_options_for_viewer(self.parent_card, user)
+                self.assertEqual(out["boards"], [])
+                self.assertEqual(out["unavailable"], [])
 
     def test_a_non_parent_card_gets_an_empty_list(self):
         self.grant(lane_less_board(self.admin, "No lane"))
@@ -153,10 +165,13 @@ class DefaultChildBoardOptionsUnavailableTests(DefaultChildBoardFixture):
         self.assertEqual([b["name"] for b in out["boards"]], ["Delivery"])
 
     def test_no_viewer_fails_closed(self):
-        self.assertEqual(
-            card_links.default_child_board_options_for_admin(self.parent, None),
-            {"boards": [], "boards_total": 0, "unavailable": []},
-        )
+        BoardMembership.objects.create(board=lane_less_board(self.admin, "Hidden"), user=self.admin, role=Role.ADMIN)
+        for user in (None, AnonymousUser()):
+            with self.subTest(user=user):
+                self.assertEqual(
+                    card_links.default_child_board_options_for_admin(self.parent, user),
+                    {"boards": [], "boards_total": 0, "unavailable": []},
+                )
 
 
 class ChildRuleFailureTests(TestCase):

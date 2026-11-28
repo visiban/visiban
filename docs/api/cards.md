@@ -1355,7 +1355,8 @@ Any role on this card's board.
  "can_set_default": true,
  "boards": [{"id": 7, "name": "Delivery", "can_set_default": true}],
  "boards_total": 1,
- "disabled_reason": null}
+ "disabled_reason": null,
+ "unavailable": [{"id": 12, "name": "Backlog", "reason": "no_swimlane"}]}
 ```
 
 - `fixed_board`: the board this card's children are already on, as
@@ -1367,7 +1368,8 @@ Any role on this card's board.
   `member` or higher there and it still qualifies; otherwise `null`, and the
   client asks which board to use.
 - `boards`: every board where you are `member` or higher whose cards cannot
-  have children and whose first column allows card creation, by name.
+  have children, that has a swimlane, and whose first column allows card
+  creation, by name.
   `can_set_default` is true when you administer both boards. At most **100**
   boards are listed (`CHILD_BOARD_OPTIONS_LIMIT`, since 1.3, #2449);
   `boards_total` is how many qualify in all, so a client can say "showing 100
@@ -1375,6 +1377,15 @@ Any role on this card's board.
   the listed `boards`: when it sorts past the first 100 it takes the last slot,
   so a client can preselect it.
 - `can_set_default` (top level): you administer this card's board.
+- `unavailable` (since 1.3, #2719): the boards where you are `member` or higher
+  whose cards cannot have children but that cannot take a child yet, so the
+  dialog can show them disabled instead of dropping them. Each is
+  `{"id", "name", "reason"}`, by name, at most **100**. `reason` is the first
+  failing check: `no_column` (the board has no columns), `no_swimlane` (it has
+  no swimlanes) or `first_column_closed` (its first column does not allow card
+  creation). A board whose cards can have children and this card's own board
+  are never listed; boards where you are below `member` are not named. Empty
+  when unauthenticated.
 - `disabled_reason` (since 1.3, #2447): `"parent_archived"` when this card is
   archived, since Add child refuses an archived parent with that code; else `null`.
 - `default_team` (#2211, since 1.3): the default team of this card's lane, as

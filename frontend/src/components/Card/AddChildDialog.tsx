@@ -239,7 +239,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
           ) : options.boards.length === 0 && unavailable.length > 0 ? (
             <div className="flex flex-col gap-1">
               <p className="text-sm text-fg-secondary">
-                No board can take new children from {boardName} yet. Fix one of these first, or ask a board admin there.
+                No board can take new children from {boardName} yet. Fix one of these first, or ask a board admin to.
               </p>
               <UnavailableChildBoards id={unavailableId} boards={unavailable} />
             </div>

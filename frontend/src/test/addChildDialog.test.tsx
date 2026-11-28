@@ -418,7 +418,7 @@ describe('AddChildDialog unavailable boards (#2719)', () => {
 
   it('explains an empty chooser when unavailable boards are the only reason it is empty', async () => {
     setup({ ...BASE, boards: [], unavailable: UNAVAILABLE.slice(2) })
-    expect(await screen.findByText(/No board can take new children from Pipeline yet\. Fix one of these first/)).toBeInTheDocument()
+    expect(await screen.findByText(/No board can take new children from Pipeline yet\. Fix one of these first, or ask a board admin to\./)).toBeInTheDocument()
     expect(screen.getByTestId('unavailable-child-boards')).toHaveTextContent('Child Board test: add a swimlane first')
     expect(screen.queryByRole('combobox', { name: /Child board/ })).toBeNull()
     expect(screen.getByRole('button', { name: 'Add child' })).toBeDisabled()

@@ -323,6 +323,13 @@ When a token or secret is shown exactly once after creation (e.g. invite links, 
 - Every tree-toggle chevron carries an `aria-label` (`Expand|Collapse <name>`), `aria-expanded` and the standard focus ring. Leaf rows render a non-focusable spacer (`<span className="w-5 shrink-0" />`), never an invisible button.
 - Selection is exposed with `aria-pressed` on the row button. Reference: `MoveBoardModal`.
 
+## Choices a select leaves out, named with why (#2719)
+
+- `SelectDropdown` has no per-option disabled state. When a choice the user would expect (a board they can add cards to, a board they administer) is left out of a select because it fails a rule they can fix, name it under the select as text instead of dropping it silently: a "Can't take children yet:" line, then one line per item, the name in `font-medium text-fg-secondary` followed by the reason (`text-xs text-fg-muted`). Reference: `UnavailableChildBoards` under the Add child and Default child board selects.
+- Give the list a stable `id` and add it to the select's `ariaDescribedBy` (after any cap line), so the reasons are read with the select. It is not a live region: it is not announced on load.
+- When those items are the only reason the select would be empty, the empty-state sentence says so ("... yet. Fix one of these first, ...") and the list follows it, with no select.
+- Add per-option disabled support to `SelectDropdown` only when the excluded items must sit in the option list itself; it then also has to skip them in arrow-key navigation and type-to-jump.
+
 ## Multi-step import wizards and file uploads (#456)
 
 Established by the Trello import wizard (`components/Board/TrelloImportModal.tsx`, `components/Board/trello/`). Reuse these for any future import/creation wizard.

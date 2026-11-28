@@ -3276,8 +3276,9 @@ class CardViewSet(viewsets.ModelViewSet):
         description=(
             "The Add child chooser's options for this card (#2208, since 1.3). Minimum "
             "role: any role on this card's board; `boards` lists only boards where the "
-            "caller is member or higher, whose cards cannot have children and whose "
-            "first column allows card creation."
+            "caller is member or higher, whose cards cannot have children, that have a "
+            "swimlane, and whose first column allows card creation; `unavailable` names "
+            "the caller's other member-or-higher boards that fail that rule (#2719)."
         ),
     )
     @action(detail=True, methods=["get"], url_path="child-board-options")

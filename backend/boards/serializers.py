@@ -5507,7 +5507,7 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
             "Id of the board where Add child on this board's cards creates the new "
             "child, or null to ask each time (#2208, since 1.3). Setting it needs "
             "admin on both boards; the target must be a board whose cards cannot "
-            "have children and whose first column allows card creation. Clearing "
+            "have children, that has a swimlane, and whose first column allows card creation. Clearing "
             "it needs admin on this board only."
         ),
         error_messages={
