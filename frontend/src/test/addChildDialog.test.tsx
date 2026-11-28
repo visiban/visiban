@@ -152,6 +152,18 @@ describe('AddChildDialog (#2208)', () => {
     expect(screen.queryByText(/no longer available/)).toBeNull()
   })
 
+  it('a fixed board that fails the child rule says why, from the unavailable list (#2719)', async () => {
+    setup({ ...BASE, fixed_board: { hidden: false, id: 8, name: 'Ops', can_add: false }, unavailable: [{ id: 8, name: 'Ops', reason: 'no_swimlane' }] })
+    expect(await screen.findByRole('alert')).toHaveTextContent('add a swimlane first')
+  })
+
+  it('a fixed board refused with no unavailable entry gets generic copy that names the swimlane (#2719)', async () => {
+    setup({ ...BASE, fixed_board: { hidden: false, id: 8, name: 'Ops', can_add: false }, unavailable: [] })
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('member access')
+    expect(alert).toHaveTextContent('swimlane')
+  })
+
   it('a failed "use as default" write is reported to the caller after the child is added', async () => {
     const { user, onAdded } = setup({ ...BASE, can_set_default: true, boards: [{ id: 7, name: 'Delivery', can_set_default: true }] })
     vi.mocked(addChild).mockResolvedValue({} as never)

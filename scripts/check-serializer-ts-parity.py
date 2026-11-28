@@ -328,6 +328,7 @@ COMPONENT_MAP = {
     "ChildrenSettingBlockers": "ChildrenSettingBlockers",
     "ChildrenViewColumn": "CardChildrenColumn",
     "DefaultChildBoardOptions": "DefaultChildBoardOptions",
+    "UnavailableChildBoard": "UnavailableChildBoard",
     "BoardFull": "BoardFull",
     "BoardInviteLink": "BoardInviteLink",
     "BoardInviteLinkCreateResponse": "CreatedBoardInviteLink",

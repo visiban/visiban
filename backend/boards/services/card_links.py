@@ -203,7 +203,8 @@ def board_qualifies_as_child(board) -> bool:
     """True when ``board`` can be a default child board / Add child target.
 
     It must be a child tier (two tiers, never three) and its first column
-    must allow card creation, since that is where Add child puts the card. A
+    must allow card creation, since that is where Add child puts the card, and
+    it must have a swimlane, since a card needs a lane. A
     missing board fails closed (#1075). Judged at use, never cached: a later
     column edit makes a stored default stop qualifying without clearing it.
     """
@@ -899,8 +900,9 @@ def child_board_options_for_viewer(parent, user):
             out["fixed_board"] = {"hidden": True}
         else:
             # ``can_add`` is the POST's own rule, so the dialog never offers a
-            # target the write always refuses (a viewer there, or a first
-            # column that stopped allowing card creation).
+            # target the write always refuses (a viewer there, a board
+            # with no swimlane or column, or a first column that stopped allowing
+            # card creation).
             out["fixed_board"] = {
                 "hidden": False, "id": fixed.pk, "name": fixed.name,
                 "can_add": fixed_role in LINK_WRITE_ROLES and board_qualifies_as_child(fixed),

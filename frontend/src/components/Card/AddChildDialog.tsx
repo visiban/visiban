@@ -6,7 +6,7 @@ import type { ChildBoardOptions, EffectiveBoardMember } from "../../types";
 import LaneTeamAssignee from "../Board/LaneTeamAssignee";
 import { assignableMembers, childCaption, memberName } from "../../utils/swimlaneDefaultTeam";
 import { linkErrorCopy } from "./cardParent";
-import { boardsCapLine, unavailableOption } from "./childBoardOptionsCap";
+import { boardsCapLine, unavailableOption, unavailableReasonCopy } from "./childBoardOptionsCap";
 import UnavailableChildBoards from "./UnavailableChildBoards";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -123,6 +123,8 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const chosenBoard = options?.boards.find((b) => String(b.id) === chosen) ?? null;
   const targetName = fixedVisible?.name ?? chosenBoard?.name ?? null;
   const fixedBlocked = fixedVisible?.can_add === false;
+  const fixedUnavailable = fixedBlocked ? options?.unavailable?.find((u) => u.id === fixedVisible?.id) : undefined;
+  const fixedReason = fixedUnavailable ? unavailableReasonCopy(fixedUnavailable.reason) : null;
   // #2447: the server refuses a new child under an archived parent; say so before the write does.
   const parentArchived = options?.disabled_reason === "parent_archived";
   const canPick = !parentArchived && !fixedHidden && !fixedBlocked && (fixedVisible != null || chosenBoard != null);
@@ -230,7 +232,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
             </p>
           ) : fixedBlocked ? (
             <p role="alert" className="text-sm text-fg-secondary">
-              This card's children are on <span className="font-medium text-fg">{fixedVisible?.name}</span>, and you can't add cards there (you need member access, and its first column must allow new cards). Ask a board admin there.
+              This card's children are on <span className="font-medium text-fg">{fixedVisible?.name}</span>, and you can't add cards there. {fixedReason ? `It can't take children yet: ${fixedReason}.` : "You need member access, and it needs a swimlane and a first column that allows new cards."} Ask a board admin there.
             </p>
           ) : fixedVisible ? (
             <p className="text-sm text-fg-secondary">

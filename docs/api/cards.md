@@ -1271,8 +1271,8 @@ and weight limits apply as for any create. `201` returns the new card, as
 - **Roles:** `member` or higher on both boards. A viewer or collaborator on
   this card's board gets `403` before the body is read.
 - **Target:** a `board_id` that does not exist, one you cannot open, one where
-  you are below `member`, one whose cards can have children, one whose first
-  column does not allow card creation, and this card's own board all answer the
+  you are below `member`, one whose cards can have children, one with no
+  swimlane or no column, one whose first column does not allow card creation, and this card's own board all answer the
   same `404`.
 - **Rules:** the same `400` codes as linking (`link_not_allowed`,
   `parent_is_child`, `parent_archived`, `children_on_other_board`, `children_limit`), decided
@@ -1362,8 +1362,8 @@ Any role on this card's board.
 - `fixed_board`: the board this card's children are already on, as
   `{"hidden": false, "id", "name", "can_add"}`, or `{"hidden": true}` when you
   cannot open it (Add child is then unavailable to you). `can_add` is false when
-  you are below `member` there or its first column no longer allows card
-  creation: Add child would be refused, so the dialog disables it. `null` when it has no children.
+  you are below `member` there, it has no swimlane or no column, or its first
+  column no longer allows card creation: Add child would be refused, so the dialog disables it. `null` when it has no children.
 - `default`: the board's [`default_child_board`](boards.md), only when you are
   `member` or higher there and it still qualifies; otherwise `null`, and the
   client asks which board to use.
