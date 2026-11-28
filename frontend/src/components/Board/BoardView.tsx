@@ -4312,7 +4312,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onRetryHistory={savedActivity.retry}
             truncated={savedActivity.truncated || drawerFeed.truncated}
             onClose={() => setDrawerOpen(false)}
-            onOpenHistory={() => setSearchParams({ view: "history" }, { replace: true })}
+            // Keep every other param: the lane sort (lsort*) survives a view switch (#2698).
+            onOpenHistory={() => setSearchParams((prev) => { prev.set("view", "history"); return prev; }, { replace: true })}
             tab={drawerView ?? "recent"}
             onTabChange={setDrawerView}
             archivedContent={

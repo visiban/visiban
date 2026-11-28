@@ -282,7 +282,6 @@ function SortFieldPicker({ options, selected, emptyKeys, onSelect }: {
             <div key={g} role="group" aria-label={g}>
               <span aria-hidden="true" className="block text-xs uppercase tracking-wide text-fg-tertiary mt-1">{g}</span>
               {items.map((o) => (
-                // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- keyboard choice goes through the combobox (aria-activedescendant); focus never leaves the search box
                 <div
                   key={o.key}
                   id={`${id}-opt-${o.key}`}
@@ -290,6 +289,8 @@ function SortFieldPicker({ options, selected, emptyKeys, onSelect }: {
                   aria-selected={current === o.key}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => choose(o.key)}
+                  // Focus stays in the search box, so this seldom fires; it mirrors the click for the Sonar S1082 rule and any AT that targets the option.
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(o.key); } }}
                   className={`flex items-center gap-2 px-2 min-h-8 max-sm:min-h-11 rounded cursor-pointer hover:bg-surface-hover ${o.key === activeKey ? "bg-surface-hover ring-1 ring-primary-emphasis" : ""} ${current === o.key ? "font-medium text-fg" : "text-fg-secondary"}`}
                 >
                   <span aria-hidden="true" className="w-3">{current === o.key ? "✓" : ""}</span>

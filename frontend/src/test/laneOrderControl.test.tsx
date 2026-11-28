@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation, useSearchParams } from 'react-router-dom'
 import type { Swimlane, SwimlaneCustomFieldDefinition } from '../types'
@@ -106,6 +106,16 @@ describe('LaneOrderControl (#2698)', () => {
     renderAt('/b/1', { isAdmin: true })
     await user.click(screen.getByRole('button', { name: /^Lanes:/ }))
     expect(screen.queryByText('Only board admins can change the board order for everyone.')).toBeNull()
+  })
+
+  it('an option answers Enter and Space like a click (#2698, Sonar S1082)', async () => {
+    const user = userEvent.setup()
+    renderAt('/b/1?lsort=f:7', { defs: Array.from({ length: 10 }, (_, i) => field(7 + i, i === 0 ? 'Priority' : `Extra ${i}`)) })
+    await user.click(screen.getByRole('button', { name: /^Lanes: Sorted by/ }))
+    fireEvent.keyDown(screen.getByRole('option', { name: /Extra 1/ }), { key: 'Enter' })
+    expect(search()).toContain('lsort=f%3A8')
+    fireEvent.keyDown(screen.getByRole('option', { name: /Priority/ }), { key: ' ' })
+    expect(search()).toContain('lsort=f%3A7')
   })
 
   it('closes on Escape and returns focus to the control', async () => {
