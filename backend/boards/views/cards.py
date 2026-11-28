@@ -3257,7 +3257,8 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         responses={200: OpenApiResponse(response=ChildBoardOptionsSerializer, description=(
-            "`{fixed_board, default, boards, can_set_default, boards_total, disabled_reason, default_team}`, "
+            "`{fixed_board, default, boards, can_set_default, boards_total, disabled_reason, default_team, "
+            "unavailable}`, "
             "computed for the caller. "
             "`fixed_board` is the board this card's children are already on "
             "(`{hidden: true}` when the caller cannot open it; otherwise with `can_add`, "
@@ -3267,13 +3268,17 @@ class CardViewSet(viewsets.ModelViewSet):
             "them all, #2449), each with `can_set_default`. `disabled_reason` is `parent_archived` "
             "when this card is archived (#2447), else null. `default_team` is the parent card's "
             "lane team as `{swimlane, member_ids}`, or null; when it is not null, each `boards` "
-            "entry and a visible `fixed_board` also carry `default_assignee_id`."
+            "entry and a visible `fixed_board` also carry `default_assignee_id`. `unavailable` "
+            "(since 1.3, #2719) lists the boards where the caller is member or higher that cannot "
+            "take a child yet, as `{id, name, reason}` (`no_column`, `no_swimlane` or "
+            "`first_column_closed`), at most 100, by name, so the chooser can show them disabled."
         ))},
         description=(
             "The Add child chooser's options for this card (#2208, since 1.3). Minimum "
             "role: any role on this card's board; `boards` lists only boards where the "
-            "caller is member or higher, whose cards cannot have children and whose "
-            "first column allows card creation."
+            "caller is member or higher, whose cards cannot have children, that have a "
+            "swimlane, and whose first column allows card creation; `unavailable` names "
+            "the caller's other member-or-higher boards that fail that rule (#2719)."
         ),
     )
     @action(detail=True, methods=["get"], url_path="child-board-options")

@@ -323,6 +323,16 @@ When a token or secret is shown exactly once after creation (e.g. invite links, 
 - Every tree-toggle chevron carries an `aria-label` (`Expand|Collapse <name>`), `aria-expanded` and the standard focus ring. Leaf rows render a non-focusable spacer (`<span className="w-5 shrink-0" />`), never an invisible button.
 - Selection is exposed with `aria-pressed` on the row button. Reference: `MoveBoardModal`.
 
+## Choices a select can't offer yet stay in it, disabled, with why (#2719)
+
+The `SelectDropdown` form of *Blocked rows in pickers (#1692)* above. When a choice the user would expect (a board they can add cards to, a board they administer) fails a rule they can fix, it stays in the select as a disabled option, never dropped silently and never moved to a separate list beside it.
+
+- Pass `{ value, label, disabled: true, description }`. `description` is the reason, sentence case, saying what to fix ("Add a swimlane first", "Its first column doesn't allow new cards"); it renders as a second `text-xs text-fg-tertiary` line and is tied to the option with `aria-describedby`, and the option is named by its label alone. The row carries `aria-disabled="true"`, `cursor-not-allowed`, a `text-fg-muted` label and no hover fill. Reference: `unavailableOption` in `components/Card/childBoardOptionsCap.ts`, used by the Add child and Default child board selects.
+- Disabled options go after the choices that can be picked, in the server's order (by name), so the list opens on something usable.
+- Keyboard skips them: arrow keys, Home/End and type-to-jump move only between enabled options, a disabled option is never the initial highlight, and click, Enter and Space on one do nothing (the menu stays open). This differs from #1692's focusable tree rows because a select's keyboard path is for choosing, and an unreachable row costs nothing there. Because keyboard and screen-reader users therefore never land on them, `SelectDropdown` adds a visually hidden "Unavailable: <label> (<reason>); ..." to the trigger's `aria-describedby`, after the caller's own ids.
+- The current value is never disabled (#1692). A current value that would now be blocked keeps its name, stays selectable and says "Current ..." as its description instead of the block reason (the Default child board select's "Current default").
+- When those choices are the only ones, render no select: a select that opens on nothing choosable is a dead end that hides the reasons. This is the one deliberate exception to "never moved to a separate list" above (owner decision 2026-11-27). Say so in the empty-state sentence ("No board can take new children from <board> yet. Fix one of these first, or ask a board admin to.") and list each one with its reason under it (`UnavailableChildBoards`, Add child's empty state only).
+
 ## Multi-step import wizards and file uploads (#456)
 
 Established by the Trello import wizard (`components/Board/TrelloImportModal.tsx`, `components/Board/trello/`). Reuse these for any future import/creation wizard.

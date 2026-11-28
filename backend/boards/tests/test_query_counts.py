@@ -2357,7 +2357,8 @@ class ChildBoardReadsQueryCountTests(TestCase):
     """The four #2208 part 2 reads are flat in the number of boards (#2449).
 
     ``child-board-options`` and ``default-child-board-options`` list qualifying
-    boards (for a site admin, every one on the instance), ``delete-impact``
+    boards (for a site admin, every one on the instance) and, since #2719, the
+    unavailable ones with a reason, ``delete-impact``
     names the parent boards of this board's children, and
     ``children-setting-blockers`` the boards that default to this one. Each
     resolves roles once, in bulk (``get_board_roles``), never per board, so
@@ -2402,8 +2403,10 @@ class ChildBoardReadsQueryCountTests(TestCase):
             tag = f"{Board.objects.count()}-{i}"
             qualifying = self.make_board(self.owner, f"QC qual {tag}")
             other_parent = self.make_board(self.owner, f"QC par {tag}", parent_tier=True)
+            # #2719: a board that fails the child-board rule is listed as unavailable.
+            unavailable = self.make_board(self.owner, f"QC unav {tag}", first_column_creates=False)
             if i % 3:
-                for b in (qualifying, other_parent):
+                for b in (qualifying, other_parent, unavailable):
                     BoardMembership.objects.create(board=b, user=self.member, role=BoardMembership.Role.ADMIN)
             # A parent of one of this child board's cards (delete-impact) that
             # also names it as its default child board (blockers).

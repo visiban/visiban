@@ -203,7 +203,8 @@ def board_qualifies_as_child(board) -> bool:
     """True when ``board`` can be a default child board / Add child target.
 
     It must be a child tier (two tiers, never three) and its first column
-    must allow card creation, since that is where Add child puts the card. A
+    must allow card creation, since that is where Add child puts the card, and
+    it must have a swimlane, since a card needs a lane. A
     missing board fails closed (#1075). Judged at use, never cached: a later
     column edit makes a stored default stop qualifying without clearing it.
     """
@@ -749,10 +750,15 @@ def create_child(*, user, parent, parent_role, board_id, make_card, needed_at_co
     return result
 
 
-def _qualifying(boards_qs):
-    """``boards_qs`` narrowed to boards that qualify as child boards, in one query.
+def _with_child_rule(boards_qs):
+    """The child-tier boards of ``boards_qs``, annotated with the inputs of the child-board rule (#2719).
 
-    The bulk form of :func:`board_qualifies_as_child`: same rule.
+    ``_first_creates`` is the first column's ``allow_card_creation`` (``None``
+    when the board has no column) and ``_has_lane`` whether it has a lane.
+    Parent-tier boards are never child targets, so they are left out here and
+    never reported as unavailable. With :func:`_child_rule_failure` it is the
+    bulk form of :func:`board_qualifies_as_child`: same rule. One query,
+    however many boards.
     """
     from django.db.models import Exists
 
@@ -765,8 +771,45 @@ def _qualifying(boards_qs):
     return (
         boards_qs.filter(cards_can_have_children=False)
         .annotate(_first_creates=first_creates, _has_lane=Exists(Swimlane.objects.filter(board_id=OuterRef("pk"))))
-        .filter(_first_creates=True, _has_lane=True)
     )
+
+
+def _child_rule_failure(board):
+    """Why a :func:`_with_child_rule` board cannot take a child, or ``None`` when it can (#2719).
+
+    One reason, the one to fix first: a board with no column has nothing to
+    put a card in, a card needs a lane (``Card.swimlane`` is not null), and
+    Add child puts the card in the first column. The same rule as
+    :func:`board_qualifies_as_child`, so a board is reported unavailable
+    exactly when the write would refuse it.
+    """
+    if board._first_creates is None:
+        return "no_column"
+    if not board._has_lane:
+        return "no_swimlane"
+    if not board._first_creates:
+        return "first_column_closed"
+    return None
+
+
+def _split_child_rule(candidates, roles, allowed_roles):
+    """``candidates`` the viewer holds one of ``allowed_roles`` on, as (qualifying boards, unavailable rows).
+
+    Unavailable rows are ``{"id", "name", "reason"}`` (#2719), at most
+    :data:`CHILD_BOARD_OPTIONS_LIMIT`, in the candidates' (name) order. A board
+    the viewer holds a lesser role on, or none, is in neither: the chooser
+    never names a board the viewer could not add to even once it is fixed.
+    """
+    qualifying, unavailable = [], []
+    for b in candidates:
+        if roles.get(b.pk) not in allowed_roles:
+            continue
+        reason = _child_rule_failure(b)
+        if reason is None:
+            qualifying.append(b)
+        else:
+            unavailable.append({"id": b.pk, "name": b.name, "reason": reason})
+    return qualifying, unavailable[:CHILD_BOARD_OPTIONS_LIMIT]
 
 
 def child_board_options_for_viewer(parent, user):
@@ -791,6 +834,14 @@ def child_board_options_for_viewer(parent, user):
       chooser can preselect it.
     * ``disabled_reason`` (#2447): ``"parent_archived"`` when ``parent`` is
       archived (the POST refuses it with that code), else ``None``.
+    * ``unavailable`` (#2719): child-tier boards where the viewer holds MEMBER
+      or higher that fail the child-board rule, by name, each ``{"id",
+      "name", "reason"}`` with ``reason`` one of ``no_column``,
+      ``no_swimlane`` or ``first_column_closed`` (:func:`_child_rule_failure`),
+      at most :data:`CHILD_BOARD_OPTIONS_LIMIT`. The chooser lists them
+      disabled with the reason, so a board the viewer just made (with no
+      lane) does not vanish without a word. Parent-tier boards and the
+      parent's own board are never in it.
     * ``default_team`` (#2211): the parent's lane team as ``{"swimlane":
       {"id", "name"}, "member_ids"}`` (active members still listed as
       non-viewers on the parent board, team order), or None when none are.
@@ -812,7 +863,7 @@ def child_board_options_for_viewer(parent, user):
     """
     out = {
         "fixed_board": None, "default": None, "boards": [], "can_set_default": False,
-        "boards_total": 0, "disabled_reason": None, "default_team": None,
+        "boards_total": 0, "disabled_reason": None, "default_team": None, "unavailable": [],
     }
     if user is None or not getattr(user, "is_authenticated", False):
         return out
@@ -849,23 +900,25 @@ def child_board_options_for_viewer(parent, user):
             out["fixed_board"] = {"hidden": True}
         else:
             # ``can_add`` is the POST's own rule, so the dialog never offers a
-            # target the write always refuses (a viewer there, or a first
-            # column that stopped allowing card creation).
+            # target the write always refuses (a viewer there, a board
+            # with no swimlane or column, or a first column that stopped allowing
+            # card creation).
             out["fixed_board"] = {
                 "hidden": False, "id": fixed.pk, "name": fixed.name,
                 "can_add": fixed_role in LINK_WRITE_ROLES and board_qualifies_as_child(fixed),
             }
+    # One query for qualifying and unavailable boards alike (#2719), split in
+    # Python, so the cost stays flat in the number of boards.
     candidates = list(
-        _qualifying(_accessible_boards(user).exclude(pk=parent_board.pk))
+        _with_child_rule(_accessible_boards(user).exclude(pk=parent_board.pk))
         .select_related(GROUP_ANCESTOR_SELECT_RELATED)
         .order_by(Lower("name"), "pk")
     )
     roles = get_board_roles(user, candidates) if candidates else {}
+    qualifying, out["unavailable"] = _split_child_rule(candidates, roles, LINK_WRITE_ROLES)
     rows = []
-    for b in candidates:
-        role = roles.get(b.pk)
-        if role not in LINK_WRITE_ROLES:
-            continue
+    for b in qualifying:
+        role = roles[b.pk]
         if b.pk == parent_board.default_child_board_id:
             out["default"] = {"id": b.pk, "name": b.name}
         rows.append({
@@ -880,7 +933,7 @@ def child_board_options_for_viewer(parent, user):
         # the boards in the capped page (#2449) are offered, so only they
         # need a pick.
         page_ids = {r["id"] for r in out["boards"]}
-        offered = {b.pk: b for b in candidates if b.pk in page_ids}
+        offered = {b.pk: b for b in qualifying if b.pk in page_ids}
         fixed_entry = out["fixed_board"]
         if fixed_entry and not fixed_entry["hidden"]:
             offered[fixed.pk] = fixed
@@ -915,30 +968,34 @@ def default_child_board_options_for_admin(board, user):
     boards. Same rule the write's validator applies, so the select never offers
     a board the PATCH would refuse.
 
-    Returns ``{"boards": [...], "boards_total": N}`` (#2449): at most
+    Returns ``{"boards": [...], "boards_total": N, "unavailable": [...]}``
+    (#2449, #2719): at most
     :data:`CHILD_BOARD_OPTIONS_LIMIT` boards by name, and how many qualify in
     all. ``board``'s current default child board, when it qualifies here, is
-    always in the page (:func:`_options_page`). Empty when the viewer is not ADMIN on ``board`` or there is no viewer
+    always in the page (:func:`_options_page`). ``unavailable`` lists the
+    child-tier boards the viewer administers that fail the rule, with the
+    reason, as in :func:`child_board_options_for_viewer`. Empty when the viewer is not ADMIN on ``board`` or there is no viewer
     (#1075 fail closed). Flat in the number of boards: one candidate query and
     one ``get_board_roles`` batch.
     """
-    out = {"boards": [], "boards_total": 0}
+    out = {"boards": [], "boards_total": 0, "unavailable": []}
     if user is None or not getattr(user, "is_authenticated", False):
         return out
-    if get_board_roles(user, [board])[board.pk] not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+    admin_roles = (BoardMembership.Role.ADMIN, SITE_ADMIN)
+    if get_board_roles(user, [board])[board.pk] not in admin_roles:
         return out
     candidates = list(
-        _qualifying(_accessible_boards(user).exclude(pk=board.pk))
+        _with_child_rule(_accessible_boards(user).exclude(pk=board.pk))
         .select_related(GROUP_ANCESTOR_SELECT_RELATED)
         .order_by(Lower("name"), "pk")
     )
     roles = get_board_roles(user, candidates) if candidates else {}
-    rows = [
-        {"id": b.pk, "name": b.name}
-        for b in candidates
-        if roles.get(b.pk) in (BoardMembership.Role.ADMIN, SITE_ADMIN)
-    ]
-    return {"boards": _options_page(rows, board.default_child_board_id), "boards_total": len(rows)}
+    qualifying, unavailable = _split_child_rule(candidates, roles, admin_roles)
+    rows = [{"id": b.pk, "name": b.name} for b in qualifying]
+    return {
+        "boards": _options_page(rows, board.default_child_board_id), "boards_total": len(rows),
+        "unavailable": unavailable,
+    }
 
 
 def remove_link(link, *, actor, moved_from=None, siblings=True):

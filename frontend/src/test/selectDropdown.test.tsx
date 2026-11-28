@@ -892,3 +892,136 @@ describe('SelectDropdown type-to-jump (#2051)', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
   })
 })
+
+describe('SelectDropdown disabled options (#2719, #1692)', () => {
+  // a, [b disabled], c, [d disabled]: the disabled rows sit between and after the enabled ones.
+  const mixed = [
+    { value: 'a', label: 'Alpha' },
+    { value: 'b', label: 'Bravo', disabled: true, description: 'Add a swimlane first' },
+    { value: 'c', label: 'Charlie' },
+    { value: 'd', label: 'Delta', disabled: true, description: "Its first column doesn't allow new cards" },
+  ]
+  const setup = (value = 'a', opts = mixed) => {
+    const onChange = vi.fn()
+    render(<SelectDropdown value={value} onChange={onChange} options={opts} ariaDescribedBy="help" />)
+    return { onChange, trigger: screen.getByRole('combobox') }
+  }
+  const active = (trigger: HTMLElement) => document.getElementById(trigger.getAttribute('aria-activedescendant') ?? '')?.textContent
+
+  it('stays in the list, muted, aria-disabled, named by its label and described by its reason', async () => {
+    const { trigger } = setup()
+    await userEvent.setup().click(trigger)
+    const bravo = screen.getByRole('option', { name: 'Bravo' })
+    expect(bravo).toHaveAttribute('aria-disabled', 'true')
+    expect(bravo).toHaveAccessibleDescription('Add a swimlane first')
+    expect(bravo.className).toContain('text-fg-muted')
+    expect(bravo.className).toContain('cursor-not-allowed')
+    expect(bravo.className).not.toContain('hover:bg-surface-hover')
+    expect(screen.getByRole('option', { name: 'Alpha' })).not.toHaveAttribute('aria-disabled')
+    expect(screen.getAllByTestId('select-option-description').map((d) => d.textContent)).toEqual([
+      'Add a swimlane first', "Its first column doesn't allow new cards",
+    ])
+  })
+
+  it('names the disabled options with their reasons in the trigger description, after the caller\'s own', () => {
+    const { trigger } = setup()
+    const ids = trigger.getAttribute('aria-describedby')!.split(' ')
+    expect(ids[0]).toBe('help')
+    expect(document.getElementById(ids[1])).toHaveTextContent(
+      "Unavailable: Bravo (Add a swimlane first); Delta (Its first column doesn't allow new cards).",
+    )
+  })
+
+  it('adds no description when no option is disabled', () => {
+    render(<SelectDropdown value="a" onChange={() => undefined} options={options} />)
+    expect(screen.getByRole('combobox')).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('ignores a click on a disabled option and keeps the menu open', async () => {
+    const user = userEvent.setup()
+    const { onChange, trigger } = setup()
+    await user.click(trigger)
+    await user.click(screen.getByRole('option', { name: 'Bravo' }))
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+  })
+
+  it('a focused disabled option ignores Enter and Space', async () => {
+    const user = userEvent.setup()
+    const { onChange, trigger } = setup()
+    await user.click(trigger)
+    screen.getByRole('option', { name: 'Bravo' }).focus()
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('arrow keys skip disabled options and stop at the last enabled one (no wrap)', () => {
+    const { onChange, trigger } = setup()
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' }) // open on Alpha
+    expect(active(trigger)).toBe('Alpha')
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' }) // over Bravo
+    expect(active(trigger)).toBe('Charlie')
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' }) // Delta is disabled and last: stay
+    expect(active(trigger)).toBe('Charlie')
+    fireEvent.keyDown(trigger, { key: 'ArrowUp' })
+    expect(active(trigger)).toBe('Alpha')
+    fireEvent.keyDown(trigger, { key: 'ArrowUp' })
+    expect(active(trigger)).toBe('Alpha')
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    expect(onChange).toHaveBeenCalledWith('a')
+  })
+
+  it('Home and End land on the first and last enabled options', () => {
+    const opts = [{ value: 'z', label: 'Zero', disabled: true, description: 'No' }, ...mixed]
+    const { trigger } = setup('c', opts)
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    fireEvent.keyDown(trigger, { key: 'Home' })
+    expect(active(trigger)).toBe('Alpha')
+    fireEvent.keyDown(trigger, { key: 'End' })
+    expect(active(trigger)).toBe('Charlie')
+  })
+
+  it('type-to-jump skips a disabled match', async () => {
+    const user = userEvent.setup()
+    const opts = [
+      { value: 'a', label: 'Alpha' },
+      { value: 'b1', label: 'Bravo', disabled: true, description: 'No' },
+      { value: 'b2', label: 'Beta' },
+    ]
+    const { trigger } = setup('a', opts)
+    trigger.focus()
+    await user.keyboard('b')
+    expect(active(trigger)).toBe('Beta')
+    await user.keyboard('{Escape}')
+    await user.keyboard('{Enter}')
+    await user.keyboard('bra')
+    // "b" lands on Beta again; "br" matches only the disabled Bravo, so the highlight stays put.
+    expect(active(trigger)).toBe('Beta')
+  })
+
+  it('is never the initial highlight: a disabled first option opens on the first enabled one', () => {
+    const opts = [{ value: 'x', label: 'Xray', disabled: true, description: 'No' }, { value: 'y', label: 'Yankee' }]
+    const { onChange, trigger } = setup('', opts)
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    expect(active(trigger)).toBe('Yankee')
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    expect(onChange).toHaveBeenCalledWith('y')
+  })
+
+  it('with every option disabled nothing is highlighted and Enter selects nothing', () => {
+    const opts = [{ value: 'x', label: 'Xray', disabled: true, description: 'No' }]
+    const { onChange, trigger } = setup('', opts)
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    expect(trigger).not.toHaveAttribute('aria-activedescendant')
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    fireEvent.keyDown(trigger, { key: 'End' })
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+  })
+})

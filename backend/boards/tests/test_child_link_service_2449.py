@@ -447,7 +447,7 @@ class OptionsListCapTests(AddChildFixture):
         out = card_links.child_board_options_for_viewer(self.parent_card, None)
         self.assertEqual((out["boards"], out["boards_total"]), ([], 0))
         out = card_links.default_child_board_options_for_admin(self.parent, None)
-        self.assertEqual(out, {"boards": [], "boards_total": 0})
+        self.assertEqual(out, {"boards": [], "boards_total": 0, "unavailable": []})
 
     def test_boards_total_counts_only_boards_the_caller_may_use(self):
         """A board below the needed role is neither listed nor counted (rbac-check, #2449)."""
@@ -477,7 +477,7 @@ class OptionsListCapTests(AddChildFixture):
         self.assertEqual((out["boards"], out["boards_total"]), ([], 0))
         member = self.user_with("cap_mem", parent=Role.MEMBER, child=Role.ADMIN)
         out = card_links.default_child_board_options_for_admin(self.parent, member)
-        self.assertEqual(out, {"boards": [], "boards_total": 0})
+        self.assertEqual(out, {"boards": [], "boards_total": 0, "unavailable": []})
 
 
 class SiblingPingTests(_RollupFixture, TestCase):

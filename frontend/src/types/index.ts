@@ -3217,6 +3217,16 @@ export interface BoardDeleteImpact {
   parent_cards: number;
 }
 
+/** Why a board cannot take a child yet (#2719, since 1.3). */
+export type UnavailableChildBoardReason = "no_column" | "no_swimlane" | "first_column_closed";
+
+/** A board the viewer may add cards to (or, on the Rules page, administers) that fails the child-board rule (#2719). */
+export interface UnavailableChildBoard {
+  id: number;
+  name: string;
+  reason: UnavailableChildBoardReason;
+}
+
 /** `GET /boards/{b}/cards/{id}/child-board-options/`. */
 export interface ChildBoardOptions {
   /** `default_assignee_id` is present only when the parent's lane has a team (#2211). */
@@ -3230,6 +3240,8 @@ export interface ChildBoardOptions {
   boards_total?: number;
   /** `"parent_archived"` when this card is archived: Add child refuses it (#2447, since 1.3). */
   disabled_reason?: "parent_archived" | null;
+  /** Boards the viewer may add cards to that can't take a child yet, by name, at most 100 (#2719, since 1.3). */
+  unavailable?: UnavailableChildBoard[];
 }
 
 /** `GET /boards/{id}/default-child-board-options/` (#2208): the Rules page's default child board select. */
@@ -3238,6 +3250,8 @@ export interface DefaultChildBoardOptions {
   boards: { id: number; name: string }[];
   /** How many boards qualify in all (#2449, since 1.3); absent from older servers. */
   boards_total?: number;
+  /** Boards the viewer administers that can't be a child board yet, by name, at most 100 (#2719, since 1.3). */
+  unavailable?: UnavailableChildBoard[];
 }
 
 /**

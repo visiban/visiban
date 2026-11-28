@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useInRouterContext } from "react-router-dom";
 import { getChildrenSettingBlockers, getDefaultChildBoardOptions } from "../../api/boards";
-import type { Board, ChildrenSettingBlockers } from "../../types";
+import type { Board, ChildrenSettingBlockers, UnavailableChildBoard } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
 import ParentNameSettings from "./ParentNameSettings";
-import { boardsCapLine } from "../Card/childBoardOptionsCap";
+import { boardsCapLine, unavailableOption } from "../Card/childBoardOptionsCap";
 import { buttonClasses } from "../Page/buttonClasses";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
@@ -58,6 +58,8 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   const [options, setOptions] = useState<{ id: number; name: string }[]>([]);
   // How many boards qualify in all (#2449): the list holds at most 100.
   const [optionsTotal, setOptionsTotal] = useState<number | undefined>(undefined);
+  // #2719: boards this admin could pick once they qualify, shown in the select as disabled options with why.
+  const [unavailable, setUnavailable] = useState<UnavailableChildBoard[]>([]);
   // A failed blockers read must not leave the switch looking usable with no explanation (#2448).
   // For turning ON the server still refuses a bad flip on save, so this only explains. Turning OFF
   // is never refused since #2446, so there the turn-off confirm is the only guard: an unknown
@@ -102,8 +104,8 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
     if (!checked) return;
     let live = true;
     getDefaultChildBoardOptions(board.id)
-      .then((o) => { if (live) { setOptions(o.boards); setOptionsTotal(o.boards_total); } })
-      .catch(() => { if (live) { setOptions([]); setOptionsTotal(undefined); } });
+      .then((o) => { if (live) { setOptions(o.boards); setOptionsTotal(o.boards_total); setUnavailable(o.unavailable ?? []); } })
+      .catch(() => { if (live) { setOptions([]); setOptionsTotal(undefined); setUnavailable([]); } });
     return () => { live = false; };
   }, [board.id, checked]);
 
@@ -201,12 +203,20 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   };
 
   const defaultInList = board.default_child_board != null && options.some((o) => o.id === board.default_child_board);
+  // #1692: the current value is never disabled. A current default that no longer qualifies keeps its name and
+  // stays selectable (choosing it again changes nothing), saying "Current default" instead of the block reason.
+  const currentUnavailable = board.default_child_board != null && !defaultInList
+    ? unavailable.find((u) => u.id === board.default_child_board) ?? null
+    : null;
   const selectOptions = [
     { value: "none", label: "None (ask each time)" },
     ...options.map((o) => ({ value: String(o.id), label: o.name })),
     ...(board.default_child_board != null && !defaultInList
-      ? [{ value: String(board.default_child_board), label: "A board you can't change" }]
+      ? [currentUnavailable
+        ? { value: String(currentUnavailable.id), label: currentUnavailable.name, description: "Current default" }
+        : { value: String(board.default_child_board), label: "A board you can't change" }]
       : []),
+    ...unavailable.filter((u) => u.id !== board.default_child_board).map((u) => unavailableOption(u)),
   ];
 
   const capLine = boardsCapLine(options.length, optionsTotal);

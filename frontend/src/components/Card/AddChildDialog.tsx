@@ -6,7 +6,8 @@ import type { ChildBoardOptions, EffectiveBoardMember } from "../../types";
 import LaneTeamAssignee from "../Board/LaneTeamAssignee";
 import { assignableMembers, childCaption, memberName } from "../../utils/swimlaneDefaultTeam";
 import { linkErrorCopy } from "./cardParent";
-import { boardsCapLine } from "./childBoardOptionsCap";
+import { boardsCapLine, unavailableOption, unavailableReasonCopy } from "./childBoardOptionsCap";
+import UnavailableChildBoards from "./UnavailableChildBoards";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import HelpLink from "../Common/HelpLink";
@@ -70,6 +71,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const titleId = `${uid}-title`;
   const selectId = `${uid}-board`;
   const capId = `${uid}-cap`;
+  const unavailableId = `${uid}-unavailable`;
   const archivedReasonId = `${uid}-archived`;
   const titleFieldId = `${uid}-card-title`;
   const titleHintId = `${uid}-title-hint`;
@@ -121,6 +123,8 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const chosenBoard = options?.boards.find((b) => String(b.id) === chosen) ?? null;
   const targetName = fixedVisible?.name ?? chosenBoard?.name ?? null;
   const fixedBlocked = fixedVisible?.can_add === false;
+  const fixedUnavailable = fixedBlocked ? options?.unavailable?.find((u) => u.id === fixedVisible?.id) : undefined;
+  const fixedReason = fixedUnavailable ? unavailableReasonCopy(fixedUnavailable.reason) : null;
   // #2447: the server refuses a new child under an archived parent; say so before the write does.
   const parentArchived = options?.disabled_reason === "parent_archived";
   const canPick = !parentArchived && !fixedHidden && !fixedBlocked && (fixedVisible != null || chosenBoard != null);
@@ -138,6 +142,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
     ? team.member_ids.filter((id) => id !== assigneeId && byId.has(id)).map((id) => memberName(byId.get(id)!))
     : [];
   const capLine = options ? boardsCapLine(options.boards.length, options.boards_total) : null;
+  // #2719: boards the viewer can add cards to that fail the child-board rule stay in the chooser as disabled
+  // options, after the ones that can be picked, each with what to fix; never dropped silently.
+  const unavailable = options?.unavailable ?? [];
   const hasTitle = title.trim().length > 0;
   const ready = canPick && hasTitle && !submitting;
 
@@ -225,15 +232,22 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
             </p>
           ) : fixedBlocked ? (
             <p role="alert" className="text-sm text-fg-secondary">
-              This card's children are on <span className="font-medium text-fg">{fixedVisible?.name}</span>, and you can't add cards there (you need member access, and its first column must allow new cards). Ask a board admin there.
+              This card's children are on <span className="font-medium text-fg">{fixedVisible?.name}</span>, and you can't add cards there. {fixedReason ? `It can't take children yet: ${fixedReason}.` : "You need member access, and it needs a swimlane and a first column that allows new cards."} Ask a board admin there.
             </p>
           ) : fixedVisible ? (
             <p className="text-sm text-fg-secondary">
               This card's children are on <span className="font-medium text-fg">{fixedVisible.name}</span>. New children go there too.
             </p>
+          ) : options.boards.length === 0 && unavailable.length > 0 ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-fg-secondary">
+                No board can take new children from {boardName} yet. Fix one of these first, or ask a board admin to.
+              </p>
+              <UnavailableChildBoards id={unavailableId} boards={unavailable} />
+            </div>
           ) : options.boards.length === 0 ? (
             <p className="text-sm text-fg-secondary">
-              No board can take new children from {boardName}. A child board needs a first column that allows card creation, and you need member access to it.
+              No board can take new children from {boardName}. A child board needs a swimlane and a first column that allows card creation, and you need member access to it.
             </p>
           ) : (
             <div className="flex flex-col gap-1">
@@ -245,7 +259,10 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
                 value={chosen}
                 onChange={(v) => { setChosen(v); setMakeDefault(false); setUnassigned(false); }}
                 placeholder="Choose a board"
-                options={options.boards.map((b) => ({ value: String(b.id), label: b.name }))}
+                options={[
+                  ...options.boards.map((b) => ({ value: String(b.id), label: b.name })),
+                  ...unavailable.map((u) => unavailableOption(u)),
+                ]}
               />
               <p className="text-xs text-fg-muted">Only boards you can add cards to are listed.</p>
               {capLine && (

@@ -4628,11 +4628,30 @@ class ChildrenSettingBlockersSerializer(serializers.Serializer):
     default_of = DefaultOfEntrySerializer(many=True)
 
 
+class UnavailableChildBoardSerializer(serializers.Serializer):
+    """A board the caller may add cards to that cannot take a child yet (#2719)."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    # A plain string, like ``disabled_reason``: a choice set would add an enum
+    # component to the generated schema.
+    reason = serializers.CharField(help_text='"no_column", "no_swimlane" or "first_column_closed".')
+
+
+_UNAVAILABLE_HELP = (
+    "Since 1.3 (#2719): boards the caller holds the needed role on that cannot take a child, "
+    "by name, at most 100, each with why: `no_column` (no columns), `no_swimlane` (no swimlanes) "
+    "or `first_column_closed` (its first column does not allow card creation). Never a board "
+    "whose cards can have children."
+)
+
+
 class DefaultChildBoardOptionsSerializer(serializers.Serializer):
     """``GET /boards/{id}/default-child-board-options/``."""
 
     boards = ChildBoardRefSerializer(many=True)
     boards_total = serializers.IntegerField()
+    unavailable = UnavailableChildBoardSerializer(many=True, help_text=_UNAVAILABLE_HELP)
 
 
 class BoardDeleteImpactSerializer(serializers.Serializer):
@@ -4680,6 +4699,7 @@ class ChildBoardOptionsSerializer(serializers.Serializer):
     # ``ChildCandidateDisabledReasonEnum``.
     disabled_reason = serializers.CharField(allow_null=True, help_text='"parent_archived" or null.')
     default_team = ChildDefaultTeamSerializer(allow_null=True)
+    unavailable = UnavailableChildBoardSerializer(many=True, help_text=_UNAVAILABLE_HELP)
 
 
 class CardChildLabelSerializer(serializers.Serializer):
@@ -5487,7 +5507,7 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
             "Id of the board where Add child on this board's cards creates the new "
             "child, or null to ask each time (#2208, since 1.3). Setting it needs "
             "admin on both boards; the target must be a board whose cards cannot "
-            "have children and whose first column allows card creation. Clearing "
+            "have children, that has a swimlane, and whose first column allows card creation. Clearing "
             "it needs admin on this board only."
         ),
         error_messages={

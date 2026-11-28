@@ -400,6 +400,8 @@ class ChildBoardOptionsTests(AddChildFixture):
             # #2211: the parent's lane has no team.
             "default_team": None,
             "boards_total": 1, "disabled_reason": None,
+            # #2719: "Locked" fails the rule but the member has no role there.
+            "unavailable": [],
         })
 
     def test_admin_of_both_can_set_default_and_sees_it(self):
@@ -719,7 +721,7 @@ class DefaultChildBoardOptionsTests(DefaultChildBoardFixture):
     def test_no_viewer_fails_closed(self):
         self.assertEqual(
             card_links.default_child_board_options_for_admin(self.parent, None),
-            {"boards": [], "boards_total": 0},
+            {"boards": [], "boards_total": 0, "unavailable": []},
         )
 
 
