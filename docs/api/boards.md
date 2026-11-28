@@ -2147,7 +2147,7 @@ whole list, in order (at most 10). Emits `column.updated`.
 |---|---|
 | `entry_enforcement` | Optional. `warn`, `block`, `hard` or `null`. When omitted, a column's first requirements start in `warn` and a column that already has requirements keeps its current mode (including `null`); `null` keeps the rows but stops evaluating them. An empty list always sets `null`. |
 | `requirements[].field_uid` / `field_set_uid` | Exactly one, on this board. A set takes only `set_complete`. |
-| `requirements[].operator` | `filled` (any type but checkbox), `gt` / `gte` / `lt` / `lte` (number), `min_count` (multi-select, whole number of at least 1), `satisfied` (dimension), `set_complete` (field set). Checkbox fields can't be required. |
+| `requirements[].operator` | `filled` (any type but checkbox), `gt` / `gte` / `lt` / `lte` (number: is more than, is at least, is less than, is at most the operand; `lt` and `lte` are the upper bounds, #2718), `min_count` (multi-select, whole number of at least 1), `satisfied` (dimension), `set_complete` (field set). Checkbox fields can't be required. |
 | `requirements[].operand` | Required for `gt`, `gte`, `lt`, `lte`, `min_count`; refused otherwise. |
 
 Returns the column. `ColumnSerializer` gains two read-only fields:
