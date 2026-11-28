@@ -59,7 +59,11 @@ export function useFocusTrap(
 
       const focusable = Array.from(
         container.querySelectorAll<HTMLElement>(FOCUSABLE),
-      ).filter((el) => !el.closest("[aria-hidden='true']"));
+      ).filter(
+        // A roving-tabindex row (`button` + tabindex="-1") matches the tag selectors but is not a Tab stop;
+        // counting it as "last" meant Tab from the real last stop was never wrapped (#2691).
+        (el) => !el.closest("[aria-hidden='true']") && el.getAttribute("tabindex") !== "-1",
+      );
 
       if (focusable.length === 0) {
         e.preventDefault();

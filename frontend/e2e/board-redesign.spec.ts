@@ -170,7 +170,7 @@ test.describe('board redesign baseline', () => {
       const renewal = REDESIGN_BOARD.labels.find((l) => l.name === 'Renewal')!
       await openBoard(page, 'dark', `?f_labels=${renewal.id}&f_due=overdue`)
       await page.getByRole('button', { name: /^Filter/ }).first().click()
-      await expect(page.getByRole('dialog', { name: 'Filter' })).toBeVisible()
+      await expect(page.getByRole('dialog', { name: 'Filters' })).toBeVisible()
       await page.mouse.move(0, 0)
       await expectShot(page, 'board-menu-filter.png', SHOT)
     })
