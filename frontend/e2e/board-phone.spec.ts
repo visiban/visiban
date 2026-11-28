@@ -432,7 +432,7 @@ test.describe('board phone layout', () => {
     await page.keyboard.press('/')
     const bar = page.getByRole('search', { name: 'Board filters' })
     await expect(bar).toBeVisible()
-    await bar.getByRole('button', { name: /^Lanes/ }).click()
+    await bar.getByRole('button', { name: /^Lane filters/ }).click()
     const pop = bar.getByRole('dialog', { name: 'Lane filters' })
     await expect(pop).toBeVisible()
     const row = pop.locator('label:has([data-testid="lane-filter-hide-unmatched"])')

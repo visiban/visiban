@@ -28,7 +28,7 @@ function mount(filter: LaneFilter | undefined, preselectField: number | null, on
 describe('Lanes popover preselect (#2660)', () => {
   it('adds a rule for the field when none exists, once the popover opens', async () => {
     const { onChange } = mount(undefined, 50)
-    screen.getByRole('button', { name: /Lanes/ }).click()
+    screen.getByRole('button', { name: /Lane filters/ }).click()
     await screen.findByRole('dialog')
     const next = onChange.mock.calls[0][0] as LaneFilter
     expect(next.items[0]).toMatchObject({ kind: 'rule', field: 50, op: 'is' })
@@ -37,7 +37,7 @@ describe('Lanes popover preselect (#2660)', () => {
   it('adds nothing when the field already has a rule, and clears the request', async () => {
     const filter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 50, op: 'is', value: 'gold' }] } as unknown as LaneFilter
     const { onChange, consumed } = mount(filter, 50)
-    screen.getByRole('button', { name: /Lanes/ }).click()
+    screen.getByRole('button', { name: /Lane filters/ }).click()
     await screen.findByRole('dialog')
     expect(onChange).not.toHaveBeenCalled()
     expect(consumed).toHaveBeenCalled()
@@ -45,14 +45,14 @@ describe('Lanes popover preselect (#2660)', () => {
 
   it('does nothing extra without a preselect', async () => {
     const { onChange } = mount(undefined, null)
-    screen.getByRole('button', { name: /Lanes/ }).click()
+    screen.getByRole('button', { name: /Lane filters/ }).click()
     await screen.findByRole('dialog')
     expect(onChange).not.toHaveBeenCalled()
   })
 
   it.each([[52, 'number'], [53, 'date']])('auto-adds a %i (%s) rule with its type\'s first operator, which can be completed', async (fid) => {
     const { onChange } = mount(undefined, fid)
-    screen.getByRole('button', { name: /Lanes/ }).click()
+    screen.getByRole('button', { name: /Lane filters/ }).click()
     await screen.findByRole('dialog')
     const next = onChange.mock.calls[0][0] as LaneFilter
     expect(next.items[0]).toMatchObject({ kind: 'rule', field: fid, op: 'between' })
@@ -64,7 +64,7 @@ describe('Lanes popover preselect (#2660)', () => {
 
   it('auto-adds a checkbox rule with op is', async () => {
     const { onChange } = mount(undefined, 54)
-    screen.getByRole('button', { name: /Lanes/ }).click()
+    screen.getByRole('button', { name: /Lane filters/ }).click()
     await screen.findByRole('dialog')
     expect((onChange.mock.calls[0][0] as LaneFilter).items[0]).toMatchObject({ field: 54, op: 'is' })
   })
@@ -72,7 +72,7 @@ describe('Lanes popover preselect (#2660)', () => {
   it('at the item cap adds no rule and focuses the existing first item', async () => {
     const items = Array.from({ length: LANE_FILTER_MAX_ITEMS }, (_, i) => ({ kind: 'rule', id: i + 1, join: 'and', field: 51, op: 'is', value: 'EMEA' }))
     const { onChange } = mount({ items } as unknown as LaneFilter, 50)
-    screen.getByRole('button', { name: /Lanes/ }).click()
+    screen.getByRole('button', { name: /Lane filters/ }).click()
     const dialog = await screen.findByRole('dialog')
     await waitFor(() => expect(dialog.querySelector('[data-lane-row="1"] button')).toBe(document.activeElement))
     expect(onChange).not.toHaveBeenCalled()
@@ -84,7 +84,7 @@ describe('Lanes popover preselect (#2660)', () => {
       { kind: 'rule', id: 2, join: 'and', field: 51, op: 'is', value: 'EMEA' },
     ]
     const { onChange } = mount({ items } as unknown as LaneFilter, 51)
-    screen.getByRole('button', { name: /Lanes/ }).click()
+    screen.getByRole('button', { name: /Lane filters/ }).click()
     const dialog = await screen.findByRole('dialog')
     await waitFor(() => expect(dialog.querySelector('[data-lane-row="2"] button')).toBe(document.activeElement))
     expect(dialog.querySelector('[data-lane-row="1"] button')).not.toBe(document.activeElement)
@@ -96,7 +96,7 @@ describe('Lanes popover preselect (#2660)', () => {
     // Two items (a group holding every rule, plus one): under the item cap but at the rule cap.
     const items = [{ kind: 'group', id: 1, join: 'and', rules }]
     const { onChange } = mount({ items } as unknown as LaneFilter, 50)
-    screen.getByRole('button', { name: /Lanes/ }).click()
+    screen.getByRole('button', { name: /Lane filters/ }).click()
     const dialog = await screen.findByRole('dialog')
     await waitFor(() => expect(dialog.querySelector('[data-lane-row="2"] button')).toBe(document.activeElement))
     expect(onChange).not.toHaveBeenCalled()
@@ -115,7 +115,7 @@ describe('Lanes popover preselect (#2660)', () => {
       )
     }
     render(<Harness />)
-    const trigger = screen.getByRole('button', { name: /Lanes/ })
+    const trigger = screen.getByRole('button', { name: /Lane filters/ })
     fireEvent.click(trigger)
     const dialog = await screen.findByRole('dialog')
     await waitFor(() => expect(dialog.querySelector('[data-lane-row] button')).toBe(document.activeElement))
@@ -136,7 +136,7 @@ describe('Lanes popover preselect (#2660)', () => {
     const onChange = vi.fn()
     const consumed = vi.fn()
     render(<FilterBar board={board} filters={EMPTY_FILTER} onChange={onChange} lanePreselectField={50} onLanePreselectConsumed={consumed} />)
-    screen.getByRole('button', { name: /Lanes/ }).click()
+    screen.getByRole('button', { name: /Lane filters/ }).click()
     await screen.findByRole('dialog')
     expect(consumed).toHaveBeenCalled()
     expect(onChange.mock.calls[0][0].laneFilter.items[0]).toMatchObject({ field: 50 })
