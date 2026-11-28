@@ -302,7 +302,7 @@ Form controls, inline editors, settings layouts, admin surfaces, secrets, import
 - **Read-only composite editors (#2090)** — A view-only composite form shows disabled fields, omits its actions and adds one muted note. → `frontend/ui-conventions/controls-and-settings.md`
 - **One-time token reveal** — Reveal a once-only token inline on the new row, never in a modal or toast. → `frontend/ui-conventions/controls-and-settings.md`
 - **Blocked rows in pickers (#1692)** — A picker row the user may not choose stays visible and focusable and says why. → `frontend/ui-conventions/controls-and-settings.md`
-- **Choices a select can't offer yet (#2719)** — A choice that fails a rule the user can fix stays in the select as a disabled option with its reason, after the usable ones; never dropped silently. → `frontend/ui-conventions/controls-and-settings.md`
+- **Choices a select can't offer yet stay in it, disabled, with why (#2719)** — A choice that fails a rule the user can fix stays in the select as a disabled option with its reason, after the usable ones; never dropped silently. → `frontend/ui-conventions/controls-and-settings.md`
 - **Multi-step import wizards and file uploads (#456)** — Import and creation wizards reuse the Trello wizard's shell, steps and upload patterns. → `frontend/ui-conventions/controls-and-settings.md`
 - **Import Board sample gallery (#1452)** — `SampleGallery` sits above the import dropzone, is named sample, and owns no import logic. → `frontend/ui-conventions/controls-and-settings.md`
 - **Local input buffers and timers (#1319)** — Never seed a local input buffer from fetched or prop data in a `useEffect`. → `frontend/ui-conventions/controls-and-settings.md`
