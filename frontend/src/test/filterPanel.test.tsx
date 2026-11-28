@@ -71,14 +71,14 @@ describe('FilterPanel (#2301)', () => {
     setup()
     expect(screen.queryByRole('dialog')).toBeNull()
     await open(u)
-    expect(screen.getByRole('dialog', { name: 'Filter' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Search fields and values to filter' })).toHaveFocus()
     const rows = within(screen.getByRole('list', { name: 'Filterable fields' })).getAllByRole('button')
     expect(rows.map((r) => r.textContent)).toEqual([
       'SearchAny', 'AssigneeAny', 'LabelAny', 'PriorityAny', 'Due dateAny', 'BlockedAny',
       'RegionAny', 'NotesAny', 'BudgetAny', 'Go liveAny', 'ApprovedAny',
     ])
-    expect(screen.getByText('Saved filters')).toBeInTheDocument()
+    expect(within(screen.getByTestId('filter-panel-header')).getByRole('list', { name: 'Saved filters' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'My open work' })).toBeInTheDocument()
   })
 
@@ -206,7 +206,7 @@ describe('FilterPanel (#2301)', () => {
     })
     const { onOpenLaneFilters } = setup({ board })
     await open(u)
-    await u.click(screen.getByRole('button', { name: /^Lanes/ }))
+    await u.click(screen.getByRole('button', { name: /^Lane filters/ }))
     expect(onOpenLaneFilters).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
@@ -215,7 +215,7 @@ describe('FilterPanel (#2301)', () => {
     const u = userEvent.setup()
     setup()
     await open(u)
-    expect(screen.queryByRole('button', { name: /^Lanes/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Lane filters/ })).toBeNull()
   })
 
   // #2336 — the same laneFilterAvailable gate as the filter bar's Lanes trigger.
@@ -224,16 +224,16 @@ describe('FilterPanel (#2301)', () => {
     const lane = (id: number) => ({ id, name: `L${id}`, custom_field_values: [] })
     setup({ board: makeBoard({ swimlanes: [lane(1)] as never }) })
     await open(u)
-    expect(screen.queryByRole('button', { name: /^Lanes/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Lane filters/ })).toBeNull()
     cleanup()
     setup({ board: makeBoard({ swimlanes: [lane(1), lane(2)] as never }) })
     await open(u)
-    expect(screen.getByRole('button', { name: /^Lanes/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Lane filters/ })).toBeInTheDocument()
     cleanup()
     const lf = { items: [{ kind: 'rule' as const, id: 1, join: 'and' as const, field: 'name' as const, op: 'is' as const, value: 'L1' }] }
     setup({ board: makeBoard({ swimlanes: [lane(1)] as never }), filters: { ...EMPTY_FILTER, laneFilter: lf } })
     await open(u)
-    expect(screen.getByRole('button', { name: /^Lanes(?!:)/ })).toHaveTextContent('1 rule')
+    expect(screen.getByRole('button', { name: /^Lane filters/ })).toHaveTextContent('1 rule')
   })
 
   it('loads a saved filter and closes, marking the active one', async () => {
@@ -252,20 +252,31 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.getByRole('button', { name: 'My open work' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('says so when there are no saved filters', async () => {
+  it('with nothing saved, teaches Save filter only while something is active, else hides the row (#2695)', async () => {
     const u = userEvent.setup()
     setup({ savedFilters: [] })
     await open(u)
-    expect(screen.getByText(/No saved filters yet\./)).toBeInTheDocument()
+    expect(screen.queryByTestId('filter-panel-saved')).toBeNull()
+    expect(screen.queryByText(/None yet/)).toBeNull()
+    cleanup()
+    setup({ savedFilters: [], filters: { ...EMPTY_FILTER, blockedOnly: true } })
+    await open(u)
+    expect(within(screen.getByTestId('filter-panel-saved')).getByText('None yet. Save this view to reuse it in one click.')).toBeInTheDocument()
   })
 
-  it('footer toggles the full filter bar and closes the panel', async () => {
+  it('the header Filter bar switch toggles the bar and keeps the panel open with focus on the switch (#2691)', async () => {
     const u = userEvent.setup()
     const { onToggleFilterBar } = setup()
     await open(u)
-    await u.click(screen.getByRole('button', { name: /Show filter bar/ }))
-    expect(onToggleFilterBar).toHaveBeenCalled()
-    expect(screen.queryByRole('dialog')).toBeNull()
+    const sw = within(screen.getByTestId('filter-panel-header')).getByRole('button', { name: 'Filter bar' })
+    expect(sw).toHaveAttribute('aria-pressed', 'false')
+    expect(sw).toHaveAttribute('aria-keyshortcuts', 'f')
+    await u.click(sw)
+    expect(onToggleFilterBar).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument()
+    expect(sw).toHaveFocus()
+    // The old footer action is gone: the switch replaces it.
+    expect(screen.queryByRole('button', { name: /Show filter bar|Hide filter bar/ })).toBeNull()
   })
 
   it('Escape closes and returns focus to the trigger; outside click closes', async () => {
@@ -280,7 +291,7 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('Tab from the trigger enters the panel; Tab off the last control closes the panel', async () => {
+  it('Tab from the trigger enters the panel at the Filter bar switch (#2691)', async () => {
     const u = userEvent.setup()
     setup()
     const trigger = screen.getByRole('button', { name: /^Filters/ })
@@ -289,23 +300,27 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     trigger.focus()
     await u.tab()
-    expect(screen.getByRole('textbox', { name: 'Search fields and values to filter' })).toHaveFocus()
-    screen.getByRole('button', { name: /Show filter bar/ }).focus()
-    await u.tab()
-    // Focus goes to the trigger and the native Tab then moves on to the next toolbar control.
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Filter bar' })).toHaveFocus()
   })
 
-  it('Tab off the last control hands focus to the trigger, so the native Tab continues to the next toolbar control', async () => {
+  it('contains focus: Tab order is switch, search, scope chips, one stop for the list, Clear all, Save filter, then wraps (#2691)', async () => {
     const u = userEvent.setup()
-    setup()
-    const trigger = screen.getByRole('button', { name: /^Filters/ })
-    await u.click(trigger)
-    const last = screen.getByRole('button', { name: /Show filter bar/ })
-    last.focus()
-    fireEvent.keyDown(last, { key: 'Tab' })
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(trigger).toHaveFocus()
+    setup({ filters: { ...EMPTY_FILTER, priorities: ['high'] }, onSaveFilter: vi.fn(), savedFilters: [] })
+    await open(u)
+    const dialog = screen.getByRole('dialog', { name: 'Filters' })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    screen.getByRole('button', { name: 'Filter bar' }).focus()
+    const seen: string[] = []
+    for (let i = 0; i < 9; i++) {
+      await u.tab()
+      const el = document.activeElement as HTMLElement
+      seen.push(el.getAttribute('aria-label') ?? el.textContent ?? '')
+    }
+    expect(seen).toEqual([
+      'Search fields and values to filter', 'All fields', 'Card fields', 'Swimlane fields',
+      'Remove High filter', 'SearchAny', 'Clear all', 'Save filter', 'Filter barF',
+    ])
+    expect(dialog).toBeInTheDocument()
   })
 
   it('a scroll outside the panel closes it; a scroll inside it does not', async () => {
@@ -350,15 +365,35 @@ describe('FilterPanel (#2301)', () => {
     )
     await u.click(screen.getByRole('button', { name: /^Filters/ }))
     expect(screen.getByText('Loading…')).toBeInTheDocument()
-    expect(screen.queryByText(/No saved filters yet/)).toBeNull()
+    expect(screen.queryByText(/None yet/)).toBeNull()
   })
 
-  it('Shift+Tab off the search input closes the panel', async () => {
+  it('Shift+Tab off the search input reaches the switch, and Shift+Tab off the switch wraps inside the panel (#2691)', async () => {
     const u = userEvent.setup()
     setup()
     await open(u)
     await u.tab({ shift: true })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Filter bar' })).toHaveFocus()
+    await u.tab({ shift: true })
+    expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('with no active filters Tab wraps from the roving list stop to the first control, and Shift+Tab from the first to the last (#2691)', async () => {
+    const u = userEvent.setup()
+    setup({ savedFilters: [] })
+    await open(u)
+    const dialog = screen.getByRole('dialog', { name: 'Filters' })
+    const inPanel = () => dialog.contains(document.activeElement)
+    const sw = screen.getByRole('button', { name: 'Filter bar' })
+    const stop = within(screen.getByRole('list', { name: 'Filterable fields' })).getAllByRole('button').find((b) => b.getAttribute('tabindex') === '0') as HTMLElement
+    stop.focus()
+    await u.tab()
+    expect(sw).toHaveFocus()
+    expect(inPanel()).toBe(true)
+    await u.tab({ shift: true })
+    expect(stop).toHaveFocus()
+    expect(inPanel()).toBe(true)
   })
 
   it('the trigger reports its count and expanded state', async () => {
@@ -373,7 +408,7 @@ describe('FilterPanel (#2301)', () => {
     expect(trigger.textContent).toBe('Filters 2')
     await u.click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByRole('button', { name: 'Hide filter bar (F)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filter bar' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('an active row and the active saved filter use the persistent-active fill, never bg-info (#2301)', async () => {
@@ -394,7 +429,7 @@ describe('FilterPanel (#2301)', () => {
     await open(u)
     expect(screen.getByRole('textbox', { name: 'Search fields and values to filter' })).toHaveFocus()
     act(() => { window.dispatchEvent(new Event('resize')) })
-    expect(screen.getByRole('dialog', { name: 'Filter' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument()
     // Width change closes even with focus inside.
     const w = window.innerWidth
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: w + 100 })
@@ -579,7 +614,7 @@ describe('FilterPanel Filtered by row (#2315)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Name already taken.')
     await u.keyboard('{Escape}')
     expect(screen.queryByRole('textbox', { name: 'Save current filters as:' })).toBeNull()
-    expect(screen.getByRole('dialog', { name: 'Filter' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument()
   })
 
   it('caps the save name at 100 characters, like the Saved dropdown', async () => {
@@ -694,7 +729,7 @@ describe('FilterPanel search (#2437)', () => {
     expect(screen.getByRole('button', { name: 'Card fields' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'All fields' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByText('Esc')).toBeInTheDocument()
-    expect(screen.getByText(/to jump/)).toBeInTheDocument()
+    expect(screen.getByText(/field:value$/)).toBeInTheDocument()
   })
 
   it('lists matching values with counts and adds the filter on click', async () => {
@@ -805,7 +840,7 @@ describe('FilterPanel search (#2437)', () => {
       const u = userEvent.setup()
       setup({ board: boardWith() })
       await open(u)
-      expect(screen.getByText(/to move/)).toHaveTextContent('↑↓ to move · Enter to add · field:value to jump')
+      expect(screen.getByText(/move ·/)).toHaveTextContent('↑↓ move · ↵ add · field:value')
       expect(screen.getByRole('group', { name: 'Search in' })).toBeInTheDocument()
     })
 
@@ -1047,5 +1082,157 @@ describe('FilterPanel trigger and the hidden filter bar (#2459)', () => {
     renderPanel({ activeCount: 3, filterBarShown: false })
     await u.hover(screen.getByRole('button', { name: 'Filters, 3 active' }))
     expect(await screen.findByText('3 filters active (bar hidden)')).toBeInTheDocument()
+  })
+})
+
+describe('FilterPanel pinned shell and Filter bar switch (#2691)', () => {
+  const manyFields = () => makeBoard({
+    custom_field_definitions: Array.from({ length: 42 }, (_, i) => cf({ id: 100 + i, name: `Field ${i}`, field_type: 'text', position: i })) as never,
+  })
+
+  it('pins the header (title, count, switch, search) and the footer; only the body scrolls, capped at min(600px, 80vh)', async () => {
+    const u = userEvent.setup()
+    setup({ board: manyFields(), filters: { ...EMPTY_FILTER, blockedOnly: true }, onSaveFilter: vi.fn() })
+    await open(u)
+    const panel = screen.getByTestId('filter-panel')
+    expect(panel.style.maxHeight).toMatch(/^min\(600px, 80vh, /)
+    expect(panel.className).toContain('overflow-hidden')
+    const header = screen.getByTestId('filter-panel-header')
+    const body = screen.getByTestId('filter-panel-body')
+    const footer = screen.getByTestId('filter-panel-footer')
+    expect(body.className).toContain('overflow-y-auto')
+    expect(header.className).toContain('shrink-0')
+    expect(footer.className).toContain('shrink-0')
+    // With 40+ fields the switch, search, Clear all and Save filter stay outside the scrolling body.
+    expect(within(header).getByRole('heading', { name: 'Filters' })).toBeInTheDocument()
+    expect(within(header).getByTestId('filter-panel-active-count')).toHaveTextContent('1 active')
+    expect(within(header).getByRole('button', { name: 'Filter bar' })).toBeInTheDocument()
+    expect(within(header).getByRole('textbox', { name: 'Search fields and values to filter' })).toBeInTheDocument()
+    expect(within(footer).getByRole('button', { name: 'Clear all' })).toBeInTheDocument()
+    expect(within(footer).getByRole('button', { name: 'Save filter' })).toBeInTheDocument()
+    expect(within(body).getByRole('button', { name: /^Field 41/ })).toBeInTheDocument()
+    expect(within(body).queryByRole('button', { name: 'Filter bar' })).toBeNull()
+  })
+
+  it('hides the active count at 0 and keeps the Esc keycap on search', async () => {
+    const u = userEvent.setup()
+    setup()
+    await open(u)
+    expect(screen.queryByTestId('filter-panel-active-count')).toBeNull()
+    expect(within(screen.getByTestId('filter-panel-header')).getByText('Esc')).toBeInTheDocument()
+  })
+
+  it('the switch tooltip names the filter bar both ways', async () => {
+    const u = userEvent.setup()
+    setup()
+    await open(u)
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Filter bar' }).parentElement as HTMLElement)
+    expect(await screen.findByText('Show the filter bar (F)')).toBeInTheDocument()
+    cleanup()
+    render(
+      <FilterPanel board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} activeCount={0} icon={null}
+        savedFilters={[]} activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown onToggleFilterBar={vi.fn()} onOpenLaneFilters={vi.fn()} />,
+    )
+    await u.click(screen.getByRole('button', { name: /^Filters/ }))
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Filter bar' }).parentElement as HTMLElement)
+    expect(await screen.findByText('Hide the filter bar (F)')).toBeInTheDocument()
+  })
+
+  it('F types in search and never toggles the bar there; on the switch or a row F toggles it', async () => {
+    const u = userEvent.setup()
+    const { onToggleFilterBar } = setup()
+    await open(u)
+    const search = screen.getByRole('textbox', { name: 'Search fields and values to filter' })
+    await u.keyboard('f')
+    expect(search).toHaveValue('f')
+    expect(onToggleFilterBar).not.toHaveBeenCalled()
+    await u.clear(search)
+    screen.getByRole('button', { name: 'Filter bar' }).focus()
+    await u.keyboard('f')
+    expect(onToggleFilterBar).toHaveBeenCalledTimes(1)
+    screen.getByRole('button', { name: /^Assignee/ }).focus()
+    await u.keyboard('f')
+    expect(onToggleFilterBar).toHaveBeenCalledTimes(2)
+    // A modifier chord is not the shortcut, nor is a key repeat.
+    await u.keyboard('{Control>}f{/Control}')
+    expect(onToggleFilterBar).toHaveBeenCalledTimes(2)
+    fireEvent.keyDown(screen.getByRole('button', { name: /^Assignee/ }), { key: 'f', repeat: true })
+    expect(onToggleFilterBar).toHaveBeenCalledTimes(2)
+    // Text inside an open editor types too.
+    await u.click(screen.getByRole('button', { name: /^Notes/ }))
+    await u.type(screen.getByRole('textbox', { name: 'Notes' }), 'f')
+    expect(onToggleFilterBar).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument()
+  })
+
+  it('the field list is one Tab stop with arrows inside; the last row focused keeps the stop', async () => {
+    const u = userEvent.setup()
+    setup()
+    await open(u)
+    const list = screen.getByRole('list', { name: 'Filterable fields' })
+    const rows = within(list).getAllByRole('button')
+    expect(rows.filter((r) => r.tabIndex === 0)).toEqual([rows[0]])
+    await u.keyboard('{ArrowDown}')
+    expect(rows[0]).toHaveFocus()
+    await u.keyboard('{ArrowDown}{ArrowDown}')
+    expect(rows[2]).toHaveFocus()
+    expect(rows[2].tabIndex).toBe(0)
+    expect(rows[0].tabIndex).toBe(-1)
+    await u.keyboard('{ArrowUp}{ArrowUp}{ArrowUp}')
+    expect(screen.getByRole('textbox', { name: 'Search fields and values to filter' })).toHaveFocus()
+  })
+
+  it('arrows inside an open editor stay native and do not jump rows', async () => {
+    const u = userEvent.setup()
+    setup()
+    await open(u)
+    await u.click(screen.getByRole('button', { name: /^Due date/ }))
+    const radio = screen.getByRole('radio', { name: 'Any' })
+    radio.focus()
+    fireEvent.keyDown(radio, { key: 'ArrowDown' })
+    expect(screen.getByRole('button', { name: /^Blocked/ })).not.toHaveFocus()
+  })
+})
+
+describe('FilterPanel saved presets (#2695)', () => {
+  const two: SavedFilter[] = [
+    { id: 5, name: 'My open work', state_json: {}, state_version: 1, created_at: '' },
+    { id: 6, name: 'Shared triage', state_json: {}, state_version: 1, created_at: '' },
+  ]
+
+  it('pins the presets under search and scope, before the field list in Tab order, and applies one in one click', async () => {
+    const u = userEvent.setup()
+    const { onLoadSaved } = setup({ savedFilters: two, activeFilterId: 6 })
+    await open(u)
+    const row = screen.getByTestId('filter-panel-saved')
+    expect(screen.getByTestId('filter-panel-header')).toContainElement(row)
+    const pills = within(row).getAllByRole('button')
+    expect(pills.map((p) => p.textContent)).toEqual(['My open work', 'Shared triage'])
+    // The applied preset is a checked info-tint pill; tint is not the only cue (ActiveMark).
+    expect(pills[1]).toHaveAttribute('aria-pressed', 'true')
+    expect(pills[1].className).toContain('text-info-on-tint')
+    expect(within(pills[1]).getByTestId('saved-filter-mark')).toBeInTheDocument()
+    expect(pills[0]).toHaveAttribute('aria-pressed', 'false')
+    // Truncated at 210px, so the full name is in the title.
+    expect(pills[0]).toHaveAttribute('title', 'My open work')
+    expect(within(row).getByRole('list', { name: 'Saved filters' }).className).toContain('overflow-x-auto')
+    // Tab from the Swimlane fields scope chip reaches the first pill, then the list.
+    screen.getByRole('button', { name: 'Swimlane fields' }).focus()
+    await u.tab()
+    expect(pills[0]).toHaveFocus()
+    await u.click(pills[0])
+    expect(onLoadSaved).toHaveBeenCalledWith(two[0])
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('button', { name: /^Filters/ })).toHaveFocus()
+  })
+
+  it('hides the row while a query is typed', async () => {
+    const u = userEvent.setup()
+    setup({ savedFilters: two })
+    await open(u)
+    await u.keyboard('re')
+    expect(screen.queryByTestId('filter-panel-saved')).toBeNull()
+    await u.clear(screen.getByRole('textbox', { name: 'Search fields and values to filter' }))
+    expect(screen.getByTestId('filter-panel-saved')).toBeInTheDocument()
   })
 })

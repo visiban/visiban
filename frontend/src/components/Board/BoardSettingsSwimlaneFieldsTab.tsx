@@ -467,7 +467,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
       <RowChipNamesSetting board={board} isAdmin onUpdateBoardSettings={onUpdateBoardSettings} />
 
       {fields.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] items-end mb-3 p-3 rounded-lg border border-line bg-sunken" data-testid="swimlane-tier-summary">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-start mb-3 p-3 rounded-lg border border-line bg-sunken" data-testid="swimlane-tier-summary">
           <div className="min-w-0">
             <p className="text-sm font-medium text-fg">On the band</p>
             <p className="text-xs text-fg-muted">Beside the lane name · up to {BAND_MAX_COUNT}</p>
@@ -482,24 +482,24 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           <div className="min-w-0">
             <p className="text-sm font-medium text-fg">In lane details</p>
             <p className="text-xs text-fg-muted">Behind “Show N more”</p>
-            <div className="flex items-center gap-2 mt-1">
-              <label htmlFor="lane-details-cap" className="text-xs text-fg-muted"><span className="sr-only">In lane details </span>up to</label>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+              <label htmlFor="lane-details-cap" className="text-xs text-fg-muted whitespace-nowrap"><span className="sr-only">In lane details </span>up to</label>
               <select
                 id="lane-details-cap"
                 value={cap}
                 disabled={!onUpdateBoardSettings}
                 onChange={(e) => setCap(Number(e.target.value))}
-                className="bg-surface border border-line rounded px-2 py-1 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="shrink-0 w-16 bg-surface border border-line rounded px-2 py-1 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 {LANE_DETAILS_CAP_OPTIONS.map((n) => (
                   // A cap below the Details count would 400, on a board with no tiers set too (#2658: its cap grew to fit).
                   <option key={n} value={n} disabled={n < detailsCount}>{n < detailsCount ? `${n} (below the ${detailsCount} in Details)` : n}</option>
                 ))}
               </select>
-              <span className={`text-xs font-semibold ${detailsCount > cap ? "text-warning" : "text-fg"}`} data-testid="swimlane-details-counter">{detailsCount} / {cap}</span>
+              <span className={`text-xs font-semibold whitespace-nowrap ${detailsCount > cap ? "text-warning" : "text-fg"}`} data-testid="swimlane-details-counter">{detailsCount} / {cap}</span>
             </div>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 sm:self-end">
             <label htmlFor="swimlane-field-find" className="sr-only">Find a field</label>
             <input
               id="swimlane-field-find"

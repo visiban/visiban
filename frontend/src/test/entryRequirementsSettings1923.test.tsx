@@ -147,6 +147,22 @@ describe('BoardSettingsEntryRequirementsSection', () => {
     expect(await screen.findByText('Condition 1: Unknown field on this board.')).toBeInTheDocument()
   })
 
+  it('renders the shared Toggle with a visible label that flips it (#2717)', async () => {
+    setup({ initialColumnId: 2 })
+    const sw = screen.getByRole('switch', { name: 'Requirements on' })
+    expect(sw).toHaveAttribute('aria-checked', 'true')
+    // Shared Toggle structure: a text-free button whose track is a child span holding the knob span.
+    // The old hand-rolled button carried the "Requirements on" text inside itself.
+    expect(sw).toHaveTextContent('')
+    expect(sw).toHaveClass('group/toggle')
+    const track = sw.firstElementChild
+    expect(track?.tagName).toBe('SPAN')
+    expect(track?.firstElementChild?.tagName).toBe('SPAN')
+    expect(screen.getByText('Requirements on', { selector: 'label' })).toHaveAttribute('for', sw.id)
+    await userEvent.click(screen.getByText('Requirements on', { selector: 'label' }))
+    expect(sw).toHaveAttribute('aria-checked', 'false')
+  })
+
   it('turning requirements off keeps the rows and sends null, with no confirm', async () => {
     const { onSave } = setup({ initialColumnId: 2 })
     await userEvent.click(screen.getByRole('switch', { name: 'Requirements on' }))

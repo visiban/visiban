@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import SplitButton from "../../Common/SplitButton";
 import Tooltip from "../../Common/Tooltip";
+import { filterBarToggleTooltip } from "../filterBarToggle";
 import { MENU_ITEM_FOCUS_RING } from "../../Common/menuItemFocusRing";
 import { FilterIcon, LayoutCompactIcon, LayoutExpandedIcon } from "../toolbarIcons";
 import { formatShortcut } from "../../../utils/platform";
@@ -142,7 +143,7 @@ export default function LensToolbar({
         content={
           !showFilters && activeCount > 0
             ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active (bar hidden)`
-            : showFilters ? "Hide filters (F)" : "Filters (F)"
+            : filterBarToggleTooltip(showFilters)
         }
       >
         <button

@@ -46,6 +46,13 @@ describe('LensFilterBar hide control (#2459)', () => {
     fireEvent.click(btn)
     expect(onHide).toHaveBeenCalledTimes(1)
   })
+
+  it('the chevron tooltip uses the one filter bar name the panel switch uses (#2691)', async () => {
+    const user = userEvent.setup()
+    setup({ onHide: vi.fn() })
+    await user.hover(screen.getByRole('button', { name: 'Hide filter bar' }))
+    expect(await screen.findByText('Hide the filter bar (F)')).toBeInTheDocument()
+  })
 })
 
 describe('LensFilterBar', () => {
