@@ -338,6 +338,29 @@
       "number_suffix": "",
       "number_decimals": null,
       "choice_colors": {}
+    },
+    {
+      "name": "Design review",
+      "field_type": "dropdown",
+      "choices": [
+        "Not needed",
+        "In review",
+        "Approved"
+      ],
+      "position": 7,
+      "show_on_card": false,
+      "is_required": false,
+      "help_text": "Where the design review stands.",
+      "number_prefix": "",
+      "number_suffix": "",
+      "number_decimals": null,
+      "choice_colors": {},
+      "is_dimension": true,
+      "choice_resolutions": {
+        "Not needed": "not_applicable",
+        "In review": "open",
+        "Approved": "satisfied"
+      }
     }
   ],
   "swimlane_custom_fields": [
@@ -17474,6 +17497,30 @@
       "created_at": "2026-02-20T05:00:00+00:00",
       "activities": [
         {
+          "event_type": "dimension_owner_changed",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo5",
+          "created_at": "2026-02-20T05:40:00+00:00",
+          "item_text": "Design review"
+        },
+        {
+          "event_type": "dimension_next_action_changed",
+          "from_value": "",
+          "to_value": "Walk through the revised mockups with the design lead",
+          "actor": "demo5",
+          "created_at": "2026-02-20T05:40:00+00:00",
+          "item_text": "Design review"
+        },
+        {
+          "event_type": "dimension_target_date_changed",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo5",
+          "created_at": "2026-02-20T05:40:00+00:00",
+          "item_text": "Design review"
+        },
+        {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "+Compliance",
@@ -17515,9 +17562,17 @@
         "Platforms": "[\"Android\",\"API\"]",
         "Customer requests": "7",
         "Beta start": "2026-02-23",
-        "Enterprise only": "false"
+        "Enterprise only": "false",
+        "Design review": "In review"
       },
-      "external_ref": null
+      "external_ref": null,
+      "dimension_plans": {
+        "Design review": {
+          "owner": "demo1",
+          "next_action": "Walk through the revised mockups with the design lead",
+          "target_date": "2026-03-25"
+        }
+      }
     }
   ],
   "relations": [

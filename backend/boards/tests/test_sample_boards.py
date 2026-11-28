@@ -27,8 +27,8 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, CardActivity, CardBlock, CardComment, CardExternalRef, CardMovement, CardRelation,
-    CustomFieldDefinition, CustomFieldValue, SwimlaneCustomFieldDefinition,
+    Board, CardActivity, CardBlock, CardComment, CardDimensionPlan, CardExternalRef, CardMovement,
+    CardRelation, CustomFieldDefinition, CustomFieldValue, SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
 )
 from boards.views.import_export import BoardImportThrottle
@@ -414,6 +414,10 @@ class SampleBoardImportTests(TestCase):
                 self.assertEqual(
                     SwimlaneCustomFieldValue.objects.filter(swimlane__board=board).count(),
                     sum(len(s["custom_field_values"]) for s in data["swimlanes"]),
+                )
+                self.assertEqual(
+                    CardDimensionPlan.objects.filter(card__board=board).count(),
+                    sum(len(c.get("dimension_plans", {})) for c in cards),
                 )
                 self.assertEqual(
                     CardExternalRef.objects.filter(card__board=board).count(),

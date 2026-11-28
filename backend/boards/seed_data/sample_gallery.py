@@ -53,7 +53,7 @@ GALLERY = [
         "summary": "Move features from idea to launch, by product area.",
         "swimlane_theme": "product area",
         "order": 5,
-        "highlights": "RICE score, target quarter, platforms, GitHub issue links",
+        "highlights": "RICE score, target quarter, platforms, design review dimension, GitHub issue links",
     },
     {
         "slug": "customer_support",

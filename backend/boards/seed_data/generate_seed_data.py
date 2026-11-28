@@ -525,6 +525,9 @@ CUSTOM_FIELD_CHANGE_SAMPLES = {"product_roadmap"}
 # Templates that carry one override_used History row (#1923), on a card in the
 # board's over-WIP-limit column.
 OVERRIDE_SAMPLES = {"simple_kanban"}
+# Templates that carry a dimension field and one card's plan for it, with the
+# three dimension_* History rows (#2703).
+DIMENSION_PLAN_SAMPLES = {"product_roadmap"}
 
 _BLOCK_REASONS = [
     "Waiting on a decision from the stakeholder.",
@@ -650,6 +653,45 @@ def _add_custom_field_change(cards: list[dict], slug: str, done_cols: set[str]) 
         {"event_type": "custom_field_changed", "from_value": "",
          "to_value": card["custom_field_values"][name],
          "actor": card["created_by"], "created_at": _iso(when), "item_text": name},
+    ], key=lambda a: a["created_at"])
+
+
+def _add_dimension_plan(data: dict, slug: str, done_cols: set[str]) -> None:
+    """Add a "Design review" dimension and one card's plan for it (#2703).
+
+    The importer restores ``dimension_plans`` but records no history for them,
+    so the file carries the rows ``set_dimension_plan`` writes: one per part
+    of the plan, from an empty side, with ``item_text`` naming the dimension.
+    No random draw is made, so no other card or template shifts.
+    """
+    name = "Design review"
+    definition = _definition({
+        "name": name, "field_type": "dropdown", "show_on_card": False,
+        "choices": ["Not needed", "In review", "Approved"],
+        "help_text": "Where the design review stands.",
+    }, "show_on_card")
+    definition.update(
+        position=len(data["custom_fields"]), is_dimension=True,
+        choice_resolutions={"Not needed": "not_applicable", "In review": "open", "Approved": "satisfied"},
+    )
+    data["custom_fields"].append(definition)
+
+    eligible = [c for c in data["cards"] if not c.get("archived_at") and c["column"] not in done_cols]
+    card = min(eligible, key=lambda c: zlib.crc32(f"{slug}|dimension-plan|{c['title']}".encode()))
+    card["custom_field_values"] = {**card["custom_field_values"], name: "In review"}
+    owner = card.get("assignee") or DEMO_USERS[0]
+    action = "Walk through the revised mockups with the design lead"
+    target = (ANCHOR + timedelta(days=10)).strftime("%Y-%m-%d")
+    card["dimension_plans"] = {name: {"owner": owner, "next_action": action, "target_date": target}}
+    when = _iso(_parse(card["created_at"]) + timedelta(minutes=40))
+    card["activities"] = sorted(card["activities"] + [
+        {"event_type": event_type, "from_value": "", "to_value": value,
+         "actor": card["created_by"], "created_at": when, "item_text": name}
+        for event_type, value in (
+            ("dimension_owner_changed", owner),
+            ("dimension_next_action_changed", action),
+            ("dimension_target_date_changed", target),
+        )
     ], key=lambda a: a["created_at"])
 
 
@@ -786,6 +828,8 @@ def _build(tpl: dict, features: dict | None = None) -> dict:
         _add_custom_field_change(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
     if slug in OVERRIDE_SAMPLES:
         _add_override_used(data, slug)
+    if slug in DIMENSION_PLAN_SAMPLES:
+        _add_dimension_plan(data, slug, {c["name"] for c in data["columns"] if c["is_done"]})
     data["relations"] = _add_relations(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
     # Key order matches the board exporter, so a sample diffs cleanly
     # against an export of the board it produces.

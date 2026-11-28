@@ -2645,6 +2645,27 @@ class DemoSiteActivityVocabularyTests(TestCase):
         # Derived from the model's choices, so a type added without a seed fails here.
         self.assertEqual(sorted(set(CardActivity.EventType.values) - seeded), [])
 
+    def test_dimension_plans_match_their_history(self):
+        """#2703: each seeded plan is what its three history rows say it is."""
+        from boards.models import CardDimensionPlan
+
+        _seed(demo_site=True)
+        ET = CardActivity.EventType
+        plans = list(CardDimensionPlan.objects.select_related("card", "field_definition", "owner"))
+        self.assertEqual(sorted(p.field_definition.name for p in plans), ["Legal review", "Security review"])
+        for plan in plans:
+            rows = CardActivity.objects.filter(card=plan.card, item_text=plan.field_definition.name)
+            self.assertEqual(
+                {r.event_type: r.to_value for r in rows if r.event_type.startswith("dimension_")},
+                {
+                    ET.DIMENSION_OWNER_CHANGED: plan.owner.username,
+                    ET.DIMENSION_NEXT_ACTION_CHANGED: plan.next_action,
+                    ET.DIMENSION_TARGET_DATE_CHANGED: plan.target_date.isoformat(),
+                },
+            )
+        # One plan is overdue, so the card face has something needing attention.
+        self.assertTrue(any(p.target_date < timezone.localdate() for p in plans))
+
     def test_blocks_overrides_and_links_have_their_backing_rows(self):
         from boards.models import CardOverride
 

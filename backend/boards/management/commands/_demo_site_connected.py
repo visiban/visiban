@@ -15,7 +15,8 @@ Used only by ``seed_demo_data --demo-site``, after every board in
    ``child_linked`` activity per end. Children mode reads real work.
 3. **The activity vocabulary is completed** (#2607): every
    ``CardActivity.EventType`` appears at least once in the seeded corpus; the
-   test derives the list from the model's choices.
+   test derives the list from the model's choices. The dimension plan types
+   (#2703) come with the plans themselves.
 
 Entry requirements (#1923, MR B) are not seeded: ``CardOverride.Kind`` reserves
 the kind but no column field or enforcement exists on main, so there is
@@ -33,6 +34,7 @@ from boards.models import (
     CardActivity,
     CardBlock,
     CardChecklist,
+    CardDimensionPlan,
     CardOverride,
     CardParentLink,
     CustomFieldDefinition,
@@ -383,6 +385,48 @@ def _override(acts, card, actor, kinds, reason):
     )
 
 
+#: (dimension, stage it is a track on, value that is still open, next action,
+#: target date in days from today). A negative offset is overdue, so the card
+#: face shows "needs attention".
+DIMENSION_PLANS = (
+    ("Security review", "Validate", "In progress", "Send the completed security questionnaire", -2),
+    ("Legal review", "Commercial", "Redlines out", "Follow up with customer counsel on the redlines", 5),
+)
+
+
+def _seed_dimension_plans(board, users, acts):
+    """Plan an open dimension on a card in each tracked stage (#1922), with its history (#2703).
+
+    The rows ``set_dimension_plan`` writes for a first plan: one per part, from
+    an empty side, with ``item_text`` naming the dimension.
+    """
+    ET = CardActivity.EventType
+    for n, (name, column, value, action, days) in enumerate(DIMENSION_PLANS):
+        row = (
+            CustomFieldValue.objects.filter(
+                card__board=board, card__column__name=column, card__archived_at__isnull=True,
+                field_definition__name=name, value=value,
+            ).select_related("card", "field_definition").order_by("card_id").first()
+        )
+        if row is None:
+            raise RuntimeError(f"No open {name} card in {column} to carry a dimension plan.")
+        card, actor = row.card, (users["maya"], users["jordan"])[n % 2]
+        owner = (users["jordan"], users["maya"])[n % 2]
+        target = (timezone.localdate() + datetime.timedelta(days=days)).isoformat()
+        planned_at = min(_at(card, 0.65), acts.latest)
+        plan = CardDimensionPlan.objects.create(
+            card=card, field_definition=row.field_definition, owner=owner,
+            next_action=action, target_date=target, updated_by=actor,
+        )
+        CardDimensionPlan.objects.filter(pk=plan.pk).update(updated_at=planned_at)
+        for event_type, new in (
+            (ET.DIMENSION_OWNER_CHANGED, owner.username),
+            (ET.DIMENSION_NEXT_ACTION_CHANGED, action),
+            (ET.DIMENSION_TARGET_DATE_CHANGED, target),
+        ):
+            acts.add(card, event_type, planned_at, actor, "", new, item_text=name)
+
+
 def _seed_vocabulary(seeded, users, acts):
     """Seed every activity type the trail and the links do not (#2607), on cards in their own history window."""
     ET = CardActivity.EventType
@@ -481,6 +525,7 @@ def seed_connected(cmd, seeded, users, anchor):
     acts = _Activities()
     _link_boards(seeded, users, acts)
     _seed_vocabulary(seeded, users, acts)
+    _seed_dimension_plans(board, users, acts)
     acts.flush()
 
     names = {name: seeded[name][0] for name in seeded}
