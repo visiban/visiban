@@ -489,7 +489,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
                 value={cap}
                 disabled={!onUpdateBoardSettings}
                 onChange={(e) => setCap(Number(e.target.value))}
-                className="shrink-0 bg-surface border border-line rounded px-2 py-1 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="shrink-0 w-16 bg-surface border border-line rounded px-2 py-1 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 {LANE_DETAILS_CAP_OPTIONS.map((n) => (
                   // A cap below the Details count would 400, on a board with no tiers set too (#2658: its cap grew to fit).

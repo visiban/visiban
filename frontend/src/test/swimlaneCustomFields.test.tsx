@@ -703,7 +703,7 @@ describe('BoardSettingsSwimlaneFieldsTab — row-chip field names setting (#1418
     expect(summary.className).toContain('minmax(0,1fr)')
     expect(summary.querySelector('label[for="lane-details-cap"]')).toHaveClass('whitespace-nowrap')
     expect(screen.getByTestId('swimlane-details-counter')).toHaveClass('whitespace-nowrap')
-    expect(document.getElementById('lane-details-cap')).toHaveClass('shrink-0')
+    expect(document.getElementById('lane-details-cap')).toHaveClass('shrink-0', 'w-16')
   })
 
   it('reflects a board that has names hidden', () => {
