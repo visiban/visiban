@@ -53,6 +53,30 @@ class SetDimensionPlanToolTests(CrudToolsTestCase):
         self.assertIsNone(result["dimension_plans"][0]["owner"])
         self.assertIsNone(CardDimensionPlan.objects.get(card=self.card).owner_id)
 
+    def test_empty_target_date_clears_it_and_a_malformed_one_is_still_refused(self):
+        self._call(
+            "set_dimension_plan", self.write_token, card_id=self.card.id, field="Security",
+            next_action="Chase", target_date="2026-12-01",
+        )
+        result = self._call(
+            "set_dimension_plan", self.write_token, card_id=self.card.id, field="Security",
+            next_action="Chase", target_date="",
+        )
+        self.assertIsNone(result["dimension_plans"][0]["target_date"])
+        self.assertIsNone(CardDimensionPlan.objects.get(card=self.card).target_date)
+        # All three empty removes the plan, as documented.
+        gone = self._call(
+            "set_dimension_plan", self.write_token, card_id=self.card.id, field="Security",
+            owner="", next_action="", target_date="",
+        )
+        self.assertEqual(gone["dimension_plans"], [])
+        bad = self._call(
+            "set_dimension_plan", self.write_token, card_id=self.card.id, field="Security",
+            target_date="not-a-date",
+        )
+        self.assertEqual(bad["error"]["code"], "validation_error")
+        self.assertIn("target_date", bad["error"]["errors"])
+
     def test_non_dimension_unknown_or_other_board_field_is_not_found(self):
         CustomFieldDefinition.objects.create(board=self.board, name="Notes", field_type="text", position=1)
         other_board = _make_board(_make_user("other2704"), name="Other")

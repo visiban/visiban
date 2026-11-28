@@ -1262,7 +1262,9 @@ def set_dimension_plan(*, card_id, field, owner=None, next_action="", target_dat
             if owner_id is None:
                 raise ValidationFailed({"owner": [_ASSIGNEE_NOT_FOUND]})
             submitted["owner_id"] = owner_id
-        if target_date is not None:
+        if target_date:
+            # "" means "no date", like an empty owner (full replace); anything
+            # else, malformed included, still goes to the serializer.
             submitted["target_date"] = target_date
         body = DimensionPlanWriteSerializer(data=submitted, context={"board": board})
         if not body.is_valid():
