@@ -112,7 +112,7 @@ export default function BoardSettingsEntryRequirementsSection({ columns, fields,
     // #2718); a field with no format shows the number as typed, so it does here.
     const f = r.kind === "field" ? fieldByUid.get(r.uid) : undefined;
     const operand = NUMBER_COMPARISONS.has(r.operator) && f?.field_type === "number"
-      ? formatNumberValue(r.operand, { prefix: f.number_prefix, suffix: f.number_suffix, decimals: f.number_decimals })
+      ? formatNumberValue(r.operand, { prefix: f.number_prefix, suffix: f.number_suffix })
       : r.operand;
     return `${name ?? "?"} ${OPERATOR_LABEL[r.operator]}${NEEDS_OPERAND.has(r.operator) ? ` ${operand}` : ""}`;
   };

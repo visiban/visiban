@@ -4,7 +4,6 @@
  */
 import type { Column, ColumnEntryRequirement, CustomFieldDefinition, EntryEnforcement, EntryRequirementOperator } from "../types";
 import type { EntryRequirementWrite } from "../api/boards";
-import { formatNumberValue } from "./customFieldValue";
 
 /** Server cap (ColumnEntryRequirement.MAX_PER_COLUMN). */
 export const ENTRY_REQUIREMENTS_CAP = 10;
@@ -37,20 +36,24 @@ export const NEEDS_OPERAND = new Set<EntryRequirementOperator>([...NUMBER_COMPAR
 export type OperandField = Pick<CustomFieldDefinition, "uid" | "field_type" | "number_prefix" | "number_suffix" | "number_decimals">;
 
 /**
- * A number comparison's operand in its field's number format (#2718): "20%",
- * "$50,000". The operand is a value of the field, so it reads like one, through
- * the same `formatNumberValue` every field display uses. A field with no
- * format, or no field (a payload naming one this client doesn't have), keeps
- * the plain grouped number ("50,000"). `min_count` is a count of choices, not
- * a field value, so callers never pass it here.
+ * A number comparison's operand with its field's prefix and suffix (#2718):
+ * "20%", "$50,000". The operand is the exact bound the server enforces, so it is
+ * never rounded to the field's `number_decimals` (a bound of 19.5 must not read
+ * "20%" beside a card at 19.7 that is refused). A field with no prefix/suffix, or
+ * no field (a payload naming one this client doesn't have), keeps the plain
+ * grouped number ("50,000"). `min_count` is a count of choices, not a field
+ * value, so callers never pass it here.
  */
 export function formatComparisonOperand(operand: string | null, field?: OperandField | null): string {
   if (operand === null) return "";
-  if (field && field.field_type === "number" && (field.number_prefix || field.number_suffix || field.number_decimals != null)) {
-    return formatNumberValue(operand, { prefix: field.number_prefix, suffix: field.number_suffix, decimals: field.number_decimals });
-  }
   const n = Number(operand);
-  return operand.trim() !== "" && Number.isFinite(n) ? n.toLocaleString("en-US") : operand;
+  const numeric = operand.trim() !== "" && Number.isFinite(n);
+  const affixed = field?.field_type === "number" && (field.number_prefix || field.number_suffix);
+  if (!numeric) return operand;
+  // With an affix the exact operand is shown (no 3-digit cap); without one the
+  // text is byte-identical to what unformatted bounds always showed.
+  if (!affixed) return n.toLocaleString("en-US");
+  return `${field.number_prefix ?? ""}${n.toLocaleString("en-US", { maximumFractionDigits: 20 })}${field.number_suffix ?? ""}`;
 }
 
 /** Operators a field accepts, mirroring the server's OPERATORS_BY_TYPE. Checkbox accepts none in 1.3. */

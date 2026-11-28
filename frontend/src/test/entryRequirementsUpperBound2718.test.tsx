@@ -66,7 +66,12 @@ describe('formatComparisonOperand', () => {
   it('uses the field format, else a plain grouped number', () => {
     expect(formatComparisonOperand('20', winProb)).toBe('20%')
     expect(formatComparisonOperand('50000', amount)).toBe('$50,000')
-    expect(formatComparisonOperand('2.5', field(5, 'Hours', 'number', { number_decimals: 2 }))).toBe('2.50')
+    // The bound is exact: the field's decimals never round it (19.5 is not "20%").
+    expect(formatComparisonOperand('2.5', field(5, 'Hours', 'number', { number_decimals: 2 }))).toBe('2.5')
+    const pct0 = field(6, 'Win', 'number', { number_suffix: '%', number_decimals: 0 })
+    expect(formatComparisonOperand('19.5', pct0)).toBe('19.5%')
+    expect(unmetRequirementLabel(item({ operand: '19.5', field_uid: 'f6' }), [pct0])).toBe('Win probability at most 19.5%')
+    expect(formatComparisonOperand('0.12345', plain)).toBe('0.123')
     expect(formatComparisonOperand('50000', plain)).toBe('50,000')
     expect(formatComparisonOperand('50000', undefined)).toBe('50,000')
     expect(formatComparisonOperand('50000', tags)).toBe('50,000')
@@ -154,5 +159,15 @@ describe('editor operand box (#2718)', () => {
   it('non-admins read the bound in the field format', () => {
     setup({ isAdmin: false })
     expect(screen.getByText(/\(Warn\): Win probability is at most 20%\./)).toBeInTheDocument()
+  })
+
+  it('shows the exact bound, not one rounded to the field decimals', () => {
+    const pct0 = field(1, 'Win probability', 'number', { number_suffix: '%', number_decimals: 0 })
+    const rounded = col(2, 'Qualified', {
+      entry_enforcement: 'warn',
+      entry_requirements: [{ uid: 'r1', field_uid: 'f1', field_set_uid: null, operator: 'lte', operand: '19.5', position: 0 }],
+    })
+    setup({ isAdmin: false, fields: [pct0], columns: [col(1, 'Lead'), rounded] })
+    expect(screen.getByText(/\(Warn\): Win probability is at most 19\.5%\./)).toBeInTheDocument()
   })
 })
