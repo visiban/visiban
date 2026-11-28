@@ -918,6 +918,14 @@ export interface CardDimensionPlan {
   updated_at: string;
 }
 
+/** #2651 — mirrors `DimensionStateSerializer`: when a dimension's value last
+ *  really changed. One entry per dimension field with a value. */
+export interface CardDimensionState {
+  field_id: number;
+  /** ISO 8601, or `null` when unknown (a pre-1.3 value with no history). */
+  changed_at: string | null;
+}
+
 export interface Card {
   id: number;
   uid: string;
@@ -964,6 +972,12 @@ export interface Card {
    * payload from a server before 1.3 does not carry it.
    */
   dimension_plans?: CardDimensionPlan[];
+  /**
+   * #2651 — when each dimension's value last changed (age in state). A cleared
+   * dimension has no entry; its "not set" age is `column_entered_at`. Optional
+   * because a payload from a server before 1.3 does not carry it.
+   */
+  dimension_states?: CardDimensionState[];
   /**
    * Number of active (non-archived) cards blocking this one (#449). Drives the
    * card-face blocked indicator. Only the `blocks` relation type counts, and
@@ -1519,7 +1533,12 @@ export type CardActivityEventType =
   | "needed_changed"
   // #1923: a Block limit overridden with force. from_value is the actor basis,
   // to_value the overridden kinds, item_text the reason ("" when none).
-  | "override_used";
+  | "override_used"
+  // #2703: dimension plan edits. item_text is the dimension's name; from/to are
+  // usernames (owner, blank = Unassigned), the next action text, or ISO dates.
+  | "dimension_owner_changed"
+  | "dimension_next_action_changed"
+  | "dimension_target_date_changed";
 
 export interface CardActivity {
   id: number;

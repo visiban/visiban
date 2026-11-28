@@ -683,6 +683,33 @@ def build_mcp_server():
         )
 
     @mcp.tool(
+        name="set_dimension_plan",
+        description=(
+            "Set a card's plan for one dimension field, named by `field` (the field's "
+            "name on the card's board; a card's planned dimensions are listed in its "
+            "dimension_plans): owner (an assignable board member's username), "
+            "next_action (up to 200 characters) and target_date (YYYY-MM-DD). A full "
+            "replace: an omitted argument is cleared, owner omitted or empty leaves the "
+            "plan without an owner, and all three empty removes the plan. Each changed "
+            "part is recorded in the card's history. Returns the updated card, with the "
+            "plan in dimension_plans. Requires admin or member board role (members: own "
+            "cards only) and the mcp:write scope."
+        ),
+    )
+    @_throttled()
+    async def set_dimension_plan(
+        card_id: int, field: str, owner: str | None = None,
+        next_action: str = "", target_date: str | None = None,
+    ) -> _TOOL_RESULT:
+        denial = await _deny_write()
+        if denial is not None:
+            return denial
+        return await request_sync_to_async(tools.set_dimension_plan)(
+            card_id=card_id, field=field, owner=owner,
+            next_action=next_action, target_date=target_date,
+        )
+
+    @mcp.tool(
         name="unblock_card",
         description=(
             "Clear a card's manual block, with an optional resolution note (up to 500 "

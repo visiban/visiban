@@ -22,13 +22,16 @@ write here rolls back with the card if any later step fails, and the
 ``card.updated`` broadcast the service defers already reflects it.
 """
 
+from django.utils import timezone
+
 from ..models import CardActivity, CustomFieldValue, SwimlaneCustomFieldValue
 from ..signals import (
     custom_field_value_changed, swimlane_custom_field_value_changed,
 )
 
 
-def _apply_values(*, value_model, owner_field, owner, pairs, signal, signal_kwarg, actor):
+def _apply_values(*, value_model, owner_field, owner, pairs, signal, signal_kwarg, actor,
+                  stamp_field=None):
     """Shared diff-and-write for card (#371) and swimlane (#1140) field values.
 
     The two callers differ only in which model holds the rows, which column
@@ -37,9 +40,15 @@ def _apply_values(*, value_model, owner_field, owner, pairs, signal, signal_kwar
     shape, firing the signal exactly once per real change) is identical, so it
     lives here once rather than in two copies free to drift apart.
 
+    ``stamp_field`` names a column set to the write time on every row whose
+    value really changed (#2651, card values only: ``value_changed_at``). An
+    echo of the stored value is skipped above the stamp, so it never moves the
+    clock.
+
     Returns the list of ``(definition, old_value, new_value)`` triples that
     changed, so callers can distinguish a real edit from an echo.
     """
+    stamp = {stamp_field: timezone.now()} if stamp_field else {}
     definitions = {definition.pk: definition for definition, _ in pairs}
     existing = {
         row.field_definition_id: row
@@ -64,11 +73,14 @@ def _apply_values(*, value_model, owner_field, owner, pairs, signal, signal_kwar
         elif row is None:
             to_create.append(
                 value_model(
-                    **{owner_field: owner}, field_definition=definition, value=new_value
+                    **{owner_field: owner}, field_definition=definition, value=new_value,
+                    **stamp,
                 )
             )
         else:
             row.value = new_value
+            for name, when in stamp.items():
+                setattr(row, name, when)
             to_update.append(row)
         changed.append((definition, old_value, new_value))
 
@@ -79,7 +91,7 @@ def _apply_values(*, value_model, owner_field, owner, pairs, signal, signal_kwar
     if to_create:
         value_model.objects.bulk_create(to_create)
     if to_update:
-        value_model.objects.bulk_update(to_update, ["value"])
+        value_model.objects.bulk_update(to_update, ["value", *stamp])
 
     for definition, old_value, new_value in changed:
         # Sent inside the caller's transaction — see the signal's own docs in
@@ -119,6 +131,7 @@ def apply_custom_field_values(*, card, pairs, actor=None):
         signal=custom_field_value_changed,
         signal_kwarg="card",
         actor=actor,
+        stamp_field="value_changed_at",
     )
     # #1909 / #1921: every real change leaves a card activity row with the old
     # and new values and the actor, on every path that reaches this one writer

@@ -19,7 +19,7 @@ import json
 
 from django.core.cache import cache
 
-from boards.models import Card, CardActivity
+from boards.models import Card, CardActivity, CustomFieldDefinition
 from mcp_server.server import build_mcp_server
 
 from .test_mcp import _parse_sse
@@ -52,12 +52,16 @@ class SurrogateArgumentTests(CrudToolsTestCase):
             board=self.board, column=self.column, swimlane=self.swimlane,
             title="Untouched", created_by=self.user, position=0,
         )
+        self.dimension = CustomFieldDefinition.objects.create(
+            board=self.board, name="Security", field_type="dropdown",
+            choices_json=["A"], is_dimension=True,
+        )
 
     def _base_arguments(self):
         return {
             "board_id": self.board.id, "column_id": self.column.id,
             "swimlane_id": self.swimlane.id, "card_id": self.card.id,
-            "title": "Sur card", "reason": "r",
+            "title": "Sur card", "reason": "r", "field": self.dimension.name,
         }
 
     def _send(self, transport, name, arguments):

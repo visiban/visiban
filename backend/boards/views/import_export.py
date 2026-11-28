@@ -46,7 +46,7 @@ from ..services.entry_requirements import (
 )
 from ..models import (
     Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
-    CardActivity, CardBlock, CardChecklist, CardComment, CardExternalRef, CardGateTransition,
+    CardActivity, CardBlock, CardChecklist, CardComment, CardDimensionPlan, CardExternalRef, CardGateTransition,
     CardMovement, CardRelation, Column, ColumnEntryRequirement, CustomFieldDefinition, CustomFieldSet, CustomFieldValue, Label, StageTrack,
     SubColumn,
     Swimlane, SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue, SwimlaneTrackException,
@@ -2043,6 +2043,8 @@ def _card_rows(card):
         1
         + (1 if isinstance(card.get("external_ref"), dict) else 0)
         + _value_rows(card.get("custom_field_values"), CustomFieldDefinition.MAX_PER_BOARD)
+        # Dimension plans (#2704), one row per field like the values above.
+        + _value_rows(card.get("dimension_plans"), CustomFieldDefinition.MAX_PER_BOARD)
         + len(card.get("comments", []))
         + 2 * len(card.get("checklist", []))
         + len(card.get("movements", []))
@@ -2220,6 +2222,70 @@ def _assign_cell_positions(cards):
         members.sort(key=lambda m: (m[0], m[1]))
         for slot, (_, _, card) in enumerate(members):
             card.position = slot
+
+
+def _imported_plan_owner_names(cards):
+    """Every owner username the file's dimension plans name (#2704)."""
+    for card in cards:
+        plans = card.get("dimension_plans") if isinstance(card, dict) else None
+        for plan in plans.values() if isinstance(plans, dict) else ():
+            owner = plan.get("owner") if isinstance(plan, dict) else None
+            if isinstance(owner, str) and owner:
+                yield owner
+
+
+def _imported_dimension_plans(raw, definitions_by_name, user_map):
+    """Normalize one card's exported ``{dimension name: plan}`` map (#2704).
+
+    Returns ``[(definition, owner, next_action, target_date)]``. Lenient like
+    the value import: an entry naming no imported dimension field, or holding
+    a malformed next action (not a string, or over the API's 200 characters),
+    is dropped. A target date that is not ``YYYY-MM-DD`` imports as none. The
+    owner resolves through the import's user map (Rule 5: the importer's
+    visible pool, as for card assignees); an owner it cannot match imports as
+    Unassigned, never as a guessed user. A plan left with no owner, no next
+    action and no target date is not stored, as on the API.
+    """
+    from django.utils.dateparse import parse_date
+
+    if not isinstance(raw, dict):
+        return []
+    out = []
+    for name, plan in raw.items():
+        definition = definitions_by_name.get(name) if isinstance(name, str) else None
+        if definition is None or not definition.is_dimension or not isinstance(plan, dict):
+            continue
+        action = plan.get("next_action") or ""
+        if not isinstance(action, str):
+            continue
+        action = action.strip()
+        if "\x00" in action or len(action) > CardDimensionPlan.NEXT_ACTION_MAX_LENGTH:
+            continue
+        owner_name = plan.get("owner")
+        owner = user_map.get(owner_name.lower()) if isinstance(owner_name, str) and owner_name else None
+        target = plan.get("target_date")
+        try:
+            target = parse_date(target) if isinstance(target, str) else None
+        except ValueError:
+            target = None
+        if owner is None and not action and target is None:
+            continue
+        out.append((definition, owner, action, target))
+    return out
+
+
+def _imported_value_changed_at(raw, now):
+    """The exported ``value_changed_at`` to give an imported value, or None (#2651).
+
+    None ("unknown", the API's ``changed_at: null``) for a missing, malformed
+    or future time, the same as a value with no history. A file can only
+    backdate its own cards' values, which it could already do through their
+    activity rows.
+    """
+    at = _aware_timestamp(raw)
+    if at is None or at > now:
+        return None
+    return at
 
 
 def _imported_card_created_at(card_data, history_on, now):
@@ -3051,6 +3117,10 @@ class BoardImportExportMixin:
                     for ci in card_data.get("checklist", [])
                     if ci.get("assignee")
                 }
+            # #2704: dimension plan owners, through the same resolver (Rule 5);
+            # an unmatched owner imports the plan Unassigned.
+            if options["cards"]:
+                all_usernames |= set(_imported_plan_owner_names(data.get("cards", [])))
             user_map = _resolve_import_users(all_usernames, request.user, group)
 
             # ---------- Phase 1: build Card instances (no DB writes yet) ----------
@@ -3156,6 +3226,7 @@ class BoardImportExportMixin:
             imported_activities = []      # (CardActivity obj, created_at str or None)
             external_refs_to_create = []
             field_values_to_create = []
+            plans_to_create = []  # #2704
 
             def _imported_gate_transition(gt_data, movement_objs, **identity):
                 """One imported gate transition (#1102), live card or deleted (#2413), or None.
@@ -3280,12 +3351,25 @@ class BoardImportExportMixin:
             for card_obj, card_data in zip(cards_to_create, cards_raw):
                 card_pk = card_obj.pk
 
+                changed_at_raw = card_data.get("custom_field_values_changed_at")
+                if not isinstance(changed_at_raw, dict):
+                    changed_at_raw = {}
                 for definition, value in _import_field_values(
                     card_data.get("custom_field_values"), card_field_map,
                     "CUSTOM_FIELD_VALIDATORS",
                 ):
                     field_values_to_create.append(CustomFieldValue(
                         card_id=card_pk, field_definition=definition, value=value,
+                        value_changed_at=_imported_value_changed_at(
+                            changed_at_raw.get(definition.name), import_now,
+                        ),
+                    ))
+                for definition, owner, action, target in _imported_dimension_plans(
+                    card_data.get("dimension_plans"), card_field_map, user_map,
+                ):
+                    plans_to_create.append(CardDimensionPlan(
+                        card_id=card_pk, field_definition=definition, owner=owner,
+                        next_action=action, target_date=target, updated_by=request.user,
                     ))
 
                 # The file's own history for this card. When it already
@@ -3491,6 +3575,8 @@ class BoardImportExportMixin:
 
             if field_values_to_create:
                 CustomFieldValue.objects.bulk_create(field_values_to_create)
+            if plans_to_create:
+                CardDimensionPlan.objects.bulk_create(plans_to_create)
 
             # Comments with optional timestamp backfill.
             # bulk_create returns objects with PKs; bulk_update then issues a single
@@ -4333,6 +4419,9 @@ class BoardImportExportMixin:
                 # with the definition joined so neither branch below resolves a
                 # per-card FK.
                 "custom_field_values__field_definition",
+                # Dimension plans (#2704), owner and field joined.
+                "dimension_plans__owner",
+                "dimension_plans__field_definition",
                 # Row field values (#1140). The CSV branch denormalizes these
                 # onto every card row, so without this prefetch it would issue
                 # two queries per *card* to walk card.swimlane.custom_field_values
@@ -4404,6 +4493,30 @@ class BoardImportExportMixin:
             """
             return {
                 row.field_definition.name: row.value
+                for row in card.custom_field_values.all()
+            }
+
+        def _dimension_plans_by_name(card):
+            """``{dimension name: {owner, next_action, target_date}}`` (#2704).
+
+            Keyed by field name like the values; the owner is a username, as
+            for the card's assignee, and is matched the same way on import.
+            """
+            return {
+                plan.field_definition.name: {
+                    "owner": plan.owner.username if plan.owner else None,
+                    "next_action": plan.next_action,
+                    "target_date": plan.target_date.isoformat() if plan.target_date else None,
+                }
+                for plan in card.dimension_plans.all()
+            }
+
+        def _custom_values_changed_at_by_name(card):
+            """``{field name: ISO time or None}``: when each value last changed (#2651)."""
+            return {
+                row.field_definition.name: (
+                    row.value_changed_at.isoformat() if row.value_changed_at else None
+                )
                 for row in card.custom_field_values.all()
             }
 
@@ -4492,6 +4605,13 @@ class BoardImportExportMixin:
                     # JSON import against the "custom_fields" definitions below
                     # (#1447), and by CSV import from its `Custom: ` columns (#1449).
                     "custom_field_values": _custom_values_by_name(card),
+                    # #2651. Additive: when each value above last changed,
+                    # keyed the same way; restored on JSON import so a moved
+                    # board keeps its age in state.
+                    "custom_field_values_changed_at": _custom_values_changed_at_by_name(card),
+                    # #2704. Additive: each dimension's plan, restored on
+                    # JSON import with owners matched like assignees.
+                    "dimension_plans": _dimension_plans_by_name(card),
                     # #352. Additive like custom_field_values above; unlike
                     # them it *is* restored on import (validated through
                     # ExternalRefSerializer). null when the card has no link.

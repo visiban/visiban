@@ -137,7 +137,7 @@ Card
  ├── weight (int, default 1 — used for column weight budget enforcement)
  ├── position (int — sort order within the cell)
  ├── created_by (→ User, nullable — set to null if the creator account is deleted)
- ├── version (int, default 1 — optimistic concurrency control; incremented by a field update (`update_card`), a block or unblock (`block_card` / `unblock_card`, since 1.3), a move (`move_card`) or any Django admin change save (`CardAdmin.save_model`, since 1.3, including one that only archives or restores) only — the API's archive/unarchive, comments, attachments, checklists and relations leave it unchanged, and it never decreases; clients send the version they have; 409 returned if the card has been modified in the meantime)
+ ├── version (int, default 1 — optimistic concurrency control; incremented by a field update (`update_card`), a block or unblock (`block_card` / `unblock_card`, since 1.3), a dimension plan change (`set_dimension_plan`, since 1.3), a move (`move_card`) or any Django admin change save (`CardAdmin.save_model`, since 1.3, including one that only archives or restores) only — the API's archive/unarchive, comments, attachments, checklists and relations leave it unchanged, and it never decreases; clients send the version they have; 409 returned if the card has been modified in the meantime)
  ├── assignee → User (nullable)
  ├── assigned_by → User (nullable, SET_NULL — who set the current assignee; read-only; 1.3+, #1923)
  ├── labels → Label (M2M)

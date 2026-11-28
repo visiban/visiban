@@ -1893,6 +1893,8 @@ class ExportJsonShapeTests(ExportBase):
                 "created_by",
                 "archived_at",
                 "custom_field_values",
+                "custom_field_values_changed_at",
+                "dimension_plans",
                 "external_ref",
                 "comments",
                 "checklist",

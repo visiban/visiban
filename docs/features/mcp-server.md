@@ -80,7 +80,7 @@ Replace `<your-visiban-host>` with your instance's hostname and `<your-token>` w
 
 Once connected, Claude Desktop shows Visiban as an active MCP server with a green status indicator. The server's details list:
 
-- **Tools** — `list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `board_flow_metrics`, `aging_cards`, and, if your token carries `mcp:write`, `create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`
+- **Tools** — `list_boards`, `list_columns`, `list_swimlanes`, `list_cards`, `board_flow_metrics`, `aging_cards`, and, if your token carries `mcp:write`, `create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`, `set_dimension_plan`
 - **Resources** — the `board` and `card` resource templates (`board://{board_id}`, `card://{card_id}`)
 
 **Watch out:** if the server doesn't appear, check that the URL includes `/mcp`, the token is prefixed `Bearer ` (not `Token `), and `MCP_SERVER_ENABLED` is set on the backend.
@@ -101,6 +101,7 @@ Once connected, Claude Desktop shows Visiban as an active MCP server with a gree
 | `archive_card` | Soft-delete a card (idempotent) | admin, member | `mcp:read` + `mcp:write` |
 | `block_card` | Mark a card blocked with a reason (*1.3*, see [Blocked cards](blocked-cards.md)) | admin, member | `mcp:read` + `mcp:write` |
 | `unblock_card` | Clear a card's manual block, with an optional resolution (*1.3*) | admin, member | `mcp:read` + `mcp:write` |
+| `set_dimension_plan` | Set a card's plan for one dimension: owner, next action, target date (*1.3*) | admin, member | `mcp:read` + `mcp:write` |
 
 The two flow tools answer "how is work moving?" from the flow service behind the [flow metrics](analytics.md) (definitions in the [flow metric decision record](../architecture/decisions.md)). `board_flow_metrics` cycle time and throughput equal the REST `metrics/cycle-time` and `metrics/throughput` endpoints for the same `days` and swimlane (both default to 90); WIP and blocked time come from the same service with no REST twin for per-column WIP. `blocked` is the `/analytics/` shape (rounded days by column name, reasons ranked by block count); `blocked_summary` (*new in 1.3*) is the REST `metrics/blocked` response, reasons ranked by blocked time as on the Analytics page. `aging_cards` has no REST or web counterpart; it uses the same dwell service as the heatmap. A percentile is `null` when there are too few samples (p50 needs 5, p85 7, p95 20), and throughput counts whole Monday-to-Sunday weeks only, so a window under 35 days always has a `null` weekly median. `null` means "not enough data", never zero. Block reasons and card titles in the results are free text written by board members.
 

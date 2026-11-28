@@ -45,11 +45,11 @@ from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
     CardChecklist, CardComment, CardGateTransition, CardMovement, CardParentLink, CardRelation, Label,
-    CustomFieldDefinition, Notification,
+    CustomFieldDefinition, CustomFieldValue, Notification,
 )
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
 from ..serializers import (
-    _PARKED_DIMENSION_PLANS,
+    _PARKED_CUSTOM_FIELD_VALUES, _PARKED_DIMENSION_PLANS,
     BlockCardSerializer, CardBlockSerializer, DimensionPlanWriteSerializer, UnblockCardSerializer,
     CardSerializer, CardMovementSerializer, CardGateTransitionSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
@@ -1091,6 +1091,15 @@ class CardViewSet(viewsets.ModelViewSet):
         # A card created in this request has no dimension plans (#1922), so
         # park the empty list rather than let the 201 body query the manager.
         setattr(serializer.instance, _PARKED_DIMENSION_PLANS, [])
+        # The 201 body reads the values twice: custom_field_values, and
+        # dimension_states (#2651), which needs each row's definition. Park one
+        # definition-joined read for both, as _card_queryset does, so the
+        # second field costs no query of its own.
+        setattr(serializer.instance, _PARKED_CUSTOM_FIELD_VALUES, list(
+            CustomFieldValue.objects.filter(card=serializer.instance).select_related(
+                "field_definition",
+            ).order_by("field_definition__position", "field_definition_id")
+        ))
         self._create_override = result.payload.get("override")
         self._create_entry_unmet = result.payload.get("entry_unmet")
 
@@ -1748,6 +1757,9 @@ class CardViewSet(viewsets.ModelViewSet):
             "blocked", "unblocked",
             # Every custom field value change (#1921), dimension or not.
             "custom_field_changed",
+            # Since 1.3 (#2703): dimension plan edits.
+            "dimension_owner_changed", "dimension_next_action_changed",
+            "dimension_target_date_changed",
         ],
         "checklist": [
             "checklist_item_added", "checklist_item_checked",

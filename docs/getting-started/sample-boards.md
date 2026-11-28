@@ -16,7 +16,7 @@ In the app, open **Import** on the Dashboard and pick a board under **Start from
 | `sales_overlay.json` | Sales Overlay | Account | 42 | Enterprise overlay coverage: AD, AE, SA, overlay AE/SA pods and services lead per account. Uses every custom field type and 15 swimlane fields. One account is partly covered and one has no overlay coverage |
 | `simple_kanban.json` | Simple Kanban | Team | 113 | Story points, sprint, GitLab merge request links |
 | `sales_pipeline.json` | Sales Pipeline | Region | 114 | Deal value, forecast category, win probability, competitors |
-| `product_roadmap.json` | Product Roadmap | Product area | 119 | RICE score, target quarter, platforms, GitHub issue links |
+| `product_roadmap.json` | Product Roadmap | Product area | 119 | RICE score, target quarter, platforms, design review dimension, GitHub issue links |
 | `customer_support.json` | Customer Support | Customer account | 109 | Severity, SLA due, affected components, support plan per account |
 | `customer_success.json` | Customer Success | Segment | 129 | Health score, ARR at stake, risk driver, products adopted |
 | `project_delivery.json` | Project Delivery | Project | 119 | RAG status, percent complete, budget, sponsor per project |

@@ -12,8 +12,10 @@ moves with the rest (#2580), so Board History shows one timeline.
 Shifted: card ``due_date``, ``archived_at``, ``created_at`` and
 ``blocked_at``; checklist item ``due_date`` (#445); comment, movement, activity and gate transition timestamps (#1102); each block's
 ``blocked_at`` and ``unblocked_at`` (#1149); the ``from_value`` / ``to_value`` of
-``due_date_change`` and ``checklist_item_due_changed`` activities (so history agrees with the shifted card), the ``to_value`` of ``planned_released`` activities (the child's due date, #2371), and of ``custom_field_changed`` activities on ``date`` fields (#1921); and
-values of ``date`` custom fields on cards and swimlanes. Relative spacing between all of them is preserved.
+``due_date_change`` and ``checklist_item_due_changed`` activities (so history agrees with the shifted card), the ``to_value`` of ``planned_released`` activities (the child's due date, #2371), and of ``custom_field_changed`` activities on ``date`` fields (#1921), and of ``dimension_target_date_changed`` activities (#2703);
+values of ``date`` custom fields on cards and swimlanes; each card's dimension plan ``target_date``
+(``dimension_plans``, #2704) and per-field ``custom_field_values_changed_at`` times (#2651).
+Relative spacing between all of them is preserved.
 """
 
 import datetime
@@ -67,6 +69,23 @@ def _shift_custom_values(values, date_names, delta):
             values[name] = _shift_date(values[name], delta)
 
 
+def _shift_dimension_dates(card, delta):
+    """Shift a card's dimension plan target dates and value change times (#2704, #2651).
+
+    Both are keyed by field name. The change times are what the dimension's
+    age is measured from, so they move with the history that explains them.
+    """
+    plans = card.get("dimension_plans")
+    if isinstance(plans, dict):
+        for plan in plans.values():
+            if isinstance(plan, dict) and plan.get("target_date"):
+                plan["target_date"] = _shift_date(plan["target_date"], delta)
+    changed_at = card.get("custom_field_values_changed_at")
+    if isinstance(changed_at, dict):
+        for name in list(changed_at):
+            changed_at[name] = _shift_datetime(changed_at[name], delta)
+
+
 def _shift_history(owner, card_date_fields, delta):
     """Shift every dated history row of one card, live or deleted (#2580).
 
@@ -99,7 +118,7 @@ def _shift_history(owner, card_date_fields, delta):
 def _shift_activity_values(item, card_date_fields, delta):
     """Shift the dates an activity stores as values, so history agrees with the card."""
     event_type = item.get("event_type")
-    if event_type in ("due_date_change", "checklist_item_due_changed"):
+    if event_type in ("due_date_change", "checklist_item_due_changed", "dimension_target_date_changed"):
         value_keys = ("from_value", "to_value")
     elif event_type == "planned_released":
         # from_value is the cause; to_value the child's own due date (#2371).
@@ -148,6 +167,7 @@ def shift_board_dates(data, days):
             if card.get(key):
                 card[key] = _shift_datetime(card[key], delta)
         _shift_custom_values(card.get("custom_field_values"), card_date_fields, delta)
+        _shift_dimension_dates(card, delta)
         # Checklist item due dates (#445) are plain dates like the card's.
         checklist = card.get("checklist")
         for entry in checklist if isinstance(checklist, list) else []:

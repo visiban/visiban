@@ -1636,6 +1636,17 @@ class CardActivity(models.Model):
         # to_value the comma-joined kinds tripped (wip, weight). On the
         # assignee basis ``assigned_by`` is who assigned the card (#2594).
         OVERRIDE_USED = "override_used", "Override used"
+        # #2703: one row per changed part of a dimension plan (#1922), so a
+        # retrospective can see who reassigned a dimension or moved its
+        # target. ``item_text`` is the dimension field's name at write time.
+        # Owner: from/to are usernames (blank = Unassigned), as for checklist
+        # assignees (#445). Next action: the full text (at most 200
+        # characters, the same text the card payload carries). Target date:
+        # ISO dates (blank = none). A purge removes them with the card's other
+        # activity rows.
+        DIMENSION_OWNER_CHANGED = "dimension_owner_changed", "Dimension owner changed"
+        DIMENSION_NEXT_ACTION_CHANGED = "dimension_next_action_changed", "Dimension next action changed"
+        DIMENSION_TARGET_DATE_CHANGED = "dimension_target_date_changed", "Dimension target date changed"
 
     # Event types whose ``item_text`` is meaningful (#2199, #1921): the
     # checklist item's text on assign/due rows, the custom field's name on
@@ -1646,6 +1657,9 @@ class CardActivity(models.Model):
         EventType.CHECKLIST_ITEM_DUE_CHANGED,
         EventType.CUSTOM_FIELD_CHANGED,
         EventType.OVERRIDE_USED,
+        EventType.DIMENSION_OWNER_CHANGED,
+        EventType.DIMENSION_NEXT_ACTION_CHANGED,
+        EventType.DIMENSION_TARGET_DATE_CHANGED,
     })
 
     # SET_NULL, not CASCADE (#1799): a hard-deleted card keeps its activity
@@ -2721,6 +2735,23 @@ class CustomFieldValue(models.Model):
         CustomFieldDefinition, on_delete=models.CASCADE, related_name="values"
     )
     value = models.TextField(blank=True)
+    # When ``value`` last really changed (#2651): age in state for the
+    # dimension matrix and the health roll-up. Written by
+    # ``boards.services.custom_fields`` only when the stored value differs, so
+    # re-saving the same choice keeps the clock. Kept on the value row rather
+    # than in a table of its own so the card read carries it in the
+    # ``custom_field_values`` prefetch it already runs (no added query).
+    # Clearing a value deletes the row, so a cleared field has no time here;
+    # its "not set" age is the card's ``column_entered_at`` (the matrix design).
+    # Nullable, no default: rows older than this column are backfilled from
+    # CardActivity where history exists (migration 0152) and stay NULL
+    # ("unknown") otherwise, as does a row an older release inserts during a
+    # rolling upgrade, and a row the CSV import or the seed/demo commands
+    # create (they do not stamp it; it is stamped on the next real edit).
+    value_changed_at = models.DateTimeField(
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+    )
 
     class Meta:
         db_table = "custom_field_values"

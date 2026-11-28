@@ -81,7 +81,7 @@ A filter value that fails its type check (`?updated_since=x`, `?assignee=x`) ret
 `GET /api/v1/boards/{board_id}/cards/{id}/` below, plus `board` (the board's integer ID) —
 single-board endpoints omit `board` because the URL already scopes to one board; a cross-board
 list has to say which board each row belongs to. `assignee_id` and `label_ids` (the write-only
-fields used to set an assignee or labels) are not present — this endpoint is read-only. This includes `external_ref` (read-only here; `null` when unset). Since 1.3 (#1922) this includes `dimension_plans`, in the same shape (`[]` when nothing is planned).
+fields used to set an assignee or labels) are not present — this endpoint is read-only. This includes `external_ref` (read-only here; `null` when unset). Since 1.3 (#1922) this includes `dimension_plans`, in the same shape (`[]` when nothing is planned), and since 1.3 (#2651) `dimension_states`, in the same shape (`[]` when no dimension has a value).
 
 ---
 
@@ -197,6 +197,7 @@ Every card object has these fields, in this endpoint, `POST /cards/`, `PATCH /ca
 | `version` | integer | yes | no | Optimistic concurrency counter; increments when the card's fields are updated (including its labels and custom-field values), the card is blocked or unblocked (since 1.3, #1149), or the card is moved, and on every Django admin save of the card, including one that only archives or restores it (since 1.3, #2040), so a move sent with the `version` read before an admin save gets `409 version_conflict`. Archiving and restoring through the API or MCP, and comment, attachment, checklist or relation changes, leave it unchanged. It never decreases, so a client can discard a copy of the card whose `version` is lower than the one it holds. Pass as `version` in the [move endpoint](#move) to enable OCC. PATCH and PUT do not accept or check `version`. |
 | `custom_field_values` | array | no | no | Values for the board's [custom fields](boards.md#custom-fields-since-12) — `[{ field_definition, value }]`. Readable and writable in the same shape; see below. Empty array when the card has no values. |
 | `dimension_plans` | array | yes | no | *Added in 1.3* (#1922). One entry per planned [dimension](../features/custom-fields.md#dimension-fields-13): `[{ field_id, owner, next_action, target_date, updated_at }]`. `owner` is a user object or `null`, `target_date` is `YYYY-MM-DD` or `null`. Read-only here; written through the [dimension plan endpoint](#dimension-plans-since-13). Empty array when nothing is planned. Not part of the public share payload. |
+| `dimension_states` | array | yes | no | *Added in 1.3* (#2651). When each [dimension](../features/custom-fields.md#dimension-fields-13)'s value last changed: `[{ field_id, changed_at }]`, one entry per dimension field that has a value, in the board's field order. `changed_at` is an ISO 8601 timestamp, or `null` when the time is unknown (a value set before 1.3 with no matching history entry, or one written on 1.3 by CSV import or the seed and demo commands, which record no time). Only a real change moves it: saving the value a card already has does not. Clearing a value removes its entry; a dimension with no value is "not set", and its age is the card's `column_entered_at`. Carried by the card's existing value read, so it adds no query. Not part of the public share payload. |
 | `external_ref` | object / null | no | no | Link to the GitLab/GitHub merge request, pull request, or issue that implements this card (since 1.2) — `{ provider, ref, url }` or `null`. Always present; `null` when unset. Readable and writable in the same shape; see [External ref](#external-ref-since-12). |
 | `is_blocked` | boolean | yes | no | *Added in 1.3* (#1149). `true` when the card is blocked manually (`blocked_at` is set) or by at least one active `blocks` relation (`blocker_count` > 0). Derived; the one signal the card face and the board's **Blocked only** filter show. |
 | `blocked_at` | string / null | yes | no | *Added in 1.3* (#1149). When the card's open [manual block](#block-and-unblock-since-13) started, or `null` when it is not manually blocked. Changes only through the block and unblock endpoints; PATCH ignores it. |
@@ -469,7 +470,7 @@ A full replace: an omitted key is cleared. Sending all three empty (`{}`) remove
 | `next_action` | string | no | Up to 200 characters, trimmed. Default `""` |
 | `target_date` | string / null | no | `YYYY-MM-DD`. Default `null`. An open dimension past its target date counts toward the card's "need attention" count |
 
-**Response** — `200 OK`, the full card, with the plan in `dimension_plans`.
+**Response** — `200 OK`, the full card, with the plan in `dimension_plans`. Each changed part of the plan is recorded in the card's history (since 1.3, #2703): see [dimension plan edits](#card-activity-dimension-plan-edits-since-13).
 
 | Status | When |
 |---|---|
@@ -718,7 +719,7 @@ Activity log (field changes, comments, attachments, checklist events, and since 
 | `actor` | object \| `null` | User who triggered the event, or `null` if that user has since been deleted |
 | `created_at` | string | ISO 8601 timestamp |
 | `imported_from_username` | string \| `null` | *Since 1.2.* `null` unless the entry was created by a board import with history; then `actor` is the importing user and this is the username the import file named (`""` when it named nobody). History imported by earlier versions carries `null`, since the original name was not kept. See [Imported history](../features/card-history.md#imported-history) |
-| `item_text` | string \| `null` | *Since 1.3 (#2199).* On `checklist_item_assigned` and `checklist_item_due_changed` entries, the checklist item's text when the change was made, kept after the item is renamed or deleted. On `custom_field_changed` entries, the custom field's name when the value changed, kept after the field is renamed or deleted (#1921). `null` on every other event type and on entries recorded before 1.3. Read-only |
+| `item_text` | string \| `null` | *Since 1.3 (#2199).* On `checklist_item_assigned` and `checklist_item_due_changed` entries, the checklist item's text when the change was made, kept after the item is renamed or deleted. On `custom_field_changed` entries, the custom field's name when the value changed, kept after the field is renamed or deleted (#1921). On the dimension plan entries (`dimension_owner_changed`, `dimension_next_action_changed`, `dimension_target_date_changed`, #2703), the dimension field's name. `null` on every other event type and on entries recorded before 1.3. Read-only |
 | `assigned_by` | object \| `null` | *Since 1.3 (#2594).* On an `override_used` entry whose `from_value` is `assignee`, the user who assigned the card when the override was made, in the same shape as `actor`; a snapshot, so a later reassignment does not change it. `null` on every other entry, on admin overrides, on imported entries and once that user is deleted. Read-only |
 
 ```json
@@ -762,7 +763,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 | `move` | All `CardMovement` records |
 | `gate` | *Added in 1.3* (#2365). `CardGateTransition` records with no `movement`: `gate_passed` and `gate_reopened`. See [Gate entries](#timeline-gate-entries) |
 | `comment` | `comment_added` |
-| `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change`, and since 1.3 `blocked`, `unblocked` (#1149) and `custom_field_changed` (#1921) |
+| `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change`, and since 1.3 `blocked`, `unblocked` (#1149), `custom_field_changed` (#1921) and the dimension plan edits `dimension_owner_changed`, `dimension_next_action_changed`, `dimension_target_date_changed` (#2703) |
 | `checklist` | `checklist_item_added`, `checklist_item_checked`, `checklist_item_unchecked`, `checklist_item_deleted` |
 | `attachment` | `attachment_added`, `attachment_deleted` |
 | `system` | `archived`, `reactivated`, and since 1.3 `parent_linked`, `parent_unlinked`, `child_linked`, `child_unlinked` (#1104), `children_removed_board_deleted`, `parent_removed_board_deleted` (#2208), `planned_released`, `needed_changed` (#2371) |
@@ -894,7 +895,7 @@ One integer per `event_types` group, always every key (`gate` was added in 1.3 b
 | `actor` | object / null | User who triggered the event — `{ id, username, display_name, avatar_url }`. `null` for system-generated events |
 | `event_type` | string | Concrete event type (see group mapping table above). For `kind: "move"` entries this is the `movement_type` value (e.g. `"move"`, `"archived"`, `"unarchived"`) |
 | `imported_from_username` | string / null | *Since 1.2.* The underlying record's `imported_from_username` — `null` unless it came from a board import with history |
-| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (`from_gates_passed`, `from_gates_open`, `to_gates_passed`) and the Warn record `entry_unmet` (#2655, `null` when nothing was unmet). `gate` entries carry the gate transition's REST shape (see [Gate entries](#timeline-gate-entries)). `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the activity's `item_text`: the field's name on `custom_field_changed`, #1921; `null` on entries recorded before 1.3), and since 1.3 `override_used` entries carry `item_text` (the reason) and `assigned_by` (#2594: the activity's `assigned_by` user object, `null` when there is none). |
+| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (`from_gates_passed`, `from_gates_open`, `to_gates_passed`) and the Warn record `entry_unmet` (#2655, `null` when nothing was unmet). `gate` entries carry the gate transition's REST shape (see [Gate entries](#timeline-gate-entries)). `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the activity's `item_text`: the field's name on `custom_field_changed`, #1921; `null` on entries recorded before 1.3; the dimension's name on the dimension plan entries, #2703), and since 1.3 `override_used` entries carry `item_text` (the reason) and `assigned_by` (#2594: the activity's `assigned_by` user object, `null` when there is none). |
 
 **Errors**
 
@@ -1762,6 +1763,18 @@ One entry per sub-column, in order: `cards` counts active cards and `archived_ca
 ### Card activity: `custom_field_changed`
 
 Every custom field value set, changed or cleared, on any transport, writes a card activity row with `event_type` `custom_field_changed`, `from_value` / `to_value` (`""` = no value), the actor, and `item_text` = the field's name at the time.
+
+### Card activity: dimension plan edits (since 1.3)
+
+*Added in 1.3* (#2703). Each [dimension plan](#dimension-plans-since-13) write records one card activity row for each part of the plan that changed, with the actor and `item_text` = the dimension field's name at the time. A write that repeats the stored plan records nothing.
+
+| `event_type` | `from_value` / `to_value` |
+|---|---|
+| `dimension_owner_changed` | The owner's username; `""` = Unassigned |
+| `dimension_next_action_changed` | The next action text in full (at most 200 characters); `""` = none |
+| `dimension_target_date_changed` | `YYYY-MM-DD`; `""` = no target date |
+
+They are in the timeline's `field` group and carry `item_text` like `custom_field_changed`. Board export and JSON import carry them with the card's other activities. `purge_card_history` removes them with the card's other activity rows.
 
 
 ## Force overrides: assignee basis, reasons and audit (since 1.3, #1923)

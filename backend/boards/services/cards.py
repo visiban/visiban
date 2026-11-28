@@ -3118,6 +3118,38 @@ def unblock_card(*, actor, board, card_id, render, resolution="", role=None):
     return CardMutationResult(card=card, payload=payload)
 
 
+def _record_dimension_plan_changes(*, card, field, actor, previous, owner, next_action, target_date):
+    """Write one history row per changed part of a dimension plan (#2703).
+
+    Compared against the stored plan (``previous``, None when there is none),
+    so a PUT that repeats the plan records nothing and a full replace records
+    only what differs. Rows carry old and new values and the actor; see
+    ``CardActivity.EventType.DIMENSION_*`` for the value formats.
+    """
+    ET = CardActivity.EventType
+    old_owner = previous.owner.username if previous is not None and previous.owner else ""
+    old_action = previous.next_action if previous is not None else ""
+    old_target = (
+        previous.target_date.isoformat() if previous is not None and previous.target_date else ""
+    )
+    changes = (
+        (ET.DIMENSION_OWNER_CHANGED, old_owner, owner.username if owner is not None else ""),
+        (ET.DIMENSION_NEXT_ACTION_CHANGED, old_action, next_action or ""),
+        (ET.DIMENSION_TARGET_DATE_CHANGED, old_target, target_date.isoformat() if target_date else ""),
+    )
+    rows = [
+        CardActivity(
+            card=card, event_type=event_type, from_value=old, to_value=new,
+            actor=actor if getattr(actor, "pk", None) else None,
+            item_text=field.name[:500],
+        )
+        for event_type, old, new in changes
+        if old != new
+    ]
+    if rows:
+        CardActivity.objects.bulk_create(rows)
+
+
 def set_dimension_plan(*, actor, board, card_id, field, owner, next_action, target_date, render, role=None):
     """Replace a card's plan for one dimension (#1922).
 
@@ -3125,7 +3157,8 @@ def set_dimension_plan(*, actor, board, card_id, field, owner, next_action, targ
     cards they created), since owner, next action and target date are card
     content. ``field`` is already resolved by the caller as a dimension on
     ``board``. A plan with no owner, no next action and no target date
-    deletes the row, so "no plan" has one representation. Bumps the card's
+    deletes the row, so "no plan" has one representation. Each changed part
+    of the plan leaves a card history row (#2703). Bumps the card's
     version and broadcasts ``card.updated`` after commit, exactly like the
     other card writes, so every open board replaces the card in place.
     """
@@ -3148,6 +3181,14 @@ def set_dimension_plan(*, actor, board, card_id, field, owner, next_action, targ
             pk=field.pk, board_id=board_id, is_dimension=True,
         ).exists():
             raise ObjectNotFound()
+        previous = (
+            CardDimensionPlan.objects.select_related("owner")
+            .filter(card=card, field_definition=field).first()
+        )
+        _record_dimension_plan_changes(
+            card=card, field=field, actor=actor, previous=previous,
+            owner=owner, next_action=next_action, target_date=target_date,
+        )
         if owner is None and not next_action and target_date is None:
             CardDimensionPlan.objects.filter(card=card, field_definition=field).delete()
         else:
