@@ -4,6 +4,7 @@
  */
 import type { Column, ColumnEntryRequirement, CustomFieldDefinition, EntryEnforcement, EntryRequirementOperator } from "../types";
 import type { EntryRequirementWrite } from "../api/boards";
+import { formatNumberValue } from "./customFieldValue";
 
 /** Server cap (ColumnEntryRequirement.MAX_PER_COLUMN). */
 export const ENTRY_REQUIREMENTS_CAP = 10;
@@ -50,10 +51,12 @@ export function formatComparisonOperand(operand: string | null, field?: OperandF
   const numeric = operand.trim() !== "" && Number.isFinite(n);
   const affixed = field?.field_type === "number" && (field.number_prefix || field.number_suffix);
   if (!numeric) return operand;
-  // With an affix the exact operand is shown (no 3-digit cap); without one the
-  // text is byte-identical to what unformatted bounds always showed.
-  if (!affixed) return n.toLocaleString("en-US");
-  return `${field.number_prefix ?? ""}${n.toLocaleString("en-US", { maximumFractionDigits: 20 })}${field.number_suffix ?? ""}`;
+  // The exact bound, never rounded to the field's decimals. With an affix it goes
+  // through `formatNumberValue` with no `decimals`, exactly as the settings summary
+  // does, so the sign sits before the prefix ("-$50") and no digits are lost. The
+  // plain path groups up to 6 fraction digits (the server's operand scale).
+  if (!affixed) return n.toLocaleString("en-US", { maximumFractionDigits: 6 });
+  return formatNumberValue(operand, { prefix: field.number_prefix, suffix: field.number_suffix });
 }
 
 /** Operators a field accepts, mirroring the server's OPERATORS_BY_TYPE. Checkbox accepts none in 1.3. */

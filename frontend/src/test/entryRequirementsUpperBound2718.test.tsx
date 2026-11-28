@@ -71,7 +71,13 @@ describe('formatComparisonOperand', () => {
     const pct0 = field(6, 'Win', 'number', { number_suffix: '%', number_decimals: 0 })
     expect(formatComparisonOperand('19.5', pct0)).toBe('19.5%')
     expect(unmetRequirementLabel(item({ operand: '19.5', field_uid: 'f6' }), [pct0])).toBe('Win probability at most 19.5%')
-    expect(formatComparisonOperand('0.12345', plain)).toBe('0.123')
+    expect(formatComparisonOperand('0.12345', plain)).toBe('0.12345')
+    expect(formatComparisonOperand('0.1235', plain)).toBe('0.1235')
+    // A negative bound reads like the field: sign before the prefix, as describeRow shows it.
+    expect(formatComparisonOperand('-50', amount)).toBe('-$50')
+    expect(unmetRequirementLabel(item({ operand: '-50', field_uid: 'f2', field_name: 'Amount' }), fields)).toBe('Amount at most -$50')
+    // Up to 14 integer digits and 6 decimals survive exactly (the server's range).
+    expect(formatComparisonOperand('12345678901234.123456', amount)).toBe('$12,345,678,901,234.123456')
     expect(formatComparisonOperand('50000', plain)).toBe('50,000')
     expect(formatComparisonOperand('50000', undefined)).toBe('50,000')
     expect(formatComparisonOperand('50000', tags)).toBe('50,000')
