@@ -5600,7 +5600,7 @@
 </tr>
 <tr>
 <td><code>entry_requirements_unmet</code></td>
-<td>A forward <code>move_card</code>, or a <code>create_card</code>, into a column whose entry requirements are unmet, in Block or Hard mode. Carries <code>column_name</code>, <code>mode</code>, <code>unmet</code> and <code>also</code>, as on REST. There is no <code>force</code> option over MCP, so Block acts as Hard here: a board admin overrides it in the web app. In Warn mode the move or create succeeds and the unmet list is recorded on the movement; the tool result does not carry it. <em>Added in 1.3 (#1923).</em></td>
+<td>A forward <code>move_card</code>, or a <code>create_card</code>, into a column whose entry requirements are unmet, in Block or Hard mode. Carries <code>column_name</code>, <code>mode</code>, <code>unmet</code> and <code>also</code>, as on REST. There is no <code>force</code> option over MCP, so Block acts as Hard here: a board admin overrides it in the web app. In Warn mode the move or create succeeds and the unmet list is recorded on the movement; since #2655 the result's <code>movement</code>, and each movement in the <code>card://</code> resource, carries it as <code>entry_unmet</code> (<code>null</code> when nothing was unmet). <em>Added in 1.3 (#1923).</em></td>
 </tr>
 <tr>
 <td><code>weight_limit_exceeded</code></td>

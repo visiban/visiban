@@ -5369,9 +5369,11 @@ count toward the 30-field limit, and do not block a card from moving.</p>
 <h3 id="managing-field-sets-board-settings-field-sets">Managing field sets (Board Settings → Field sets)<a class="headerlink" href="#managing-field-sets-board-settings-field-sets" title="Permanent link">&para;</a></h3>
 <p>Board admins create, rename, reorder and delete sets; other roles see the list read-only. Each
 set has a <strong>name</strong>, an optional <strong>description</strong> (up to 120 characters, shown under the name on
-the card), a <strong>default size</strong> (Collapsed, Summary or All fields), <strong>Shows on</strong> (every card, or
-only cards in chosen swimlanes), and its <strong>fields</strong>. A field is in at most one set; adding a
-field that is in another set moves it. Pick fields in the <strong>+ Add field</strong> menu (listed as <strong>Not in
+the card; the editor says so under the box, and a longer one is refused), a <strong>default size</strong> (Collapsed, Summary or All fields), <strong>Shows on</strong> (every card, or
+only cards in chosen swimlanes), and its <strong>fields</strong>. With chosen swimlanes, the editor notes that
+a card in another lane that already has a value in one of the set's fields still shows the set,
+collapsed. A field is in at most one set; adding a field that is in another set moves it, and the
+editor says so under the field list ("Fields from another set move out of it."). Pick fields in the <strong>+ Add field</strong> menu (listed as <strong>Not in
 a set</strong> or <strong>In another set</strong>) and click <strong>Done</strong>; choose swimlanes in the <strong>Swimlanes</strong> menu. Drag
 the handle to reorder sets, or the fields inside a set (on a phone, use the arrow buttons). Set order
 saves at once; field order saves with <strong>Save field set</strong>, and is the board's field order, so the
@@ -5393,7 +5395,8 @@ and dimension fields are not counted, so "missing" never means "No") and a size 
 <li><strong>Collapsed</strong> shows the header only.</li>
 <li><strong>Summary</strong> shows one line of chips, missing fields first, then "+N" for the rest.</li>
 <li><strong>All fields</strong> shows every field.</li>
-<li><strong>Maximize</strong> fills the card sheet with one set. Previous / Next step through the sets;
+<li><strong>Maximize</strong> fills the card sheet with one set. Its header shows the progress and the set's
+  place, for example "4 of 6 filled · 1 of 4 sets". Previous / Next step through the sets;
   <strong>Restore</strong> or Escape returns you to where you were.</li>
 </ul>
 <p>Your sizes are saved per card in this browser and are yours alone. <strong>Collapse all</strong> and

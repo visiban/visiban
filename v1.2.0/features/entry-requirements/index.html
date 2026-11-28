@@ -4667,8 +4667,9 @@ entry criteria.</p>
 <p>Each column chooses one mode. New requirements start in <strong>Warn</strong>.</p>
 <ul>
 <li><strong>Warn</strong>: the card moves in and a toast says which requirements were not
-  met. The movement stores what was not met, but the API and timeline do not
-  show it yet (tracked in #2655).</li>
+  met. The move is recorded with what was not met: the card's History tab and
+  the board's History show "· N entry requirements not met" on that move, and
+  the record names the requirements, never the card's values.</li>
 <li><strong>Block</strong>: the move is refused. A board admin can move it anyway with a
   reason, and so can the card's assignee when the board allows
   <a href="../board/#letting-a-cards-assignee-move-it-anyway-since-13">assignee overrides</a>. The reason is visible to everyone on
@@ -4725,7 +4726,9 @@ for "entry requirements" to jump there.</p>
    allows it, can move it anyway with a reason) or <strong>Hard</strong> (no override).</li>
 <li>Select <strong>Save requirements</strong>. The "Applies to" line under the conditions
    shows which swimlanes they cover; it follows the field sets, so it is not
-   chosen here.</li>
+   chosen here. When it names swimlanes, a note below says "Set by the field
+   set's lanes. Change them in Field sets.", and <strong>Field sets</strong> opens that
+   section of Board settings.</li>
 </ol>
 <p>Turning <strong>Requirements on</strong> off keeps the saved conditions but stops checking
 them. A column with <strong>Requirements on</strong> and no conditions saves as off, and
