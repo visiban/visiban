@@ -50,16 +50,28 @@ interface Props {
   onRevealed?: () => void;
 }
 
-function Progress({ filled, total, id }: { filled: number; total: number; id: string }) {
-  if (total === 0) return null;
-  const pct = Math.round((filled / total) * 100);
+/** The set's fill bar and count. `position` (Maximize, #2672) spells the
+ *  count out and adds the set's place: "4 of 6 filled · 1 of 4 sets". */
+function Progress({ filled, total, id, position }: { filled: number; total: number; id: string; position?: string }) {
+  if (total === 0 && !position) return null;
+  const pct = total === 0 ? 0 : Math.round((filled / total) * 100);
   return (
     <span className="flex items-center gap-1.5 shrink-0">
-      <span className="w-[72px] h-1.5 rounded-full bg-sunken overflow-hidden" aria-hidden="true">
-        <span className={`block h-full ${filled === total ? "bg-success" : "bg-primary-emphasis"}`} style={{ width: `${pct}%` }} />
-      </span>
-      <span className="text-xs text-fg-muted" aria-hidden="true">{filled}/{total}</span>
-      <span id={id} className="sr-only">{filled} of {total} filled</span>
+      {total > 0 && (
+        <span className={`w-[72px] h-1.5 rounded-full bg-sunken overflow-hidden ${position ? "hidden sm:block" : ""}`} aria-hidden="true">
+          <span className={`block h-full ${filled === total ? "bg-success" : "bg-primary-emphasis"}`} style={{ width: `${pct}%` }} />
+        </span>
+      )}
+      {position ? (
+        <span id={id} className="text-xs text-fg-muted whitespace-nowrap" data-testid="field-set-max-position">
+          {total > 0 ? `${filled} of ${total} filled · ${position}` : position}
+        </span>
+      ) : (
+        <>
+          <span className="text-xs text-fg-muted" aria-hidden="true">{filled}/{total}</span>
+          <span id={id} className="sr-only">{filled} of {total} filled</span>
+        </>
+      )}
     </span>
   );
 }
@@ -454,7 +466,7 @@ function FieldSetMaximized({ layerRef: ref, anchor, blocks, index, cardTitle, va
           <p className="text-xs text-fg-muted truncate" title={`${cardTitle} › Field sets`}>{cardTitle} › Field sets</p>
           <h2 id="field-set-max-title" title={block.name} className="text-base font-semibold text-fg truncate">{block.name}</h2>
         </div>
-        <Progress {...prog} id="field-set-max-prog" />
+        <Progress {...prog} id="field-set-max-prog" position={`${index + 1} of ${blocks.length} ${blocks.length === 1 ? "set" : "sets"}`} />
         {navBtn("Previous field set", index - 1, "M12.7 4.3l1.4 1.4L9.8 10l4.3 4.3-1.4 1.4L7 10z")}
         {navBtn("Next field set", index + 1, "M7.3 4.3L5.9 5.7 10.2 10l-4.3 4.3 1.4 1.4L13 10z")}
         <button type="button" data-restore onClick={onClose}

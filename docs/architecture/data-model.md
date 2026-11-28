@@ -302,7 +302,7 @@ One change to an audited board setting (#1923, #2584): `allow_assignee_override`
 
 ### CardMovement
 
-`CardMovement` also records the gate state of a move (1.3, #1102): `from_gates_passed`, `from_gates_open` and `to_gates_passed`, nullable smallints (null where that end is not a gated stage).
+`CardMovement` also records the gate state of a move (1.3, #1102): `from_gates_passed`, `from_gates_open` and `to_gates_passed`, nullable smallints (null where that end is not a gated stage). `entry_unmet` (1.3, #1923) is the nullable JSON Warn record of an entry into a `warn` column: requirement and field uids, operators, operands and names, never a card's value; every reader serves it through `warn_record_items` (#2655).
 
 `movement_type` distinguishes regular workflow moves from system events:
 

@@ -87,5 +87,8 @@ describe('describeMovement', () => {
     expect(describeMovement(mv({ from_column: 1, from_column_name: 'Prospect', to_column: 1, to_column_name: 'Prospect', from_swimlane: 4, to_swimlane: 5, to_swimlane_name: 'APAC' }))).toBe('Moved to APAC')
     expect(describeMovement(mv({ movement_type: 'archived' }))).toBe('Archived')
     expect(describeMovement(mv({ movement_type: 'unarchived' }))).toBe('Restored')
+    const move = { from_column: 1, from_column_name: 'Prospect', to_column: 2, to_column_name: 'Qualified' }
+    expect(describeMovement(mv({ ...move, entry_unmet: [{ requirement_uid: 'r' }] as never }))).toBe('Prospect to Qualified, 1 entry requirement not met')
+    expect(describeMovement(mv({ ...move, entry_unmet: null }))).toBe('Prospect to Qualified')
   })
 })

@@ -42,6 +42,17 @@ export function overrideAssignerSuffix(
     : "";
 }
 
+/**
+ * The Warn note on a history move row (#2655): "1 entry requirement not met"
+ * when the card entered a `warn` column without meeting its entry
+ * requirements (#1923), else null. The count only; the record names the
+ * requirements, never the card's values.
+ */
+export function movementEntryNote(m: Pick<CardMovement, "entry_unmet">): string | null {
+  const n = Array.isArray(m.entry_unmet) ? m.entry_unmet.length : 0;
+  return n > 0 ? `${n} entry requirement${n === 1 ? "" : "s"} not met` : null;
+}
+
 /** One-line description of a timeline activity entry (the History tab's row text). */
 export function activityLabel(
   event_type: string,

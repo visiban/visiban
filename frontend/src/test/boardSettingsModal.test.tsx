@@ -4638,3 +4638,25 @@ describe('BoardSettingsModal — band slots wiring (#2663)', () => {
     expect(screen.getByTestId('swimlane-band-counter')).toHaveTextContent('3 / 6 · 2 fit on this screen')
   })
 })
+
+// #2672: the lane scope of an entry requirement is derived, so its helper line links to Field sets.
+describe('BoardSettingsModal — entry requirements link to Field sets (#2672)', () => {
+  it('switches to the Field sets tab when the lane-scope link is clicked', async () => {
+    const user = userEvent.setup()
+    const board = {
+      ...fakeBoard,
+      swimlanes: [{ id: 21, name: 'Enterprise' }],
+      custom_field_definitions: [{ id: 1, uid: 'f1', name: 'Amount', field_type: 'number', choices: [] }],
+      custom_field_sets: [{ id: 9, uid: 's9', name: 'MEDDIC', description: null, position: 0, default_size: 'summary', scope: 'swimlanes', swimlanes: [21], field_ids: [1], created_at: '' }],
+      columns: [{
+        id: 2, uid: 'c2', name: 'Proposal', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null,
+        allow_card_creation: true, is_done: false, policy: null, entry_enforcement: 'block',
+        entry_requirements: [{ uid: 'r1', field_uid: 'f1', field_set_uid: null, operator: 'gt', operand: '5', position: 0 }],
+      }],
+    } as unknown as BoardFull
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={true} onClose={vi.fn()} initialTab="rules" initialEntryColumnId={2} />)
+    await user.click(await screen.findByRole('button', { name: 'Field sets' }))
+    expect(await screen.findByRole('heading', { name: 'Field sets' })).toBeInTheDocument()
+    expect(screen.queryByTestId('entry-lanes-help')).toBeNull()
+  })
+})

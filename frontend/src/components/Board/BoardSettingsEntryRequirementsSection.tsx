@@ -24,13 +24,15 @@ interface Props {
   sets: CustomFieldSet[];
   swimlanes: Swimlane[];
   isAdmin: boolean;
+  /** #2672: open Board settings › Field sets, where a requirement's lanes are set. */
+  onOpenFieldSets?: () => void;
   /** Column ⋮ "Entry requirements…" deep link: select this column. */
   initialColumnId?: number;
   /** Replace-all PUT; resolves once the board has the saved column. Rejects on failure. */
   onSave: (columnId: number, body: ReturnType<typeof toWrite>) => Promise<void>;
 }
 
-export default function BoardSettingsEntryRequirementsSection({ columns, fields, sets, swimlanes, isAdmin, initialColumnId, onSave }: Props) {
+export default function BoardSettingsEntryRequirementsSection({ columns, fields, sets, swimlanes, isAdmin, initialColumnId, onSave, onOpenFieldSets }: Props) {
   const headingId = useId();
   const idBase = useId();
   const sectionRef = useRef<HTMLElement>(null);
@@ -425,6 +427,15 @@ export default function BoardSettingsEntryRequirementsSection({ columns, fields,
         {draft.rows.length > 0 && (
           <p className="mt-3 text-xs text-fg-secondary">
             {appliesTo} Cards created directly in {selected.name} are checked too.
+          </p>
+        )}
+        {/* #2672: lane scope is derived and read-only (owner, #1923), so say where it is changed. */}
+        {draft.rows.length > 0 && !allEverywhere && (
+          <p className="mt-1 text-xs text-fg-tertiary" data-testid="entry-lanes-help">
+            Set by the field set&apos;s lanes. Change them in{" "}
+            {onOpenFieldSets ? (
+              <button type="button" className="underline text-primary-emphasis hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded-sm" onClick={onOpenFieldSets}>Field sets</button>
+            ) : "Field sets"}.
           </p>
         )}
 

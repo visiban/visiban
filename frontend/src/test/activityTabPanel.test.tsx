@@ -570,6 +570,23 @@ describe("ActivityTabPanel custom field change label (#1921)", () => {
     expect(note.textContent).not.toMatch(/gate/i);
   });
 
+  it("shows the Warn note on a move into a warn column with unmet entry requirements (#2655)", async () => {
+    const entry = makeMoveEntry();
+    Object.assign(entry.data, { entry_unmet: [{ requirement_uid: "r1", operator: "gt" as const, operand: "50000", field_uid: "f1", field_name: "Amount", field_set_uid: null, field_set_name: null }, { ...{ requirement_uid: "r1", operator: "gt" as const, operand: "50000", field_uid: "f1", field_name: "Amount", field_set_uid: null, field_set_name: null }, requirement_uid: "r2" }] });
+    mockGetTimeline.mockResolvedValue(makeTimelinePage([entry]));
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    expect(await screen.findByTestId("history-entry-note")).toHaveTextContent("· 2 entry requirements not met");
+  });
+
+  it("shows no Warn note when the move recorded none (#2655)", async () => {
+    const entry = makeMoveEntry();
+    Object.assign(entry.data, { entry_unmet: null });
+    mockGetTimeline.mockResolvedValue(makeTimelinePage([entry]));
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    await screen.findByText(/In Progress/);
+    expect(screen.queryByTestId("history-entry-note")).not.toBeInTheDocument();
+  });
+
   it("shows no sub-column note on a plain move row (#2278)", async () => {
     mockGetTimeline.mockResolvedValue(makeTimelinePage([makeMoveEntry()]));
     render(<ActivityTabPanel boardId={1} cardId={1} />);

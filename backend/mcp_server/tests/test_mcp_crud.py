@@ -1006,8 +1006,42 @@ class MoveCardTests(CrudToolsTestCase):
         card.refresh_from_db()
         self.assertEqual(card.column_id, self.column.id)
 
+    def test_warn_move_result_and_card_detail_carry_entry_unmet(self):
+        # #2655: a Warn move goes through; the tool's movement and the card
+        # resource's history both carry the record, never the card's value.
+        field = CustomFieldDefinition.objects.create(
+            board=self.board, name="Amount", field_type="number", position=0,
+        )
+        req = ColumnEntryRequirement.objects.create(
+            column=self.other_column, field_definition=field, operator="gt", operand="50000",
+        )
+        self.other_column.entry_enforcement = "warn"
+        self.other_column.save(update_fields=["entry_enforcement"])
+        card = _make_card(self.column, self.swimlane, title="Warned")
+        result = self._call(
+            "move_card", self.write_token, card_id=card.id, to_column_id=self.other_column.id,
+        )
+        expected = [{
+            "requirement_uid": req.uid, "operator": "gt", "operand": "50000",
+            "field_uid": field.uid, "field_name": "Amount",
+            "field_set_uid": None, "field_set_name": None,
+        }]
+        self.assertEqual(result["movement"]["entry_unmet"], expected)
+        from unittest.mock import patch
+
+        from mcp_server import tools
+
+        with patch("mcp_server.tools.get_current_user", return_value=self.user):
+            detail = tools.card_detail(card_id=card.id)
+        self.assertEqual(detail["movements"][0]["entry_unmet"], expected)
+
     def test_move_to_new_column_creates_movement(self):
         card = _make_card(self.column, self.swimlane, title="Movable")
+        result = self._call(
+            "move_card", self.write_token, card_id=card.id, to_column_id=self.other_column.id,
+        )
+        self.assertIsNone(result["movement"]["entry_unmet"])
+        card = _make_card(self.column, self.swimlane, title="Movable2")
         result = self._call(
             "move_card", self.write_token, card_id=card.id, to_column_id=self.other_column.id,
         )

@@ -1094,6 +1094,7 @@ Since 1.3 (#1102, #1921), the export carries [gated stages](cards.md#gated-stage
 - Each column carries `sub_columns` (the ordered sub-column names; `[]` for a plain column) and `tracks` (the names of the dimension fields bound to the stage, in order). Each swimlane carries `not_applicable_tracks`, the names of the dimension fields the lane is exempt from. Each `custom_fields` entry carries `is_dimension` and `choice_resolutions` (choice name to `satisfied` or `not_applicable`).
 - Each card carries `gates_passed` (its sub-column index, `0` to the column's sub-column count minus one; larger or non-integer values are a `400`) and `gate_transitions`, its gate history oldest first (`{kind, from_index, to_index, column, sub_column, reason, cause, actor, created_at, imported_from_username, movement_index}`). `movement_index` is the position of the movement that caused the transition in the same card's `movements` array, or `null`.
 - Each movement carries `from_gates_passed`, `from_gates_open` and `to_gates_passed` (integers `0` to `4`, or `null` for a move that did not touch a gated stage; anything else is a `400`).
+- Since #2655, each movement also carries `entry_unmet`, the [Warn record](cards.md#entry-requirements-since-13-1923) of a move into a Warn column with unmet entry requirements (`null` otherwise). It is informational: its uids name the source board's requirements, so import ignores the key.
 
 On import, `gates_passed` is restored whatever the `history` option. `gate_transitions` are restored only with `history` on, attributed to the importing user with the file's `actor` kept in `imported_from_username`; an unknown `kind` is skipped and an unknown `cause` becomes `import`. A transition is re-linked to its movement through `movement_index`; a `null`, absent or out-of-range index leaves the link empty, because the file has no other safe key.
 
@@ -1147,7 +1148,7 @@ Since 1.3 (#2243), each swimlane object also carries its [lane health status](..
       "comments": [{ "author": "bob", "body": "On it.", "created_at": "2026-03-02T09:00:00Z", "imported_from_username": null }],
       "checklist": [{ "text": "Write tests", "is_checked": false, "assignee": "bob", "due_date": "2026-04-02" }],
       "movements": [
-        { "from_column": null, "to_column": "Backlog", "from_swimlane": null, "to_swimlane": "Acme Corp", "moved_by": "alice", "moved_at": "2026-03-01T10:00:00Z", "notes": "", "movement_type": "move", "imported_from_username": null, "from_gates_passed": null, "from_gates_open": null, "to_gates_passed": null }
+        { "from_column": null, "to_column": "Backlog", "from_swimlane": null, "to_swimlane": "Acme Corp", "moved_by": "alice", "moved_at": "2026-03-01T10:00:00Z", "notes": "", "movement_type": "move", "imported_from_username": null, "from_gates_passed": null, "from_gates_open": null, "to_gates_passed": null, "entry_unmet": null }
       ],
       "gates_passed": 0,
       "gate_transitions": [],

@@ -162,7 +162,10 @@ describe("FieldSetBlocks", () => {
     expect(screen.getByTestId("field-set-max-region").className).toContain("scroll-pb-8");
     expect(screen.getByText("Deal › Field sets")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous field set" })).toHaveAttribute("aria-disabled", "true");
+    // #2672: the set's position shows beside the progress, not only in the status region.
+    expect(screen.getByTestId("field-set-max-position")).toHaveTextContent(/^\d+ of \d+ filled · 1 of \d+ sets$/);
     fireEvent.click(screen.getByRole("button", { name: "Next field set" }));
+    expect(screen.getByTestId("field-set-max-position")).toHaveTextContent(/· 2 of \d+ sets$/);
     expect(screen.getByText("Showing Money, 2 of 3.")).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByTestId("field-set-maximized")).toBeNull());
@@ -643,6 +646,23 @@ describe("field set editor controls (#2570, ux-design section 4)", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
     expect(screen.getByRole("button", { name: "+ Add field" })).toHaveFocus();
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
+  });
+
+  it("shows the design's helper lines: description limit, out-of-lane rule, field moves (#2672)", () => {
+    mount();
+    open();
+    const description = screen.getByLabelText(/Description \(optional\)/);
+    expect(description).toHaveAttribute("maxLength", "120");
+    expect(description).toHaveAccessibleDescription("Shown under the set name on cards. Up to 120 characters.");
+    expect(screen.getByText("Fields from another set move out of it.")).toBeInTheDocument();
+    const outOfLane = "A card in another lane that already has a value in one of these fields still shows the set, collapsed.";
+    if (!(screen.getByLabelText("Only cards in these swimlanes") as HTMLInputElement).checked) {
+      expect(screen.queryByText(outOfLane)).toBeNull();
+      fireEvent.click(screen.getByLabelText("Only cards in these swimlanes"));
+    }
+    expect(screen.getByText(outOfLane)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Every card"));
+    expect(screen.queryByText(outOfLane)).toBeNull();
   });
 
   it("picks swimlanes in a dropdown", async () => {

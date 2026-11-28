@@ -923,6 +923,9 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
         "moved_by", "moved_at", "movement_type", "imported_from_username",
         # #1102: gate-progress counters/ids on a movement — structure only.
         "from_gates_passed", "from_gates_open", "to_gates_passed",
+        # #2655: the Warn record names requirements and fields (board
+        # configuration, like the column names above), never a card's value.
+        "entry_unmet",
     }
     EXTERNAL_REF_STRUCTURE = {"provider"}
     # #1104: ``parent`` carries the parent card's title (user text), but it is opt-in

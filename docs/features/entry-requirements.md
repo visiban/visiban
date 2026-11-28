@@ -25,8 +25,9 @@ A column can have up to 10 requirements. All of them must be met.
 Each column chooses one mode. New requirements start in **Warn**.
 
 - **Warn**: the card moves in and a toast says which requirements were not
-  met. The movement stores what was not met, but the API and timeline do not
-  show it yet (tracked in #2655).
+  met. The move is recorded with what was not met: the card's History tab and
+  the board's History show "· N entry requirements not met" on that move, and
+  the record names the requirements, never the card's values.
 - **Block**: the move is refused. A board admin can move it anyway with a
   reason, and so can the card's assignee when the board allows
   [assignee overrides](board.md#letting-a-cards-assignee-move-it-anyway-since-13). The reason is visible to everyone on
@@ -92,7 +93,9 @@ for "entry requirements" to jump there.
    allows it, can move it anyway with a reason) or **Hard** (no override).
 4. Select **Save requirements**. The "Applies to" line under the conditions
    shows which swimlanes they cover; it follows the field sets, so it is not
-   chosen here.
+   chosen here. When it names swimlanes, a note below says "Set by the field
+   set's lanes. Change them in Field sets.", and **Field sets** opens that
+   section of Board settings.
 
 Turning **Requirements on** off keeps the saved conditions but stops checking
 them. A column with **Requirements on** and no conditions saves as off, and
