@@ -32,8 +32,8 @@ from accounts.models import (
     PersonalAccessToken,
 )
 from boards.models import (
-    BoardMembership, Card, CardActivity, CardChecklist, CardComment, CardMovement, Column,
-    Label, Swimlane,
+    BoardMembership, Card, CardActivity, CardChecklist, CardComment, CardDimensionPlan,
+    CardMovement, Column, CustomFieldDefinition, Label, Swimlane,
 )
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
@@ -804,6 +804,8 @@ class CardResourceTests(McpTestCase):
                 "activities", "comments",
                 # #1149, additive.
                 "blocked_at", "blocked_reason", "gates_passed",
+                # #2704, additive.
+                "dimension_plans",
                 # #1963, additive: set when activities/comments hit the cap.
                 "activities_truncated", "comments_truncated", "movements_truncated",
             },
@@ -1414,6 +1416,14 @@ class UserFieldParityTests(McpTestCase):
             from_value="assignee", to_value="wip", item_text="escalation",
             actor=self.assignee, assigned_by=self.user,
         )
+        # #2704: a dimension plan's owner is a user shape too.
+        CardDimensionPlan.objects.create(
+            card=self.card, owner=self.assignee, next_action="Review",
+            field_definition=CustomFieldDefinition.objects.create(
+                board=self.board, name="Security", field_type="dropdown",
+                choices_json=["A"], is_dimension=True, position=0,
+            ),
+        )
         token = set_current_user(self.assignee)
         try:
             moved = tools.move_card(card_id=self.card.id, to_column_id=self.done.id)
@@ -1466,6 +1476,10 @@ class UserFieldParityTests(McpTestCase):
         self.assertEqual(len(override_rows), 1)
         self.assertEqual(override_rows[0]["assigned_by"]["username"], self.user.username)
         user_values.append(override_rows[0]["assigned_by"])
+        for card in (*self._list_cards(), detail):
+            if card["id"] == self.card.id:
+                self.assertEqual(len(card["dimension_plans"]), 1)
+                user_values.append(card["dimension_plans"][0]["owner"])
         self.assertTrue(user_values)
         for value in user_values:
             self.assertIsInstance(value, dict)

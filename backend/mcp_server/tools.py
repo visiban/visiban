@@ -56,7 +56,8 @@ from boards.permissions import (
 from boards.serializers import (
     BlockCardSerializer, CardChecklistSerializer, CardMovementSerializer, CardSerializer,
     ColumnEntryRequirementSerializer, SubColumnSerializer, UnblockCardSerializer,
-    _board_health_start, _card_checklist_items, _card_queryset, entry_requirements_prefetch,
+    _board_health_start, _card_checklist_items, _card_dimension_plans, _card_queryset,
+    dimension_plans_prefetch, entry_requirements_prefetch,
 )
 from boards.services import cards as card_services
 from boards.services import flow_metrics
@@ -456,6 +457,24 @@ def _nul_errors(**values):
     return errors
 
 
+def _assignable_member_id(board, username):
+    """The pk of the assignable board member named ``username``, or ``None``.
+
+    The one username rule every MCP tool that names a person shares (#512,
+    #1671): scoped to assignable board members first (viewers excluded, per
+    ``_get_assignable_member_ids``), THEN matched case-insensitively, so a
+    user with no assignable role on this board never resolves. ``len != 1``
+    rather than ``== 0`` keeps the uniform error even if the case-insensitive
+    uniqueness rule were ever relaxed. The caller refuses NUL bytes first.
+    """
+    matches = list(
+        User.objects.filter(
+            pk__in=_get_assignable_member_ids(board), username__iexact=username,
+        ).values_list("pk", flat=True)[:2]
+    )
+    return matches[0] if len(matches) == 1 else None
+
+
 def _translate_card_fields(board, *, title=None, description=None, priority=None,
                             assignee=None, labels=None, due_date=None):
     """Build a CardSerializer-shaped dict from MCP-facing arguments.
@@ -494,17 +513,9 @@ def _translate_card_fields(board, *, title=None, description=None, priority=None
         if assignee == "":
             data["assignee_id"] = None
         else:
-            # Scoped to assignable board members first (excludes viewers, per
-            # _get_assignable_member_ids' own rule), THEN matched by username,
-            # so a user with no assignable role on this board never resolves.
-            # `len != 1` rather than `== 0` keeps the uniform error even if
-            # the case-insensitive uniqueness rule were ever relaxed.
-            assignable_ids = _get_assignable_member_ids(board)
-            matches = list(
-                User.objects.filter(pk__in=assignable_ids, username__iexact=assignee)[:2]
-            )
-            if len(matches) == 1:
-                data["assignee_id"] = matches[0].pk
+            assignee_id = _assignable_member_id(board, assignee)
+            if assignee_id is not None:
+                data["assignee_id"] = assignee_id
             else:
                 errors["assignee"] = [_ASSIGNEE_NOT_FOUND]
 
@@ -584,6 +595,22 @@ def _serialize_card(card):
         # the card has passed (0 outside a stage). A card column on the row, so
         # no extra query; pair it with list_columns' sub_columns for the range.
         "gates_passed": card.gates_passed,
+        # Dimension plans (#2704), additive: one entry per planned dimension,
+        # field identified by name (the set_dimension_plan argument) and owner
+        # by username. Read from _card_queryset's parked prefetch, which joins
+        # the owner and the definition, so no query per card or per plan.
+        "dimension_plans": [_serialize_dimension_plan(plan) for plan in _card_dimension_plans(card)],
+    }
+
+
+def _serialize_dimension_plan(plan):
+    definition = plan.field_definition
+    return {
+        "field": {"id": definition.id, "uid": definition.uid, "name": definition.name},
+        "owner": _serialize_user(plan.owner) if plan.owner_id else None,
+        "next_action": plan.next_action,
+        "target_date": plan.target_date.isoformat() if plan.target_date else None,
+        "updated_at": plan.updated_at.isoformat(),
     }
 
 
@@ -914,7 +941,8 @@ def _cards_page(board, *, column_id=None, swimlane_id=None, assignee=None,
     qs = (
         Card.objects.filter(board=board)
         .select_related("column", "swimlane", "assignee")
-        .prefetch_related("labels")
+        # Plans (#2704) ride the card shape; one query for the page.
+        .prefetch_related("labels", dimension_plans_prefetch())
     )
     if not include_archived:
         qs = qs.filter(archived_at__isnull=True)
@@ -1196,15 +1224,22 @@ def block_card(*, card_id, reason):
         return _error_payload(exc)
 
 
-def set_dimension_plan(*, card_id, field_id, owner_id=None, next_action="", target_date=None):
+def set_dimension_plan(*, card_id, field, owner=None, next_action="", target_date=None):
     """Replace a card's plan for one dimension (#2704).
 
     The same serializer and service as ``PUT .../cards/{id}/dimension-plans/
     {field_id}/`` (#1922): the role and ownership gate, owner scoped to the
     board's assignable members, the history rows (#2703), the version bump and
     the ``card.updated`` frame. A full replace: an omitted argument is cleared,
-    and all three empty removes the plan. A field that is not a dimension on
-    the card's board is ``not_found``, never another board's field.
+    and all three empty removes the plan.
+
+    MCP vocabulary, not REST's (#512): ``field`` is the dimension field's name
+    on the card's board (unique per board, like a label name) and ``owner`` is
+    a username resolved by :func:`_assignable_member_id`, so no tool asks an
+    agent for an internal user or field id. ``owner`` omitted or ``""`` leaves
+    the plan without an owner (the full-replace rule above). A name that is not
+    a dimension field on the card's board is ``not_found``, never another
+    board's field.
     """
     from boards.models import CustomFieldDefinition  # noqa: PLC0415
     from boards.serializers import DimensionPlanWriteSerializer  # noqa: PLC0415
@@ -1213,21 +1248,34 @@ def set_dimension_plan(*, card_id, field_id, owner_id=None, next_action="", targ
     try:
         board, role, _card = _resolve_board_for_card(user, card_id)
         role = card_services.require_mutation_role(actor=user, board=board, role=role)
-        field = CustomFieldDefinition.objects.filter(
-            pk=field_id, board=board, is_dimension=True,
+        errors = _nul_errors(field=field, owner=owner)
+        if errors:
+            raise ValidationFailed(errors)
+        definition = CustomFieldDefinition.objects.filter(
+            board=board, name=field, is_dimension=True,
         ).first()
-        if field is None:
+        if definition is None:
             raise card_services.ObjectNotFound()
         submitted = {"next_action": next_action or ""}
-        if owner_id is not None:
+        if owner:
+            owner_id = _assignable_member_id(board, owner)
+            if owner_id is None:
+                raise ValidationFailed({"owner": [_ASSIGNEE_NOT_FOUND]})
             submitted["owner_id"] = owner_id
         if target_date is not None:
             submitted["target_date"] = target_date
         body = DimensionPlanWriteSerializer(data=submitted, context={"board": board})
-        body.is_valid(raise_exception=True)
+        if not body.is_valid():
+            # The serializer also refuses an inactive account; report it under
+            # the argument the agent sent, with the same uniform message.
+            body_errors = dict(body.errors)
+            if "owner_id" in body_errors:
+                del body_errors["owner_id"]
+                body_errors["owner"] = [_ASSIGNEE_NOT_FOUND]
+            raise ValidationFailed(body_errors)
         render = _BroadcastRender(board)
         card_services.set_dimension_plan(
-            actor=user, board=board, role=role, card_id=card_id, field=field,
+            actor=user, board=board, role=role, card_id=card_id, field=definition,
             owner=body.validated_data.get("owner"),
             next_action=body.validated_data.get("next_action", ""),
             target_date=body.validated_data.get("target_date"),

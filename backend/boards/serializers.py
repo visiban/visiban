@@ -3978,6 +3978,23 @@ class ParkedLabelListSerializer(serializers.ListSerializer):
 _OMITTED = object()
 
 
+def dimension_plans_prefetch():
+    """The card's dimension plans, parked for :func:`_card_dimension_plans` (#1922).
+
+    One query for the page; rows exist only for planned dimensions, so it is
+    usually tiny. Owner and definition are joined: REST renders the owner and
+    MCP's card shape (#2704) names the field, so neither costs a query per
+    plan. Shared by ``_card_queryset`` and MCP's ``list_cards`` page.
+    """
+    return Prefetch(
+        "dimension_plans",
+        queryset=CardDimensionPlan.objects.select_related(
+            "owner", "field_definition",
+        ).order_by("field_definition_id"),
+        to_attr=_PARKED_DIMENSION_PLANS,
+    )
+
+
 def _card_queryset(qs, stale_cutoff=None):
     """Apply the standard prefetch chain required by CardSerializer.
 
@@ -4049,15 +4066,7 @@ def _card_queryset(qs, stale_cutoff=None):
             # the board payload, so there is deliberately no
             # `outgoing_relations` prefetch here.
             _active_blockers_prefetch(),
-            # Dimension plans (#1922): one query for the page, owner joined.
-            # Rows exist only for planned dimensions, so this is usually tiny.
-            Prefetch(
-                "dimension_plans",
-                queryset=CardDimensionPlan.objects.select_related("owner").order_by(
-                    "field_definition_id"
-                ),
-                to_attr=_PARKED_DIMENSION_PLANS,
-            ),
+            dimension_plans_prefetch(),
         )
     )
     # The planned clock (#2371) is annotated on every card read, not only with

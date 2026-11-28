@@ -61,7 +61,7 @@ class SurrogateArgumentTests(CrudToolsTestCase):
         return {
             "board_id": self.board.id, "column_id": self.column.id,
             "swimlane_id": self.swimlane.id, "card_id": self.card.id,
-            "title": "Sur card", "reason": "r", "field_id": self.dimension.id,
+            "title": "Sur card", "reason": "r", "field": self.dimension.name,
         }
 
     def _send(self, transport, name, arguments):

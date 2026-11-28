@@ -271,7 +271,7 @@ class ThrottleCoverageTests(ThrottleIntegrationTestCase):
         "archive_card": {"card_id": 1},
         "block_card": {"card_id": 1, "reason": "x"},
         "unblock_card": {"card_id": 1},
-        "set_dimension_plan": {"card_id": 1, "field_id": 1},
+        "set_dimension_plan": {"card_id": 1, "field": "Security"},
         "board_flow_metrics": {"board_id": 1},
         "aging_cards": {"board_id": 1},
     }
