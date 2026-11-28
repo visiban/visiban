@@ -10,6 +10,7 @@
  */
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import HelpLink from "../Common/HelpLink";
+import { Toggle } from "../Common/Toggle";
 import { InlineConfirm } from "../Page";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { Column, CustomFieldDefinition, CustomFieldSet, EntryEnforcement, EntryRequirementOperator, Swimlane } from "../../types";
@@ -279,20 +280,16 @@ export default function BoardSettingsEntryRequirementsSection({ columns, fields,
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
           {/* A labelled group, not a heading: its text carries the column name, which Find a setting can't index. */}
           <p id={`${idBase}-editor`} className="text-sm font-medium text-fg">Entering {selected.name}</p>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={draft.on}
-            aria-label="Requirements on"
-            disabled={saving}
-            onClick={() => edit({ ...draft, on: !draft.on })}
-            className="inline-flex items-center gap-2 min-h-11 sm:min-h-0 text-sm text-fg rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            <span aria-hidden="true" className={`relative inline-block w-9 h-5 rounded-full transition-colors ${draft.on ? "bg-primary-emphasis" : "bg-line-strong"}`}>
-              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-surface transition-transform ${draft.on ? "translate-x-4" : "translate-x-0.5"}`} />
-            </span>
-            Requirements on
-          </button>
+          <div className="inline-flex items-center gap-2">
+            <Toggle
+              id={`${idBase}-on`}
+              checked={draft.on}
+              onChange={(next) => edit({ ...draft, on: next })}
+              disabled={saving}
+              aria-label="Requirements on"
+            />
+            <label htmlFor={`${idBase}-on`} className="text-sm text-fg cursor-pointer">Requirements on</label>
+          </div>
         </div>
 
         {/* Unlabelled on purpose: the group above names it; the fieldset only disables while saving. */}
