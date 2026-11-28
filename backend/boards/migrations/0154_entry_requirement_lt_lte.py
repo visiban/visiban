@@ -13,7 +13,7 @@
 #
 # 1. add the new rule NOT VALID under a new name (catalog-only);
 # 2. validate it under SHARE UPDATE EXCLUSIVE, in its own transaction;
-# 3. drop the old rule (catalog-only) in the NEXT migration, 0152: a concurrent
+# 3. drop the old rule (catalog-only) in the NEXT migration, 0155: a concurrent
 #    NOT VALID/VALIDATE pair never shares a migration with another schema
 #    operation (database-migrations.md, "The rule that matters more than the
 #    syntax"). If the drop failed here, a retry would die on "already exists".
@@ -25,7 +25,7 @@
 # column_entry_requirements was added in 1.3 (0150) and holds at most 10 rows
 # per column, so even the scan is small; the split is followed anyway.
 #
-# Between 0151 and 0152 both rules exist; they agree on every row, so a
+# Between 0154 and 0155 both rules exist; they agree on every row, so a
 # deploy stopped between the two is safe.
 from django.db import migrations, models
 
@@ -38,7 +38,7 @@ class Migration(migrations.Migration):
     atomic = False  # NOT VALID and VALIDATE must land in separate transactions
 
     dependencies = [
-        ("boards", "0150_column_entry_requirements"),
+        ("boards", "0153_card_activity_dimension_plan_events"),
     ]
 
     operations = [
