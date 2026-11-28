@@ -9633,11 +9633,11 @@ whole list, in order (at most 10). Emits <code>column.updated</code>.</p>
 </tr>
 <tr>
 <td><code>requirements[].operator</code></td>
-<td><code>filled</code> (any type but checkbox), <code>gt</code> / <code>gte</code> (number), <code>min_count</code> (multi-select, whole number of at least 1), <code>satisfied</code> (dimension), <code>set_complete</code> (field set). Checkbox fields can't be required.</td>
+<td><code>filled</code> (any type but checkbox), <code>gt</code> / <code>gte</code> / <code>lt</code> / <code>lte</code> (number: is more than, is at least, is less than, is at most the operand; <code>lt</code> and <code>lte</code> are the upper bounds, #2718), <code>min_count</code> (multi-select, whole number of at least 1), <code>satisfied</code> (dimension), <code>set_complete</code> (field set). Checkbox fields can't be required.</td>
 </tr>
 <tr>
 <td><code>requirements[].operand</code></td>
-<td>Required for <code>gt</code>, <code>gte</code>, <code>min_count</code>; refused otherwise.</td>
+<td>Required for <code>gt</code>, <code>gte</code>, <code>lt</code>, <code>lte</code>, <code>min_count</code>; refused otherwise.</td>
 </tr>
 </tbody>
 </table>

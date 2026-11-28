@@ -4642,7 +4642,7 @@ entry criteria.</p>
 </tr>
 <tr>
 <td>Number</td>
-<td>is filled, is more than, is at least</td>
+<td>is filled, is more than, is at least, is less than, is at most</td>
 </tr>
 <tr>
 <td>Multi-select</td>
@@ -4717,9 +4717,10 @@ for "entry requirements" to jump there.</p>
 <li>Pick the column in the strip at the top. Each column's marker shows its
    mode: a plain ring for off, ⚠ for Warn, a lock for Block and ⛔ for Hard.</li>
 <li>Add conditions with <strong>+ Field condition</strong> (choose a field, then <em>is filled</em>,
-   <em>is more than</em>, <em>is at least</em>, <em>has at least N choices</em> or <em>is satisfied</em>,
-   depending on the field's type) or <strong>+ Whole field set complete</strong>. Every
-   condition must hold. Checkbox fields can't be required yet. A column can
+   <em>is more than</em>, <em>is at least</em>, <em>is less than</em>, <em>is at most</em>, <em>has at least
+   N choices</em> or <em>is satisfied</em>, depending on the field's type) or <strong>+ Whole
+   field set complete</strong>. A number condition's value box shows the field's
+   format, such as <code>%</code> or <code>$</code>; type the number only. Every condition must hold. Checkbox fields can't be required yet. A column can
    have up to 10 conditions.</li>
 <li>Choose what happens when a card doesn't meet them: <strong>Warn</strong> (let it in and
    flag it; the default), <strong>Block</strong> (board admins, and assignees when the board
