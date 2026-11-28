@@ -46,6 +46,11 @@ a major version bump coordinated with the enterprise repository.
 # other value keeps the live-cards-only queryset, so a backend written before
 # 1.3 is unaffected. Like ANALYTICS_EXTENSIONS' ``min_role`` below, a bound method reads it from its
 # function.
+#
+# Warn record (#2655): every row also carries ``entry_unmet`` (NULL, or a list
+# of the entry requirements unmet when the card entered a ``warn`` column).
+# Read it through ``boards.services.entry_requirements.warn_record_items``,
+# which keeps only the documented keys: rule names only, never card values.
 MOVEMENT_EXPORT_BACKENDS: list = []
 
 # Analytics panel extension hook (enterprise advanced analytics feature).

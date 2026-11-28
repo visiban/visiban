@@ -1,4 +1,5 @@
 import type { Card, CardMovement, Column, CustomFieldDefinition, Swimlane } from "../types";
+import { movementEntryNote } from "./cardTimelineLabels";
 import { getTrackStates, isDimensionField, movementGateNote } from "./stages";
 
 /**
@@ -150,6 +151,6 @@ export function describeMovement(m: CardMovement): string {
     return `Moved to ${m.to_swimlane_name || "another lane"}`;
   }
   const base = `${m.from_column_name || "?"} to ${m.to_column_name || "?"}`;
-  const gate = movementGateNote(m);
-  return gate ? `${base}, ${gate}` : base;
+  const notes = [movementGateNote(m), movementEntryNote(m)].filter(Boolean);
+  return notes.length ? `${base}, ${notes.join(", ")}` : base;
 }

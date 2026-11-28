@@ -15,6 +15,8 @@ from boards.serializers import CardMovementSerializer
 from boards.services.entry_requirements import UNMET_ITEM_KEYS, warn_record_items
 
 from .test_entry_requirements_1923 import PATCH_BROADCAST, _Fixture
+from .test_import_history_attribution import ImportedHistoryAttributionTests
+from .test_import_history_attribution import _payload as _import_payload
 
 
 class WarnRecordItemsTests(_Fixture):
@@ -124,3 +126,27 @@ class WarnRecordRoleBoundaryTests(WarnRecordTransportTests):
                 resp = self._client(outsider).get(url)
                 self.assertIn(resp.status_code, (403, 404))
                 self.assertNotIn("entry_unmet", resp.content.decode())
+
+
+class ImportIgnoresEntryUnmetTests(ImportedHistoryAttributionTests):
+    """A JSON export's movement entries now carry ``entry_unmet``; re-importing
+    one must succeed and must not store or echo the foreign record (#2655).
+    The import's movement reader names its keys, so the record is dropped."""
+
+    def test_import_drops_a_populated_entry_unmet(self):
+        record = [{
+            "requirement_uid": "r1", "operator": "gt", "operand": "50000",
+            "field_uid": "f1", "field_name": "Amount",
+            "field_set_uid": None, "field_set_name": None,
+        }]
+        movement = {
+            "from_column": "To Do", "to_column": "Done", "moved_by": "alice",
+            "moved_at": "2024-03-04T05:06:07Z", "entry_unmet": record,
+        }
+        resp = self._post(_import_payload(movement=movement))
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertNotIn("entry_unmet", resp.content.decode())
+        mv = CardMovement.objects.get(card__board_id=resp.data["id"])
+        self.assertIsNone(mv.entry_unmet)
+        rows = self.client.get(f"/api/v1/boards/{resp.data['id']}/movements/").json()["results"]
+        self.assertIsNone(rows[0]["entry_unmet"])
