@@ -134,8 +134,10 @@ describe('Analytics URL state: parse and write (#2318)', () => {
   })
 
   it('clears only the Analytics params', () => {
-    const next = new URLSearchParams('view=analytics&a_days=30&a_by=label&a_tab=swimlanes&f_search=x')
+    const next = new URLSearchParams('view=analytics&a_days=30&a_by=label&a_tab=swimlanes&a_group=8&a_sort=name&f_search=x')
     clearAnalyticsParams(next)
+    expect(next.has('a_group')).toBe(false)
+    expect(next.has('a_sort')).toBe(false)
     expect(next.toString()).toBe('view=analytics&f_search=x')
   })
 
@@ -246,9 +248,11 @@ describe('Swimlanes Group lanes by and Sort on the URL (#2546)', () => {
   function Inner() {
     const [searchParams, setSearchParams] = useSearchParams()
     const location = useLocation()
+    const navType = useNavigationType()
     return (
       <>
         <output data-testid="url">{location.pathname}{location.search}</output>
+        <output data-testid="nav-type">{navType}</output>
         <AnalyticsView {...props} swimlaneFields={fields} urlSource={{ searchParams, setSearchParams }} />
       </>
     )
@@ -284,6 +288,8 @@ describe('Swimlanes Group lanes by and Sort on the URL (#2546)', () => {
     await screen.findByRole('button', { name: /Group lanes by/ })
     await choose(/Group lanes by/, 'Team')
     expect(url()).toBe('/b?view=analytics&a_tab=swimlanes&a_group=8')
+    // A replace reports REPLACE; a push would report PUSH.
+    expect(screen.getByTestId('nav-type')).toHaveTextContent('REPLACE')
     await choose(/Group lanes by/, 'None')
     expect(url()).toBe('/b?view=analytics&a_tab=swimlanes')
     await choose(/Sort/, 'Fastest first')

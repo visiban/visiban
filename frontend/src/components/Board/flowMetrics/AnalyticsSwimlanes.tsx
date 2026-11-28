@@ -161,7 +161,7 @@ export default function AnalyticsSwimlanes({
       });
     return () => { current = false; controller.abort(); };
     // timeZone is a refetch key only (#2051).
-}, [boardId, days, labelId, groupId, attempt, timeZone]);
+  }, [boardId, days, labelId, groupId, attempt, timeZone]);
 
   useEffect(() => { onFetchedFilters?.(fetched); }, [fetched, onFetchedFilters]);
 

@@ -117,7 +117,7 @@ One filter bar drives every panel on the page, the heatmap, stalled and blocked 
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Period, Swimlane, Label, **Break down by** and the Overview/Swimlanes choice are kept in the page's URL, beside `?view=analytics`. Reload the page, or send the address to a teammate, and they see the same view. Changing a filter replaces the current history entry, so Back still leaves the Analytics tab rather than stepping through every filter you tried.
+Period, Swimlane, Label, **Break down by**, **Group lanes by**, **Sort** and the Overview/Swimlanes choice are kept in the page's URL, beside `?view=analytics`. Reload the page, or send the address to a teammate, and they see the same view. Changing a filter replaces the current history entry, so Back still leaves the Analytics tab rather than stepping through every filter you tried.
 
 | Parameter | Values | Left out when |
 |---|---|---|
