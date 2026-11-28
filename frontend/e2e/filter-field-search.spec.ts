@@ -22,7 +22,7 @@ test.describe('Filter panel field and value search (#2437)', () => {
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
     await page.getByRole('button', { name: /^Filters/ }).click()
-    const panel = page.getByRole('dialog', { name: 'Filter' })
+    const panel = page.getByRole('dialog', { name: 'Filters' })
     const search = panel.getByRole('textbox', { name: 'Search fields and values to filter' })
     await expect(search).toBeFocused()
 
