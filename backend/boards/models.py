@@ -3813,9 +3813,9 @@ class ColumnEntryRequirement(models.Model):
                 ),
                 name="entry_req_exactly_one_target",
             ),
-            # Renamed with lt/lte (#2718): migration 0151 adds this one NOT VALID,
-            # validates it, then drops "entry_req_operand_iff_needed", so the
-            # table is never without the rule. Keep the list equal to
+            # Renamed with lt/lte (#2718): migration 0151 adds this one NOT VALID
+            # and validates it, then 0152 drops "entry_req_operand_iff_needed",
+            # so the table is never without the rule. Keep the list equal to
             # OPERAND_OPERATORS (test_operand_constraint_matches_operand_operators).
             models.CheckConstraint(
                 condition=(

@@ -13,7 +13,10 @@
 #
 # 1. add the new rule NOT VALID under a new name (catalog-only);
 # 2. validate it under SHARE UPDATE EXCLUSIVE, in its own transaction;
-# 3. drop the old rule (catalog-only).
+# 3. drop the old rule (catalog-only) in the NEXT migration, 0152: a concurrent
+#    NOT VALID/VALIDATE pair never shares a migration with another schema
+#    operation (database-migrations.md, "The rule that matters more than the
+#    syntax"). If the drop failed here, a retry would die on "already exists".
 #
 # If step 2 ever failed, the old rule would still be in place. It cannot fail:
 # every existing row's operator is one of the pre-#2718 choices, and for those
@@ -21,6 +24,9 @@
 #
 # column_entry_requirements was added in 1.3 (0150) and holds at most 10 rows
 # per column, so even the scan is small; the split is followed anyway.
+#
+# Between 0151 and 0152 both rules exist; they agree on every row, so a
+# deploy stopped between the two is safe.
 from django.db import migrations, models
 
 from visiban.db_operations import AddConstraintNotValid, ValidateConstraint
@@ -35,8 +41,6 @@ class Migration(migrations.Migration):
         ("boards", "0150_column_entry_requirements"),
     ]
 
-    # Reverse: re-adding the old rule fails while any lt/lte row exists (the
-    # old rule refuses an operand on them); delete those rows before rolling back.
     operations = [
         # Choices only: Django emits no SQL for this on any backend, so it is
         # state-only and safe to retry beside the non-atomic constraint steps.
@@ -71,9 +75,5 @@ class Migration(migrations.Migration):
         ValidateConstraint(
             model_name="columnentryrequirement",
             name="entry_req_operand_iff_needed_v2",
-        ),
-        migrations.RemoveConstraint(
-            model_name="columnentryrequirement",
-            name="entry_req_operand_iff_needed",
         ),
     ]
