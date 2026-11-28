@@ -13,39 +13,64 @@ Rows with no matching history (values written before #1909, imported values,
 values whose field was renamed since) stay NULL, and the API reports
 ``changed_at: null`` rather than a guessed time.
 
-One ``UPDATE`` per field definition, each a correlated subquery on the
-``card_activities`` (card, created_at) index. A separate migration from the
-``ADD COLUMN`` (0151) so it never runs while that statement holds its lock.
-Reversing is a no-op: 0151's reverse drops the column.
+``atomic = False`` and keyset batches of ``BATCH_SIZE`` per field definition,
+each committing on its own (precedent: 0120). One unbatched ``UPDATE`` in one
+transaction would hold a row lock on every value row until commit, so card
+custom-field writes from pods still on the old release would block for the
+whole run during a rolling upgrade. Only rows that have a matching history row
+are touched (``Exists``): rewriting a NULL to NULL still writes a new row
+version, which is table and WAL bloat for nothing. The backfill is idempotent
+and resumable: it only touches rows still NULL, so an interrupted run picks up
+where it stopped.
+
+The correlated subquery uses the ``card_activities`` (card, created_at) index.
+A separate migration from the ``ADD COLUMN`` (0151) so it never runs while
+that statement holds its lock. Reversing is a no-op: 0151's reverse drops the
+column.
 """
 
 from django.db import migrations
-from django.db.models import OuterRef, Subquery
+from django.db.models import Exists, OuterRef, Subquery
 
 CUSTOM_FIELD_CHANGED = "custom_field_changed"
+BATCH_SIZE = 5000
 
 
 def backfill(apps, schema_editor):
     CustomFieldDefinition = apps.get_model("boards", "CustomFieldDefinition")
     CustomFieldValue = apps.get_model("boards", "CustomFieldValue")
     CardActivity = apps.get_model("boards", "CardActivity")
-    for def_id, name in CustomFieldDefinition.objects.values_list("pk", "name").iterator():
-        latest = (
-            CardActivity.objects.filter(
-                card_id=OuterRef("card_id"),
-                event_type=CUSTOM_FIELD_CHANGED,
-                item_text=name[:500],
-                to_value=OuterRef("value"),
-            )
-            .order_by("-created_at", "-pk")
-            .values("created_at")[:1]
+    definitions = list(
+        CustomFieldDefinition.objects.order_by("pk").values_list("pk", "name")
+    )
+    for def_id, name in definitions:
+        history = CardActivity.objects.filter(
+            card_id=OuterRef("card_id"),
+            event_type=CUSTOM_FIELD_CHANGED,
+            item_text=name[:500],
+            to_value=OuterRef("value"),
         )
-        CustomFieldValue.objects.filter(
+        latest = Subquery(
+            history.order_by("-created_at", "-pk").values("created_at")[:1]
+        )
+        pending = CustomFieldValue.objects.filter(
             field_definition_id=def_id, value_changed_at__isnull=True,
-        ).update(value_changed_at=Subquery(latest))
+        ).filter(Exists(history))
+        cursor = 0
+        while True:
+            pks = list(
+                pending.filter(pk__gt=cursor)
+                .order_by("pk")
+                .values_list("pk", flat=True)[:BATCH_SIZE]
+            )
+            if not pks:
+                break
+            CustomFieldValue.objects.filter(pk__in=pks).update(value_changed_at=latest)
+            cursor = pks[-1]
 
 
 class Migration(migrations.Migration):
+    atomic = False
 
     dependencies = [
         ('boards', '0151_customfieldvalue_value_changed_at'),
