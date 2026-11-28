@@ -42,7 +42,6 @@ test('tier summary cap row stays on one line within its column at desktop width 
       search: rect(search).toJSON(), column: rect(column).toJSON(),
     }
   })
-  console.log('2716 rects', JSON.stringify(r))
   const mid = (x: { top: number; height: number }) => x.top + x.height / 2
   expect(Math.abs(mid(r.label) - mid(r.select))).toBeLessThanOrEqual(2)
   expect(Math.abs(mid(r.counter) - mid(r.select))).toBeLessThanOrEqual(2)
