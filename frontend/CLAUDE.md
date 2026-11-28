@@ -177,6 +177,7 @@ Top chrome, the board toolbar, the app drawer, Home, search, the command palette
 - **Command palette ownership (#869)** — `GlobalCommandPalette` mounts at exactly two shell-level points. → `frontend/ui-conventions/shell-and-navigation.md`
 - **Keyboard shortcuts — noise budget and registry (#868)** — Shortcut wiring lives in three places, under a noise budget and one registry. → `frontend/ui-conventions/shell-and-navigation.md`
 - **Board search scope toggle** — The filter bar search scope toggle is URL-persisted via `?scope=all`. → `frontend/ui-conventions/shell-and-navigation.md`
+- **Filter panel shell (#2691)** — Pinned header and footer, only the body scrolls, 520px wide; one name, "filter bar", for the switch, chevron and tooltips; focus is trapped. → `frontend/ui-conventions/shell-and-navigation.md`
 - **Hosted demo surfaces (#1179)** — Hosted demo surfaces: read `demo_mode` from site config and show refused writes up front. → `frontend/ui-conventions/shell-and-navigation.md`
 
 ### Board grid, columns and swimlanes — `frontend/ui-conventions/board-grid.md`

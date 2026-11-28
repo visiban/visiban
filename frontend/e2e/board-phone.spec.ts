@@ -286,7 +286,8 @@ test.describe('board phone layout', () => {
     const rowHeights = (sel: string) => page.locator(sel).evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
     // Facet menus render at document.body, so they carry their own rules. The option's checkbox is a decorative 16px mark inside a 44px row (intended).
     await page.getByRole('button', { name: 'Filters and view options' }).click()
-    await page.getByRole('button', { name: /^Show filter bar/ }).click()
+    await page.getByRole('button', { name: 'Filter bar', exact: true }).click()
+    await page.keyboard.press('Escape')
     const bar = page.getByRole('search', { name: 'Board filters' })
     await expect(bar).toBeVisible()
     expect(await smallControls(page, ['[role="search"]'])).toEqual([])

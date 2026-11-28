@@ -80,11 +80,18 @@ describe('LensToolbar', () => {
     expect(await screen.findByText('2 filters active (bar hidden)')).toBeInTheDocument()
   })
 
-  it('tooltip stays "Hide filters (F)" while the bar is shown, even with active filters (#2556)', async () => {
+  it('tooltip stays "Hide the filter bar (F)" while the bar is shown, even with active filters (#2556)', async () => {
     const user = userEvent.setup()
     setup({ url: '/?state=open', showFilters: true })
     await user.hover(screen.getByRole('button', { name: 'Filters, 1 active' }))
-    expect(await screen.findByText('Hide filters (F)')).toBeInTheDocument()
+    expect(await screen.findByText('Hide the filter bar (F)')).toBeInTheDocument()
+  })
+
+  it('tooltip reads "Show the filter bar (F)" while the bar is hidden with nothing active (#2691)', async () => {
+    const user = userEvent.setup()
+    setup({ url: '/', showFilters: false })
+    await user.hover(screen.getByRole('button', { name: 'Filters' }))
+    expect(await screen.findByText('Show the filter bar (F)')).toBeInTheDocument()
   })
 
   it('marks the active layout toggle with the underline cue, not tint alone (#2188)', () => {

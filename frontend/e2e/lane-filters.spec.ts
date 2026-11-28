@@ -47,7 +47,7 @@ test.describe('lane filters', () => {
     await page.getByRole('button', { name: /^filters/i }).click()
 
     // #2301 — the panel's Lanes row hands off to the real Lanes popover.
-    await page.getByRole('dialog', { name: 'Filter' }).getByRole('button', { name: /^Lane filters/ }).click()
+    await page.getByRole('dialog', { name: 'Filters' }).getByRole('button', { name: /^Lane filters/ }).click()
     await expect(page.getByRole('dialog', { name: 'Lane filters' })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog', { name: 'Lane filters' })).toHaveCount(0)
@@ -111,9 +111,10 @@ test.describe('lane filters', () => {
 
     await page.getByRole('button', { name: /^filters/i }).click()
 
-    // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
+    // #2301 — the Filter button opens the panel; its header Filter bar switch reveals the full filter bar (#2691); Escape closes the panel.
 
-    await page.getByRole('button', { name: /show filter bar/i }).click()
+    await page.getByRole('button', { name: 'Filter bar', exact: true }).click()
+    await page.keyboard.press('Escape')
     const filters = page.getByRole('search', { name: 'Board filters' })
     await filters.getByRole('button', { name: 'Lane filters', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Lane filters' })
@@ -143,8 +144,9 @@ test.describe('lane filters', () => {
 
     // #2227: switch to the wildcard operator; it matches any part of the value.
     await page.getByRole('button', { name: /^filters/i }).click()
-    // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
-    await page.getByRole('button', { name: /show filter bar/i }).click()
+    // #2301 — the Filter button opens the panel; its header Filter bar switch reveals the full filter bar (#2691); Escape closes the panel.
+    await page.getByRole('button', { name: 'Filter bar', exact: true }).click()
+    await page.keyboard.press('Escape')
     await filters.getByRole('button', { name: /^Lane filters/ }).first().click()
     const dialog2 = page.getByRole('dialog', { name: 'Lane filters' })
     await dialog2.getByRole('button', { name: /^Filter 1 operator/ }).click()
@@ -177,8 +179,9 @@ test.describe('lane filters', () => {
       if (focused) params.set('focus', '2')
       await page.goto(`/boards/${BOARD.id}?${params.toString()}`)
       await page.getByRole('button', { name: /^filters/i }).click()
-      // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
-      await page.getByRole('button', { name: /show filter bar/i }).click()
+      // #2301 — the Filter button opens the panel; its header Filter bar switch reveals the full filter bar (#2691); Escape closes the panel.
+      await page.getByRole('button', { name: 'Filter bar', exact: true }).click()
+      await page.keyboard.press('Escape')
       await page.getByRole('button', { name: 'Lane filters, 12 active' }).click()
       const dialog = page.getByRole('dialog', { name: 'Lane filters' })
       await expect(dialog).toBeVisible()
@@ -197,8 +200,9 @@ test.describe('lane filters', () => {
     const rules = [{ f: AE_FIELD.id, o: 'is', v: 'Priya' }]
     await page.goto(`/boards/${BOARD.id}?${new URLSearchParams({ f_lanes: `1.${JSON.stringify(rules)}` }).toString()}`)
     await page.getByRole('button', { name: /^filters/i }).click()
-    // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
-    await page.getByRole('button', { name: /show filter bar/i }).click()
+    // #2301 — the Filter button opens the panel; its header Filter bar switch reveals the full filter bar (#2691); Escape closes the panel.
+    await page.getByRole('button', { name: 'Filter bar', exact: true }).click()
+    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Lane filters, 1 active' }).click()
     const dialog = page.getByRole('dialog', { name: 'Lane filters' })
     await dialog.getByRole('button', { name: '+ Add filter' }).click()
@@ -225,8 +229,9 @@ test.describe('lane filters', () => {
     const rules = [0, 1, 2, 3].map((i) => ({ ...(i ? { j: 'a' } : {}), f: AE_FIELD.id, o: 'is', v: 'Priya' }))
     await page.goto(`/boards/${BOARD.id}?${new URLSearchParams({ f_lanes: `1.${JSON.stringify(rules)}` }).toString()}`)
     await page.getByRole('button', { name: /^filters/i }).click()
-    // #2301 — the Filter button opens the panel; its footer reveals the full filter bar.
-    await page.getByRole('button', { name: /show filter bar/i }).click()
+    // #2301 — the Filter button opens the panel; its header Filter bar switch reveals the full filter bar (#2691); Escape closes the panel.
+    await page.getByRole('button', { name: 'Filter bar', exact: true }).click()
+    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Lane filters, 4 active' }).click()
     const dialog = page.getByRole('dialog', { name: 'Lane filters' })
     await dialog.getByRole('button', { name: '+ Add filter' }).click()

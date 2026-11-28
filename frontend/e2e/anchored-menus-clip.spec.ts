@@ -43,8 +43,9 @@ test.describe('anchored filter menus (#1482)', () => {
     const cards = members.map((m, i) => ({ ...CARD, id: 100 + i, title: `Card ${i}`, assignee: m.user }))
     await openBoard(page, { ...BOARD_FULL, members, cards } as unknown as typeof BOARD_FULL)
     await page.getByRole('button', { name: /^filters/i }).click()
-    // #2301 — the Filter panel's footer reveals the full filter bar.
-    await page.getByRole('button', { name: /show filter bar/i }).click()
+    // #2301, #2691 — the Filter panel's header switch reveals the full filter bar; Escape closes the panel.
+    await page.getByRole('button', { name: 'Filter bar', exact: true }).click()
+    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: /\+ filter/i }).click()
     await page.getByRole('checkbox', { name: /assignee/i }).check()
     await page.keyboard.press('Escape')
@@ -63,8 +64,9 @@ test.describe('anchored filter menus (#1482)', () => {
   test('Saved filters menu opens as a fixed, topmost panel', async ({ page }) => {
     await openBoard(page)
     await page.getByRole('button', { name: /^filters/i }).click()
-    // #2301 — the Filter panel's footer reveals the full filter bar.
-    await page.getByRole('button', { name: /show filter bar/i }).click()
+    // #2301, #2691 — the Filter panel's header switch reveals the full filter bar; Escape closes the panel.
+    await page.getByRole('button', { name: 'Filter bar', exact: true }).click()
+    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Saved filters' }).click()
     const empty = page.getByText(/no saved filters yet/i)
     await expect(empty).toBeVisible()
@@ -94,8 +96,9 @@ test.describe('anchored filter menus (#1482)', () => {
   test('Saved filters: Shift+Tab off the first control returns to the trigger; Tab off the last lands on the next toolbar control', async ({ page }) => {
     await openBoard(page)
     await page.getByRole('button', { name: /^filters/i }).click()
-    // #2301 — the Filter panel's footer reveals the full filter bar.
-    await page.getByRole('button', { name: /show filter bar/i }).click()
+    // #2301, #2691 — the Filter panel's header switch reveals the full filter bar; Escape closes the panel.
+    await page.getByRole('button', { name: 'Filter bar', exact: true }).click()
+    await page.keyboard.press('Escape')
     // An active filter enables "Save current filters", the panel's first control.
     await page.locator('[data-board-search="true"]').fill('task')
     const trigger = page.getByRole('button', { name: 'Saved filters' })
@@ -118,8 +121,9 @@ test.describe('anchored filter menus (#1482)', () => {
   test('Facet menu: Tab-out keeps the facet mounted, so Shift+Tab lands on its trigger and Tab on the next control', async ({ page }) => {
     await openBoard(page)
     await page.getByRole('button', { name: /^filters/i }).click()
-    // #2301 — the Filter panel's footer reveals the full filter bar.
-    await page.getByRole('button', { name: /show filter bar/i }).click()
+    // #2301, #2691 — the Filter panel's header switch reveals the full filter bar; Escape closes the panel.
+    await page.getByRole('button', { name: 'Filter bar', exact: true }).click()
+    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: /\+ filter/i }).click()
     await page.getByRole('checkbox', { name: /label/i }).check()
     await page.keyboard.press('Escape')

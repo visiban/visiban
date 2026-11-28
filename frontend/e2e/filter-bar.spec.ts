@@ -37,7 +37,7 @@ test.describe('filter bar', () => {
     const trigger = page.getByRole('button', { name: /^Filters/ })
     await trigger.focus()
     await page.keyboard.press('Enter')
-    const panel = page.getByRole('dialog', { name: 'Filter' })
+    const panel = page.getByRole('dialog', { name: 'Filters' })
     await expect(panel).toBeVisible()
     await expect(panel.getByRole('textbox', { name: 'Search fields and values to filter' })).toBeFocused()
 
@@ -66,7 +66,7 @@ test.describe('filter bar', () => {
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
     await page.getByRole('button', { name: /^Filters/ }).click()
-    const panel = page.getByRole('dialog', { name: 'Filter' })
+    const panel = page.getByRole('dialog', { name: 'Filters' })
     await panel.getByRole('button', { name: /^Label/ }).click()
     await panel.getByRole('checkbox', { name: LABEL_BUG.name }).check()
     await expect(page).toHaveURL(/f_labels=/)
@@ -146,7 +146,7 @@ test.describe('filter bar', () => {
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
     await page.getByRole('button', { name: /^Filters/ }).click()
-    const panel = page.getByRole('dialog', { name: 'Filter' })
+    const panel = page.getByRole('dialog', { name: 'Filters' })
     await panel.getByRole('button', { name: /^Label/ }).click()
     await panel.getByRole('checkbox', { name: LABEL_BUG.name }).check()
     await panel.getByRole('button', { name: 'Save filter' }).click()
