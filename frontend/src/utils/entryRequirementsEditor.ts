@@ -4,6 +4,7 @@
  */
 import type { Column, ColumnEntryRequirement, CustomFieldDefinition, EntryEnforcement, EntryRequirementOperator } from "../types";
 import type { EntryRequirementWrite } from "../api/boards";
+import { formatNumberValue } from "./customFieldValue";
 
 /** Server cap (ColumnEntryRequirement.MAX_PER_COLUMN). */
 export const ENTRY_REQUIREMENTS_CAP = 10;
@@ -25,16 +26,38 @@ export const MARKER: Record<EntryEnforcement | "off", { glyph: string; cls: stri
 };
 
 export const OPERATOR_LABEL: Record<EntryRequirementOperator, string> = {
-  filled: "is filled", gt: "is more than", gte: "is at least", min_count: "has at least N choices",
-  satisfied: "is satisfied", set_complete: "is complete",
+  filled: "is filled", gt: "is more than", gte: "is at least", lt: "is less than", lte: "is at most",
+  min_count: "has at least N choices", satisfied: "is satisfied", set_complete: "is complete",
 };
-export const NEEDS_OPERAND = new Set<EntryRequirementOperator>(["gt", "gte", "min_count"]);
+/** The number comparisons (#1923; upper bounds `lt`/`lte` #2718). Their operand is a value of the field. */
+export const NUMBER_COMPARISONS = new Set<EntryRequirementOperator>(["gt", "gte", "lt", "lte"]);
+export const NEEDS_OPERAND = new Set<EntryRequirementOperator>([...NUMBER_COMPARISONS, "min_count"]);
+
+/** What a comparison's operand needs from its field to read the way the field does. */
+export type OperandField = Pick<CustomFieldDefinition, "uid" | "field_type" | "number_prefix" | "number_suffix" | "number_decimals">;
+
+/**
+ * A number comparison's operand in its field's number format (#2718): "20%",
+ * "$50,000". The operand is a value of the field, so it reads like one, through
+ * the same `formatNumberValue` every field display uses. A field with no
+ * format, or no field (a payload naming one this client doesn't have), keeps
+ * the plain grouped number ("50,000"). `min_count` is a count of choices, not
+ * a field value, so callers never pass it here.
+ */
+export function formatComparisonOperand(operand: string | null, field?: OperandField | null): string {
+  if (operand === null) return "";
+  if (field && field.field_type === "number" && (field.number_prefix || field.number_suffix || field.number_decimals != null)) {
+    return formatNumberValue(operand, { prefix: field.number_prefix, suffix: field.number_suffix, decimals: field.number_decimals });
+  }
+  const n = Number(operand);
+  return operand.trim() !== "" && Number.isFinite(n) ? n.toLocaleString("en-US") : operand;
+}
 
 /** Operators a field accepts, mirroring the server's OPERATORS_BY_TYPE. Checkbox accepts none in 1.3. */
 export function operatorsFor(field: Pick<CustomFieldDefinition, "field_type" | "is_dimension">): EntryRequirementOperator[] {
   if (field.field_type === "checkbox") return [];
   const ops: EntryRequirementOperator[] = field.is_dimension ? ["satisfied", "filled"] : ["filled"];
-  if (field.field_type === "number") ops.push("gt", "gte");
+  if (field.field_type === "number") ops.push("gt", "gte", "lt", "lte");
   if (field.field_type === "multi_select") ops.push("min_count");
   return ops;
 }

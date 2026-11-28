@@ -362,12 +362,13 @@ export interface Column {
 /** How a column treats a card that does not meet its entry requirements (#1923). */
 export type EntryEnforcement = "warn" | "block" | "hard";
 
-/** Entry requirement operators (#1923). `set_complete` takes a field set; the rest a field. */
-export type EntryRequirementOperator = "filled" | "min_count" | "gt" | "gte" | "satisfied" | "set_complete";
+/** Entry requirement operators (#1923). `set_complete` takes a field set; the rest a field.
+ *  `lt` ("is less than") and `lte` ("is at most") are the number upper bounds (#2718). */
+export type EntryRequirementOperator = "filled" | "min_count" | "gt" | "gte" | "lt" | "lte" | "satisfied" | "set_complete";
 
 /** One entry requirement, as `ColumnSerializer` sends it (#1923). Exactly one of
  *  `field_uid` / `field_set_uid` is set. `operand` is a decimal string for
- *  `gt`, `gte` and `min_count`, else `null`. */
+ *  `gt`, `gte`, `lt`, `lte` and `min_count`, else `null`. */
 export interface ColumnEntryRequirement {
   uid: string;
   field_uid: string | null;

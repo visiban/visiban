@@ -6,7 +6,7 @@ import { failureReason } from "../../utils/moveFailure";
 import { canOverride, overrideHint, overrideLabel, type OverrideEligibility } from "../../utils/forceOverride";
 import ModalWrapper from "../shared/ModalWrapper";
 import OverrideReasonForm from "./OverrideReasonForm";
-import { entryRequirementCount, hardLimitContainer, isHardLimit, toastBody, toastTitle } from "./moveBlockedMessages";
+import { entryRequirementCount, hardLimitContainer, isHardLimit, toastBody, toastTitle, type UnmetFields } from "./moveBlockedMessages";
 
 interface Props {
   error: MoveBlockedError;
@@ -18,6 +18,8 @@ interface Props {
    *  resolved `{ ok: false }` keeps the dialog open. */
   onForce: (reason?: string) => void | Promise<unknown>;
   onDismiss: () => void;
+  /** The board's field definitions, so an entry bound reads in its field's format (#2718). */
+  fields?: UnmetFields;
 }
 
 /** Coalescing key: a later move replaces a stale refusal in place. */
@@ -28,7 +30,7 @@ export const MOVE_TOAST_KEY = "move";
  * toast for the content, § Toasts for placement and timing). Persists until
  * dismissed or replaced, announced assertively.
  */
-function moveBlockedToast(error: MoveBlockedError, eligibility: OverrideEligibility, onForce: () => void | Promise<unknown>): ToastInput {
+function moveBlockedToast(error: MoveBlockedError, eligibility: OverrideEligibility, onForce: () => void | Promise<unknown>, fields?: UnmetFields): ToastInput {
   const entryHard = error.code === "entry_requirements_unmet" && error.mode === "hard";
   const hardBlocked = isHardLimit(error.code) || error.code === "permission_denied" || entryHard;
   // maintenance_mode has no override for anyone — a site admin never sees this
@@ -55,7 +57,7 @@ function moveBlockedToast(error: MoveBlockedError, eligibility: OverrideEligibil
   const actionLabel = overridable && canOverride(eligibility) ? overrideLabel(eligibility) : null;
   const overrideNote = overridable ? overrideHint(eligibility) : null;
   const title = toastTitle(error);
-  const body = toastBody(error);
+  const body = toastBody(error, fields);
   return {
     key: MOVE_TOAST_KEY,
     variant: "blocked",
@@ -118,8 +120,12 @@ function focusMovedCard(cardId: number): boolean {
  * there is an error, and it raises, replaces and finally removes the `move`
  * toast.
  */
-export default function MoveBlockedToast({ error, eligibility, cardId, onForce, onDismiss }: Props) {
+export default function MoveBlockedToast({ error, eligibility, cardId, onForce, onDismiss, fields }: Props) {
   const { notify, dismiss } = useToast();
+  // Read when a refusal arrives, never a reason to re-raise it: board updates
+  // hand down a fresh array, and re-notifying would re-announce the toast.
+  const fieldsRef = useRef(fields);
+  fieldsRef.current = fields;
   const forceRef = useRef(onForce);
   forceRef.current = onForce;
   const dismissRef = useRef(onDismiss);
@@ -169,7 +175,7 @@ export default function MoveBlockedToast({ error, eligibility, cardId, onForce, 
   useEffect(() => {
     const e = (kind === "other_member" ? { kind, assigneeName } : { kind }) as OverrideEligibility;
     notify({
-      ...moveBlockedToast(error, e, () => (needsReason(kind, error) ? openReason(error) : forceRef.current())),
+      ...moveBlockedToast(error, e, () => (needsReason(kind, error) ? openReason(error) : forceRef.current()), fieldsRef.current),
       announce: !reportedByMovePopover(),
       onDismiss: () => dismissRef.current(),
     });
