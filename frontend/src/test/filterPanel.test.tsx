@@ -379,6 +379,23 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
+  it('with no active filters Tab wraps from the roving list stop to the first control, and Shift+Tab from the first to the last (#2691)', async () => {
+    const u = userEvent.setup()
+    setup({ savedFilters: [] })
+    await open(u)
+    const dialog = screen.getByRole('dialog', { name: 'Filters' })
+    const inPanel = () => dialog.contains(document.activeElement)
+    const sw = screen.getByRole('button', { name: 'Filter bar' })
+    const stop = within(screen.getByRole('list', { name: 'Filterable fields' })).getAllByRole('button').find((b) => b.getAttribute('tabindex') === '0') as HTMLElement
+    stop.focus()
+    await u.tab()
+    expect(sw).toHaveFocus()
+    expect(inPanel()).toBe(true)
+    await u.tab({ shift: true })
+    expect(stop).toHaveFocus()
+    expect(inPanel()).toBe(true)
+  })
+
   it('the trigger reports its count and expanded state', async () => {
     const u = userEvent.setup()
     render(
