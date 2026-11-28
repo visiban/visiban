@@ -363,7 +363,11 @@ test.describe('board phone layout', () => {
     }).toPass({ timeout: 5_000 })
   })
 
-  test('the tab strip fade is on at 390px once the Lens tab mounts late, with no scroll (#2395)', async ({ page }) => {
+  test('the tab strip fade is on at 360px once the Lens tab mounts late, with no scroll (#2395)', async ({ page }) => {
+    // 360px, not the suite's 390: once Lens mounts the strip gets its own row (366px at 390), and since the
+    // Analytics Beta chip went (#2647) the five plain-text tabs fit there (354px), so nothing would overflow.
+    // At 360 they overflow the reflowed strip, which the observer must notice with no scroll or resize.
+    await page.setViewportSize({ width: 360, height: 800 })
     const lensUser = { ...USER, git_lens_enabled: true }
     await page.route(`**/api/v1/git-lens/connections/${BOARD_FULL.id}/`, async (route) => {
       await new Promise((r) => setTimeout(r, 1500))
