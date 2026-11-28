@@ -7410,8 +7410,8 @@ and weight limits apply as for any create. <code>201</code> returns the new card
 <li><strong>Roles:</strong> <code>member</code> or higher on both boards. A viewer or collaborator on
   this card's board gets <code>403</code> before the body is read.</li>
 <li><strong>Target:</strong> a <code>board_id</code> that does not exist, one you cannot open, one where
-  you are below <code>member</code>, one whose cards can have children, one whose first
-  column does not allow card creation, and this card's own board all answer the
+  you are below <code>member</code>, one whose cards can have children, one with no
+  swimlane or no column, one whose first column does not allow card creation, and this card's own board all answer the
   same <code>404</code>.</li>
 <li><strong>Rules:</strong> the same <code>400</code> codes as linking (<code>link_not_allowed</code>,
   <code>parent_is_child</code>, <code>parent_archived</code>, <code>children_on_other_board</code>, <code>children_limit</code>), decided
@@ -7516,19 +7516,21 @@ Any role on this card's board.</p>
 <a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a><span class="w"> </span><span class="nt">"can_set_default"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a><span class="w"> </span><span class="nt">"boards"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Delivery"</span><span class="p">,</span><span class="w"> </span><span class="nt">"can_set_default"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}],</span>
 <a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a><span class="w"> </span><span class="nt">"boards_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a><span class="w"> </span><span class="nt">"disabled_reason"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">}</span>
+<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a><span class="w"> </span><span class="nt">"disabled_reason"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a><span class="w"> </span><span class="nt">"unavailable"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backlog"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"no_swimlane"</span><span class="p">}]}</span>
 </code></pre></div>
 <ul>
 <li><code>fixed_board</code>: the board this card's children are already on, as
   <code>{"hidden": false, "id", "name", "can_add"}</code>, or <code>{"hidden": true}</code> when you
   cannot open it (Add child is then unavailable to you). <code>can_add</code> is false when
-  you are below <code>member</code> there or its first column no longer allows card
-  creation: Add child would be refused, so the dialog disables it. <code>null</code> when it has no children.</li>
+  you are below <code>member</code> there, it has no swimlane or no column, or its first
+  column no longer allows card creation: Add child would be refused, so the dialog disables it. <code>null</code> when it has no children.</li>
 <li><code>default</code>: the board's <a href="../boards/"><code>default_child_board</code></a>, only when you are
   <code>member</code> or higher there and it still qualifies; otherwise <code>null</code>, and the
   client asks which board to use.</li>
 <li><code>boards</code>: every board where you are <code>member</code> or higher whose cards cannot
-  have children and whose first column allows card creation, by name.
+  have children, that has a swimlane, and whose first column allows card
+  creation, by name.
   <code>can_set_default</code> is true when you administer both boards. At most <strong>100</strong>
   boards are listed (<code>CHILD_BOARD_OPTIONS_LIMIT</code>, since 1.3, #2449);
   <code>boards_total</code> is how many qualify in all, so a client can say "showing 100
@@ -7536,6 +7538,15 @@ Any role on this card's board.</p>
   the listed <code>boards</code>: when it sorts past the first 100 it takes the last slot,
   so a client can preselect it.</li>
 <li><code>can_set_default</code> (top level): you administer this card's board.</li>
+<li><code>unavailable</code> (since 1.3, #2719): the boards where you are <code>member</code> or higher
+  whose cards cannot have children but that cannot take a child yet, so the
+  dialog can show them disabled instead of dropping them. Each is
+  <code>{"id", "name", "reason"}</code>, by name, at most <strong>100</strong>. <code>reason</code> is the first
+  failing check: <code>no_column</code> (the board has no columns), <code>no_swimlane</code> (it has
+  no swimlanes) or <code>first_column_closed</code> (its first column does not allow card
+  creation). A board whose cards can have children and this card's own board
+  are never listed; boards where you are below <code>member</code> are not named. Empty
+  when unauthenticated.</li>
 <li><code>disabled_reason</code> (since 1.3, #2447): <code>"parent_archived"</code> when this card is
   archived, since Add child refuses an archived parent with that code; else <code>null</code>.</li>
 <li><code>default_team</code> (#2211, since 1.3): the default team of this card's lane, as
