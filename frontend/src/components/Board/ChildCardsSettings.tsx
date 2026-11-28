@@ -4,8 +4,7 @@ import { getChildrenSettingBlockers, getDefaultChildBoardOptions } from "../../a
 import type { Board, ChildrenSettingBlockers, UnavailableChildBoard } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
 import ParentNameSettings from "./ParentNameSettings";
-import { boardsCapLine } from "../Card/childBoardOptionsCap";
-import UnavailableChildBoards from "../Card/UnavailableChildBoards";
+import { boardsCapLine, unavailableOption } from "../Card/childBoardOptionsCap";
 import { buttonClasses } from "../Page/buttonClasses";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
@@ -47,7 +46,6 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   const defaultId = `${uid}-default`;
   const defaultHelpId = `${uid}-default-help`;
   const defaultCapId = `${uid}-default-cap`;
-  const defaultUnavailableId = `${uid}-default-unavailable`;
   const reasonsRef = useRef<HTMLDivElement>(null);
   const checked = board.cards_can_have_children;
   // The reason link is router navigation (no full page load); a bare render with no
@@ -60,7 +58,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   const [options, setOptions] = useState<{ id: number; name: string }[]>([]);
   // How many boards qualify in all (#2449): the list holds at most 100.
   const [optionsTotal, setOptionsTotal] = useState<number | undefined>(undefined);
-  // #2719: boards this admin could pick once they qualify, named with why they're missing from the select.
+  // #2719: boards this admin could pick once they qualify, shown in the select as disabled options with why.
   const [unavailable, setUnavailable] = useState<UnavailableChildBoard[]>([]);
   // A failed blockers read must not leave the switch looking usable with no explanation (#2448).
   // For turning ON the server still refuses a bad flip on save, so this only explains. Turning OFF
@@ -205,12 +203,20 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   };
 
   const defaultInList = board.default_child_board != null && options.some((o) => o.id === board.default_child_board);
+  // #1692: the current value is never disabled. A current default that no longer qualifies keeps its name and
+  // stays selectable (choosing it again changes nothing), saying "Current default" instead of the block reason.
+  const currentUnavailable = board.default_child_board != null && !defaultInList
+    ? unavailable.find((u) => u.id === board.default_child_board) ?? null
+    : null;
   const selectOptions = [
     { value: "none", label: "None (ask each time)" },
     ...options.map((o) => ({ value: String(o.id), label: o.name })),
     ...(board.default_child_board != null && !defaultInList
-      ? [{ value: String(board.default_child_board), label: "A board you can't change" }]
+      ? [currentUnavailable
+        ? { value: String(currentUnavailable.id), label: currentUnavailable.name, description: "Current default" }
+        : { value: String(board.default_child_board), label: "A board you can't change" }]
       : []),
+    ...unavailable.filter((u) => u.id !== board.default_child_board).map((u) => unavailableOption(u)),
   ];
 
   const capLine = boardsCapLine(options.length, optionsTotal);
@@ -350,11 +356,10 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
             <p className="text-xs text-fg-muted mt-0.5">
               Only boards you administer are listed (setting a default needs admin on both boards). Changing this affects parents with no children yet.
             </p>
-            <UnavailableChildBoards id={defaultUnavailableId} boards={unavailable} className="mt-1" />
           </div>
           <SelectDropdown
             id={defaultId}
-            ariaDescribedBy={[defaultHelpId, capLine ? defaultCapId : null, unavailable.length > 0 ? defaultUnavailableId : null].filter(Boolean).join(" ")}
+            ariaDescribedBy={capLine ? `${defaultHelpId} ${defaultCapId}` : defaultHelpId}
             value={board.default_child_board != null ? String(board.default_child_board) : "none"}
             onChange={(v) => save({ default_child_board: v === "none" ? null : Number(v) })}
             options={selectOptions}

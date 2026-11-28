@@ -6,7 +6,7 @@ import type { ChildBoardOptions, EffectiveBoardMember } from "../../types";
 import LaneTeamAssignee from "../Board/LaneTeamAssignee";
 import { assignableMembers, childCaption, memberName } from "../../utils/swimlaneDefaultTeam";
 import { linkErrorCopy } from "./cardParent";
-import { boardsCapLine } from "./childBoardOptionsCap";
+import { boardsCapLine, unavailableOption } from "./childBoardOptionsCap";
 import UnavailableChildBoards from "./UnavailableChildBoards";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -140,9 +140,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
     ? team.member_ids.filter((id) => id !== assigneeId && byId.has(id)).map((id) => memberName(byId.get(id)!))
     : [];
   const capLine = options ? boardsCapLine(options.boards.length, options.boards_total) : null;
-  // #2719: boards the viewer can add cards to that fail the child-board rule, named with why instead of vanishing.
+  // #2719: boards the viewer can add cards to that fail the child-board rule stay in the chooser as disabled
+  // options, after the ones that can be picked, each with what to fix; never dropped silently.
   const unavailable = options?.unavailable ?? [];
-  const selectDescribedBy = [capLine ? capId : null, unavailable.length > 0 ? unavailableId : null].filter(Boolean).join(" ");
   const hasTitle = title.trim().length > 0;
   const ready = canPick && hasTitle && !submitting;
 
@@ -253,17 +253,19 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               <label htmlFor={selectId} className="text-sm text-fg-secondary">Child board</label>
               <SelectDropdown
                 id={selectId}
-                ariaDescribedBy={selectDescribedBy || undefined}
+                ariaDescribedBy={capLine ? capId : undefined}
                 value={chosen}
                 onChange={(v) => { setChosen(v); setMakeDefault(false); setUnassigned(false); }}
                 placeholder="Choose a board"
-                options={options.boards.map((b) => ({ value: String(b.id), label: b.name }))}
+                options={[
+                  ...options.boards.map((b) => ({ value: String(b.id), label: b.name })),
+                  ...unavailable.map((u) => unavailableOption(u)),
+                ]}
               />
               <p className="text-xs text-fg-muted">Only boards you can add cards to are listed.</p>
               {capLine && (
                 <p id={capId} className="text-xs text-fg-muted" data-testid="child-board-options-cap">{capLine}</p>
               )}
-              <UnavailableChildBoards id={unavailableId} boards={unavailable} className="mt-1" />
             </div>
           )}
 

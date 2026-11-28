@@ -8,9 +8,9 @@ interface Props {
 }
 
 /**
- * The boards a child-board select leaves out because they fail the child-board rule, each with its reason (#2719).
- * Plain text, never options: a board here can't be chosen until it is fixed, and a list keeps every reason readable
- * on a phone, where a disabled option's reason would be cut off. Wire `id` into the select's `aria-describedby`.
+ * Add child's empty state (#2719): no board can take a child, but these boards could once fixed, each with its reason.
+ * Only where there is no select. When any board can be picked, these boards are disabled options inside the select
+ * instead (`unavailableOption`), so nothing is listed twice.
  */
 export default function UnavailableChildBoards({ id, boards, className = "" }: Props) {
   if (boards.length === 0) return null;

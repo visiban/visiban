@@ -9,6 +9,14 @@ import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 export interface SelectDropdownOption<T extends string> {
   value: T;
   label: string;
+  /**
+   * #2719 / #1692: a choice the user may not pick yet stays in the list, muted, with `description` saying why.
+   * It carries `aria-disabled`, ignores click, Enter and Space, and arrow keys, Home/End and type-to-jump skip it,
+   * so it is never highlighted. Never mark the current `value` disabled: the current choice stays selectable.
+   */
+  disabled?: boolean;
+  /** A second line under the label (`text-xs`), tied to the option with `aria-describedby`; the reason on a disabled option. */
+  description?: string;
 }
 
 interface Props<T extends string> {
@@ -82,6 +90,7 @@ export default function SelectDropdown<T extends string>({
   const [anchor, setAnchor] = useState<{ top: number; bottom: number; left: number; minWidth: number } | null>(null);
   const listboxId = useId();
   const optionIdPrefix = useId();
+  const disabledSummaryId = useId();
   // Type-to-jump: the characters typed so far, and the match to land on when the
   // first keystroke is what opened the menu (the open effect would otherwise
   // reset the highlight to the selected option).
@@ -138,12 +147,13 @@ export default function SelectDropdown<T extends string>({
     return () => document.removeEventListener("mousedown", handler);
   }, [open, close]);
 
-  // Initialize activeIndex to the currently selected option when opening
+  // Initialize activeIndex to the currently selected option when opening; a disabled option is never highlighted
+  // (#2719), so fall back to the first enabled one, or none when every option is disabled.
   useEffect(() => {
     if (open) {
       const idx = pendingIndexRef.current ?? options.findIndex((o) => o.value === value);
       pendingIndexRef.current = null;
-      setActiveIndex(idx >= 0 ? idx : 0);
+      setActiveIndex(idx >= 0 && !options[idx].disabled ? idx : options.findIndex((o) => !o.disabled));
     }
   }, [open, value, options]);
 
@@ -170,11 +180,17 @@ export default function SelectDropdown<T extends string>({
     const from = repeated || state.text.length === 1 ? activeIndex + 1 : Math.max(activeIndex, 0);
     for (let n = 0; n < options.length; n++) {
       const i = (Math.max(from, 0) + n) % options.length;
-      if (options[i].label.toLowerCase().startsWith(needle)) {
+      if (!options[i].disabled && options[i].label.toLowerCase().startsWith(needle)) {
         if (open) setActiveIndex(i); else { pendingIndexRef.current = i; openMenu(); }
         return;
       }
     }
+  };
+
+  /** The nearest enabled option from `from` (inclusive) stepping by `step`, or -1 (#2719: disabled options are skipped). */
+  const enabledFrom = (from: number, step: 1 | -1) => {
+    for (let i = from; i >= 0 && i < options.length; i += step) if (!options[i].disabled) return i;
+    return -1;
   };
 
   const handleSelect = (val: T) => {
@@ -202,10 +218,9 @@ export default function SelectDropdown<T extends string>({
         if (!open) {
           openMenu();
         } else {
-          const next = e.key === "ArrowDown"
-            ? Math.min(activeIndex + 1, options.length - 1)
-            : Math.max(activeIndex - 1, 0);
-          setActiveIndex(next);
+          // No wrap: past the last (or before the first) enabled option the highlight stays put.
+          const next = e.key === "ArrowDown" ? enabledFrom(activeIndex + 1, 1) : enabledFrom(activeIndex - 1, -1);
+          if (next >= 0) setActiveIndex(next);
         }
         break;
       }
@@ -213,7 +228,7 @@ export default function SelectDropdown<T extends string>({
       case "End": {
         if (open) {
           e.preventDefault();
-          setActiveIndex(e.key === "Home" ? 0 : options.length - 1);
+          setActiveIndex(e.key === "Home" ? enabledFrom(0, 1) : enabledFrom(options.length - 1, -1));
         }
         break;
       }
@@ -222,7 +237,7 @@ export default function SelectDropdown<T extends string>({
         if (!open) {
           e.preventDefault();
           openMenu();
-        } else if (activeIndex >= 0 && activeIndex < options.length) {
+        } else if (activeIndex >= 0 && activeIndex < options.length && !options[activeIndex].disabled) {
           e.preventDefault();
           handleSelect(options[activeIndex].value);
         }
@@ -241,6 +256,13 @@ export default function SelectDropdown<T extends string>({
   const activeDescendant = open && activeIndex >= 0 ? `${optionIdPrefix}-${activeIndex}` : undefined;
 
   const triggerPadding = size === "xs" ? "px-2 py-1 text-sm" : "px-2.5 py-1.5 text-sm";
+  // Keyboard navigation skips disabled options, so a screen reader would never reach them: name them, with their
+  // reasons, in the trigger's description instead (#2719).
+  const disabledOptions = options.filter((o) => o.disabled);
+  const disabledSummary = disabledOptions.length > 0
+    ? `Unavailable: ${disabledOptions.map((o) => (o.description ? `${o.label} (${o.description})` : o.label)).join("; ")}.`
+    : null;
+  const describedBy = [ariaDescribedBy, disabledSummary ? disabledSummaryId : null].filter(Boolean).join(" ") || undefined;
 
   return (
     <div ref={containerRef} className={`relative inline-block ${className}`}>
@@ -254,7 +276,7 @@ export default function SelectDropdown<T extends string>({
         aria-label={
           disabled && disabledReason ? disabledReason : ariaLabel ? `${ariaLabel}: ${label}` : undefined
         }
-        aria-describedby={ariaDescribedBy}
+        aria-describedby={describedBy}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
@@ -280,6 +302,7 @@ export default function SelectDropdown<T extends string>({
           />
         </svg>
       </button>
+      {disabledSummary && <span id={disabledSummaryId} className="sr-only">{disabledSummary}</span>}
 
       {open && anchor && sheet && createPortal(
         // The scrim is outside the panel, so a tap on it is the outside mousedown that closes the menu.
@@ -332,25 +355,37 @@ export default function SelectDropdown<T extends string>({
                   id={`${optionIdPrefix}-${i}`}
                   role="option"
                   aria-selected={opt.value === value}
+                  // #2719 / #1692: aria-disabled, never removed from the list; the handlers below ignore it.
+                  aria-disabled={opt.disabled ? "true" : undefined}
+                  // With a description the name is the label alone (the reason is the description, not part of the name).
+                  aria-labelledby={opt.description ? `${optionIdPrefix}-${i}-label` : undefined}
+                  aria-describedby={opt.description ? `${optionIdPrefix}-${i}-desc` : undefined}
                   tabIndex={-1}
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSelect(opt.value)}
+                  onClick={opt.disabled ? undefined : () => handleSelect(opt.value)}
                   // The trigger (combobox) drives keyboard selection via aria-activedescendant;
                   // this keeps Enter/Space parity if an option ever holds focus (#1376).
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      handleSelect(opt.value);
+                      if (!opt.disabled) handleSelect(opt.value);
                     }
                   }}
-                  className={`w-full text-left px-3 py-1.5 max-sm:min-h-11 text-sm transition cursor-pointer hover:bg-surface-hover
-                    ${i === activeIndex ? "bg-surface-hover" : ""}
-                    ${opt.value === value ? "text-info" : "text-fg-secondary"}`}
+                  className={`w-full text-left px-3 py-1.5 max-sm:min-h-11 text-sm transition ${opt.disabled
+                    ? "cursor-not-allowed text-fg-muted"
+                    : `cursor-pointer hover:bg-surface-hover ${i === activeIndex ? "bg-surface-hover" : ""} ${opt.value === value ? "text-info" : "text-fg-secondary"}`}`}
                 >
                   <span className="flex items-start gap-2">
                     {/* Non-color selection cue (#2171). Reserves its width on every option so labels stay aligned. */}
                     <SelectedCheck selected={opt.value === value} testId="select-selected-mark" slotClassName="w-3 h-5 shrink-0 flex items-center" />
-                    <span className="min-w-0">{opt.label}</span>
+                    <span className="min-w-0">
+                      <span id={`${optionIdPrefix}-${i}-label`}>{opt.label}</span>
+                      {opt.description && (
+                        <span id={`${optionIdPrefix}-${i}-desc`} className="block text-xs text-fg-tertiary" data-testid="select-option-description">
+                          {opt.description}
+                        </span>
+                      )}
+                    </span>
                   </span>
                 </div>
               </div>

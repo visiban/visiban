@@ -386,34 +386,42 @@ describe('AddChildDialog unavailable boards (#2719)', () => {
     { id: 22, name: 'Child Board test', reason: 'no_swimlane' },
   ]
 
-  it('names each board that cannot take a child, with why, below the select, and never offers it', async () => {
+  it('lists each board that cannot take a child as a disabled option after the selectable ones, with what to fix', async () => {
     const { user } = setup({ ...BASE, unavailable: UNAVAILABLE })
-    const list = await screen.findByTestId('unavailable-child-boards')
-    expect(list).toHaveTextContent("Can't take children yet:")
-    expect(list).toHaveTextContent('Child Board test: add a swimlane first')
-    expect(list).toHaveTextContent("Archive: its first column doesn't allow new cards")
-    expect(list).toHaveTextContent('Blank: add a column first')
-    const select = screen.getByRole('combobox', { name: /Child board/ })
-    expect(select.getAttribute('aria-describedby')).toContain(list.id)
-    await user.click(select)
-    expect(await screen.findByRole('option', { name: 'Delivery' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: 'Child Board test' })).toBeNull()
-    expect(screen.queryByRole('option', { name: 'Archive' })).toBeNull()
-  })
-
-  it('wires both the cap line and the list into the select description', async () => {
-    setup({ ...BASE, boards_total: 150, unavailable: UNAVAILABLE.slice(0, 1) })
-    const list = await screen.findByTestId('unavailable-child-boards')
-    const cap = screen.getByTestId('child-board-options-cap')
-    const describedBy = screen.getByRole('combobox', { name: /Child board/ }).getAttribute('aria-describedby')
-    expect(describedBy?.split(' ')).toEqual([cap.id, list.id])
-  })
-
-  it('shows no list and no extra description when every board qualifies', async () => {
-    setup({ ...BASE, unavailable: [] })
     const select = await screen.findByRole('combobox', { name: /Child board/ })
+    // Owner decision 2026-11-27: the boards sit inside the chooser, not in a list under it.
     expect(screen.queryByTestId('unavailable-child-boards')).toBeNull()
+    await user.click(select)
+    const names = screen.getAllByRole('option').map((o) => o.getAttribute('aria-disabled') === 'true' ? `${o.textContent} [disabled]` : o.textContent)
+    expect(names.slice(-3)).toEqual([
+      "ArchiveIts first column doesn't allow new cards [disabled]",
+      'BlankAdd a column first [disabled]',
+      'Child Board testAdd a swimlane first [disabled]',
+    ])
+    expect(screen.getByRole('option', { name: 'Delivery' })).not.toHaveAttribute('aria-disabled')
+    const child = screen.getByRole('option', { name: 'Child Board test' })
+    expect(child).toHaveAttribute('aria-disabled', 'true')
+    expect(child).toHaveAccessibleDescription('Add a swimlane first')
+    await user.click(child)
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add child' })).toBeDisabled()
+  })
+
+  it('describes the select with the cap line, then the unavailable boards and their reasons', async () => {
+    setup({ ...BASE, boards_total: 150, unavailable: UNAVAILABLE.slice(0, 1) })
+    const cap = await screen.findByTestId('child-board-options-cap')
+    const select = screen.getByRole('combobox', { name: /Child board/ })
+    const describedBy = select.getAttribute('aria-describedby')!.split(' ')
+    expect(describedBy[0]).toBe(cap.id)
+    expect(document.getElementById(describedBy[1])).toHaveTextContent("Unavailable: Archive (Its first column doesn't allow new cards).")
+  })
+
+  it('shows no disabled option and no extra description when every board qualifies', async () => {
+    const { user } = setup({ ...BASE, unavailable: [] })
+    const select = await screen.findByRole('combobox', { name: /Child board/ })
     expect(select).not.toHaveAttribute('aria-describedby')
+    await user.click(select)
+    expect(screen.getAllByRole('option').some((o) => o.getAttribute('aria-disabled') === 'true')).toBe(false)
   })
 
   it('explains an empty chooser when unavailable boards are the only reason it is empty', async () => {

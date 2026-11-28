@@ -109,6 +109,8 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 
 **Disabled dropdowns must include an explanation** — when rendering `<SelectDropdown disabled={true}>`, always pass `disabledReason="..."`. The component renders it as a `title` attribute and `aria-label` on the trigger. A silently greyed-out control with no explanation is inaccessible and a dead end for all users.
 
+**Disabled options say why and are skipped by the keyboard (#2719).** A `SelectDropdown` option the user can't pick yet takes `disabled: true` and a `description` with the reason (what to fix). It renders muted with the reason as a second line, carries `aria-disabled="true"`, ignores click, Enter and Space, and arrow keys, Home/End and type-to-jump skip it, so it is never highlighted; the trigger's description names the disabled options for screen readers. Put them after the usable options and never disable the current value. See `frontend/ui-conventions/controls-and-settings.md`, *Choices a select can't offer yet*.
+
 **Long lists need type-to-jump.** A `SelectDropdown` with more than about 20 options must support type-to-jump or use the filterable combobox. `SelectDropdown` has type-to-jump built in (focus the trigger and type; a repeated letter cycles; it resets after 700 ms), so a long list such as the board time zone picker (#2051) needs no extra prop, but memoize its options and give the trigger `shrink-0 max-w-[14rem]` so a long name truncates rather than pushing its row.
 
 **`SelectDropdown` supports external label and helper wiring (#1430).** Pass `id` so `<label htmlFor>` binds to the `role=combobox` button trigger, and `ariaDescribedBy={helperId}` to tie always-rendered helper text (`text-xs text-fg-muted`, with a stable `id`) to it. Use `ariaLabel` only when there is no visible label, because `aria-label` overrides the label association.
@@ -300,7 +302,7 @@ Form controls, inline editors, settings layouts, admin surfaces, secrets, import
 - **Read-only composite editors (#2090)** — A view-only composite form shows disabled fields, omits its actions and adds one muted note. → `frontend/ui-conventions/controls-and-settings.md`
 - **One-time token reveal** — Reveal a once-only token inline on the new row, never in a modal or toast. → `frontend/ui-conventions/controls-and-settings.md`
 - **Blocked rows in pickers (#1692)** — A picker row the user may not choose stays visible and focusable and says why. → `frontend/ui-conventions/controls-and-settings.md`
-- **Choices a select leaves out (#2719)** — A choice a select leaves out because it fails a rule the user can fix is named under the select with its reason, never dropped silently. → `frontend/ui-conventions/controls-and-settings.md`
+- **Choices a select can't offer yet (#2719)** — A choice that fails a rule the user can fix stays in the select as a disabled option with its reason, after the usable ones; never dropped silently. → `frontend/ui-conventions/controls-and-settings.md`
 - **Multi-step import wizards and file uploads (#456)** — Import and creation wizards reuse the Trello wizard's shell, steps and upload patterns. → `frontend/ui-conventions/controls-and-settings.md`
 - **Import Board sample gallery (#1452)** — `SampleGallery` sits above the import dropzone, is named sample, and owns no import logic. → `frontend/ui-conventions/controls-and-settings.md`
 - **Local input buffers and timers (#1319)** — Never seed a local input buffer from fetched or prop data in a `useEffect`. → `frontend/ui-conventions/controls-and-settings.md`
