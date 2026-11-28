@@ -11,12 +11,13 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import HelpLink from "../Common/HelpLink";
 import { Toggle } from "../Common/Toggle";
+import { formatNumberValue } from "../../utils/customFieldValue";
 import { InlineConfirm } from "../Page";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { Column, CustomFieldDefinition, CustomFieldSet, EntryEnforcement, EntryRequirementOperator, Swimlane } from "../../types";
 import {
-  DISCARD_ESCAPE_PRIORITY, ENTRY_MODE_LABEL, ENTRY_REQUIREMENTS_CAP, MARKER, MODE_HELP, NEEDS_OPERAND, OPERATOR_LABEL,
-  laneSuffix, operatorsFor, sameDraft, saveErrorMessage, seed, toWrite, validateDraft, type Draft, type Row,
+  DISCARD_ESCAPE_PRIORITY, ENTRY_MODE_LABEL, ENTRY_REQUIREMENTS_CAP, MARKER, MODE_HELP, NEEDS_OPERAND, NUMBER_COMPARISONS,
+  OPERATOR_LABEL, laneSuffix, operatorsFor, sameDraft, saveErrorMessage, seed, toWrite, validateDraft, type Draft, type Row,
 } from "../../utils/entryRequirementsEditor";
 
 interface Props {
@@ -107,7 +108,13 @@ export default function BoardSettingsEntryRequirementsSection({ columns, fields,
   const describeRow = (r: Pick<Row, "kind" | "uid" | "operator" | "operand">): string => {
     const name = r.kind === "set" ? setByUid.get(r.uid)?.name : fieldByUid.get(r.uid)?.name;
     if (r.operator === "min_count") return `${name ?? "?"} has at least ${r.operand} choice${r.operand === "1" ? "" : "s"}`;
-    return `${name ?? "?"} ${OPERATOR_LABEL[r.operator]}${NEEDS_OPERAND.has(r.operator) ? ` ${r.operand}` : ""}`;
+    // A number bound reads the way its field shows a value ("is at most 20%",
+    // #2718); a field with no format shows the number as typed, so it does here.
+    const f = r.kind === "field" ? fieldByUid.get(r.uid) : undefined;
+    const operand = NUMBER_COMPARISONS.has(r.operator) && f?.field_type === "number"
+      ? formatNumberValue(r.operand, { prefix: f.number_prefix, suffix: f.number_suffix })
+      : r.operand;
+    return `${name ?? "?"} ${OPERATOR_LABEL[r.operator]}${NEEDS_OPERAND.has(r.operator) ? ` ${operand}` : ""}`;
   };
 
   const summary = (col: Column): string => {
@@ -356,20 +363,35 @@ export default function BoardSettingsEntryRequirementsSection({ columns, fields,
                       ))}
                     </select>
                   )}
-                  {NEEDS_OPERAND.has(r.operator) && (
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      aria-label={`Condition ${n} value`}
-                      aria-invalid={invalid ? true : undefined}
-                      aria-describedby={invalid ? statusId : undefined}
-                      min={r.operator === "min_count" ? 1 : undefined}
-                      step={r.operator === "min_count" ? 1 : "any"}
-                      value={r.operand}
-                      onChange={(e) => updateRow(r.key, { operand: e.target.value })}
-                      className="w-28 bg-surface border border-line-strong rounded px-2 py-1 text-sm text-fg min-h-11 sm:min-h-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    />
-                  )}
+                  {NEEDS_OPERAND.has(r.operator) && (() => {
+                    // A number bound is a value of the field, so the box shows the
+                    // field's prefix/suffix ("20 %") the way the field does (#2718).
+                    // The input keeps its name; the visible units describe it.
+                    const unitField = NUMBER_COMPARISONS.has(r.operator) && field?.field_type === "number" ? field : undefined;
+                    const prefix = unitField?.number_prefix ?? "";
+                    const suffix = unitField?.number_suffix ?? "";
+                    const prefixId = `${idBase}-prefix-${r.key}`;
+                    const suffixId = `${idBase}-suffix-${r.key}`;
+                    const describedBy = [invalid ? statusId : "", prefix ? prefixId : "", suffix ? suffixId : ""].filter(Boolean).join(" ");
+                    return (
+                      <span className="inline-flex items-center gap-1">
+                        {prefix && <span id={prefixId} data-testid="entry-operand-prefix" className="text-sm text-fg-secondary">{prefix}</span>}
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          aria-label={`Condition ${n} value`}
+                          aria-invalid={invalid ? true : undefined}
+                          aria-describedby={describedBy || undefined}
+                          min={r.operator === "min_count" ? 1 : undefined}
+                          step={r.operator === "min_count" ? 1 : "any"}
+                          value={r.operand}
+                          onChange={(e) => updateRow(r.key, { operand: e.target.value })}
+                          className="w-28 bg-surface border border-line-strong rounded px-2 py-1 text-sm text-fg min-h-11 sm:min-h-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        />
+                        {suffix && <span id={suffixId} data-testid="entry-operand-suffix" className="text-sm text-fg-secondary">{suffix}</span>}
+                      </span>
+                    );
+                  })()}
                   {lanes && <span className="text-xs text-fg-tertiary">{laneSuffix(lanes).replace(/^ · /, "")}</span>}
                   <button
                     type="button"

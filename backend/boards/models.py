@@ -3777,9 +3777,13 @@ class ColumnEntryRequirement(models.Model):
         GTE = "gte", "is at least"
         SATISFIED = "satisfied", "is satisfied"
         SET_COMPLETE = "set_complete", "whole field set complete"
+        # Upper bounds (#2718). Added after the rest, so existing rows and the
+        # order of the choices above are untouched (1.0 contract: additive only).
+        LT = "lt", "is less than"
+        LTE = "lte", "is at most"
 
     #: Operators that compare against ``operand``.
-    OPERAND_OPERATORS = (Operator.MIN_COUNT, Operator.GT, Operator.GTE)
+    OPERAND_OPERATORS = (Operator.MIN_COUNT, Operator.GT, Operator.GTE, Operator.LT, Operator.LTE)
 
     uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
     column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="entry_requirements")
@@ -3799,7 +3803,8 @@ class ColumnEntryRequirement(models.Model):
     class Meta:
         db_table = "column_entry_requirements"
         ordering = ["position", "id"]
-        # Built with the new table, so exempt from the concurrent-build rule.
+        # Built with the new table, so exempt from the concurrent-build rule
+        # (the operand rule was later replaced concurrently, 0151).
         constraints = [
             models.CheckConstraint(
                 condition=(
@@ -3808,12 +3813,19 @@ class ColumnEntryRequirement(models.Model):
                 ),
                 name="entry_req_exactly_one_target",
             ),
+            # Renamed with lt/lte (#2718): migration 0151 adds this one NOT VALID
+            # and validates it, then 0152 drops "entry_req_operand_iff_needed",
+            # so the table is never without the rule. Keep the list equal to
+            # OPERAND_OPERATORS (test_operand_constraint_matches_operand_operators).
             models.CheckConstraint(
                 condition=(
-                    models.Q(operator__in=["min_count", "gt", "gte"], operand__isnull=False)
-                    | (~models.Q(operator__in=["min_count", "gt", "gte"]) & models.Q(operand__isnull=True))
+                    models.Q(operator__in=["min_count", "gt", "gte", "lt", "lte"], operand__isnull=False)
+                    | (
+                        ~models.Q(operator__in=["min_count", "gt", "gte", "lt", "lte"])
+                        & models.Q(operand__isnull=True)
+                    )
                 ),
-                name="entry_req_operand_iff_needed",
+                name="entry_req_operand_iff_needed_v2",
             ),
             models.CheckConstraint(
                 condition=(

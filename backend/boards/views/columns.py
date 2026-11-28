@@ -325,6 +325,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
                         "field_set_uid": serializers.CharField(required=False),
                         "operator": serializers.ChoiceField(choices=[
                             "filled", "min_count", "gt", "gte", "satisfied", "set_complete",
+                            "lt", "lte",
                         ]),
                         "operand": serializers.CharField(required=False, allow_null=True),
                     },

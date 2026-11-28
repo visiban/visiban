@@ -539,10 +539,11 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             cardId={pendingMoveCardId}
             onForce={forceMoveCard}
             onDismiss={clearMoveError}
+            fields={board?.custom_field_definitions}
           />
         )}
         {entryWarning && clearEntryWarning && (
-          <EntryWarnToast key={entryWarning.seq} warning={entryWarning} onDismiss={clearEntryWarning} />
+          <EntryWarnToast key={entryWarning.seq} warning={entryWarning} onDismiss={clearEntryWarning} fields={board?.custom_field_definitions} />
         )}
         {importSummary && board && (
           <ImportSkippedToast summary={importSummary} onDismiss={dismissImportSummary} />

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useToast } from "../../contexts/useToast";
 import type { EntryWarning } from "../../hooks/useBoard";
-import { entryNeedsLine, entryRequirementCount } from "./moveBlockedMessages";
+import { entryNeedsLine, entryRequirementCount, type UnmetFields } from "./moveBlockedMessages";
 
 /** Coalescing key: a later Warn move replaces the previous notice in place. */
 export const ENTRY_WARN_TOAST_KEY = "entry-warn";
@@ -9,6 +9,8 @@ export const ENTRY_WARN_TOAST_KEY = "entry-warn";
 interface Props {
   warning: EntryWarning;
   onDismiss: () => void;
+  /** The board's field definitions, so a bound reads in its field's format (#2718). */
+  fields?: UnmetFields;
 }
 
 /**
@@ -17,10 +19,13 @@ interface Props {
  * A non-blocking `warning` toast for 12 s with one action, "Fill in", which
  * opens the card (the full fill-in dialog is #2571). Renders nothing.
  */
-export default function EntryWarnToast({ warning, onDismiss }: Props) {
+export default function EntryWarnToast({ warning, onDismiss, fields }: Props) {
   const { notify, dismiss } = useToast();
   const dismissRef = useRef(onDismiss);
   dismissRef.current = onDismiss;
+  // Read when a warning arrives; a board update's fresh array must not re-raise the toast.
+  const fieldsRef = useRef(fields);
+  fieldsRef.current = fields;
 
   useEffect(() => {
     const count = entryRequirementCount(warning.unmet.length);
@@ -29,7 +34,7 @@ export default function EntryWarnToast({ warning, onDismiss }: Props) {
       key: ENTRY_WARN_TOAST_KEY,
       variant: "warning",
       title,
-      message: entryNeedsLine(warning.unmet),
+      message: entryNeedsLine(warning.unmet, fieldsRef.current),
       durationMs: 12000,
       action: {
         label: "Fill in",

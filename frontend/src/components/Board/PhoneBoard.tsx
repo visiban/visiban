@@ -324,7 +324,7 @@ export default function PhoneBoard({
       setAddingLane(null);
     } catch (err) {
       // Same wording as the grid cell: a WIP or weight 409 names the column and the numbers.
-      setAddError(limitBlockedMessage(err) ?? "Failed to add card.");
+      setAddError(limitBlockedMessage(err, customFieldDefinitions) ?? "Failed to add card.");
     }
   };
   const editLane = swimlanes.find((l) => l.id === editingLane) ?? null;

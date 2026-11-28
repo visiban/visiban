@@ -907,7 +907,7 @@ export default function CardDetail({ onOpenBoardSettings, card, board, onClose, 
     } catch (err) {
       // save() has already rolled the weight back. Only a limit refusal gets
       // a reason; any other failure keeps the indicator's "Couldn't save".
-      const reason = limitBlockedMessage(err);
+      const reason = limitBlockedMessage(err, board.custom_field_definitions);
       setWeightLimitReason(reason);
       setWeightLimitRefused(reason !== null);
       throw err;

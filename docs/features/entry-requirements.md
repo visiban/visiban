@@ -12,7 +12,7 @@ entry criteria.
 | Field type | Conditions |
 |---|---|
 | Text, URL, date, dropdown | is filled |
-| Number | is filled, is more than, is at least |
+| Number | is filled, is more than, is at least, is less than, is at most |
 | Multi-select | is filled, has at least N choices |
 | Dimension | is satisfied, is filled. *Not applicable* in a swimlane counts as satisfied. |
 | Checkbox | Can't be required yet. |
@@ -84,9 +84,10 @@ for "entry requirements" to jump there.
 1. Pick the column in the strip at the top. Each column's marker shows its
    mode: a plain ring for off, ⚠ for Warn, a lock for Block and ⛔ for Hard.
 2. Add conditions with **+ Field condition** (choose a field, then *is filled*,
-   *is more than*, *is at least*, *has at least N choices* or *is satisfied*,
-   depending on the field's type) or **+ Whole field set complete**. Every
-   condition must hold. Checkbox fields can't be required yet. A column can
+   *is more than*, *is at least*, *is less than*, *is at most*, *has at least
+   N choices* or *is satisfied*, depending on the field's type) or **+ Whole
+   field set complete**. A number condition's value box shows the field's
+   format, such as `%` or `$`; type the number only. Every condition must hold. Checkbox fields can't be required yet. A column can
    have up to 10 conditions.
 3. Choose what happens when a card doesn't meet them: **Warn** (let it in and
    flag it; the default), **Block** (board admins, and assignees when the board

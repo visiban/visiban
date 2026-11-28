@@ -37,7 +37,7 @@ function setup(over: Partial<Parameters<typeof BoardSettingsEntryRequirementsSec
 
 describe('operatorsFor / toWrite / validateDraft', () => {
   it('mirrors the server operator table', () => {
-    expect(operatorsFor(fields[0])).toEqual(['filled', 'gt', 'gte'])
+    expect(operatorsFor(fields[0])).toEqual(['filled', 'gt', 'gte', 'lt', 'lte'])
     expect(operatorsFor(fields[1])).toEqual(['filled'])
     expect(operatorsFor(fields[2])).toEqual([])
     expect(operatorsFor(fields[3])).toEqual(['filled', 'min_count'])

@@ -70,7 +70,7 @@ class SharedCaseTableTests(TestCase):
         # Pinned, not a floor: dropping a case from the shared table fails here
         # (and in the client's vitest, which reads the same file). Adding one
         # means bumping this number on purpose.
-        self.assertEqual(len(cases), 44)
+        self.assertEqual(len(cases), 53)  # 44 + nine lt/lte cases (#2718)
         for case in cases:
             with self.subTest(case["name"]):
                 lane = case.get("lane_id", "lane")

@@ -5,6 +5,7 @@
  */
 import type { MoveBlockedError } from "../../hooks/useBoard";
 import type { EntryUnmetItem } from "../../types";
+import { formatComparisonOperand, type OperandField } from "../../utils/entryRequirementsEditor";
 
 /** How many unmet requirements a "Needs:" line names before "and N more" (#1923 ux-design). */
 const NEEDS_LIST_MAX = 3;
@@ -14,13 +15,23 @@ function formatOperand(operand: string | null): string {
   return operand !== null && Number.isFinite(n) ? n.toLocaleString("en-US") : String(operand ?? "");
 }
 
-/** One unmet entry requirement as a short phrase: "Amount more than 50,000", "MEDDIC complete" (#1923). */
-export function unmetRequirementLabel(item: EntryUnmetItem): string {
+/** The board's field definitions, for operands shown in their field's number format (#2718). Optional everywhere: without them an operand reads as a plain number. */
+export type UnmetFields = readonly OperandField[] | null | undefined;
+
+/**
+ * One unmet entry requirement as a short phrase: "Amount more than 50,000",
+ * "Win probability at most 20%", "MEDDIC complete" (#1923, #2718). With
+ * `fields`, a number comparison's operand takes its field's format.
+ */
+export function unmetRequirementLabel(item: EntryUnmetItem, fields?: UnmetFields): string {
   const name = item.field_name ?? item.field_set_name ?? "A field";
+  const bound = () => formatComparisonOperand(item.operand, fields?.find((f) => f.uid === item.field_uid));
   switch (item.operator) {
     case "set_complete": return `${item.field_set_name ?? name} complete`;
-    case "gt": return `${name} more than ${formatOperand(item.operand)}`;
-    case "gte": return `${name} at least ${formatOperand(item.operand)}`;
+    case "gt": return `${name} more than ${bound()}`;
+    case "gte": return `${name} at least ${bound()}`;
+    case "lt": return `${name} less than ${bound()}`;
+    case "lte": return `${name} at most ${bound()}`;
     case "min_count": {
       const n = Number(item.operand);
       return `${name} with at least ${formatOperand(item.operand)} choice${n === 1 ? "" : "s"}`;
@@ -31,8 +42,8 @@ export function unmetRequirementLabel(item: EntryUnmetItem): string {
 }
 
 /** "Needs: A, B and C." with at most three items, then "and N more" (#1923 ux-design). */
-export function entryNeedsLine(unmet: EntryUnmetItem[]): string {
-  const labels = unmet.map((u) => unmetRequirementLabel(u));
+export function entryNeedsLine(unmet: EntryUnmetItem[], fields?: UnmetFields): string {
+  const labels = unmet.map((u) => unmetRequirementLabel(u, fields));
   if (labels.length === 0) return "";
   const shown = labels.slice(0, NEEDS_LIST_MAX);
   const rest = labels.length - shown.length;
@@ -74,14 +85,14 @@ export function alsoSentences(also: unknown): string[] {
   return out;
 }
 
-export function toastBody(error: MoveBlockedError): string {
+export function toastBody(error: MoveBlockedError, fields?: UnmetFields): string {
   if (error.code === "version_conflict") {
     return "This card was modified by another user. The board has been refreshed.";
   }
   if (error.code === "permission_denied" || error.code === "maintenance_mode" || error.code === "move_failed") {
     return error.detail;
   }
-  if (error.code === "entry_requirements_unmet") return entryNeedsLine(error.unmet) || error.detail;
+  if (error.code === "entry_requirements_unmet") return entryNeedsLine(error.unmet, fields) || error.detail;
   if (error.code === "wip_limit_exceeded" || error.code === "wip_hard_blocked") {
     const s = error.wip_limit !== 1 ? "s" : "";
     return `"${error.column_name}" is at its limit of ${error.wip_limit} card${s} (${error.current_count} active).`;
@@ -143,9 +154,9 @@ export function toastTitle(error: MoveBlockedError): string {
  * limit codes, so callers keep their existing generic message for every other
  * failure. No override is offered: the inline surfaces have no force action.
  */
-export function limitBlockedMessage(err: unknown): string | null {
+export function limitBlockedMessage(err: unknown, fields?: UnmetFields): string | null {
   const entry = entryRefusal(err);
-  if (entry) return `${toastTitle(entry)}: ${toastBody(entry)}`;
+  if (entry) return `${toastTitle(entry)}: ${toastBody(entry, fields)}`;
   const data = limitRefusal(err);
   if (data === null) return null;
   return `${toastTitle(data)}: ${toastBody(data)}`;

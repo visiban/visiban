@@ -136,7 +136,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
     } catch (err) {
       // A WIP/weight-limit 409 (#1428) names the column and the numbers;
       // every other failure keeps the generic text.
-      setAddError(limitBlockedMessage(err) ?? "Failed to add card.");
+      setAddError(limitBlockedMessage(err, customFieldDefinitions) ?? "Failed to add card.");
     }
   };
 
