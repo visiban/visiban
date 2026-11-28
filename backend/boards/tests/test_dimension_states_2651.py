@@ -131,6 +131,33 @@ class DimensionStatesPayloadTests(_Base):
         for c in cards:
             self.assertEqual([s["field_id"] for s in c["dimension_states"]], [self.dim.pk])
 
+    def _assert_list_adds_no_query_per_card(self, url, params, cards_of):
+        """More cards with dimension values, same query count, every card listed."""
+        self.patch_values((self.dim, "Pending"))
+        with CaptureQueriesContext(connection) as one:
+            first = self.client.get(url, params)
+        self.assertEqual(first.status_code, 200, first.data)
+        for i in range(4):
+            self.patch_values((self.dim, "Approved"), card=self._card(f"more {i}"))
+        with CaptureQueriesContext(connection) as five:
+            resp = self.client.get(url, params)
+        self.assertEqual(len(five), len(one))
+        cards = cards_of(resp.data)
+        self.assertEqual(len(cards), 5)
+        for c in cards:
+            self.assertEqual([s["field_id"] for s in c["dimension_states"]], [self.dim.pk])
+
+    def test_board_card_list_adds_no_query_per_card(self):
+        self._assert_list_adds_no_query_per_card(
+            f"/api/v1/boards/{self.board.pk}/cards/", {}, lambda data: data,
+        )
+
+    def test_cross_board_card_query_adds_no_query_per_card(self):
+        self._assert_list_adds_no_query_per_card(
+            "/api/v1/cards/", {"board": self.board.pk},
+            lambda data: data["results"] if isinstance(data, dict) else data,
+        )
+
     def test_not_on_the_public_share_payload(self):
         from boards.serializers import PublicCardSerializer  # noqa: PLC0415
         self.assertNotIn("dimension_states", PublicCardSerializer.Meta.fields)
