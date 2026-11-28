@@ -5,7 +5,8 @@ import type { FlowFilters } from "../../api/flowMetrics";
 import type { Column, CustomFieldDefinition } from "../../types";
 import AnalyticsOverview from "./flowMetrics/AnalyticsOverview";
 import AnalyticsSwimlanes from "./flowMetrics/AnalyticsSwimlanes";
-import { ANALYTICS_PARAM, parseAnalyticsFilters, parseAnalyticsTab, useAnalyticsUrlParams, writeAnalyticsFilters, writeAnalyticsTab } from "./flowMetrics/analyticsUrlState";
+import type { SwimlaneSort } from "./flowMetrics/swimlanesFormat";
+import { ANALYTICS_PARAM, parseAnalyticsFilters, parseAnalyticsTab, parseSwimlaneGroup, parseSwimlaneSort, useAnalyticsUrlParams, writeAnalyticsFilters, writeAnalyticsTab, writeSwimlaneGroup, writeSwimlaneSort } from "./flowMetrics/analyticsUrlState";
 import type { AnalyticsUrlSource } from "./flowMetrics/analyticsUrlState";
 import { breakdownFields, breakdownFromParam, breakdownToParam } from "./flowMetrics/breakdown";
 import type { Breakdown } from "./flowMetrics/breakdown";
@@ -105,6 +106,10 @@ export default function AnalyticsView({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const view = parseAnalyticsTab(urlParams);
   const setView = useCallback((next: "overview" | "swimlanes") => updateUrl((p) => writeAnalyticsTab(p, next)), [updateUrl]);
+  const swimlaneSort = parseSwimlaneSort(urlParams);
+  const setSwimlaneSort = useCallback((next: SwimlaneSort) => updateUrl((p) => writeSwimlaneSort(p, next)), [updateUrl]);
+  const groupId = parseSwimlaneGroup(urlParams, swimlaneFields);
+  const setGroupId = useCallback((next: number | null) => updateUrl((p) => writeSwimlaneGroup(p, next)), [updateUrl]);
   const eligibleFields = useMemo(() => breakdownFields(customFields ?? []), [customFields]);
   const breakdownRaw = urlParams.get(ANALYTICS_PARAM.by);
   const breakdown = useMemo(() => breakdownFromParam(breakdownRaw, eligibleFields), [breakdownRaw, eligibleFields]);
@@ -153,6 +158,10 @@ export default function AnalyticsView({
             onFiltersChange={setFilters}
             labels={labels}
             swimlaneFields={swimlaneFields}
+            sort={swimlaneSort}
+            onSortChange={setSwimlaneSort}
+            groupId={groupId}
+            onGroupChange={setGroupId}
             onOpenSwimlane={openSwimlane}
             onFetchedFilters={setFetchedFilters}
             timeZone={timeZone}

@@ -1,11 +1,13 @@
 import { useCallback, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { FlowFilters } from "../../../api/flowMetrics";
+import { SORT_OPTIONS } from "./swimlanesFormat";
+import type { SwimlaneSort } from "./swimlanesFormat";
 
 /**
  * The Analytics tab's shareable state lives in the URL beside `?view=analytics`
  * (#2318): Period, Swimlane, Label, Break down by and the Overview/Swimlanes
- * choice. Every parameter is optional and a default is never written, so an
+ * choice; the Swimlanes view adds Group lanes by and Sort (#2546). Every parameter is optional and a default is never written, so an
  * existing `?view=analytics` link is unchanged and means exactly what it did.
  */
 export const ANALYTICS_PARAM = {
@@ -14,6 +16,8 @@ export const ANALYTICS_PARAM = {
   label: "a_label",
   by: "a_by",
   tab: "a_tab",
+  group: "a_group",
+  sort: "a_sort",
 } as const;
 
 export const ANALYTICS_PARAM_NAMES: readonly string[] = Object.values(ANALYTICS_PARAM);
@@ -77,6 +81,30 @@ export function parseAnalyticsTab(params: URLSearchParams): AnalyticsTab {
 export function writeAnalyticsTab(next: URLSearchParams, tab: AnalyticsTab): void {
   if (tab === "overview") next.delete(ANALYTICS_PARAM.tab);
   else next.set(ANALYTICS_PARAM.tab, tab);
+}
+
+export const SWIMLANE_SORT_DEFAULT: SwimlaneSort = "slowest";
+
+/** The sort in `a_sort`; an unknown value is the default, never an error. */
+export function parseSwimlaneSort(params: URLSearchParams): SwimlaneSort {
+  const raw = params.get(ANALYTICS_PARAM.sort);
+  return SORT_OPTIONS.find((o) => o.value === raw)?.value ?? SWIMLANE_SORT_DEFAULT;
+}
+
+export function writeSwimlaneSort(next: URLSearchParams, sort: SwimlaneSort): void {
+  if (sort === SWIMLANE_SORT_DEFAULT) next.delete(ANALYTICS_PARAM.sort);
+  else next.set(ANALYTICS_PARAM.sort, sort);
+}
+
+/** The swimlane custom field id in `a_group`, or null (none, malformed, or a field the board lacks). */
+export function parseSwimlaneGroup(params: URLSearchParams, fields: readonly { id: number }[]): number | null {
+  const id = parseId(params.get(ANALYTICS_PARAM.group));
+  return id !== null && fields.some((f) => f.id === id) ? id : null;
+}
+
+export function writeSwimlaneGroup(next: URLSearchParams, groupId: number | null): void {
+  if (groupId === null) next.delete(ANALYTICS_PARAM.group);
+  else next.set(ANALYTICS_PARAM.group, String(groupId));
 }
 
 /** Drops every Analytics parameter, for when the user leaves the tab. */

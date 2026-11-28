@@ -19,6 +19,11 @@ interface Props {
   labels: { id: number; name: string }[];
   /** Swimlane custom fields for "Group lanes by". */
   swimlaneFields?: { id: number; name: string }[];
+  /** Sort and Group lanes by live in the URL (#2546), so the page owns them. */
+  sort: SwimlaneSort;
+  onSortChange: (sort: SwimlaneSort) => void;
+  groupId: number | null;
+  onGroupChange: (groupId: number | null) => void;
   /** A swimlane name opens the Overview filtered to that swimlane. */
   onOpenSwimlane: (swimlaneId: number) => void;
   /** Reports the filters the numbers on screen were fetched for (the title row's period). */
@@ -123,7 +128,7 @@ function LaneRow({ row, scale, boardMedian, onOpen }: {
  * takes. Status, trend and percentiles come from the server; this draws them.
  */
 export default function AnalyticsSwimlanes({
-  boardId, filters, onFiltersChange, labels, swimlaneFields = [], onOpenSwimlane, onFetchedFilters, timeZone,
+  boardId, filters, onFiltersChange, labels, swimlaneFields = [], sort, onSortChange, groupId, onGroupChange, onOpenSwimlane, onFetchedFilters, timeZone,
 }: Props) {
   const [data, setData] = useState<FlowSwimlaneComparison | null>(null);
   const [fetched, setFetched] = useState<FlowFilters | null>(null);
@@ -132,8 +137,6 @@ export default function AnalyticsSwimlanes({
   // Why the last load failed (#2428): busy and too much history have their own copy.
   const [failedKind, setFailedKind] = useState<ReturnType<typeof analyticsErrorKind>>("other");
   const [attempt, setAttempt] = useState(0);
-  const [sort, setSort] = useState<SwimlaneSort>("slowest");
-  const [groupId, setGroupId] = useState<number | null>(null);
   const { days, labelId } = filters;
   // Both Retry buttons unmount when the reload starts. The root stays mounted through
   // loading, refusal and loaded, so Retry focuses it and focus never drops to <body> (#2428).
@@ -191,7 +194,7 @@ export default function AnalyticsSwimlanes({
               ariaLabel="Group lanes by"
               options={groupOptions}
               selected={groupId ?? 0}
-              onChange={(value) => setGroupId(value ? value : null)}
+              onChange={(value) => onGroupChange(value ? value : null)}
               portalMenu
             />
           )}
@@ -201,7 +204,7 @@ export default function AnalyticsSwimlanes({
             ariaLabel="Sort"
             options={SORT_OPTIONS}
             selected={sort}
-            onChange={(value) => setSort(value ?? "slowest")}
+            onChange={(value) => onSortChange(value ?? "slowest")}
             portalMenu
           />
         </div>

@@ -126,6 +126,8 @@ Period, Swimlane, Label, **Break down by** and the Overview/Swimlanes choice are
 | `a_label` | a label id on this board | no label filter |
 | `a_by` | `swimlane`, `label` or `field_<id>` (a dropdown or checkbox card field) | **None** |
 | `a_tab` | `swimlanes` | **Overview** |
+| `a_group` | A swimlane custom field id (Swimlanes view, Group lanes by) | **None** |
+| `a_sort` | `fastest`, `blocked`, `name` or `board` (Swimlanes view, Sort) | **Slowest first** |
 
 For example, `?view=analytics&a_days=30&a_swimlane=12&a_by=label`. A link with only `?view=analytics` still opens the default view. A value the board does not offer (a deleted swimlane, a period that is not in the list, a field that cannot be a breakdown) is ignored and the default applies. Leaving the Analytics tab clears these parameters, and **Clear all filters** removes the filter ones.
 

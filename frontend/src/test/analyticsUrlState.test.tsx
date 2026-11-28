@@ -5,7 +5,8 @@ import { MemoryRouter, useLocation, useNavigationType, useSearchParams } from 'r
 import type { ReactNode } from 'react'
 import AnalyticsView from '../components/Board/AnalyticsView'
 import {
-  clearAnalyticsParams, parseAnalyticsFilters, parseAnalyticsTab, useAnalyticsUrlParams, writeAnalyticsFilters, writeAnalyticsTab,
+  clearAnalyticsParams, parseAnalyticsFilters, parseAnalyticsTab, parseSwimlaneGroup, parseSwimlaneSort, useAnalyticsUrlParams,
+  writeAnalyticsFilters, writeAnalyticsTab, writeSwimlaneGroup, writeSwimlaneSort,
 } from '../components/Board/flowMetrics/analyticsUrlState'
 import { breakdownFromParam, breakdownToParam } from '../components/Board/flowMetrics/breakdown'
 import { useAnalyticsFilters } from '../components/Board/flowMetrics/useAnalyticsFilters'
@@ -237,6 +238,65 @@ describe('AnalyticsView on the URL (#2318)', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Customer B, open in Overview' }))
     expect(url()).toBe('/b?view=analytics&a_days=30&a_swimlane=5')
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
+  })
+})
+
+describe('Swimlanes Group lanes by and Sort on the URL (#2546)', () => {
+  const fields = [{ id: 8, name: 'Team' }]
+  function Inner() {
+    const [searchParams, setSearchParams] = useSearchParams()
+    const location = useLocation()
+    return (
+      <>
+        <output data-testid="url">{location.pathname}{location.search}</output>
+        <AnalyticsView {...props} swimlaneFields={fields} urlSource={{ searchParams, setSearchParams }} />
+      </>
+    )
+  }
+  const GroupBoard = ({ initial }: { initial: string }) => <MemoryRouter initialEntries={[initial]}><Inner /></MemoryRouter>
+
+  it('parses and writes the params, leaving defaults out and ignoring unknown values', () => {
+    const q = (s: string) => new URLSearchParams(s)
+    expect(parseSwimlaneSort(q('a_sort=name'))).toBe('name')
+    expect(parseSwimlaneSort(q('a_sort=bogus'))).toBe('slowest')
+    expect(parseSwimlaneSort(q(''))).toBe('slowest')
+    expect(parseSwimlaneGroup(q('a_group=8'), fields)).toBe(8)
+    expect(parseSwimlaneGroup(q('a_group=9'), fields)).toBeNull()
+    expect(parseSwimlaneGroup(q('a_group=abc'), fields)).toBeNull()
+    expect(parseSwimlaneGroup(q('a_group=8'), [])).toBeNull()
+    const next = q('a_sort=name&a_group=8')
+    writeSwimlaneSort(next, 'slowest'); writeSwimlaneGroup(next, null)
+    expect(next.toString()).toBe('')
+    writeSwimlaneSort(next, 'fastest'); writeSwimlaneGroup(next, 8)
+    expect(next.toString()).toBe('a_sort=fastest&a_group=8')
+  })
+
+  it('hydrates Group lanes by and Sort from a copied link', async () => {
+    render(<GroupBoard initial="/b?view=analytics&a_tab=swimlanes&a_group=8&a_sort=name" />)
+    await waitFor(() => expect(vi.mocked(getFlowSwimlanes)).toHaveBeenCalled())
+    expect(vi.mocked(getFlowSwimlanes).mock.calls[0][2]).toBe(8)
+    expect(screen.getByRole('button', { name: /Group lanes by/ })).toHaveTextContent('Team')
+    expect(screen.getByRole('button', { name: /Sort/ })).toHaveTextContent('Name')
+  })
+
+  it('writes a change with replace and drops the param when set back to its default', async () => {
+    render(<GroupBoard initial="/b?view=analytics&a_tab=swimlanes" />)
+    await screen.findByRole('button', { name: /Group lanes by/ })
+    await choose(/Group lanes by/, 'Team')
+    expect(url()).toBe('/b?view=analytics&a_tab=swimlanes&a_group=8')
+    await choose(/Group lanes by/, 'None')
+    expect(url()).toBe('/b?view=analytics&a_tab=swimlanes')
+    await choose(/Sort/, 'Fastest first')
+    expect(url()).toBe('/b?view=analytics&a_tab=swimlanes&a_sort=fastest')
+    await choose(/Sort/, 'Slowest first')
+    expect(url()).toBe('/b?view=analytics&a_tab=swimlanes')
+  })
+
+  it('ignores an invalid sort and an unknown group field', async () => {
+    render(<GroupBoard initial="/b?view=analytics&a_tab=swimlanes&a_group=99&a_sort=bogus" />)
+    await waitFor(() => expect(vi.mocked(getFlowSwimlanes)).toHaveBeenCalled())
+    expect(vi.mocked(getFlowSwimlanes).mock.calls[0][2]).toBeUndefined()
+    expect(screen.getByRole('button', { name: /Sort/ })).toHaveTextContent('Slowest first')
   })
 })
 
