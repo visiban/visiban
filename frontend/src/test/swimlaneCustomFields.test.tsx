@@ -693,6 +693,19 @@ describe('BoardSettingsSwimlaneFieldsTab — row-chip field names setting (#1418
     expect(toggle.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it('tier summary top-aligns its columns and never wraps the cap row label or counter (#2716)', () => {
+    render(
+      <BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />
+    )
+    const summary = screen.getByTestId('swimlane-tier-summary')
+    expect(summary).toHaveClass('items-start')
+    expect(summary).not.toHaveClass('items-end')
+    expect(summary.className).toContain('minmax(0,1fr)')
+    expect(summary.querySelector('label[for="lane-details-cap"]')).toHaveClass('whitespace-nowrap')
+    expect(screen.getByTestId('swimlane-details-counter')).toHaveClass('whitespace-nowrap')
+    expect(document.getElementById('lane-details-cap')).toHaveClass('shrink-0', 'w-16')
+  })
+
   it('reflects a board that has names hidden', () => {
     render(
       <BoardSettingsSwimlaneFieldsTab

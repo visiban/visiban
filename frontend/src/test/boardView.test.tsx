@@ -11,6 +11,7 @@ import type { BoardFull, User } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
 import type { CollisionDetection, DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 import * as dndCore from '@dnd-kit/core'
+import { arrayMove } from '@dnd-kit/sortable'
 
 // Controllable search params — initial params can be set before render; the stateful mock
 // updates them on setSearchParams calls so the component re-renders with the new params.
@@ -711,11 +712,13 @@ describe('BoardView', () => {
     expect(dot?.className).not.toMatch(/animate-pulse/)
   })
 
-  // #2301 — the Filter button opens the Filter panel; its footer reveals the full filter bar.
+  // #2301 — the Filter button opens the Filter panel; its header Filter bar switch (#2691) reveals the
+  // full filter bar and keeps the panel open, so Escape closes the panel before the bar is queried.
   async function showFilterBar() {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /^Filters/ }))
-    await user.click(screen.getByRole('button', { name: /Show filter bar/ }))
+    await user.click(screen.getByRole('button', { name: 'Filter bar' }))
+    await user.keyboard('{Escape}')
   }
 
   it('FilterBar renders in its own row below the toolbar', async () => {
@@ -1145,7 +1148,7 @@ describe('BoardView', () => {
     it('single-key shortcuts do not fire from inside the open Filter panel (#2301)', async () => {
       render(<BoardView {...defaultProps()} />)
       fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
-      const panel = screen.getByRole('dialog', { name: 'Filter' })
+      const panel = screen.getByRole('dialog', { name: 'Filters' })
       const row = within(panel).getByRole('button', { name: /^Label/ })
       row.focus()
       fireEvent.keyDown(row, { key: 's' })
@@ -4547,7 +4550,7 @@ describe('BoardView lane filters (#2205)', () => {
     const preset = { id: 5, name: 'High only', state_json: {}, state_version: 1, created_at: '' }
     const openPanel = async (user: ReturnType<typeof userEvent.setup>) => {
       await user.click(screen.getByRole('button', { name: /^Filters/ }))
-      return screen.getByRole('dialog', { name: 'Filter' })
+      return screen.getByRole('dialog', { name: 'Filters' })
     }
     beforeEach(() => {
       mockSavedFilters = [preset]
@@ -4564,7 +4567,7 @@ describe('BoardView lane filters (#2205)', () => {
       let panel = await openPanel(user)
       await user.click(within(panel).getByRole('button', { name: 'High only' }))
       expect(mockHydrateFilter).toHaveBeenCalledWith(preset)
-      expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
+      expect(screen.queryByRole('dialog', { name: 'Filters' })).toBeNull()
       panel = await openPanel(user)
       expect(within(panel).getByRole('button', { name: 'High only' })).toHaveAttribute('aria-pressed', 'true')
       expect(within(panel).getByRole('button', { name: /^Priority/ })).toHaveTextContent('High')
@@ -4593,8 +4596,8 @@ describe('BoardView lane filters (#2205)', () => {
       render(<BoardView {...defaultProps()} />)
       expect(screen.queryByTestId('filter-bar')).not.toBeInTheDocument()
       const panel = await openPanel(user)
-      await user.click(within(panel).getByRole('button', { name: /^Lanes/ }))
-      expect(screen.queryByRole('dialog', { name: 'Filter' })).toBeNull()
+      await user.click(within(panel).getByRole('button', { name: /^Lane filters/ }))
+      expect(screen.queryByRole('dialog', { name: 'Filters' })).toBeNull()
       expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
     })
   })
@@ -4932,5 +4935,68 @@ describe('BoardView leave warning and sub-column steps (#2278)', () => {
     render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Force Sub-column From Detail' }))
     expect(forceMoveCardTo).toHaveBeenCalledWith(1, 11, 20, 9999, 2)
+  })
+
+  describe('lane sort wiring (#2698)', () => {
+    const sortLane = (id: number, name: string) => ({
+      id, uid: `sortlane000${id}`, name, contact_email: '', notes: '', position: id, color: '#6B7280', is_collapsed: false,
+      created_at: '2026-01-01', wip_limit: null, weight_limit: null, limit_enforcement: null, limit_column_ids: null, health_status: null, effective_health_status: null, health_status_origin: null, computed_health_status: null, health_computed_at: null, health_computed_counts: null,
+      custom_field_values: [],
+    })
+    // Board order Zed(20), Alpha(21), Mid(22); sorted by name the screen reads Alpha, Mid, Zed.
+    const setup = (search: string) => {
+      mockSearchParams = new URLSearchParams(search)
+      const reorderSwimlanes = vi.fn().mockResolvedValue(undefined)
+      // The file-wide sortable mock leaves arrayMove returning undefined; a real move so a write is observable.
+      vi.mocked(arrayMove).mockImplementation((arr, from, to) => { const c = [...arr]; c.splice(to, 0, c.splice(from, 1)[0]); return c })
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ swimlanes: [sortLane(20, 'Zed'), sortLane(21, 'Alpha'), sortLane(22, 'Mid')] as never }),
+        reorderSwimlanes,
+      })
+      render(<BoardView {...defaultProps()} />)
+      return reorderSwimlanes
+    }
+    const dragLane = (active: number, over: number) => ({
+      active: { id: `swim:${active}`, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+      over: { id: `swim:${over}`, data: { current: {} }, rect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 } },
+      delta: { x: 0, y: 0 },
+      activatorEvent: new MouseEvent('mousedown'),
+    } as unknown as DragEndEvent)
+
+    it('Open history keeps the lane sort params and only switches the view', () => {
+      setup('view=board&lsort=name&lsort_dir=r')
+      fireEvent.click(screen.getByRole('button', { name: 'Open activity drawer' }))
+      mockSetSearchParams.mockClear()
+      fireEvent.click(screen.getByRole('button', { name: /open the full history view/i }))
+      const write = mockSetSearchParams.mock.calls.at(-1)![0] as (p: URLSearchParams) => URLSearchParams
+      const next = write(new URLSearchParams('view=board&lsort=name&lsort_dir=r'))
+      expect(next.get('view')).toBe('history')
+      expect(next.get('lsort')).toBe('name')
+      expect(next.get('lsort_dir')).toBe('r')
+    })
+
+    it('a lane drag-end writes the new order when no sort is on (control)', () => {
+      const reorderSwimlanes = setup('')
+      act(() => { capturedOnDragEnd!(dragLane(20, 22)) })
+      expect(reorderSwimlanes).toHaveBeenCalledWith([21, 22, 20])
+    })
+
+    it('a lane drag-end while a sort is on sends no reorder write', () => {
+      const reorderSwimlanes = setup('lsort=name')
+      expect(screen.getAllByTestId(/^swim-\d+$/).map((el) => el.getAttribute('data-swimlane-id'))).toEqual(['21', '22', '20'])
+      act(() => { capturedOnDragEnd!(dragLane(20, 22)) })
+      expect(reorderSwimlanes).not.toHaveBeenCalled()
+    })
+
+    it('a separator above a sorted lane inserts at that lane\'s board-order index', async () => {
+      mockCreatedLane = sortLane(30, 'Fresh') as never
+      const reorderSwimlanes = setup('lsort=name')
+      const user = userEvent.setup()
+      // First separator sits above Alpha (sorted index 0), which is board index 1.
+      await user.click(screen.getAllByTestId('row-sep-insert')[0])
+      await user.click(screen.getByTestId('confirm-add-swimlane'))
+      expect(reorderSwimlanes).toHaveBeenCalledWith([20, 30, 21, 22])
+      mockCreatedLane = null
+    })
   })
 })

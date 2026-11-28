@@ -73,35 +73,35 @@ function Harness({ initial, board = makeBoard(), onState }: { initial?: LaneFilt
 }
 
 const openPopover = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.click(screen.getByRole('button', { name: /^Lanes(, \d+ active)?$/ }))
+  await user.click(screen.getByRole('button', { name: /^Lane filters(, \d+ active)?$/ }))
   return screen.findByRole('dialog', { name: 'Lane filters' })
 }
 
 describe('Lanes trigger', () => {
   it('is hidden when the viewer can rule on no swimlane field (admin-only ones hidden)', () => {
     render(<Harness board={makeBoard([MARGIN], 'member')} />)
-    expect(screen.queryByRole('button', { name: /^Lanes(, \d+ active)?$/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Lane filters(, \d+ active)?$/ })).not.toBeInTheDocument()
   })
 
   // #2336 — the built-ins are always rulable, so the gate is laneFilterAvailable.
   it('is shown without custom fields once the board has two lanes or a lane filter', () => {
     const { unmount } = render(<Harness board={withLanes(makeBoard([], 'member'), [swimlane(1, {})])} />)
-    expect(screen.queryByRole('button', { name: /^Lanes(, \d+ active)?$/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Lane filters(, \d+ active)?$/ })).not.toBeInTheDocument()
     unmount()
     const two = render(<Harness board={withLanes(makeBoard([], 'member'), [swimlane(1, {}), swimlane(2, {})])} />)
-    expect(screen.getByRole('button', { name: 'Lanes' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lane filters' })).toBeInTheDocument()
     two.unmount()
     const lf: LaneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 'name', op: 'is', value: 'Lane 1' }] }
     render(<Harness initial={lf} board={withLanes(makeBoard([], 'member'), [swimlane(1, {})])} />)
-    expect(screen.getByRole('button', { name: 'Lanes, 1 active' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lane filters, 1 active' })).toBeInTheDocument()
     // A real space before the badge keeps the visible text a whole-word match for the name (#2467).
-    expect(screen.getByRole('button', { name: 'Lanes, 1 active' }).textContent).toBe('Lanes 1')
+    expect(screen.getByRole('button', { name: 'Lane filters, 1 active' }).textContent).toBe('Lane filters 1')
   })
 
   it('names the active rule count and counts lane rules as one filter dimension', () => {
     const lf: LaneFilter = { items: [rule(1, 1, 'is', { value: 'Priya' }), rule(2, 2, 'between', { min: '5' }), rule(3, null, 'is')] }
     render(<Harness initial={lf} />)
-    const trigger = screen.getByRole('button', { name: 'Lanes, 2 active' })
+    const trigger = screen.getByRole('button', { name: 'Lane filters, 2 active' })
     expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
     expect(countActiveFilters({ ...EMPTY_FILTER, laneFilter: lf })).toBe(1)
@@ -124,7 +124,7 @@ describe('LaneFilterPopover', () => {
     expect(screen.getByText('Reads as: all lanes shown')).toBeInTheDocument()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Lanes(, \d+ active)?$/ })).toHaveFocus()
+    expect(screen.getByRole('button', { name: /^Lane filters(, \d+ active)?$/ })).toHaveFocus()
   })
 
   it('builds a rule from the keyboard; it applies live and the Reads-as line follows', async () => {
@@ -150,7 +150,7 @@ describe('LaneFilterPopover', () => {
     expect(screen.getByText('Reads as: AE is not Priya')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Done' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Lanes, 1 active' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Lane filters, 1 active' })).toHaveFocus()
   })
 
   it('builds a checkbox rule with Yes or No and a multi-select rule with an entry (#2438)', async () => {
@@ -495,7 +495,7 @@ describe('LaneFilterPopover', () => {
     await openPopover(user)
     await user.click(screen.getByRole('button', { name: 'elsewhere' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Lanes(, \d+ active)?$/ })).not.toHaveFocus()
+    expect(screen.getByRole('button', { name: /^Lane filters(, \d+ active)?$/ })).not.toHaveFocus()
   })
 })
 
@@ -518,7 +518,7 @@ describe('lane chips', () => {
     await user.keyboard('{Delete}')
     await waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe('Lanes: Deal value 5 or more, remove'))
     await user.keyboard('{Delete}')
-    await waitFor(() => expect(screen.getByRole('button', { name: /^Lanes(, \d+ active)?$/ })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Lane filters(, \d+ active)?$/ })).toHaveFocus())
     expect(screen.queryByRole('group', { name: 'Active filters' })).not.toBeInTheDocument()
   })
 })

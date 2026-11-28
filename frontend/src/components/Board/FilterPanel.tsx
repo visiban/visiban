@@ -15,6 +15,9 @@ import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { stageSubColumns } from "../../utils/stages";
 import { DUE_DATE_OPTIONS, TRACK_STATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { FilterBarSwitch } from "./HideFilterBarButton";
+import { FILTER_BAR_SHORTCUT } from "./filterBarToggle";
 import { resolveLaneTiers } from "../../utils/laneBand";
 import { DEFAULT_LANE_DETAILS_CAP } from "../../utils/laneBand";
 import { applyValueHit, matchRange, searchFields, type SearchScope, type ValueHit, type NameHit } from "../../utils/filterFieldSearch";
@@ -42,7 +45,6 @@ interface Props {
   /** Whether the full filter bar (search, scope, My cards, Lanes) is showing under the toolbar. */
   filterBarShown: boolean;
   onToggleFilterBar: () => void;
-  /** Opens the filter bar and then the Lanes popover (#2205). */
   /** Opens the Lanes popover; with a field id, preselects that field's rule (#2660). */
   onOpenLaneFilters: (fieldId?: LaneFieldKey) => void;
   /** The same save handler the filter bar's Saved dropdown uses; resolves with an error message on failure. */
@@ -61,7 +63,17 @@ interface Props {
   phoneOrder?: boolean;
 }
 
+/** 520px since #2437, kept by #2691: it fits a field label, a value and a card count without truncating typical values. */
 const PANEL_WIDTH = 520;
+/** #2691 — the pinned shell's height cap, `min(600px, 80vh)`, under the visible viewport cap. */
+const panelMaxHeight = (visible: string) => `min(600px, 80vh, ${visible})`;
+
+/** A control that takes typed text: F types there, it never toggles the filter bar (#2691 F rule). */
+function isTextEntry(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  if (el.isContentEditable || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return true;
+  return el instanceof HTMLInputElement && !["checkbox", "radio", "button", "submit", "reset"].includes(el.type);
+}
 const FOCUSABLE = 'button:not([disabled]),select:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 /** The phone Filter panel's leading rows (#2370 fix A10). */
@@ -104,6 +116,8 @@ export default function FilterPanel({
   const [saveName, setSaveName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // #2691 — the result rows are one Tab stop with arrows inside (a roving tabindex): the last row focused keeps it.
+  const [rovingKey, setRovingKey] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const saveInputRef = useRef<HTMLInputElement>(null);
   const saveBtnRef = useRef<HTMLButtonElement>(null);
@@ -121,6 +135,7 @@ export default function FilterPanel({
     setExpanded(null);
     setSaveMode(false);
     setSaveError(null);
+    setRovingKey(null);
   };
   // Priority 27, above the panel's own Escape (25): Escape cancels the name input first, a second one closes the panel.
   useEscapeStack(() => {
@@ -180,15 +195,18 @@ export default function FilterPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- focus once per open
   }, [open, anchor !== null]);
 
+  // #2691 — focus is contained while the panel is open: Tab wraps at either end (frontend/CLAUDE.md
+  // § Focus containment for modal surfaces), so the panel is aria-modal and uses the shared trap.
+  useFocusTrap(panelRef, open && anchor !== null, () => triggerRef.current);
   const focusables = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
+  // The board's single-key handler ignores keys inside the panel (data-shortcut-scope="popover"), so the
+  // panel owns F itself: it toggles the bar from the switch, a row or an editor's checkbox, never from a
+  // text field, because field names and values start with "f" (Forecast) and search must type them.
   const onPanelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Tab") return;
-    const items = focusables();
-    const edge = e.shiftKey ? items[0] : items[items.length - 1];
-    if (items.length > 0 && document.activeElement !== edge) return;
-    close();
-    triggerRef.current?.focus();
-    if (e.shiftKey) e.preventDefault();
+    // Lowercase only, like BoardView's handler (`e.key === "f"`); a held key toggles once, not per repeat.
+    if (e.key !== FILTER_BAR_SHORTCUT || e.repeat || e.metaKey || e.ctrlKey || e.altKey || isTextEntry(e.target)) return;
+    e.preventDefault();
+    onToggleFilterBar();
   };
   const onTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (open && e.key === "Tab" && !e.shiftKey) {
@@ -295,7 +313,7 @@ export default function FilterPanel({
   // #2336 — the same gate as the filter bar's Lanes trigger.
   if (laneFilterAvailable(laneFields.filter((f) => !isLaneBuiltinField(f.id)).length, board.swimlanes.length, filters.laneFilter)) {
     const n = summarizeLaneFilter(filters.laneFilter, laneFields, (_f, raw) => raw).completeCount;
-    rows.push({ id: "lanes", label: "Lanes", value: isLaneFilterActive(filters.laneFilter) ? `${n} ${n === 1 ? "rule" : "rules"}` : null });
+    rows.push({ id: "lanes", label: "Lane filters", value: isLaneFilterActive(filters.laneFilter) ? `${n} ${n === 1 ? "rule" : "rules"}` : null });
   }
   for (const def of customDefs) {
     const v = filters.customFields[def.id];
@@ -429,6 +447,8 @@ export default function FilterPanel({
   };
   const onResultKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    // Arrows from an editor's checkbox or input stay native; only a result row moves between rows.
+    if (!e.currentTarget.hasAttribute("data-fp-result") || e.target !== e.currentTarget) return;
     e.preventDefault();
     const list = resultButtons();
     const at = list.indexOf(e.currentTarget);
@@ -448,6 +468,21 @@ export default function FilterPanel({
     );
   };
   const valueNeedle = result.shorthand ? result.shorthand.value : needle;
+  // The roving tab stop's keys, in DOM order; the stop is the last row focused, else the first row.
+  const showValues = !!needle && (valueHits.length > 0 || !!result.titleQuery);
+  const resultKeys = [
+    ...visibleRows.map((r) => `row:${r.id}`),
+    ...laneNameHits.map((h) => `lane:${h.fieldId}`),
+    ...(showValues ? valueHits.map((h) => `val:${h.scope}:${h.fieldId}:${h.raw}`) : []),
+    ...(showValues && result.titleQuery ? ["title"] : []),
+  ];
+  const tabKey = rovingKey !== null && resultKeys.includes(rovingKey) ? rovingKey : resultKeys[0];
+  const roving = (key: string) => ({
+    "data-fp-result": "",
+    tabIndex: key === tabKey ? 0 : -1,
+    onFocus: () => setRovingKey(key),
+    onKeyDown: onResultKeyDown,
+  });
 
   const toggleIn = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
@@ -629,84 +664,102 @@ export default function FilterPanel({
       ref={panelRef}
       id={`${id}-panel`}
       role="dialog"
-      aria-label="Filter"
+      aria-modal="true"
+      aria-label="Filters"
       data-testid="filter-panel"
       data-shortcut-scope="popover"
       onKeyDown={onPanelKeyDown}
-      style={{ position: "fixed", top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: visibleMaxHeight(anchor.top + POPOVER_VIEWPORT_MARGIN) }}
-      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg p-3 space-y-2 overflow-y-auto max-sm:[&_button]:min-h-11 max-sm:[&_input[type=text]]:min-h-11 max-sm:[&_input[type=number]]:min-h-11 max-sm:[&_input[type=date]]:min-h-11"
+      style={{ position: "fixed", top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * POPOVER_VIEWPORT_MARGIN}px)`, maxHeight: panelMaxHeight(visibleMaxHeight(anchor.top + POPOVER_VIEWPORT_MARGIN)) }}
+      className="z-50 flex flex-col overflow-hidden bg-surface border border-line-strong rounded-lg shadow-lg max-sm:[&_button]:min-h-11 max-sm:[&_input[type=text]]:min-h-11 max-sm:[&_input[type=number]]:min-h-11 max-sm:[&_input[type=date]]:min-h-11"
     >
-      {onOpenViewOptions ? (
+      {/* #2691 pinned shell: this header block and the footer never scroll; only the body between them does. */}
+      <div data-testid="filter-panel-header" className="shrink-0 px-3 pt-3 pb-2 space-y-2 border-b border-line">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-fg">Filter</h2>
-          <button
-            type="button"
-            aria-haspopup="dialog"
-            onClick={() => { const t = triggerRef.current; close(); if (t) onOpenViewOptions(t); }}
-            className={`inline-flex items-center gap-1 text-sm text-fg border border-line-strong rounded px-3 hover:bg-surface-hover transition ${MENU_ITEM_FOCUS_RING}`}
-          >
-            View options
-            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-      ) : (
-        <h2 className="text-sm font-semibold text-fg">Filter</h2>
-      )}
-      <div className="relative">
-        <input
-          ref={findRef}
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={onSearchKeyDown}
-          placeholder="Search fields and values to filter"
-          aria-label="Search fields and values to filter"
-          className="w-full bg-sunken border border-line-strong rounded px-2.5 py-2 pr-12 text-sm text-fg placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-        />
-        <kbd aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-fg-secondary border border-line-strong rounded px-1 leading-4 max-sm:hidden">Esc</kbd>
-      </div>
-      <div role="group" aria-label="Search in" className="flex items-center gap-1.5">
-        {([["all", "All fields"], ["card", "Card fields"], ["lane", "Swimlane fields"]] as const).map(([v, label]) => (
-          <button
-            key={v}
-            type="button"
-            aria-pressed={scope === v}
-            onClick={() => setScope(v)}
-            className={`text-xs rounded-full border px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${scope === v ? "bg-primary-emphasis/10 text-info-on-tint border-info/40 font-semibold" : "text-fg-secondary border-line hover:bg-surface-hover"}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {hasChips && (
-        <div data-testid="filter-panel-chips" className="flex flex-col gap-1.5 pb-1">
-          <div className="flex items-center justify-between gap-2 px-0.5">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary">Filtered by</h3>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                ref={clearAllRef}
-                type="button"
-                onClick={() => { setSaveMode(false); setSaveName(""); setSaveError(null); onChange(EMPTY_FILTER); }}
-                className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover border border-line hover:border-line-emphasis rounded px-2 py-0.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                Clear all
-              </button>
-              {onSaveFilter && (
-                <button
-                  ref={saveBtnRef}
-                  type="button"
-                  aria-expanded={saveMode}
-                  onClick={() => { setSaveMode((v) => !v); setSaveError(null); setSaveName(""); }}
-                  className="text-xs text-fg hover:bg-surface-hover border border-line-strong rounded px-2 py-0.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Save filter
-                </button>
-              )}
-            </div>
+          <div className="flex items-baseline gap-2 min-w-0">
+            <h2 className="text-sm font-semibold text-fg">Filters</h2>
+            {activeCount > 0 && <span data-testid="filter-panel-active-count" className="text-xs text-fg-secondary">{activeCount} active</span>}
           </div>
-          {chips.length + laneChips.length > 0 && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <FilterBarSwitch shown={filterBarShown} onToggle={onToggleFilterBar} />
+            {onOpenViewOptions && (
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() => { const t = triggerRef.current; close(); if (t) onOpenViewOptions(t); }}
+                className={`inline-flex items-center gap-1 text-sm text-fg border border-line-strong rounded px-3 hover:bg-surface-hover transition ${MENU_ITEM_FOCUS_RING}`}
+              >
+                View options
+                <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="relative">
+          <input
+            ref={findRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onSearchKeyDown}
+            placeholder="Search fields and values to filter"
+            aria-label="Search fields and values to filter"
+            className="w-full bg-sunken border border-line-strong rounded px-2.5 py-2 pr-12 text-sm text-fg placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          />
+          <kbd aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-fg-secondary border border-line-strong rounded px-1 leading-4 max-sm:hidden">Esc</kbd>
+        </div>
+        <div role="group" aria-label="Search in" className="flex items-center gap-1.5">
+          {([["all", "All fields"], ["card", "Card fields"], ["lane", "Swimlane fields"]] as const).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={scope === v}
+              onClick={() => setScope(v)}
+              className={`text-xs rounded-full border px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${scope === v ? "bg-primary-emphasis/10 text-info-on-tint border-info/40 font-semibold" : "text-fg-secondary border-line hover:bg-surface-hover"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {/* #2695 — saved filters as one-click presets in the pinned header, under search and scope. The
+            full list (rename, share, delete) stays in the filter bar's SavedFiltersDropdown. The row hides
+            while a query is typed, and when nothing is saved and nothing is active (nothing to save yet). */}
+        {!needle && (savedFiltersLoading || savedFilters.length > 0 || hasChips) && (
+          <div data-testid="filter-panel-saved" className="flex items-center gap-2 min-w-0">
+            <h3 className="shrink-0 text-xs font-semibold uppercase tracking-wide text-fg-secondary">Saved</h3>
+            {savedFiltersLoading ? (
+              <p role="status" className="text-xs text-fg-muted italic">Loading…</p>
+            ) : savedFilters.length === 0 ? (
+              <p className="text-xs text-fg-secondary">None yet. Save this view to reuse it in one click.</p>
+            ) : (
+              <ul aria-label="Saved filters" className="flex items-center gap-1.5 min-w-0 overflow-x-auto py-0.5 px-0.5">
+                {savedFilters.map((sf) => {
+                  const applied = activeFilterId === sf.id;
+                  return (
+                    <li key={sf.id} className="shrink-0">
+                      <button
+                        type="button"
+                        aria-pressed={applied}
+                        title={sf.name}
+                        onClick={() => { onLoadSaved(sf); close(); triggerRef.current?.focus(); }}
+                        className={`inline-flex items-center gap-1 max-w-[210px] text-xs rounded-full border px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${applied ? "bg-primary-emphasis/10 text-info-on-tint border-info/40 font-semibold" : "text-fg border-line-boundary hover:bg-surface-hover"}`}
+                      >
+                        <ActiveMark active={applied} testId="saved-filter-mark" />
+                        <span className="truncate">{sf.name}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+      <div data-testid="filter-panel-body" className="flex-1 min-h-24 overflow-y-auto px-3 py-2 space-y-2">
+      {chips.length + laneChips.length > 0 && (
+        <div data-testid="filter-panel-chips" className="flex flex-col gap-1.5 pb-1">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-0.5">Filtered by</h3>
           <div ref={chipGroupRef} role="group" aria-label="Filtered by" className="flex items-center gap-1.5 flex-wrap">
             {chips.map((chip, ci) => (
               <FilterChip key={chip.key} label={chip.label} colorDot={chip.colorDot} avatarUser={chip.avatarUser} onDismiss={() => dismissChip(ci, chip.onDismiss)} />
@@ -728,36 +781,6 @@ export default function FilterPanel({
               </span>
             ))}
           </div>
-          )}
-          {saveMode && (
-            <div className="px-0.5">
-              <label className="block text-xs text-fg-secondary mb-1" htmlFor={`${id}-save-name`}>Save current filters as:</label>
-              <div className="flex items-center gap-1.5">
-                <input
-                  ref={saveInputRef}
-                  id={`${id}-save-name`}
-                  type="text"
-                  value={saveName}
-                  placeholder="Filter name"
-                  maxLength={100}
-                  aria-invalid={saveError ? true : undefined}
-                  aria-describedby={saveError ? `${id}-save-error` : undefined}
-                  onChange={(e) => { setSaveName(e.target.value); setSaveError(null); }}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void submitSave(); } }}
-                  className="min-w-0 flex-1 bg-surface border border-line-strong rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                />
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => void submitSave()}
-                  className="text-xs bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium rounded px-2 py-1 max-sm:min-w-11 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-surface"
-                >
-                  {saving ? "Saving…" : "Save"}
-                </button>
-              </div>
-              {saveError && <p id={`${id}-save-error`} role="alert" className="text-xs text-danger mt-1">{saveError}</p>}
-            </div>
-          )}
         </div>
       )}
       {needle && showNames && <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2">Fields matching &ldquo;{query.trim()}&rdquo;</h3>}
@@ -778,8 +801,7 @@ export default function FilterPanel({
               <button
                 type="button"
                 onClick={onRow}
-                onKeyDown={needle ? onResultKeyDown : undefined}
-                data-fp-result={needle ? "" : undefined}
+                {...roving(`row:${row.id}`)}
                 aria-label={row.ariaLabel}
                 aria-expanded={row.id === "lanes" ? undefined : isOpen}
                 aria-haspopup={row.id === "lanes" ? "dialog" : undefined}
@@ -804,8 +826,7 @@ export default function FilterPanel({
               <button
                 type="button"
                 onClick={() => { close(); onOpenLaneFilters(h.fieldId); }}
-                onKeyDown={onResultKeyDown}
-                data-fp-result=""
+                {...roving(`lane:${h.fieldId}`)}
                 aria-haspopup="dialog"
                 className={`w-full flex items-center justify-between gap-3 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${cur ? "bg-primary-emphasis/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
               >
@@ -824,7 +845,7 @@ export default function FilterPanel({
       </ul>
       {needle && showNames && visibleRows.length + laneNameHits.length === 0 && <p role="status" className="px-2 py-1 text-sm text-fg-secondary">No field matches "{query}".</p>}
 
-      {needle && (valueHits.length > 0 || result.titleQuery) && (
+      {showValues && (
         <>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2">Values matching &ldquo;{result.shorthand ? result.shorthand.value : query.trim()}&rdquo;</h3>
           <ul aria-label="Matching values" className="space-y-0.5">
@@ -833,8 +854,7 @@ export default function FilterPanel({
                 <button
                   type="button"
                   onClick={() => addValue(h)}
-                  onKeyDown={onResultKeyDown}
-                  data-fp-result=""
+                  {...roving(`val:${h.scope}:${h.fieldId}:${h.raw}`)}
                   className={`w-full flex items-center justify-between gap-3 px-2 py-2 rounded text-sm text-left text-fg hover:bg-surface-hover transition ${MENU_ITEM_FOCUS_RING}`}
                 >
                   <span className="flex items-center gap-1.5 min-w-0">
@@ -851,8 +871,7 @@ export default function FilterPanel({
                 <button
                   type="button"
                   onClick={addTitle}
-                  onKeyDown={onResultKeyDown}
-                  data-fp-result=""
+                  {...roving("title")}
                   className={`w-full flex items-center gap-1.5 px-2 py-2 rounded text-sm text-left text-fg hover:bg-surface-hover transition ${MENU_ITEM_FOCUS_RING}`}
                 >
                   <ScopeTag scope="card" />
@@ -865,40 +884,63 @@ export default function FilterPanel({
         </>
       )}
 
-      <div className="border-t border-line pt-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2 pb-1">Saved filters</h3>
-        {savedFiltersLoading ? (
-          <p role="status" className="px-2 py-1 text-xs text-fg-muted italic">Loading…</p>
-        ) : savedFilters.length === 0 ? (
-          <p className="px-2 py-1 text-sm text-fg-secondary">No saved filters yet.</p>
-        ) : (
-          <ul aria-label="Saved filters" className="space-y-0.5">
-            {savedFilters.map((sf) => (
-              <li key={sf.id}>
-                <button
-                  type="button"
-                  aria-pressed={activeFilterId === sf.id}
-                  onClick={() => { onLoadSaved(sf); close(); triggerRef.current?.focus(); }}
-                  className={`w-full flex items-center gap-1.5 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${activeFilterId === sf.id ? "bg-primary-emphasis/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
-                >
-                  <ActiveMark active={activeFilterId === sf.id} testId="saved-filter-mark" />
-                  <span className="truncate">{sf.name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
-
-      <div className="border-t border-line pt-2">
-        <p className="px-2 pb-1 text-xs text-fg-secondary">&uarr;&darr; to move &middot; Enter to add &middot; field:value to jump</p>
-        <button
-          type="button"
-          onClick={() => { close(); onToggleFilterBar(); }}
-          className={`w-full text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded px-2 py-1.5 text-left ${MENU_ITEM_FOCUS_RING}`}
-        >
-          {filterBarShown ? "Hide filter bar (F)" : "Show filter bar (search, saved filters, Lanes)"}
-        </button>
+      <div data-testid="filter-panel-footer" className="shrink-0 border-t border-line px-3 py-2 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-fg-secondary">&uarr;&darr; move &middot; &crarr; add &middot; field:value</p>
+          {hasChips && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                ref={clearAllRef}
+                type="button"
+                onClick={() => { setSaveMode(false); setSaveName(""); setSaveError(null); onChange(EMPTY_FILTER); }}
+                className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover border border-line hover:border-line-emphasis rounded px-2 py-0.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              >
+                Clear all
+              </button>
+              {onSaveFilter && (
+                <button
+                  ref={saveBtnRef}
+                  type="button"
+                  aria-expanded={saveMode}
+                  onClick={() => { setSaveMode((v) => !v); setSaveError(null); setSaveName(""); }}
+                  className="text-xs text-fg hover:bg-surface-hover border border-line-strong rounded px-2 py-0.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  Save filter
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        {saveMode && (
+          <div className="px-0.5">
+            <label className="block text-xs text-fg-secondary mb-1" htmlFor={`${id}-save-name`}>Save current filters as:</label>
+            <div className="flex items-center gap-1.5">
+              <input
+                ref={saveInputRef}
+                id={`${id}-save-name`}
+                type="text"
+                value={saveName}
+                placeholder="Filter name"
+                maxLength={100}
+                aria-invalid={saveError ? true : undefined}
+                aria-describedby={saveError ? `${id}-save-error` : undefined}
+                onChange={(e) => { setSaveName(e.target.value); setSaveError(null); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) { e.preventDefault(); void submitSave(); } }}
+                className="min-w-0 flex-1 bg-surface border border-line-strong rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              />
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void submitSave()}
+                className="text-xs bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium rounded px-2 py-1 max-sm:min-w-11 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-surface"
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
+            {saveError && <p id={`${id}-save-error`} role="alert" className="text-xs text-danger mt-1">{saveError}</p>}
+          </div>
+        )}
       </div>
     </div>
   ) : null;

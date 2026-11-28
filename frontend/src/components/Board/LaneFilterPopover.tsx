@@ -697,7 +697,7 @@ interface ControlProps {
   onPreselectConsumed?: () => void;
 }
 
-/** The "Lanes" trigger in the filter strip plus its popover. */
+/** The "Lane filters" trigger in the filter strip plus its popover (renamed from "Lanes" by #2698). */
 export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCount, triggerRef: externalRef, textChoices, cardFilterActive, ignoredCount, preselectField, onPreselectConsumed }: ControlProps) {
   const ownRef = useRef<HTMLButtonElement>(null);
   const triggerRef = externalRef ?? ownRef;
@@ -706,7 +706,7 @@ export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCou
   const popoverId = `lane-filter-${id.replace(/:/g, "")}`;
   const open = anchor !== null;
   useEffect(() => {
-    // The request is a one-shot: clear it so a later plain click on Lanes does not preselect again.
+    // The request is a one-shot: clear it so a later plain click on Lane filters does not preselect again.
     if (open && preselectField != null) onPreselectConsumed?.();
   }, [open, preselectField, onPreselectConsumed]);
   const hasRules = (filter?.items.length ?? 0) > 0;
@@ -723,7 +723,7 @@ export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCou
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? popoverId : undefined}
-        aria-label={activeRuleCount > 0 ? `Lanes, ${activeRuleCount} active` : undefined}
+        aria-label={activeRuleCount > 0 ? `Lane filters, ${activeRuleCount} active` : undefined}
         onClick={() => {
           if (open) setAnchor(null);
           else if (triggerRef.current) setAnchor(triggerRef.current.getBoundingClientRect());
@@ -732,7 +732,7 @@ export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCou
           hasRules && activeRuleCount > 0 ? "border-primary-soft text-info" : "border-line-strong text-fg-secondary hover:border-line-emphasis"
         }`}
       >
-        Lanes
+        Lane filters
         {activeRuleCount > 0 && " "}
         {activeRuleCount > 0 && (
           <span aria-hidden="true" className="bg-primary-emphasis/30 text-info text-xs rounded-full px-1.5 tabular-nums">{activeRuleCount}</span>

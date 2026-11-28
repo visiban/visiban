@@ -4,7 +4,7 @@
 
 > **Added in 1.0**
 
-Set your filters, open the **Saved** dropdown next to the filter bar, and click **Save current filters**. Click a preset name later to restore it. (1.3+) The **Filter** panel also lists your saved filters at the bottom; clicking one loads it. When a filter is active, the panel also shows a **Filtered by** row with **Save filter**: it asks for a name and saves the current filters exactly like **Save current filters** in the filter bar. Deleting stays in the filter bar.
+Set your filters, open the **Saved** dropdown next to the filter bar, and click **Save current filters**. Click a preset name later to restore it. (1.3+) The **Filters** panel also shows your saved filters as one-click presets in a **Saved** row under its search box, always in view; clicking one applies it, and the applied one is shown checked. When a filter is active, the panel footer has **Save filter**: it asks for a name and saves the current filters exactly like **Save current filters** in the filter bar. Renaming, sharing and deleting stay in the filter bar.
 
 **Why it matters:** Presets are stored server-side, so they follow you across devices and browsers.
 
@@ -12,7 +12,7 @@ Set your filters, open the **Saved** dropdown next to the filter bar, and click 
 
 ## Saving a filter
 
-1. Open the board and set your filters with the filter bar (press `f`, or click **Filters** and choose **Show filter bar** in the panel footer).
+1. Open the board and set your filters with the filter bar (press `f`, or click **Filters** and turn on the **Filter bar** switch in the panel header).
 2. Click the **Saved** dropdown to the right of the filter controls.
 3. Click **Save current filters**, enter a descriptive name, and confirm.
 
