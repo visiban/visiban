@@ -204,6 +204,78 @@
       "value": "abc"
     },
     {
+      "name": "number less than: below",
+      "expected": "met",
+      "operator": "lt",
+      "operand": "20",
+      "field_type": "number",
+      "value": "19.5"
+    },
+    {
+      "name": "number less than: equal is not less",
+      "expected": "unmet",
+      "operator": "lt",
+      "operand": "20",
+      "field_type": "number",
+      "value": "20"
+    },
+    {
+      "name": "number at most: equal",
+      "expected": "met",
+      "operator": "lte",
+      "operand": "20",
+      "field_type": "number",
+      "value": "20"
+    },
+    {
+      "name": "number at most: above",
+      "expected": "unmet",
+      "operator": "lte",
+      "operand": "20",
+      "field_type": "number",
+      "value": "20.01"
+    },
+    {
+      "name": "number at most: negative",
+      "expected": "met",
+      "operator": "lte",
+      "operand": "0",
+      "field_type": "number",
+      "value": "-3"
+    },
+    {
+      "name": "number unset is never at most",
+      "expected": "unmet",
+      "operator": "lte",
+      "operand": "20",
+      "field_type": "number",
+      "value": null
+    },
+    {
+      "name": "number unset is never less",
+      "expected": "unmet",
+      "operator": "lt",
+      "operand": "20",
+      "field_type": "number",
+      "value": null
+    },
+    {
+      "name": "number blank is never at most",
+      "expected": "unmet",
+      "operator": "lte",
+      "operand": "20",
+      "field_type": "number",
+      "value": "  "
+    },
+    {
+      "name": "number unparsable is never less",
+      "expected": "unmet",
+      "operator": "lt",
+      "operand": "20",
+      "field_type": "number",
+      "value": "abc"
+    },
+    {
       "name": "dimension satisfied choice",
       "expected": "met",
       "operator": "satisfied",

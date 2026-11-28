@@ -45,7 +45,7 @@ OPERATORS_BY_TYPE = {
     _FT.URL: frozenset({_Op.FILLED}),
     _FT.DATE: frozenset({_Op.FILLED}),
     _FT.DROPDOWN: frozenset({_Op.FILLED}),
-    _FT.NUMBER: frozenset({_Op.FILLED, _Op.GT, _Op.GTE}),
+    _FT.NUMBER: frozenset({_Op.FILLED, _Op.GT, _Op.GTE, _Op.LT, _Op.LTE}),
     _FT.MULTI_SELECT: frozenset({_Op.FILLED, _Op.MIN_COUNT}),
     _FT.CHECKBOX: frozenset(),
 }
@@ -108,6 +108,15 @@ def _number(value):
     return number if number.is_finite() else None
 
 
+#: The number comparisons, operator to test (#1923; lt/lte #2718).
+_NUMBER_COMPARISONS = {
+    _Op.GT: lambda number, threshold: number > threshold,
+    _Op.GTE: lambda number, threshold: number >= threshold,
+    _Op.LT: lambda number, threshold: number < threshold,
+    _Op.LTE: lambda number, threshold: number <= threshold,
+}
+
+
 def condition_met(
     *, operator, operand=None, field_type=None, value=None, choice_resolutions=None,
     lane_not_applicable=False, set_values=(),
@@ -126,11 +135,13 @@ def condition_met(
     if operator == _Op.MIN_COUNT:
         threshold = _number(operand)
         return value is not None and threshold is not None and _choice_count(value) >= threshold
-    if operator in (_Op.GT, _Op.GTE):
+    if operator in _NUMBER_COMPARISONS:
+        # An unset or unparsable value meets no comparison, upper bounds
+        # included: "at most 20%" never reads an empty field as zero (#2718).
         number, threshold = _number(value), _number(operand)
         if number is None or threshold is None:
             return False
-        return number > threshold if operator == _Op.GT else number >= threshold
+        return _NUMBER_COMPARISONS[operator](number, threshold)
     if operator == _Op.SATISFIED:
         if lane_not_applicable:
             return True
