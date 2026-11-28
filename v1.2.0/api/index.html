@@ -4829,7 +4829,7 @@ authenticate (session cookie or personal access token).</p>
 <p>A small set of endpoints stay writable even during maintenance — mainly login, logout, the
 password-reset/forced-change flows, the admin API itself, and the health probes. See
 <a href="admin/#maintenance-mode">Maintenance mode → endpoints that stay writable</a> for the exact list.
-MCP write tools (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) return an equivalent
+MCP write tools (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>, <code>set_dimension_plan</code>) return an equivalent
 <code>{"error": {"code": "maintenance_mode", "detail": "..."}}</code> result instead of a 503 — see
 <a href="mcp/#tool-errors">MCP Server</a>.</p>
 <h3 id="session-unavailable-503">Session unavailable (503)<a class="headerlink" href="#session-unavailable-503" title="Permanent link">&para;</a></h3>

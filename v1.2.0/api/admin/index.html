@@ -5473,7 +5473,7 @@ write.</p>
 </div>
 <p>The state is stored on the <code>SiteSetting</code> singleton, so it survives a restart, and the cache is
 invalidated on save, so a change reaches every worker immediately rather than after the 60s TTL.</p>
-<p>MCP write tools (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) are blocked too, and
+<p>MCP write tools (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>, <code>set_dimension_plan</code>) are blocked too, and
 return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MCP read tools keep working.</p>
 <hr />
 <h2 id="users">Users<a class="headerlink" href="#users" title="Permanent link">&para;</a></h2>

@@ -3041,6 +3041,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#card-activity-dimension-plan-edits-since-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Card activity: dimension plan edits (since 1.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5563,7 +5574,7 @@ page; treat it as opaque.</p>
 <code>GET /api/v1/boards/{board_id}/cards/{id}/</code> below, plus <code>board</code> (the board's integer ID) —
 single-board endpoints omit <code>board</code> because the URL already scopes to one board; a cross-board
 list has to say which board each row belongs to. <code>assignee_id</code> and <code>label_ids</code> (the write-only
-fields used to set an assignee or labels) are not present — this endpoint is read-only. This includes <code>external_ref</code> (read-only here; <code>null</code> when unset). Since 1.3 (#1922) this includes <code>dimension_plans</code>, in the same shape (<code>[]</code> when nothing is planned).</p>
+fields used to set an assignee or labels) are not present — this endpoint is read-only. This includes <code>external_ref</code> (read-only here; <code>null</code> when unset). Since 1.3 (#1922) this includes <code>dimension_plans</code>, in the same shape (<code>[]</code> when nothing is planned), and since 1.3 (#2651) <code>dimension_states</code>, in the same shape (<code>[]</code> when no dimension has a value).</p>
 <hr />
 <h2 id="cards">Cards<a class="headerlink" href="#cards" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1boardsboard_idcards"><code>GET /api/v1/boards/{board_id}/cards/</code><a class="headerlink" href="#get-apiv1boardsboard_idcards" title="Permanent link">&para;</a></h3>
@@ -5904,6 +5915,13 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <td>yes</td>
 <td>no</td>
 <td><em>Added in 1.3</em> (#1922). One entry per planned <a href="../../features/custom-fields/#dimension-fields-13">dimension</a>: <code>[{ field_id, owner, next_action, target_date, updated_at }]</code>. <code>owner</code> is a user object or <code>null</code>, <code>target_date</code> is <code>YYYY-MM-DD</code> or <code>null</code>. Read-only here; written through the <a href="#dimension-plans-since-13">dimension plan endpoint</a>. Empty array when nothing is planned. Not part of the public share payload.</td>
+</tr>
+<tr>
+<td><code>dimension_states</code></td>
+<td>array</td>
+<td>yes</td>
+<td>no</td>
+<td><em>Added in 1.3</em> (#2651). When each <a href="../../features/custom-fields/#dimension-fields-13">dimension</a>'s value last changed: <code>[{ field_id, changed_at }]</code>, one entry per dimension field that has a value, in the board's field order. <code>changed_at</code> is an ISO 8601 timestamp, or <code>null</code> when the time is unknown (a value set before 1.3 with no matching history entry, or one written on 1.3 by CSV import or the seed and demo commands, which record no time). Only a real change moves it: saving the value a card already has does not. Clearing a value removes its entry; a dimension with no value is "not set", and its age is the card's <code>column_entered_at</code>. Carried by the card's existing value read, so it adds no query. Not part of the public share payload.</td>
 </tr>
 <tr>
 <td><code>external_ref</code></td>
@@ -6293,7 +6311,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </tr>
 </tbody>
 </table>
-<p><strong>Response</strong> — <code>200 OK</code>, the full card, with the plan in <code>dimension_plans</code>.</p>
+<p><strong>Response</strong> — <code>200 OK</code>, the full card, with the plan in <code>dimension_plans</code>. Each changed part of the plan is recorded in the card's history (since 1.3, #2703): see <a href="#card-activity-dimension-plan-edits-since-13">dimension plan edits</a>.</p>
 <table>
 <thead>
 <tr>
@@ -6669,7 +6687,7 @@ or <code>hard</code>.</p>
 <tr>
 <td><code>item_text</code></td>
 <td>string | <code>null</code></td>
-<td><em>Since 1.3 (#2199).</em> On <code>checklist_item_assigned</code> and <code>checklist_item_due_changed</code> entries, the checklist item's text when the change was made, kept after the item is renamed or deleted. On <code>custom_field_changed</code> entries, the custom field's name when the value changed, kept after the field is renamed or deleted (#1921). <code>null</code> on every other event type and on entries recorded before 1.3. Read-only</td>
+<td><em>Since 1.3 (#2199).</em> On <code>checklist_item_assigned</code> and <code>checklist_item_due_changed</code> entries, the checklist item's text when the change was made, kept after the item is renamed or deleted. On <code>custom_field_changed</code> entries, the custom field's name when the value changed, kept after the field is renamed or deleted (#1921). On the dimension plan entries (<code>dimension_owner_changed</code>, <code>dimension_next_action_changed</code>, <code>dimension_target_date_changed</code>, #2703), the dimension field's name. <code>null</code> on every other event type and on entries recorded before 1.3. Read-only</td>
 </tr>
 <tr>
 <td><code>assigned_by</code></td>
@@ -6757,7 +6775,7 @@ or <code>hard</code>.</p>
 </tr>
 <tr>
 <td><code>field</code></td>
-<td><code>priority_change</code>, <code>weight_change</code>, <code>assignee_change</code>, <code>label_change</code>, <code>title_change</code>, <code>description_change</code>, <code>due_date_change</code>, and since 1.3 <code>blocked</code>, <code>unblocked</code> (#1149) and <code>custom_field_changed</code> (#1921)</td>
+<td><code>priority_change</code>, <code>weight_change</code>, <code>assignee_change</code>, <code>label_change</code>, <code>title_change</code>, <code>description_change</code>, <code>due_date_change</code>, and since 1.3 <code>blocked</code>, <code>unblocked</code> (#1149), <code>custom_field_changed</code> (#1921) and the dimension plan edits <code>dimension_owner_changed</code>, <code>dimension_next_action_changed</code>, <code>dimension_target_date_changed</code> (#2703)</td>
 </tr>
 <tr>
 <td><code>checklist</code></td>
@@ -6921,7 +6939,7 @@ or <code>hard</code>.</p>
 <tr>
 <td><code>data</code></td>
 <td>object</td>
-<td>Raw fields from the underlying record. Shape differs by <code>kind</code> — see examples above. <code>move</code> entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (<code>from_gates_passed</code>, <code>from_gates_open</code>, <code>to_gates_passed</code>) and the Warn record <code>entry_unmet</code> (#2655, <code>null</code> when nothing was unmet). <code>gate</code> entries carry the gate transition's REST shape (see <a href="#timeline-gate-entries">Gate entries</a>). <code>activity</code> entries include <code>event_type</code>, <code>from_value</code>, and <code>to_value</code>; since 1.3, <code>checklist_item_assigned</code>, <code>checklist_item_due_changed</code> and <code>custom_field_changed</code> entries also carry <code>item_text</code> (the activity's <code>item_text</code>: the field's name on <code>custom_field_changed</code>, #1921; <code>null</code> on entries recorded before 1.3), and since 1.3 <code>override_used</code> entries carry <code>item_text</code> (the reason) and <code>assigned_by</code> (#2594: the activity's <code>assigned_by</code> user object, <code>null</code> when there is none).</td>
+<td>Raw fields from the underlying record. Shape differs by <code>kind</code> — see examples above. <code>move</code> entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (<code>from_gates_passed</code>, <code>from_gates_open</code>, <code>to_gates_passed</code>) and the Warn record <code>entry_unmet</code> (#2655, <code>null</code> when nothing was unmet). <code>gate</code> entries carry the gate transition's REST shape (see <a href="#timeline-gate-entries">Gate entries</a>). <code>activity</code> entries include <code>event_type</code>, <code>from_value</code>, and <code>to_value</code>; since 1.3, <code>checklist_item_assigned</code>, <code>checklist_item_due_changed</code> and <code>custom_field_changed</code> entries also carry <code>item_text</code> (the activity's <code>item_text</code>: the field's name on <code>custom_field_changed</code>, #1921; <code>null</code> on entries recorded before 1.3; the dimension's name on the dimension plan entries, #2703), and since 1.3 <code>override_used</code> entries carry <code>item_text</code> (the reason) and <code>assigned_by</code> (#2594: the activity's <code>assigned_by</code> user object, <code>null</code> when there is none).</td>
 </tr>
 </tbody>
 </table>
@@ -7959,6 +7977,31 @@ affects the card's own due date, urgency or staleness.</p>
 <p>One entry per sub-column, in order: <code>cards</code> counts active cards and <code>archived_cards</code> archived ones. A card whose <code>gates_passed</code> is past the last sub-column counts in the last. A plain column returns <code>[]</code>.</p>
 <h3 id="card-activity-custom_field_changed">Card activity: <code>custom_field_changed</code><a class="headerlink" href="#card-activity-custom_field_changed" title="Permanent link">&para;</a></h3>
 <p>Every custom field value set, changed or cleared, on any transport, writes a card activity row with <code>event_type</code> <code>custom_field_changed</code>, <code>from_value</code> / <code>to_value</code> (<code>""</code> = no value), the actor, and <code>item_text</code> = the field's name at the time.</p>
+<h3 id="card-activity-dimension-plan-edits-since-13">Card activity: dimension plan edits (since 1.3)<a class="headerlink" href="#card-activity-dimension-plan-edits-since-13" title="Permanent link">&para;</a></h3>
+<p><em>Added in 1.3</em> (#2703). Each <a href="#dimension-plans-since-13">dimension plan</a> write records one card activity row for each part of the plan that changed, with the actor and <code>item_text</code> = the dimension field's name at the time. A write that repeats the stored plan records nothing.</p>
+<table>
+<thead>
+<tr>
+<th><code>event_type</code></th>
+<th><code>from_value</code> / <code>to_value</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dimension_owner_changed</code></td>
+<td>The owner's username; <code>""</code> = Unassigned</td>
+</tr>
+<tr>
+<td><code>dimension_next_action_changed</code></td>
+<td>The next action text in full (at most 200 characters); <code>""</code> = none</td>
+</tr>
+<tr>
+<td><code>dimension_target_date_changed</code></td>
+<td><code>YYYY-MM-DD</code>; <code>""</code> = no target date</td>
+</tr>
+</tbody>
+</table>
+<p>They are in the timeline's <code>field</code> group and carry <code>item_text</code> like <code>custom_field_changed</code>. Board export and JSON import carry them with the card's other activities. <code>purge_card_history</code> removes them with the card's other activity rows.</p>
 <h2 id="force-overrides-assignee-basis-reasons-and-audit-since-13-1923">Force overrides: assignee basis, reasons and audit (since 1.3, #1923)<a class="headerlink" href="#force-overrides-assignee-basis-reasons-and-audit-since-13-1923" title="Permanent link">&para;</a></h2>
 <p><code>?force=true</code> on move, create, restore (<code>POST .../unarchive/</code>) and a weight-raising <code>PATCH</code> overrides a <strong>Block</strong> WIP or weight limit. Hard WIP still refuses every role.</p>
 <ul>

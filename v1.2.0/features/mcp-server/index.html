@@ -4715,7 +4715,7 @@
 <p>Replace <code>&lt;your-visiban-host&gt;</code> with your instance's hostname and <code>&lt;your-token&gt;</code> with the token you copied. Restart Claude Desktop after saving the file.</p>
 <p>Once connected, Claude Desktop shows Visiban as an active MCP server with a green status indicator. The server's details list:</p>
 <ul>
-<li><strong>Tools</strong> — <code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>board_flow_metrics</code>, <code>aging_cards</code>, and, if your token carries <code>mcp:write</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code></li>
+<li><strong>Tools</strong> — <code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>board_flow_metrics</code>, <code>aging_cards</code>, and, if your token carries <code>mcp:write</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>, <code>set_dimension_plan</code></li>
 <li><strong>Resources</strong> — the <code>board</code> and <code>card</code> resource templates (<code>board://{board_id}</code>, <code>card://{card_id}</code>)</li>
 </ul>
 <p><strong>Watch out:</strong> if the server doesn't appear, check that the URL includes <code>/mcp</code>, the token is prefixed <code>Bearer</code> (not <code>Token</code>), and <code>MCP_SERVER_ENABLED</code> is set on the backend.</p>
@@ -4799,6 +4799,12 @@
 <tr>
 <td><code>unblock_card</code></td>
 <td>Clear a card's manual block, with an optional resolution (<em>1.3</em>)</td>
+<td>admin, member</td>
+<td><code>mcp:read</code> + <code>mcp:write</code></td>
+</tr>
+<tr>
+<td><code>set_dimension_plan</code></td>
+<td>Set a card's plan for one dimension: owner, next action, target date (<em>1.3</em>)</td>
 <td>admin, member</td>
 <td><code>mcp:read</code> + <code>mcp:write</code></td>
 </tr>

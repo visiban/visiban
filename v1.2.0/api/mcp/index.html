@@ -2670,6 +2670,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#set_dimension_plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_dimension_plan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#archive_card" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5132,7 +5143,7 @@
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p><code>mcp:read</code> opens a session and is enough for every read tool below. Any <strong>write</strong> tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) additionally requires <strong><code>mcp:write</code></strong> on the same token. Scopes are non-hierarchical: <code>mcp:read</code> does not grant <code>mcp:write</code>, and <code>mcp:write</code> alone does not even open a session (a token needs <code>mcp:read</code> to reach <code>/mcp</code> at all). A write-capable agent credential therefore needs <strong>both</strong>: <code>["mcp:read", "mcp:write"]</code>.</p>
+<p><code>mcp:read</code> opens a session and is enough for every read tool below. Any <strong>write</strong> tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>, <code>set_dimension_plan</code>) additionally requires <strong><code>mcp:write</code></strong> on the same token. Scopes are non-hierarchical: <code>mcp:read</code> does not grant <code>mcp:write</code>, and <code>mcp:write</code> alone does not even open a session (a token needs <code>mcp:read</code> to reach <code>/mcp</code> at all). A write-capable agent credential therefore needs <strong>both</strong>: <code>["mcp:read", "mcp:write"]</code>.</p>
 <p><strong>Watch out:</strong> Unlike a missing <code>mcp:read</code> (rejected at the transport, before any tool runs), a missing <code>mcp:write</code> is reported by the tool as a <a href="#tool-errors">tool error</a>: an <code>isError: true</code> result carrying <code>{"error": {"code": "missing_scope", "detail": "..."}}</code>, not a <code>401</code>. The session is valid; only that call was declined.</p>
 <h3 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h3>
 <table>
@@ -5508,7 +5519,7 @@
 </tr>
 <tr>
 <td><code>permission_denied</code></td>
-<td>Your board role is <code>collaborator</code> or <code>viewer</code>; card writes require <code>admin</code> or <code>member</code>. Also returned by <code>update_card</code>, <code>archive_card</code>, <code>block_card</code> and <code>unblock_card</code> when your role only allows changing cards you created, and by <code>move_card</code> when the card is assigned to someone else and your role is below moderator.</td>
+<td>Your board role is <code>collaborator</code> or <code>viewer</code>; card writes require <code>admin</code> or <code>member</code>. Also returned by <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code> and <code>set_dimension_plan</code> when your role only allows changing cards you created, and by <code>move_card</code> when the card is assigned to someone else and your role is below moderator.</td>
 </tr>
 <tr>
 <td><code>force_not_permitted</code></td>
@@ -5584,7 +5595,7 @@
 </tr>
 <tr>
 <td><code>maintenance_mode</code></td>
-<td>The instance is in <a href="../admin/#maintenance-mode">maintenance mode</a> and your token does not belong to a site admin. Only ever returned by the write tools below (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) — the read tools (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>board_flow_metrics</code>, <code>aging_cards</code>) keep working regardless. Added in 1.2.</td>
+<td>The instance is in <a href="../admin/#maintenance-mode">maintenance mode</a> and your token does not belong to a site admin. Only ever returned by the write tools below (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>, <code>set_dimension_plan</code>) — the read tools (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>board_flow_metrics</code>, <code>aging_cards</code>) keep working regardless. Added in 1.2.</td>
 </tr>
 <tr>
 <td><code>throttled</code></td>
@@ -5660,7 +5671,7 @@
 <p><strong>Watch out:</strong> A negative <code>limit</code>, or an <code>offset</code> above 2^62, returns a <code>validation_error</code>; a negative <code>offset</code> is treated as <code>0</code>, as on every REST endpoint (<em>1.2, #1823</em>), while a non-numeric <code>offset</code> is rejected by the input schema like any mistyped argument. The tool's input schema coerces numeric strings, whole numbers and JSON booleans (<code>"5"</code>, <code>5.0</code>, <code>true</code> becomes <code>1</code>) to integers and rejects non-numeric or fractional values (<code>"abc"</code>, <code>5.5</code>) with an <code>isError</code> result.</p>
 <p><strong>Deliberate differences from REST:</strong> the MCP tool filters by names an agent can read, where REST filters by integer ids. <code>assignee</code> is a username (REST <code>?assignee=</code> takes a user id) and <code>label</code> is a label name (REST <code>?label=</code> on the cross-board <code>GET /api/v1/cards/</code> takes a label id; the board-scoped list has no label filter). The <code>unassigned</code> and <code>overdue</code> filters exist only on the board-scoped REST list (<code>GET /api/v1/boards/{board_id}/cards/</code>); the cross-board <code>GET /api/v1/cards/</code> and this tool do not have them. To find unassigned cards over MCP, list the cards and check for <code>assignee: null</code>.</p>
 <p><em>Changed in 1.2: <code>limit</code>, <code>offset</code> and <code>include_meta</code> are new and optional, and the card fields are unchanged. A call that omits them returns the same array as before; the only difference is the in-band notice and <code>_meta</code> on a call that was truncated (#1762).</em></p>
-<p><strong>Returns:</strong> by default, an array of <code>{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at, blocked_at, blocked_reason, gates_passed}</code>. <code>gates_passed</code> (<em>added in 1.3</em>, #1102) is how many sub-columns of its gated stage the card has passed, <code>0</code> outside a stage. <code>assignee</code> is a <code>{username, display_name}</code> object or <code>null</code> (see <a href="#user-fields">User fields</a>); <code>labels</code> is an array of names; <code>column</code>/<code>swimlane</code> are <code>{id, uid, name}</code> objects so a result can be fed straight into <code>move_card</code>. <code>uid</code>, <code>version</code>, and the <code>uid</code> inside <code>column</code>/<code>swimlane</code> are new in 1.3 (#1974; see <a href="#stable-identifiers-uid">Stable identifiers</a> and <a href="#optimistic-concurrency">Optimistic concurrency</a>).</p>
+<p><strong>Returns:</strong> by default, an array of <code>{id, uid, version, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at, blocked_at, blocked_reason, gates_passed, dimension_plans}</code>. <code>gates_passed</code> (<em>added in 1.3</em>, #1102) is how many sub-columns of its gated stage the card has passed, <code>0</code> outside a stage. <code>dimension_plans</code> (<em>added in 1.3</em>, #2704) has one <code>{field, owner, next_action, target_date, updated_at}</code> entry per planned <a href="../../features/custom-fields/#dimension-plans-owner-next-action-target-date">dimension</a>, <code>[]</code> when none is planned: <code>field</code> is a <code>{id, uid, name}</code> object (its <code>name</code> is what <code>set_dimension_plan</code> takes), <code>owner</code> a <code>{username, display_name}</code> object or <code>null</code>, <code>target_date</code> a <code>YYYY-MM-DD</code> string or <code>null</code>. Every card in tool and resource output (<code>board://</code>, <code>card://</code>) carries it; the compact <code>aging_cards</code> rows do not. <code>assignee</code> is a <code>{username, display_name}</code> object or <code>null</code> (see <a href="#user-fields">User fields</a>); <code>labels</code> is an array of names; <code>column</code>/<code>swimlane</code> are <code>{id, uid, name}</code> objects so a result can be fed straight into <code>move_card</code>. <code>uid</code>, <code>version</code>, and the <code>uid</code> inside <code>column</code>/<code>swimlane</code> are new in 1.3 (#1974; see <a href="#stable-identifiers-uid">Stable identifiers</a> and <a href="#optimistic-concurrency">Optimistic concurrency</a>).</p>
 <p><code>blocked_at</code> (ISO 8601, or <code>null</code>) and <code>blocked_reason</code> (<code>""</code> when not blocked) are the card's manual blocked state, <em>added in 1.3</em> (#1149; see <a href="#block_card"><code>block_card</code></a>).</p>
 <p>With <code>include_meta: true</code>, an object instead (and no in-band notice, since the data carries the signal): <code>{cards, total, truncated, limit, offset}</code>. <code>cards</code> is the same array described above; <code>total</code> is the number of cards matching the filters, ignoring <code>limit</code>/<code>offset</code>; <code>truncated</code> is <code>true</code> when more matching cards exist after the returned ones (fetch them with a larger <code>offset</code>); <code>limit</code> and <code>offset</code> echo the values applied.</p>
 <h3 id="board_flow_metrics"><code>board_flow_metrics</code><a class="headerlink" href="#board_flow_metrics" title="Permanent link">&para;</a></h3>
@@ -5759,6 +5770,13 @@
 <p>Clears a card's manual block. Same roles and scope as <code>block_card</code>.</p>
 <p><strong>Arguments:</strong> <code>card_id</code> (required); <code>resolution</code> (optional, up to 500 characters): how the block was resolved.</p>
 <p><strong>Returns:</strong> the updated card with <code>blocked_at: null</code> and <code>blocked_reason: ""</code>. Closes the block record (keeping its reason and duration), writes an <code>unblocked</code> activity, and broadcasts <code>card.updated</code>. Returns <code>card_not_blocked</code> if the card has no open block. A <code>blocks</code> relation to another card is a separate signal (<code>blocker_count</code>) and is not cleared.</p>
+<h3 id="set_dimension_plan"><code>set_dimension_plan</code><a class="headerlink" href="#set_dimension_plan" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#2704)</p>
+</blockquote>
+<p>Replaces a card's plan for one <a href="../../features/custom-fields/#dimension-plans-owner-next-action-target-date">dimension field</a>, the same write as <code>PUT /api/v1/boards/{board_id}/cards/{id}/dimension-plans/{field_id}/</code>. Requires <code>admin</code> or <code>member</code> board role (a member may plan only cards they created) and the <code>mcp:write</code> scope.</p>
+<p><strong>Arguments:</strong> <code>card_id</code> and <code>field</code> (required): the dimension field's name on the card's board, matched exactly (field names are unique per board; a card's planned dimensions are listed by name in its <code>dimension_plans</code>); <code>owner</code> (optional): the username of an assignable board member, matched case-insensitively like <code>assignee</code> (see <a href="#user-fields">User fields</a>); <code>next_action</code> (optional, up to 200 characters); <code>target_date</code> (optional, <code>YYYY-MM-DD</code>). A full replace: an omitted argument is cleared (an omitted or empty <code>owner</code> leaves the plan without an owner), and all three empty removes the plan. Like every MCP tool, it never takes an internal user or field id.</p>
+<p><strong>Returns:</strong> the updated card, with the plan in <code>dimension_plans</code>. Each changed part of the plan is recorded in the card's history (<a href="../cards/#card-activity-dimension-plan-edits-since-13">dimension plan edits</a>), <code>version</code> is bumped and <code>card.updated</code> is broadcast. Returns <code>object_not_found</code> when <code>field</code> names no dimension field on the card's board, and <code>validation_error</code> (naming <code>field</code>, <code>owner</code>, <code>next_action</code> or <code>target_date</code>) for an owner who is not an assignable member (<code>No assignable board member has this username.</code>, the same message for every reason), a NUL character in <code>field</code> or <code>owner</code>, an over-long next action or a malformed date.</p>
 <h3 id="archive_card"><code>archive_card</code><a class="headerlink" href="#archive_card" title="Permanent link">&para;</a></h3>
 <p>Soft-deletes a card. Idempotent — archiving an already-archived card succeeds and returns its existing <code>archived_at</code>. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
 <p><strong>Arguments:</strong> <code>card_id</code> (required).</p>
@@ -5934,7 +5952,7 @@
 </blockquote>
 <p>The MCP surface is a public contract from 1.2 and follows the same compatibility rules as the REST API from 1.0 onward. It is <strong>not</strong> experimental.</p>
 <ul>
-<li><strong>Tool names</strong> (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, and since 1.3 <code>block_card</code>, <code>unblock_card</code>, <code>board_flow_metrics</code>, <code>aging_cards</code>) and <strong>resource URIs</strong> (<code>board://{board_id}</code>, <code>card://{card_id}</code>) are never removed or renamed in a minor or patch release.</li>
+<li><strong>Tool names</strong> (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>, <code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, and since 1.3 <code>block_card</code>, <code>unblock_card</code>, <code>set_dimension_plan</code>, <code>board_flow_metrics</code>, <code>aging_cards</code>) and <strong>resource URIs</strong> (<code>board://{board_id}</code>, <code>card://{card_id}</code>) are never removed or renamed in a minor or patch release.</li>
 <li><strong>Argument schemas</strong> change additively only: new arguments are optional with a sensible default, and an existing argument is never removed, renamed, made required, or given a different type.</li>
 <li><strong>Results and error payloads</strong> only gain fields; existing fields keep their name and type. The error <code>code</code> values listed under <a href="#tool-errors">Tool errors</a> are never removed.</li>
 <li>A tool or resource that must go away is marked deprecated here for at least one minor release, and removal needs a major version bump.</li>
