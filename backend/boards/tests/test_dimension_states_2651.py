@@ -201,6 +201,27 @@ class BackfillMigrationTests(_Base):
         row.refresh_from_db()
         self.assertEqual(row.value_changed_at, _OLD)
 
+    def test_walks_every_batch_past_rows_with_no_history(self):
+        """The keyset walk must not stop at a batch boundary or at a skipped row."""
+        module = importlib.import_module("boards.migrations.0152_backfill_value_changed_at")
+        t1 = _OLD + datetime.timedelta(days=1)
+        stamped = []
+        for i in range(5):
+            card = self._card(f"Batch {i}")
+            row = CustomFieldValue.objects.create(card=card, field_definition=self.dim, value="Approved")
+            if i != 2:  # a row with no history sits between two that have it
+                self._activity("Approved", t1, card=card)
+                stamped.append(row)
+            else:
+                bare = row
+        with mock.patch.object(module, "BATCH_SIZE", 2):
+            module.backfill(django_apps, None)
+        for row in stamped:
+            row.refresh_from_db()
+            self.assertEqual(row.value_changed_at, t1)
+        bare.refresh_from_db()
+        self.assertIsNone(bare.value_changed_at)
+
 
 @mock.patch.object(BoardImportThrottle, "allow_request", return_value=True)
 @mock.patch.object(BoardExportThrottle, "allow_request", return_value=True)
